@@ -51,6 +51,12 @@ const loginValidation = [
         .withMessage('Password is required'),
 ];
 
+const refreshTokenValidation = [
+  body('refreshToken')
+    .notEmpty()
+    .withMessage('Refresh token is required'),
+];
+
 
 
 const handleValidationErrors = (req, res, next) => {
@@ -77,5 +83,6 @@ module.exports = {
     registerValidation,
     loginValidation,
     handleValidationErrors,
+    refreshTokenValidation,
 
 };
