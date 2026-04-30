@@ -10,7 +10,7 @@ const formatUserResponse = (user) => ({
   id: user.id,
   username: user.username,
   email: user.email,
-  full_name: user.full_name,
+  full_name: user.fullName,
   bio: user.bio,
   website: user.website,
   profile_pic_url: user.profile_pic_url,
@@ -56,7 +56,7 @@ const register = async (req, res) => {
     const password_hash = await hashPassword(password);
 
     const newUser = await User.create({
-      full_name,
+      fullName: full_name,
       email: email.toLowerCase(),
       username: username.toLowerCase(),
       password_hash,

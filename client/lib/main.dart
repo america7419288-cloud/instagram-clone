@@ -7,12 +7,15 @@ import 'package:flutter_dotenv/flutter_dotenv.dart';
 import 'core/theme/app_theme.dart';
 import 'core/network/dio_client.dart';
 import 'core/constants/app_constants.dart';
+import 'features/auth/presentation/pages/register_page.dart';
 
 // Temporary pages for testing
 // We'll replace these with real pages later
 
 class TestHomePage extends StatefulWidget {
-  const TestHomePage({super.key});
+  const TestHomePage({super.key, this.testConnection = true});
+
+  final bool testConnection;
 
   @override
   State<TestHomePage> createState() => _TestHomePageState();
@@ -25,7 +28,12 @@ class _TestHomePageState extends State<TestHomePage> {
   @override
   void initState() {
     super.initState();
-    _testConnection();
+    if (widget.testConnection) {
+      _testConnection();
+    } else {
+      _status = 'Connection test skipped';
+      _isLoading = false;
+    }
   }
 
   Future<void> _testConnection() async {
@@ -39,7 +47,7 @@ class _TestHomePageState extends State<TestHomePage> {
       });
     } catch (e) {
       setState(() {
-        _status = '❌ Connection failed: $e';
+        _status = 'Connection failed: $e';
         _isLoading = false;
       });
     }
@@ -48,10 +56,7 @@ class _TestHomePageState extends State<TestHomePage> {
   @override
   Widget build(BuildContext context) {
     return Scaffold(
-      appBar: AppBar(
-        title: const Text('Instagram Clone'),
-        centerTitle: true,
-      ),
+      appBar: AppBar(title: const Text('Instagram Clone'), centerTitle: true),
       body: Center(
         child: Padding(
           padding: const EdgeInsets.all(24.0),
@@ -76,27 +81,19 @@ class _TestHomePageState extends State<TestHomePage> {
 
               const Text(
                 'Instagram Clone',
-                style: TextStyle(
-                  fontSize: 24,
-                  fontWeight: FontWeight.bold,
-                ),
+                style: TextStyle(fontSize: 24, fontWeight: FontWeight.bold),
               ),
               const SizedBox(height: 8),
 
               const Text(
                 'Built with Flutter + Node.js',
-                style: TextStyle(
-                  color: AppColors.textSecondary,
-                  fontSize: 14,
-                ),
+                style: TextStyle(color: AppColors.textSecondary, fontSize: 14),
               ),
               const SizedBox(height: 40),
 
               // Connection status
               if (_isLoading)
-                const CircularProgressIndicator(
-                  color: AppColors.primary,
-                )
+                const CircularProgressIndicator(color: AppColors.primary)
               else
                 Container(
                   padding: const EdgeInsets.all(16),
@@ -145,8 +142,9 @@ void main() async {
   // Make sure Flutter is initialized
   WidgetsFlutterBinding.ensureInitialized();
 
-  // Load environment variables
-  await dotenv.load(fileName: '.env');
+  // Load environment variables if the file exists. A missing .env should not
+  // stop the first frame from rendering during local development.
+  await dotenv.load(fileName: '.env', isOptional: true);
 
   // Force portrait mode (like Instagram)
   await SystemChrome.setPreferredOrientations([
@@ -164,9 +162,7 @@ void main() async {
 
   runApp(
     // ProviderScope is needed for Riverpod
-    const ProviderScope(
-      child: MyApp(),
-    ),
+    const ProviderScope(child: MyApp()),
   );
 }
 
@@ -183,9 +179,7 @@ class MyApp extends ConsumerWidget {
       theme: AppTheme.lightTheme,
       darkTheme: AppTheme.darkTheme,
       themeMode: ThemeMode.light, // We'll make this dynamic later
-
-      // Start page (temporary - will use GoRouter later)
-      home: const TestHomePage(),
+      home: const RegisterPage(),
     );
   }
 }

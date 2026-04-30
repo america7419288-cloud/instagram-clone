@@ -14,7 +14,7 @@ const { Op } = require('sequelize');
 const formatPublicProfile = (user, extras = {}) => ({
   id: user.id,
   username: user.username,
-  full_name: user.full_name,
+  full_name: user.fullName,
   bio: user.bio,
   website: user.website,
   profile_pic_url: user.profile_pic_url,
@@ -175,7 +175,7 @@ const updateProfile = async (req, res) => {
       if (full_name.trim().length < 1) {
         return errorResponse(res, 400, 'Full name cannot be empty.');
       }
-      updateData.full_name = full_name.trim();
+      updateData.fullName = full_name.trim();
     }
 
     if (username !== undefined) {
@@ -223,7 +223,7 @@ const updateProfile = async (req, res) => {
         id: updatedUser.id,
         username: updatedUser.username,
         email: updatedUser.email,
-        full_name: updatedUser.full_name,
+        full_name: updatedUser.fullName,
         bio: updatedUser.bio,
         website: updatedUser.website,
         profile_pic_url: updatedUser.profile_pic_url,
@@ -386,7 +386,7 @@ const searchUsers = async (req, res) => {
     const offset = (parseInt(page) - 1) * parseInt(limit);
 
     // 2. SEARCH USERS
-    // Search in username AND full_name
+    // Search in username AND full name
     const { count, rows: users } = await User.findAndCountAll({
       where: {
         [Op.and]: [
@@ -395,7 +395,7 @@ const searchUsers = async (req, res) => {
           // Active and not banned
           { is_active: true },
           { is_banned: false },
-          // Search term matches username or full_name
+          // Search term matches username or full name
           {
             [Op.or]: [
               {
@@ -404,7 +404,7 @@ const searchUsers = async (req, res) => {
                 },
               },
               {
-                full_name: {
+                fullName: {
                   [Op.iLike]: `%${searchTerm}%`,
                 },
               },
@@ -415,7 +415,7 @@ const searchUsers = async (req, res) => {
       attributes: [
         'id',
         'username',
-        'full_name',
+        'fullName',
         'profile_pic_url',
         'bio',
         'is_verified',
@@ -448,7 +448,7 @@ const searchUsers = async (req, res) => {
     const formattedUsers = users.map((user) => ({
       id: user.id,
       username: user.username,
-      full_name: user.full_name,
+      full_name: user.fullName,
       profile_pic_url: user.profile_pic_url,
       bio: user.bio,
       is_verified: user.is_verified,
@@ -498,7 +498,7 @@ const getSuggestedUsers = async (req, res) => {
       attributes: [
         'id',
         'username',
-        'full_name',
+        'fullName',
         'profile_pic_url',
         'is_verified',
         'is_private',
@@ -511,7 +511,7 @@ const getSuggestedUsers = async (req, res) => {
     const formattedUsers = users.map((user) => ({
       id: user.id,
       username: user.username,
-      full_name: user.full_name,
+      full_name: user.fullName,
       profile_pic_url: user.profile_pic_url,
       is_verified: user.is_verified,
       is_private: user.is_private,
@@ -551,7 +551,7 @@ const getUserById = async (req, res) => {
       attributes: [
         'id',
         'username',
-        'full_name',
+        'fullName',
         'profile_pic_url',
         'is_verified',
         'is_private',

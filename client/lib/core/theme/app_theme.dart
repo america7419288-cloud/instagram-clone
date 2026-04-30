@@ -5,27 +5,27 @@ import 'package:flutter/material.dart';
 class AppColors {
   AppColors._();
 
-  static const Color primary = Color(0xFF0095F6);       // Instagram blue
+  static const Color primary = Color(0xFF0095F6); // Instagram blue
   static const Color primaryDark = Color(0xFF0074CC);
-  static const Color secondary = Color(0xFFED4956);     // Red (likes)
+  static const Color secondary = Color(0xFFED4956); // Red (likes)
 
-  static const Color background = Color(0xFFFAFAFA);    // Light gray
+  static const Color background = Color(0xFFFAFAFA); // Light gray
   static const Color white = Color(0xFFFFFFFF);
   static const Color black = Color(0xFF000000);
 
-  static const Color textPrimary = Color(0xFF262626);   // Dark text
+  static const Color textPrimary = Color(0xFF262626); // Dark text
   static const Color textSecondary = Color(0xFF8E8E8E); // Gray text
-  static const Color textLink = Color(0xFF00376B);      // Link blue
+  static const Color textLink = Color(0xFF00376B); // Link blue
 
-  static const Color border = Color(0xFFDBDBDB);        // Light border
+  static const Color border = Color(0xFFDBDBDB); // Light border
   static const Color divider = Color(0xFFEFEFEF);
-  static const Color shimmer = Color(0xFFE0E0E0);       // Loading skeleton
+  static const Color shimmer = Color(0xFFE0E0E0); // Loading skeleton
 
   static const LinearGradient instagramGradient = LinearGradient(
     colors: [
-      Color(0xFF833AB4),  // Purple
-      Color(0xFFFD1D1D),  // Red
-      Color(0xFFFCB045),  // Orange/Yellow
+      Color(0xFF833AB4), // Purple
+      Color(0xFFFD1D1D), // Red
+      Color(0xFFFCB045), // Orange/Yellow
     ],
     begin: Alignment.topLeft,
     end: Alignment.bottomRight,
@@ -33,10 +33,10 @@ class AppColors {
 
   static const LinearGradient storyRingGradient = LinearGradient(
     colors: [
-      Color(0xFFF58529),  // Orange
-      Color(0xFFDD2A7B),  // Pink
-      Color(0xFF8134AF),  // Purple
-      Color(0xFF515BD4),  // Blue
+      Color(0xFFF58529), // Orange
+      Color(0xFFDD2A7B), // Pink
+      Color(0xFF8134AF), // Purple
+      Color(0xFF515BD4), // Blue
     ],
     begin: Alignment.bottomLeft,
     end: Alignment.topRight,
@@ -70,7 +70,6 @@ class AppTheme {
       ),
     ),
 
- 
     bottomNavigationBarTheme: const BottomNavigationBarThemeData(
       backgroundColor: AppColors.white,
       selectedItemColor: AppColors.textPrimary,
@@ -85,7 +84,6 @@ class AppTheme {
       color: AppColors.divider,
       thickness: 0.5,
     ),
-
 
     inputDecorationTheme: InputDecorationTheme(
       filled: true,
@@ -102,14 +100,8 @@ class AppTheme {
         borderRadius: BorderRadius.circular(5),
         borderSide: const BorderSide(color: AppColors.textSecondary),
       ),
-      hintStyle: const TextStyle(
-        color: AppColors.textSecondary,
-        fontSize: 14,
-      ),
-      contentPadding: const EdgeInsets.symmetric(
-        horizontal: 12,
-        vertical: 14,
-      ),
+      hintStyle: const TextStyle(color: AppColors.textSecondary, fontSize: 14),
+      contentPadding: const EdgeInsets.symmetric(horizontal: 12, vertical: 14),
     ),
 
     elevatedButtonTheme: ElevatedButtonThemeData(
@@ -118,36 +110,26 @@ class AppTheme {
         foregroundColor: AppColors.white,
         elevation: 0,
         minimumSize: const Size(double.infinity, 44),
-        shape: RoundedRectangleBorder(
-          borderRadius: BorderRadius.circular(8),
-        ),
-        textStyle: const TextStyle(
-          fontSize: 14,
-          fontWeight: FontWeight.w600,
-        ),
+        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(8)),
+        textStyle: const TextStyle(fontSize: 14, fontWeight: FontWeight.w600),
       ),
     ),
 
     textButtonTheme: TextButtonThemeData(
       style: TextButton.styleFrom(
         foregroundColor: AppColors.primary,
-        textStyle: const TextStyle(
-          fontWeight: FontWeight.w600,
-          fontSize: 14,
-        ),
+        textStyle: const TextStyle(fontWeight: FontWeight.w600, fontSize: 14),
       ),
     ),
 
     colorScheme: const ColorScheme.light(
       primary: AppColors.primary,
       secondary: AppColors.secondary,
-      background: AppColors.background,
       surface: AppColors.white,
       error: AppColors.secondary,
     ),
   );
 
- 
   static ThemeData darkTheme = ThemeData(
     useMaterial3: true,
     brightness: Brightness.dark,
@@ -163,7 +145,6 @@ class AppTheme {
     colorScheme: const ColorScheme.dark(
       primary: AppColors.primary,
       secondary: AppColors.secondary,
-      background: AppColors.darkBackground,
       surface: AppColors.darkSurface,
     ),
   );
