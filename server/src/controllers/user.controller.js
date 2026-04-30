@@ -1,0 +1,581 @@
+// server/src/controllers/user.controller.js
+
+const { User } = require('../models');
+const { successResponse, errorResponse } = require('../utils/response.utils');
+const {
+  uploadProfilePicture,
+  deleteFromCloudinary,
+} = require('../services/upload.service');
+const { Op } = require('sequelize');
+
+// ─────────────────────────────────────────────────────────────
+// HELPER: Format user for public profile response
+// ─────────────────────────────────────────────────────────────
+const formatPublicProfile = (user, extras = {}) => ({
+  id: user.id,
+  username: user.username,
+  full_name: user.full_name,
+  bio: user.bio,
+  website: user.website,
+  profile_pic_url: user.profile_pic_url,
+  is_private: user.is_private,
+  is_verified: user.is_verified,
+  created_at: user.createdAt,
+  // Extra computed fields passed in
+  ...extras,
+});
+
+// ─────────────────────────────────────────────────────────────
+// @route   GET /api/v1/users/:username
+// @desc    Get user profile by username
+// @access  Public (but shows less data for private accounts)
+// ─────────────────────────────────────────────────────────────
+const getUserProfile = async (req, res) => {
+  try {
+    const { username } = req.params;
+    // req.user exists if logged in (optionalAuth middleware)
+    const currentUserId = req.user?.id || null;
+
+    // 1. FIND USER BY USERNAME
+    const user = await User.findOne({
+      where: {
+        username: username.toLowerCase(),
+        is_active: true,
+        is_banned: false,
+      },
+    });
+
+    // 2. CHECK IF USER EXISTS
+    if (!user) {
+      return errorResponse(res, 404, 'User not found.');
+    }
+
+    // 3. COUNT POSTS, FOLLOWERS, FOLLOWING
+    // We'll use raw queries for now
+    // Later these will use actual Post and Follower models
+    const postCount = 0;      // Will update on Day 8 when Post model is ready
+    const followersCount = 0; // Will update on Day 11 when Follower model ready
+    const followingCount = 0; // Will update on Day 11
+
+    // 4. CHECK IF CURRENT USER FOLLOWS THIS USER
+    // Will update on Day 11 when Follower model is ready
+    const isFollowing = false;
+    const isFollowedBy = false;
+    const followStatus = null; // 'following', 'requested', 'not_following'
+
+    // 5. CHECK IF VIEWING OWN PROFILE
+    const isOwnProfile = currentUserId === user.id;
+
+    // 6. BUILD RESPONSE
+    const profileData = formatPublicProfile(user, {
+      post_count: postCount,
+      followers_count: followersCount,
+      following_count: followingCount,
+      is_own_profile: isOwnProfile,
+      follow_status: isOwnProfile ? null : followStatus,
+      is_following: isOwnProfile ? null : isFollowing,
+      is_followed_by: isOwnProfile ? null : isFollowedBy,
+    });
+
+    // 7. IF PRIVATE ACCOUNT AND NOT FOLLOWING
+    // Hide some details
+    if (user.is_private && !isOwnProfile && !isFollowing) {
+      return successResponse(res, 200, 'User profile fetched', {
+        user: {
+          ...profileData,
+          // Don't show posts for private accounts
+          is_restricted: true,
+          message: 'This account is private. Follow to see their posts.',
+        },
+      });
+    }
+
+    return successResponse(res, 200, 'User profile fetched successfully', {
+      user: profileData,
+    });
+
+  } catch (error) {
+    console.error('❌ Get user profile error:', error);
+    return errorResponse(res, 500, 'Something went wrong.');
+  }
+};
+
+// ─────────────────────────────────────────────────────────────
+// @route   PUT /api/v1/users/profile
+// @desc    Update own profile (bio, name, website, gender)
+// @access  Private
+// ─────────────────────────────────────────────────────────────
+const updateProfile = async (req, res) => {
+  try {
+    const userId = req.user.id;
+    const {
+      full_name,
+      username,
+      bio,
+      website,
+      gender,
+      is_private,
+    } = req.body;
+
+    // 1. GET CURRENT USER
+    const user = await User.findByPk(userId);
+
+    if (!user) {
+      return errorResponse(res, 404, 'User not found.');
+    }
+
+    // 2. IF USERNAME IS BEING CHANGED, CHECK IF AVAILABLE
+    if (username && username.toLowerCase() !== user.username) {
+      // Validate username format
+      if (!/^[a-zA-Z0-9._]+$/.test(username)) {
+        return errorResponse(
+          res,
+          400,
+          'Username can only contain letters, numbers, dots and underscores.'
+        );
+      }
+
+      if (username.length < 3 || username.length > 30) {
+        return errorResponse(
+          res,
+          400,
+          'Username must be between 3 and 30 characters.'
+        );
+      }
+
+      // Check if taken by someone else
+      const existingUser = await User.findOne({
+        where: {
+          username: username.toLowerCase(),
+          id: { [Op.ne]: userId }, // Not current user
+        },
+      });
+
+      if (existingUser) {
+        return errorResponse(
+          res,
+          409,
+          'Username is already taken. Please choose a different one.'
+        );
+      }
+    }
+
+    // 3. VALIDATE WEBSITE URL IF PROVIDED
+    if (website && website.trim() !== '') {
+      const urlPattern = /^(https?:\/\/)?([\da-z.-]+)\.([a-z.]{2,6})([/\w .-]*)*\/?$/;
+      if (!urlPattern.test(website)) {
+        return errorResponse(res, 400, 'Please provide a valid website URL.');
+      }
+    }
+
+    // 4. BUILD UPDATE OBJECT (only update provided fields)
+    const updateData = {};
+
+    if (full_name !== undefined) {
+      if (full_name.trim().length < 1) {
+        return errorResponse(res, 400, 'Full name cannot be empty.');
+      }
+      updateData.full_name = full_name.trim();
+    }
+
+    if (username !== undefined) {
+      updateData.username = username.toLowerCase();
+    }
+
+    if (bio !== undefined) {
+      if (bio.length > 150) {
+        return errorResponse(res, 400, 'Bio cannot exceed 150 characters.');
+      }
+      updateData.bio = bio;
+    }
+
+    if (website !== undefined) {
+      updateData.website = website.trim() || null;
+    }
+
+    if (gender !== undefined) {
+      const validGenders = ['male', 'female', 'custom', 'prefer_not_to_say'];
+      if (gender && !validGenders.includes(gender)) {
+        return errorResponse(res, 400, 'Invalid gender value.');
+      }
+      updateData.gender = gender || null;
+    }
+
+    if (is_private !== undefined) {
+      updateData.is_private = Boolean(is_private);
+    }
+
+    // 5. IF NOTHING TO UPDATE
+    if (Object.keys(updateData).length === 0) {
+      return errorResponse(res, 400, 'No fields provided to update.');
+    }
+
+    // 6. UPDATE IN DATABASE
+    await user.update(updateData);
+
+    // 7. FETCH UPDATED USER
+    const updatedUser = await User.findByPk(userId);
+
+    console.log(`✅ Profile updated for user: ${userId}`);
+
+    return successResponse(res, 200, 'Profile updated successfully!', {
+      user: {
+        id: updatedUser.id,
+        username: updatedUser.username,
+        email: updatedUser.email,
+        full_name: updatedUser.full_name,
+        bio: updatedUser.bio,
+        website: updatedUser.website,
+        profile_pic_url: updatedUser.profile_pic_url,
+        gender: updatedUser.gender,
+        is_private: updatedUser.is_private,
+        is_verified: updatedUser.is_verified,
+        updated_at: updatedUser.updatedAt,
+      },
+    });
+
+  } catch (error) {
+    console.error('❌ Update profile error:', error);
+
+    if (error.name === 'SequelizeUniqueConstraintError') {
+      return errorResponse(res, 409, 'Username is already taken.');
+    }
+
+    return errorResponse(res, 500, 'Something went wrong.');
+  }
+};
+
+// ─────────────────────────────────────────────────────────────
+// @route   PUT /api/v1/users/profile-picture
+// @desc    Upload/change profile picture
+// @access  Private
+// ─────────────────────────────────────────────────────────────
+const updateProfilePicture = async (req, res) => {
+  try {
+    const userId = req.user.id;
+
+    // 1. CHECK IF FILE WAS UPLOADED
+    // req.file is set by multer middleware
+    if (!req.file) {
+      return errorResponse(
+        res,
+        400,
+        'Please provide an image file.'
+      );
+    }
+
+    console.log(`📸 Uploading profile picture for user: ${userId}`);
+    console.log(`   File: ${req.file.originalname} (${req.file.size} bytes)`);
+
+    // 2. GET CURRENT USER
+    const user = await User.findByPk(userId);
+
+    // 3. DELETE OLD PROFILE PICTURE FROM CLOUDINARY
+    // If they had a previous picture, remove it
+    if (user.profile_pic_url) {
+      // Extract public_id from old URL
+      // Cloudinary URL format: https://res.cloudinary.com/cloud/image/upload/v123/instagram-clone/profile-pictures/profile_userId.jpg
+      const oldPublicId = `instagram-clone/profile-pictures/profile_${userId}`;
+      await deleteFromCloudinary(oldPublicId);
+      console.log('🗑️  Old profile picture deleted from Cloudinary');
+    }
+
+    // 4. UPLOAD NEW PICTURE TO CLOUDINARY
+    const uploadResult = await uploadProfilePicture(
+      req.file.buffer,
+      userId
+    );
+
+    console.log('✅ Profile picture uploaded to Cloudinary:', uploadResult.url);
+
+    // 5. SAVE URL TO DATABASE
+    await user.update({
+      profile_pic_url: uploadResult.url,
+    });
+
+    return successResponse(
+      res,
+      200,
+      'Profile picture updated successfully! 📸',
+      {
+        profile_pic_url: uploadResult.url,
+        small_url: uploadResult.small_url,
+        medium_url: uploadResult.medium_url,
+      }
+    );
+
+  } catch (error) {
+    console.error('❌ Update profile picture error:', error);
+    return errorResponse(
+      res,
+      500,
+      'Failed to upload profile picture. Please try again.'
+    );
+  }
+};
+
+// ─────────────────────────────────────────────────────────────
+// @route   DELETE /api/v1/users/profile-picture
+// @desc    Remove profile picture (set to default)
+// @access  Private
+// ─────────────────────────────────────────────────────────────
+const removeProfilePicture = async (req, res) => {
+  try {
+    const userId = req.user.id;
+    const user = await User.findByPk(userId);
+
+    // If no profile picture, nothing to do
+    if (!user.profile_pic_url) {
+      return errorResponse(
+        res,
+        400,
+        'You do not have a profile picture to remove.'
+      );
+    }
+
+    // Delete from Cloudinary
+    const oldPublicId = `instagram-clone/profile-pictures/profile_${userId}`;
+    await deleteFromCloudinary(oldPublicId);
+
+    // Set to null in database
+    await user.update({ profile_pic_url: null });
+
+    console.log(`🗑️  Profile picture removed for user: ${userId}`);
+
+    return successResponse(
+      res,
+      200,
+      'Profile picture removed successfully.',
+      { profile_pic_url: null }
+    );
+
+  } catch (error) {
+    console.error('❌ Remove profile picture error:', error);
+    return errorResponse(res, 500, 'Something went wrong.');
+  }
+};
+
+// ─────────────────────────────────────────────────────────────
+// @route   GET /api/v1/users/search?q=john&page=1&limit=20
+// @desc    Search users by username or full name
+// @access  Private
+// ─────────────────────────────────────────────────────────────
+const searchUsers = async (req, res) => {
+  try {
+    const currentUserId = req.user.id;
+    const {
+      q,             // Search query
+      page = 1,
+      limit = 20,
+    } = req.query;
+
+    // 1. VALIDATE QUERY
+    if (!q || q.trim().length === 0) {
+      return errorResponse(res, 400, 'Search query is required.');
+    }
+
+    if (q.trim().length < 1) {
+      return errorResponse(
+        res,
+        400,
+        'Search query must be at least 1 character.'
+      );
+    }
+
+    const searchTerm = q.trim().toLowerCase();
+    const offset = (parseInt(page) - 1) * parseInt(limit);
+
+    // 2. SEARCH USERS
+    // Search in username AND full_name
+    const { count, rows: users } = await User.findAndCountAll({
+      where: {
+        [Op.and]: [
+          // Not the current user
+          { id: { [Op.ne]: currentUserId } },
+          // Active and not banned
+          { is_active: true },
+          { is_banned: false },
+          // Search term matches username or full_name
+          {
+            [Op.or]: [
+              {
+                username: {
+                  [Op.iLike]: `%${searchTerm}%`, // case-insensitive
+                },
+              },
+              {
+                full_name: {
+                  [Op.iLike]: `%${searchTerm}%`,
+                },
+              },
+            ],
+          },
+        ],
+      },
+      attributes: [
+        'id',
+        'username',
+        'full_name',
+        'profile_pic_url',
+        'bio',
+        'is_verified',
+        'is_private',
+      ],
+      // Exact matches first, then partial
+      order: [
+        // If username exactly matches, show first
+        [
+          User.sequelize.literal(
+            `CASE WHEN username = '${searchTerm}' THEN 0 ELSE 1 END`
+          ),
+          'ASC',
+        ],
+        // Then username starts with search term
+        [
+          User.sequelize.literal(
+            `CASE WHEN username LIKE '${searchTerm}%' THEN 0 ELSE 1 END`
+          ),
+          'ASC',
+        ],
+        ['username', 'ASC'],
+      ],
+      limit: parseInt(limit),
+      offset,
+    });
+
+    // 3. FORMAT RESULTS
+    // For now, is_following is false (will update on Day 11)
+    const formattedUsers = users.map((user) => ({
+      id: user.id,
+      username: user.username,
+      full_name: user.full_name,
+      profile_pic_url: user.profile_pic_url,
+      bio: user.bio,
+      is_verified: user.is_verified,
+      is_private: user.is_private,
+      is_following: false, // Will be real value after Day 11
+    }));
+
+    return successResponse(res, 200, 'Search results', {
+      users: formattedUsers,
+      pagination: {
+        total: count,
+        page: parseInt(page),
+        limit: parseInt(limit),
+        total_pages: Math.ceil(count / parseInt(limit)),
+        has_next: offset + users.length < count,
+      },
+      query: searchTerm,
+    });
+
+  } catch (error) {
+    console.error('❌ Search users error:', error);
+    return errorResponse(res, 500, 'Something went wrong.');
+  }
+};
+
+// ─────────────────────────────────────────────────────────────
+// @route   GET /api/v1/users/suggestions?limit=10
+// @desc    Get suggested users to follow
+// @access  Private
+// ─────────────────────────────────────────────────────────────
+const getSuggestedUsers = async (req, res) => {
+  try {
+    const currentUserId = req.user.id;
+    const limit = parseInt(req.query.limit) || 10;
+
+    // SUGGESTION LOGIC:
+    // For now: get random active users that are not the current user
+    // Later (Day 11): Exclude people already followed
+    // Even later: Use ML-based suggestions
+
+    const users = await User.findAll({
+      where: {
+        id: { [Op.ne]: currentUserId },
+        is_active: true,
+        is_banned: false,
+      },
+      attributes: [
+        'id',
+        'username',
+        'full_name',
+        'profile_pic_url',
+        'is_verified',
+        'is_private',
+        'bio',
+      ],
+      order: User.sequelize.random(), // Random order
+      limit,
+    });
+
+    const formattedUsers = users.map((user) => ({
+      id: user.id,
+      username: user.username,
+      full_name: user.full_name,
+      profile_pic_url: user.profile_pic_url,
+      is_verified: user.is_verified,
+      is_private: user.is_private,
+      bio: user.bio,
+      is_following: false,          // Will update Day 11
+      mutual_followers_count: 0,    // Will update Day 11
+    }));
+
+    return successResponse(
+      res,
+      200,
+      'Suggested users fetched',
+      { users: formattedUsers }
+    );
+
+  } catch (error) {
+    console.error('❌ Get suggestions error:', error);
+    return errorResponse(res, 500, 'Something went wrong.');
+  }
+};
+
+// ─────────────────────────────────────────────────────────────
+// @route   GET /api/v1/users/:id/basic
+// @desc    Get basic user info by ID (for internal use)
+// @access  Private
+// ─────────────────────────────────────────────────────────────
+const getUserById = async (req, res) => {
+  try {
+    const { id } = req.params;
+
+    const user = await User.findOne({
+      where: {
+        id,
+        is_active: true,
+        is_banned: false,
+      },
+      attributes: [
+        'id',
+        'username',
+        'full_name',
+        'profile_pic_url',
+        'is_verified',
+        'is_private',
+      ],
+    });
+
+    if (!user) {
+      return errorResponse(res, 404, 'User not found.');
+    }
+
+    return successResponse(res, 200, 'User found', { user });
+
+  } catch (error) {
+    console.error('❌ Get user by ID error:', error);
+    return errorResponse(res, 500, 'Something went wrong.');
+  }
+};
+
+module.exports = {
+  getUserProfile,
+  updateProfile,
+  updateProfilePicture,
+  removeProfilePicture,
+  searchUsers,
+  getSuggestedUsers,
+  getUserById,
+};
