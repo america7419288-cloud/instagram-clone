@@ -45,6 +45,8 @@ app.get('/health', (req, res) => {
     });
 });
 
+app.use('/api/v1/auth', require('./routes/auth.routes'));
+
 
 app.get('/api/v1/test', (req, res) => {
     res.json({

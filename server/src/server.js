@@ -1,5 +1,6 @@
 const app = require('./app');
 const { connectDB } = require('./config/database');
+const { syncDatabase } = require('./models');
 require('dotenv').config();
 
 const PORT = process.env.PORT || 5000;
@@ -7,6 +8,7 @@ const PORT = process.env.PORT || 5000;
 const startServer = async () => {
     try {
         await connectDB();
+        await syncDatabase();
 
         const server = app.listen(PORT, () => {
             console.log('_____________________________________');
