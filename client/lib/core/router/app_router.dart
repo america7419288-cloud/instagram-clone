@@ -20,8 +20,6 @@ import '../../features/profile/presentation/pages/edit_profile_page.dart';
 import '../../features/messages/presentation/pages/messages_page.dart';
 import '../../features/messages/presentation/pages/chat_page.dart';
 import '../../features/story/presentation/pages/story_viewer_page.dart';
-import '../../features/profile/presentation/pages/profile_page.dart';
-import '../../features/profile/presentation/pages/edit_profile_page.dart';
 import '../../features/follow/data/repositories/presentation/pages/followers_page.dart';
 import '../../features/follow/data/repositories/presentation/pages/follow_requests_page.dart';
 import 'main_shell.dart';
@@ -51,8 +49,8 @@ class AppRoutes {
   static const String editProfile = '/profile/edit';
   static const String postDetail = '/post/:postId';
   static const String story = '/story/:userId';
-  static const String followers = '/followers/:username/:userId';
-  static const String following = '/following/:username/:userId';
+  static const String followers = '/followers/:userId';
+  static const String following = '/following/:userId';
   static const String followRequests = '/follow-requests';
   static const String postLikes = '/post/:postId/likes';
   static const String hashtag = '/hashtag/:tag';
@@ -157,6 +155,14 @@ final routerProvider = Provider<GoRouter>((ref) {
 
       // ── MAIN APP ROUTES ─────────────────────────────
       // These use ShellRoute to keep bottom nav visible
+      // Edit Profile
+      GoRoute(
+        parentNavigatorKey: _rootNavigatorKey,
+        path: AppRoutes.editProfile,
+        name: 'editProfile',
+        builder: (context, state) => const EditProfilePage(),
+      ),
+
       ShellRoute(
         navigatorKey: _shellNavigatorKey,
         builder: (context, state, child) => MainShell(child: child),
@@ -250,14 +256,6 @@ final routerProvider = Provider<GoRouter>((ref) {
         },
       ),
 
-      // Edit Profile
-      GoRoute(
-        parentNavigatorKey: _rootNavigatorKey,
-        path: AppRoutes.editProfile,
-        name: 'editProfile',
-        builder: (context, state) => const EditProfilePage(),
-      ),
-
       // Chat / Conversation
       GoRoute(
         parentNavigatorKey: _rootNavigatorKey,
@@ -289,8 +287,8 @@ final routerProvider = Provider<GoRouter>((ref) {
         path: AppRoutes.followers,
         name: 'followers',
         builder: (context, state) {
-          final username = state.pathParameters['username'] ?? '';
           final userId = state.pathParameters['userId'] ?? '';
+          final username = state.uri.queryParameters['username'] ?? '';
           return FollowersPage(userId: userId, username: username);
         },
       ),
@@ -301,8 +299,8 @@ final routerProvider = Provider<GoRouter>((ref) {
         path: AppRoutes.following,
         name: 'following',
         builder: (context, state) {
-          final username = state.pathParameters['username'] ?? '';
           final userId = state.pathParameters['userId'] ?? '';
+          final username = state.uri.queryParameters['username'] ?? '';
           return FollowingPage(userId: userId, username: username);
         },
       ),

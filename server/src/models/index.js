@@ -17,9 +17,12 @@ const Follower = require('./Follower.model');
 const Block = require('./Block.model');
 const Story = require('./Story.model');
 const StoryView = require('./StoryView.model');
-const Notification = require('./Notification.model'); // ⭐ NEW
+const Notification = require('./Notification.model');
+const Conversation = require('./Conversation.model');              // ⭐ NEW
+const ConversationParticipant = require('./ConversationParticipant.model'); // ⭐ NEW
+const Message = require('./Message.model');                        // ⭐ NEW
 
-// ─── ASSOCIATIONS ──────────────────────────────────────────
+// ─── ALL ASSOCIATIONS ──────────────────────────────────────
 
 // USER → POSTS
 User.hasMany(Post, {
@@ -37,7 +40,7 @@ Post.hasMany(PostMedia, {
 });
 PostMedia.belongsTo(Post, { foreignKey: 'post_id', as: 'post' });
 
-// POST → LIKES
+// LIKES
 Post.hasMany(Like, {
   foreignKey: 'post_id',
   as: 'likes',
@@ -92,8 +95,6 @@ User.hasMany(Comment, {
   onDelete: 'CASCADE',
 });
 Comment.belongsTo(User, { foreignKey: 'user_id', as: 'user' });
-
-// COMMENT REPLIES (self-ref)
 Comment.hasMany(Comment, {
   foreignKey: 'parent_comment_id',
   as: 'replies',
@@ -182,9 +183,7 @@ StoryView.belongsTo(User, {
   as: 'viewer',
 });
 
-// ─── NOTIFICATION ASSOCIATIONS ─────────────────────────────
-
-// User receives many notifications
+// NOTIFICATIONS
 User.hasMany(Notification, {
   foreignKey: 'recipient_id',
   as: 'receivedNotifications',
@@ -194,8 +193,6 @@ Notification.belongsTo(User, {
   foreignKey: 'recipient_id',
   as: 'recipient',
 });
-
-// User sends/triggers many notifications
 User.hasMany(Notification, {
   foreignKey: 'sender_id',
   as: 'sentNotifications',
@@ -205,25 +202,93 @@ Notification.belongsTo(User, {
   foreignKey: 'sender_id',
   as: 'sender',
 });
-
-// Notification references a post
 Notification.belongsTo(Post, {
   foreignKey: 'reference_post_id',
   as: 'referencePost',
-  constraints: false, // Allow null
+  constraints: false,
 });
-
-// Notification references a comment
 Notification.belongsTo(Comment, {
   foreignKey: 'reference_comment_id',
   as: 'referenceComment',
   constraints: false,
 });
-
-// Notification references a story
 Notification.belongsTo(Story, {
   foreignKey: 'reference_story_id',
   as: 'referenceStory',
+  constraints: false,
+});
+
+// ─── CONVERSATION ASSOCIATIONS ─────────────────────────────
+
+// CONVERSATION → PARTICIPANTS (many-to-many through junction)
+Conversation.belongsToMany(User, {
+  through: ConversationParticipant,
+  foreignKey: 'conversation_id',
+  otherKey: 'user_id',
+  as: 'participants',
+});
+User.belongsToMany(Conversation, {
+  through: ConversationParticipant,
+  foreignKey: 'user_id',
+  otherKey: 'conversation_id',
+  as: 'conversations',
+});
+
+// Direct access to participant records
+Conversation.hasMany(ConversationParticipant, {
+  foreignKey: 'conversation_id',
+  as: 'participantRecords',
+  onDelete: 'CASCADE',
+});
+ConversationParticipant.belongsTo(Conversation, {
+  foreignKey: 'conversation_id',
+  as: 'conversation',
+});
+ConversationParticipant.belongsTo(User, {
+  foreignKey: 'user_id',
+  as: 'user',
+});
+
+// CONVERSATION → MESSAGES
+Conversation.hasMany(Message, {
+  foreignKey: 'conversation_id',
+  as: 'messages',
+  onDelete: 'CASCADE',
+});
+Message.belongsTo(Conversation, {
+  foreignKey: 'conversation_id',
+  as: 'conversation',
+});
+
+// MESSAGE → SENDER
+User.hasMany(Message, {
+  foreignKey: 'sender_id',
+  as: 'sentMessages',
+  onDelete: 'CASCADE',
+});
+Message.belongsTo(User, {
+  foreignKey: 'sender_id',
+  as: 'sender',
+});
+
+// MESSAGE REPLY TO MESSAGE (self-ref)
+Message.belongsTo(Message, {
+  foreignKey: 'reply_to_message_id',
+  as: 'repliedTo',
+  constraints: false,
+});
+
+// MESSAGE → SHARED POST
+Message.belongsTo(Post, {
+  foreignKey: 'shared_post_id',
+  as: 'sharedPost',
+  constraints: false,
+});
+
+// CONVERSATION → CREATOR
+Conversation.belongsTo(User, {
+  foreignKey: 'created_by',
+  as: 'creator',
   constraints: false,
 });
 
@@ -237,7 +302,10 @@ const syncDatabase = async () => {
     console.log('   → saved_posts, comments, comment_likes');
     console.log('   → followers, blocks');
     console.log('   → stories, story_views');
-    console.log('   → notifications'); // ⭐ NEW
+    console.log('   → notifications');
+    console.log('   → conversations');              // ⭐ NEW
+    console.log('   → conversation_participants');  // ⭐ NEW
+    console.log('   → messages');                   // ⭐ NEW
   } catch (error) {
     console.error('❌ Database sync failed:', error.message);
     throw error;
@@ -261,4 +329,7 @@ module.exports = {
   Story,
   StoryView,
   Notification,
+  Conversation,
+  ConversationParticipant,
+  Message,
 };

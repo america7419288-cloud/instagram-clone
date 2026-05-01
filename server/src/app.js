@@ -43,7 +43,9 @@ app.use('/api/v1/posts', require('./routes/post.routes'));
 app.use('/api/v1/users', require('./routes/follow.routes'));
 app.use('/api/v1/comments', require('./routes/comment.routes')); 
 app.use('/api/v1/stories', require('./routes/story.routes'));
-app.use('/api/v1/notifications', require('./routes/notification.routes')); 
+app.use('/api/v1/notifications', require('./routes/notification.routes'));
+app.use('/api/v1/conversations', require('./routes/conversation.routes'));
+app.use('/api/v1/messages', require('./routes/message.routes'));  
 
 
 app.get('/api/v1/test', (req, res) => {
