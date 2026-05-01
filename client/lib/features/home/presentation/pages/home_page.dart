@@ -6,11 +6,11 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 import '../../../../core/theme/app_theme.dart';
 import '../../../../core/router/app_router.dart';
-import '../../../auth/presentation/providers/auth_provider.dart';
 import '../../../post/presentation/providers/feed_provider.dart';
 import '../../../post/presentation/widgets/post_card.dart';
 import '../../../story/presentation/widgets/stories_bar.dart';
 import '../../../story/presentation/providers/story_provider.dart';
+import '../../../notifications/presentation/pages/providers/notification_provider.dart';
 import '../../../../shared/widgets/shimmer_widget.dart';
 
 class HomePage extends ConsumerWidget {
@@ -74,6 +74,8 @@ class _HomePageContentState extends ConsumerState<HomePageContent> {
   }
 
   PreferredSizeWidget _buildAppBar(BuildContext context) {
+    final unreadCount = ref.watch(unreadCountProvider);
+
     return AppBar(
       backgroundColor: AppColors.white,
       elevation: 0,
@@ -92,13 +94,41 @@ class _HomePageContentState extends ConsumerState<HomePageContent> {
         ),
       ),
       actions: [
-        IconButton(
-          onPressed: () => context.go(AppRoutes.notifications),
-          icon: const Icon(
-            Icons.favorite_border,
-            color: AppColors.textPrimary,
-            size: 26,
-          ),
+        Stack(
+          clipBehavior: Clip.none,
+          children: [
+            IconButton(
+              onPressed: () => context.go(AppRoutes.notifications),
+              icon: const Icon(
+                Icons.favorite_border,
+                color: AppColors.textPrimary,
+                size: 26,
+              ),
+            ),
+            if (unreadCount > 0)
+              Positioned(
+                top: 6,
+                right: 6,
+                child: Container(
+                  width: 18,
+                  height: 18,
+                  decoration: const BoxDecoration(
+                    color: AppColors.secondary,
+                    shape: BoxShape.circle,
+                  ),
+                  child: Center(
+                    child: Text(
+                      unreadCount > 9 ? '9+' : '$unreadCount',
+                      style: const TextStyle(
+                        color: Colors.white,
+                        fontSize: 10,
+                        fontWeight: FontWeight.bold,
+                      ),
+                    ),
+                  ),
+                ),
+              ),
+          ],
         ),
         IconButton(
           onPressed: () => context.go(AppRoutes.messages),
