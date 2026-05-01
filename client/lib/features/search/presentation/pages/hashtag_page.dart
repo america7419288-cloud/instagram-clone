@@ -4,9 +4,9 @@ import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:cached_network_image/cached_network_image.dart';
 import 'package:go_router/go_router.dart';
+import '../../../../core/router/navigation_extensions.dart';
 import '../../../../core/theme/app_theme.dart';
 import '../../data/repositories/search_service.dart';
-import 'providers/search_provider.dart';
 
 class HashtagPage extends ConsumerStatefulWidget {
   final String tag;
@@ -50,9 +50,7 @@ class _HashtagPageState extends ConsumerState<HashtagPage> {
       setState(() {
         _posts = [
           ..._posts,
-          ...List<Map<String, dynamic>>.from(
-            result['posts'] as List,
-          ),
+          ...List<Map<String, dynamic>>.from(result['posts'] as List),
         ];
         _postCount = result['post_count'] as int? ?? 0;
         _isLoading = false;
@@ -77,11 +75,7 @@ class _HashtagPageState extends ConsumerState<HashtagPage> {
       );
 
       setState(() {
-        _posts.addAll(
-          List<Map<String, dynamic>>.from(
-            result['posts'] as List,
-          ),
-        );
+        _posts.addAll(List<Map<String, dynamic>>.from(result['posts'] as List));
         _isLoadingMore = false;
         _hasMore = result['has_next'] as bool? ?? false;
       });
@@ -119,17 +113,12 @@ class _HashtagPageState extends ConsumerState<HashtagPage> {
         ),
         leading: IconButton(
           onPressed: () => context.pop(),
-          icon: const Icon(
-            Icons.arrow_back,
-            color: AppColors.textPrimary,
-          ),
+          icon: const Icon(Icons.arrow_back, color: AppColors.textPrimary),
         ),
       ),
       body: _isLoading
           ? const Center(
-              child: CircularProgressIndicator(
-                color: AppColors.primary,
-              ),
+              child: CircularProgressIndicator(color: AppColors.primary),
             )
           : NotificationListener<ScrollNotification>(
               onNotification: (notification) {
@@ -142,9 +131,7 @@ class _HashtagPageState extends ConsumerState<HashtagPage> {
               child: CustomScrollView(
                 slivers: [
                   // Header
-                  SliverToBoxAdapter(
-                    child: _buildHeader(),
-                  ),
+                  SliverToBoxAdapter(child: _buildHeader()),
 
                   // Grid
                   SliverPadding(
@@ -152,39 +139,30 @@ class _HashtagPageState extends ConsumerState<HashtagPage> {
                     sliver: SliverGrid(
                       gridDelegate:
                           const SliverGridDelegateWithFixedCrossAxisCount(
-                        crossAxisCount: 3,
-                        crossAxisSpacing: 2,
-                        mainAxisSpacing: 2,
-                        childAspectRatio: 1,
-                      ),
-                      delegate: SliverChildBuilderDelegate(
-                        (context, index) {
-                          if (index >= _posts.length) return null;
-                          final post = _posts[index];
-                          final postId =
-                              post['id'] as String? ?? '';
-                          final thumbnailUrl =
-                              post['thumbnail_url'] as String?;
+                            crossAxisCount: 3,
+                            crossAxisSpacing: 2,
+                            mainAxisSpacing: 2,
+                            childAspectRatio: 1,
+                          ),
+                      delegate: SliverChildBuilderDelegate((context, index) {
+                        if (index >= _posts.length) return null;
+                        final post = _posts[index];
+                        final postId = post['id'] as String? ?? '';
+                        final thumbnailUrl = post['thumbnail_url'] as String?;
 
-                          return GestureDetector(
-                            onTap: () =>
-                                context.push('/post/$postId'),
-                            child: thumbnailUrl != null
-                                ? CachedNetworkImage(
-                                    imageUrl: thumbnailUrl,
-                                    fit: BoxFit.cover,
-                                    errorWidget: (_, __, ___) =>
-                                        Container(
-                                          color: AppColors.border,
-                                        ),
-                                  )
-                                : Container(
-                                    color: AppColors.border,
-                                  ),
-                          );
-                        },
-                        childCount: _posts.length,
-                      ),
+                        return GestureDetector(
+                          onTap: () =>
+                              context.pushIfNotCurrent('/post/$postId'),
+                          child: thumbnailUrl != null
+                              ? CachedNetworkImage(
+                                  imageUrl: thumbnailUrl,
+                                  fit: BoxFit.cover,
+                                  errorWidget: (_, __, ___) =>
+                                      Container(color: AppColors.border),
+                                )
+                              : Container(color: AppColors.border),
+                        );
+                      }, childCount: _posts.length),
                     ),
                   ),
 
@@ -202,9 +180,7 @@ class _HashtagPageState extends ConsumerState<HashtagPage> {
                       ),
                     ),
 
-                  const SliverToBoxAdapter(
-                    child: SizedBox(height: 80),
-                  ),
+                  const SliverToBoxAdapter(child: SizedBox(height: 80)),
                 ],
               ),
             ),
@@ -222,10 +198,7 @@ class _HashtagPageState extends ConsumerState<HashtagPage> {
             height: 80,
             decoration: BoxDecoration(
               shape: BoxShape.circle,
-              border: Border.all(
-                color: AppColors.border,
-                width: 1,
-              ),
+              border: Border.all(color: AppColors.border, width: 1),
             ),
             child: const Center(
               child: Text(
@@ -243,10 +216,7 @@ class _HashtagPageState extends ConsumerState<HashtagPage> {
           // Hashtag name
           Text(
             '#${widget.tag}',
-            style: const TextStyle(
-              fontSize: 22,
-              fontWeight: FontWeight.bold,
-            ),
+            style: const TextStyle(fontSize: 22, fontWeight: FontWeight.bold),
           ),
           const SizedBox(height: 4),
 
@@ -267,11 +237,7 @@ class _HashtagPageState extends ConsumerState<HashtagPage> {
             child: Row(
               mainAxisAlignment: MainAxisAlignment.center,
               children: [
-                Icon(
-                  Icons.grid_on,
-                  size: 20,
-                  color: AppColors.textPrimary,
-                ),
+                Icon(Icons.grid_on, size: 20, color: AppColors.textPrimary),
                 SizedBox(width: 8),
                 Text(
                   'Posts',

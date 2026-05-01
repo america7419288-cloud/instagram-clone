@@ -5,6 +5,7 @@ import 'package:flutter/gestures.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 import '../../../../core/router/app_router.dart';
+import '../../../../core/router/navigation_extensions.dart';
 import '../../../../core/theme/app_theme.dart';
 import '../../../../shared/widgets/custom_button.dart';
 import '../../../../shared/widgets/custom_text_field.dart';
@@ -71,7 +72,7 @@ class _LoginPageState extends ConsumerState<LoginPage> {
     // Clear error when navigating
     ref.read(authProvider.notifier).clearError();
 
-    context.push(AppRoutes.register);
+    context.pushIfNotCurrent(AppRoutes.register);
   }
 
   // ─── BUILD ────────────────────────────────────────────────

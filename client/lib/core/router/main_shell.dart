@@ -6,6 +6,7 @@ import 'package:go_router/go_router.dart';
 import '../../core/theme/app_theme.dart';
 import '../../features/auth/presentation/providers/auth_provider.dart';
 import 'app_router.dart';
+import 'navigation_extensions.dart';
 
 // ─── CURRENT TAB INDEX PROVIDER ─────────────────────────────
 // Track which bottom nav tab is selected
@@ -93,7 +94,7 @@ class MainShell extends ConsumerWidget {
   void _onTabTapped(BuildContext context, WidgetRef ref, int index) {
     // Create tab: goes to create post (not a tab destination)
     if (index == 2) {
-      context.push(AppRoutes.createPost);
+      context.pushIfNotCurrent(AppRoutes.createPost);
       return; // Don't update tab index for create
     }
 

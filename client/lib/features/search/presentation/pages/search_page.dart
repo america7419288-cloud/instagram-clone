@@ -3,10 +3,9 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:cached_network_image/cached_network_image.dart';
-import 'package:go_router/go_router.dart';
+import '../../../../core/router/navigation_extensions.dart';
 import '../../../../core/theme/app_theme.dart';
 import '../../../follow/data/repositories/presentation/providers/widgets/follow_button.dart';
-import '../../../follow/data/repositories/presentation/providers/follow_provider.dart';
 import 'providers/search_provider.dart';
 
 class SearchPage extends ConsumerStatefulWidget {
@@ -17,8 +16,7 @@ class SearchPage extends ConsumerStatefulWidget {
 }
 
 class _SearchPageState extends ConsumerState<SearchPage> {
-  final TextEditingController _searchController =
-      TextEditingController();
+  final TextEditingController _searchController = TextEditingController();
   final FocusNode _searchFocus = FocusNode();
   final ScrollController _scrollController = ScrollController();
 
@@ -122,9 +120,7 @@ class _SearchPageState extends ConsumerState<SearchPage> {
   Widget _buildSearchResults(SearchState searchState) {
     if (searchState.isLoadingResults) {
       return const Center(
-        child: CircularProgressIndicator(
-          color: AppColors.primary,
-        ),
+        child: CircularProgressIndicator(color: AppColors.primary),
       );
     }
 
@@ -133,11 +129,7 @@ class _SearchPageState extends ConsumerState<SearchPage> {
         child: Column(
           mainAxisAlignment: MainAxisAlignment.center,
           children: [
-            const Icon(
-              Icons.search_off,
-              size: 60,
-              color: AppColors.border,
-            ),
+            const Icon(Icons.search_off, size: 60, color: AppColors.border),
             const SizedBox(height: 16),
             Text(
               'No results for "${searchState.query}"',
@@ -158,12 +150,10 @@ class _SearchPageState extends ConsumerState<SearchPage> {
         return _UserSearchResult(
           user: user,
           onTap: () {
-            ref.read(searchProvider.notifier).submitSearch(
-                  user['username'] as String? ?? '',
-                );
-            context.push(
-              '/profile/${user['username']}',
-            );
+            ref
+                .read(searchProvider.notifier)
+                .submitSearch(user['username'] as String? ?? '');
+            context.pushIfNotCurrent('/profile/${user['username']}');
           },
         );
       },
@@ -177,9 +167,7 @@ class _SearchPageState extends ConsumerState<SearchPage> {
       slivers: [
         // ─── RECENT SEARCHES ─────────────────────────────
         if (searchState.recentSearches.isNotEmpty)
-          SliverToBoxAdapter(
-            child: _buildRecentSearches(searchState),
-          ),
+          SliverToBoxAdapter(child: _buildRecentSearches(searchState)),
 
         // ─── EXPLORE HEADER ──────────────────────────────
         const SliverToBoxAdapter(
@@ -197,23 +185,18 @@ class _SearchPageState extends ConsumerState<SearchPage> {
         ),
 
         // ─── EXPLORE GRID ────────────────────────────────
-        searchState.isLoadingExplore &&
-                searchState.explorePostsGrid.isEmpty
+        searchState.isLoadingExplore && searchState.explorePostsGrid.isEmpty
             ? const SliverToBoxAdapter(
                 child: SizedBox(
                   height: 300,
                   child: Center(
-                    child: CircularProgressIndicator(
-                      color: AppColors.primary,
-                    ),
+                    child: CircularProgressIndicator(color: AppColors.primary),
                   ),
                 ),
               )
             : SliverPadding(
                 padding: const EdgeInsets.all(2),
-                sliver: _ExploreGrid(
-                  posts: searchState.explorePostsGrid,
-                ),
+                sliver: _ExploreGrid(posts: searchState.explorePostsGrid),
               ),
 
         // ─── LOAD MORE INDICATOR ─────────────────────────
@@ -231,9 +214,7 @@ class _SearchPageState extends ConsumerState<SearchPage> {
             ),
           ),
 
-        const SliverToBoxAdapter(
-          child: SizedBox(height: 80),
-        ),
+        const SliverToBoxAdapter(child: SizedBox(height: 80)),
       ],
     );
   }
@@ -250,15 +231,11 @@ class _SearchPageState extends ConsumerState<SearchPage> {
             children: [
               const Text(
                 'Recent',
-                style: TextStyle(
-                  fontSize: 16,
-                  fontWeight: FontWeight.bold,
-                ),
+                style: TextStyle(fontSize: 16, fontWeight: FontWeight.bold),
               ),
               GestureDetector(
-                onTap: () => ref
-                    .read(searchProvider.notifier)
-                    .clearRecentSearches(),
+                onTap: () =>
+                    ref.read(searchProvider.notifier).clearRecentSearches(),
                 child: const Text(
                   'Clear all',
                   style: TextStyle(
@@ -288,15 +265,11 @@ class _SearchPageState extends ConsumerState<SearchPage> {
             ),
             title: Text(
               search,
-              style: const TextStyle(
-                fontSize: 14,
-                fontWeight: FontWeight.w500,
-              ),
+              style: const TextStyle(fontSize: 14, fontWeight: FontWeight.w500),
             ),
             trailing: GestureDetector(
-              onTap: () => ref
-                  .read(searchProvider.notifier)
-                  .removeRecentSearch(search),
+              onTap: () =>
+                  ref.read(searchProvider.notifier).removeRecentSearch(search),
               child: const Icon(
                 Icons.close,
                 size: 18,
@@ -305,13 +278,9 @@ class _SearchPageState extends ConsumerState<SearchPage> {
             ),
             onTap: () {
               _searchController.text = search;
-              ref
-                  .read(searchProvider.notifier)
-                  .onQueryChanged(search);
+              ref.read(searchProvider.notifier).onQueryChanged(search);
             },
-            contentPadding: const EdgeInsets.symmetric(
-              horizontal: 16,
-            ),
+            contentPadding: const EdgeInsets.symmetric(horizontal: 16),
           ),
         ),
         const Divider(height: 1, color: AppColors.border),
@@ -325,10 +294,7 @@ class _UserSearchResult extends ConsumerWidget {
   final Map<String, dynamic> user;
   final VoidCallback onTap;
 
-  const _UserSearchResult({
-    required this.user,
-    required this.onTap,
-  });
+  const _UserSearchResult({required this.user, required this.onTap});
 
   @override
   Widget build(BuildContext context, WidgetRef ref) {
@@ -343,10 +309,7 @@ class _UserSearchResult extends ConsumerWidget {
     return InkWell(
       onTap: onTap,
       child: Padding(
-        padding: const EdgeInsets.symmetric(
-          horizontal: 16,
-          vertical: 10,
-        ),
+        padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 10),
         child: Row(
           children: [
             // Avatar
@@ -362,8 +325,7 @@ class _UserSearchResult extends ConsumerWidget {
                     ? CachedNetworkImage(
                         imageUrl: profilePicUrl,
                         fit: BoxFit.cover,
-                        errorWidget: (_, __, ___) =>
-                            _defaultAvatar(username),
+                        errorWidget: (_, __, ___) => _defaultAvatar(username),
                       )
                     : _defaultAvatar(username),
               ),
@@ -429,10 +391,7 @@ class _UserSearchResult extends ConsumerWidget {
             const SizedBox(width: 8),
 
             // Follow button
-            FollowButton(
-              targetUserId: userId,
-              compact: true,
-            ),
+            FollowButton(targetUserId: userId, compact: true),
           ],
         ),
       ),
@@ -475,14 +434,11 @@ class _ExploreGrid extends StatelessWidget {
         mainAxisSpacing: 2,
         childAspectRatio: 1,
       ),
-      delegate: SliverChildBuilderDelegate(
-        (context, index) {
-          if (index >= posts.length) return null;
-          final post = posts[index];
-          return _ExploreGridItem(post: post);
-        },
-        childCount: posts.length,
-      ),
+      delegate: SliverChildBuilderDelegate((context, index) {
+        if (index >= posts.length) return null;
+        final post = posts[index];
+        return _ExploreGridItem(post: post);
+      }, childCount: posts.length),
     );
   }
 }
@@ -500,7 +456,7 @@ class _ExploreGridItem extends StatelessWidget {
     final mediaType = post['media_type'] as String? ?? 'image';
 
     return GestureDetector(
-      onTap: () => context.push('/post/$postId'),
+      onTap: () => context.pushIfNotCurrent('/post/$postId'),
       child: Stack(
         fit: StackFit.expand,
         children: [
@@ -509,9 +465,7 @@ class _ExploreGridItem extends StatelessWidget {
               ? CachedNetworkImage(
                   imageUrl: thumbnailUrl,
                   fit: BoxFit.cover,
-                  placeholder: (_, __) => Container(
-                    color: AppColors.border,
-                  ),
+                  placeholder: (_, __) => Container(color: AppColors.border),
                   errorWidget: (_, __, ___) => Container(
                     color: AppColors.border,
                     child: const Icon(
@@ -537,12 +491,7 @@ class _ExploreGridItem extends StatelessWidget {
                 Icons.play_circle_fill,
                 color: Colors.white,
                 size: 20,
-                shadows: [
-                  Shadow(
-                    color: Colors.black54,
-                    blurRadius: 4,
-                  ),
-                ],
+                shadows: [Shadow(color: Colors.black54, blurRadius: 4)],
               ),
             ),
         ],

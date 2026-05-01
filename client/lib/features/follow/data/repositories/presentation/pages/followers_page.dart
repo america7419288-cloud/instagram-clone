@@ -4,6 +4,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:cached_network_image/cached_network_image.dart';
 import 'package:go_router/go_router.dart';
+import '../../../../../../core/router/navigation_extensions.dart';
 import '../../../../../../core/theme/app_theme.dart';
 import '../../../../../auth/presentation/providers/auth_provider.dart';
 import '../../follow_service.dart';
@@ -25,8 +26,7 @@ class FollowersPage extends ConsumerStatefulWidget {
 
 class _FollowersPageState extends ConsumerState<FollowersPage> {
   final FollowService _service = FollowService();
-  final TextEditingController _searchController =
-      TextEditingController();
+  final TextEditingController _searchController = TextEditingController();
   final ScrollController _scrollController = ScrollController();
 
   List<Map<String, dynamic>> _users = [];
@@ -79,9 +79,7 @@ class _FollowersPageState extends ConsumerState<FollowersPage> {
         query: _searchQuery.isNotEmpty ? _searchQuery : null,
       );
 
-      final users = List<Map<String, dynamic>>.from(
-        result['users'] as List,
-      );
+      final users = List<Map<String, dynamic>>.from(result['users'] as List);
       final pagination = result['pagination'];
 
       setState(() {
@@ -110,9 +108,7 @@ class _FollowersPageState extends ConsumerState<FollowersPage> {
         query: _searchQuery.isNotEmpty ? _searchQuery : null,
       );
 
-      final newUsers = List<Map<String, dynamic>>.from(
-        result['users'] as List,
-      );
+      final newUsers = List<Map<String, dynamic>>.from(result['users'] as List);
       final pagination = result['pagination'];
 
       setState(() {
@@ -157,10 +153,7 @@ class _FollowersPageState extends ConsumerState<FollowersPage> {
         ),
         leading: IconButton(
           onPressed: () => context.pop(),
-          icon: const Icon(
-            Icons.arrow_back,
-            color: AppColors.textPrimary,
-          ),
+          icon: const Icon(Icons.arrow_back, color: AppColors.textPrimary),
         ),
       ),
       body: Column(
@@ -174,46 +167,43 @@ class _FollowersPageState extends ConsumerState<FollowersPage> {
             child: _isLoading
                 ? const _UserListSkeleton()
                 : _error != null
-                    ? _ErrorWidget(
-                        message: _error!,
-                        onRetry: () => _loadFollowers(),
-                      )
-                    : _users.isEmpty
-                        ? _EmptyWidget(
-                            message: _searchQuery.isNotEmpty
-                                ? 'No results for "$_searchQuery"'
-                                : 'No followers yet',
-                          )
-                        : ListView.builder(
-                            controller: _scrollController,
-                            itemCount: _users.length +
-                                (_isLoadingMore ? 1 : 0),
-                            itemBuilder: (context, index) {
-                              if (index == _users.length) {
-                                return const Padding(
-                                  padding: EdgeInsets.all(16),
-                                  child: Center(
-                                    child: CircularProgressIndicator(
-                                      color: AppColors.primary,
-                                      strokeWidth: 2,
-                                    ),
-                                  ),
-                                );
-                              }
-
-                              final user = _users[index];
-                              return _UserListItem(
-                                user: user,
-                                showRemoveOption: _isOwnProfile,
-                                onRemove: () async {
-                                  await _service.removeFollower(
-                                    user['id'],
-                                  );
-                                  setState(() => _users.remove(user));
-                                },
-                              );
-                            },
+                ? _ErrorWidget(
+                    message: _error!,
+                    onRetry: () => _loadFollowers(),
+                  )
+                : _users.isEmpty
+                ? _EmptyWidget(
+                    message: _searchQuery.isNotEmpty
+                        ? 'No results for "$_searchQuery"'
+                        : 'No followers yet',
+                  )
+                : ListView.builder(
+                    controller: _scrollController,
+                    itemCount: _users.length + (_isLoadingMore ? 1 : 0),
+                    itemBuilder: (context, index) {
+                      if (index == _users.length) {
+                        return const Padding(
+                          padding: EdgeInsets.all(16),
+                          child: Center(
+                            child: CircularProgressIndicator(
+                              color: AppColors.primary,
+                              strokeWidth: 2,
+                            ),
                           ),
+                        );
+                      }
+
+                      final user = _users[index];
+                      return _UserListItem(
+                        user: user,
+                        showRemoveOption: _isOwnProfile,
+                        onRemove: () async {
+                          await _service.removeFollower(user['id']);
+                          setState(() => _users.remove(user));
+                        },
+                      );
+                    },
+                  ),
           ),
         ],
       ),
@@ -229,10 +219,7 @@ class _FollowersPageState extends ConsumerState<FollowersPage> {
         decoration: InputDecoration(
           hintText: 'Search',
           hintStyle: const TextStyle(color: AppColors.textSecondary),
-          prefixIcon: const Icon(
-            Icons.search,
-            color: AppColors.textSecondary,
-          ),
+          prefixIcon: const Icon(Icons.search, color: AppColors.textSecondary),
           suffixIcon: _searchQuery.isNotEmpty
               ? IconButton(
                   onPressed: () {
@@ -279,8 +266,7 @@ class FollowingPage extends ConsumerStatefulWidget {
 
 class _FollowingPageState extends ConsumerState<FollowingPage> {
   final FollowService _service = FollowService();
-  final TextEditingController _searchController =
-      TextEditingController();
+  final TextEditingController _searchController = TextEditingController();
   final ScrollController _scrollController = ScrollController();
 
   List<Map<String, dynamic>> _users = [];
@@ -325,9 +311,7 @@ class _FollowingPageState extends ConsumerState<FollowingPage> {
       );
 
       setState(() {
-        _users = List<Map<String, dynamic>>.from(
-          result['users'] as List,
-        );
+        _users = List<Map<String, dynamic>>.from(result['users'] as List);
         _isLoading = false;
         _hasMore = result['pagination']?['hasNextPage'] ?? false;
         _currentPage = 1;
@@ -353,9 +337,7 @@ class _FollowingPageState extends ConsumerState<FollowingPage> {
       );
 
       setState(() {
-        _users.addAll(List<Map<String, dynamic>>.from(
-          result['users'] as List,
-        ));
+        _users.addAll(List<Map<String, dynamic>>.from(result['users'] as List));
         _isLoadingMore = false;
         _hasMore = result['pagination']?['hasNextPage'] ?? false;
         _currentPage++;
@@ -389,10 +371,7 @@ class _FollowingPageState extends ConsumerState<FollowingPage> {
         ),
         leading: IconButton(
           onPressed: () => context.pop(),
-          icon: const Icon(
-            Icons.arrow_back,
-            color: AppColors.textPrimary,
-          ),
+          icon: const Icon(Icons.arrow_back, color: AppColors.textPrimary),
         ),
       ),
       body: Column(
@@ -403,39 +382,38 @@ class _FollowingPageState extends ConsumerState<FollowingPage> {
             child: _isLoading
                 ? const _UserListSkeleton()
                 : _error != null
-                    ? _ErrorWidget(
-                        message: _error!,
-                        onRetry: () => _loadFollowing(),
-                      )
-                    : _users.isEmpty
-                        ? _EmptyWidget(
-                            message: _searchQuery.isNotEmpty
-                                ? 'No results for "$_searchQuery"'
-                                : 'Not following anyone yet',
-                          )
-                        : ListView.builder(
-                            controller: _scrollController,
-                            itemCount: _users.length +
-                                (_isLoadingMore ? 1 : 0),
-                            itemBuilder: (context, index) {
-                              if (index == _users.length) {
-                                return const Padding(
-                                  padding: EdgeInsets.all(16),
-                                  child: Center(
-                                    child: CircularProgressIndicator(
-                                      color: AppColors.primary,
-                                      strokeWidth: 2,
-                                    ),
-                                  ),
-                                );
-                              }
-
-                              return _UserListItem(
-                                user: _users[index],
-                                showRemoveOption: false,
-                              );
-                            },
+                ? _ErrorWidget(
+                    message: _error!,
+                    onRetry: () => _loadFollowing(),
+                  )
+                : _users.isEmpty
+                ? _EmptyWidget(
+                    message: _searchQuery.isNotEmpty
+                        ? 'No results for "$_searchQuery"'
+                        : 'Not following anyone yet',
+                  )
+                : ListView.builder(
+                    controller: _scrollController,
+                    itemCount: _users.length + (_isLoadingMore ? 1 : 0),
+                    itemBuilder: (context, index) {
+                      if (index == _users.length) {
+                        return const Padding(
+                          padding: EdgeInsets.all(16),
+                          child: Center(
+                            child: CircularProgressIndicator(
+                              color: AppColors.primary,
+                              strokeWidth: 2,
+                            ),
                           ),
+                        );
+                      }
+
+                      return _UserListItem(
+                        user: _users[index],
+                        showRemoveOption: false,
+                      );
+                    },
+                  ),
           ),
         ],
       ),
@@ -451,10 +429,7 @@ class _FollowingPageState extends ConsumerState<FollowingPage> {
         decoration: InputDecoration(
           hintText: 'Search',
           hintStyle: const TextStyle(color: AppColors.textSecondary),
-          prefixIcon: const Icon(
-            Icons.search,
-            color: AppColors.textSecondary,
-          ),
+          prefixIcon: const Icon(Icons.search, color: AppColors.textSecondary),
           filled: true,
           fillColor: AppColors.background,
           border: OutlineInputBorder(
@@ -492,11 +467,8 @@ class _UserListItem extends StatelessWidget {
     final userId = user['id'] as String? ?? '';
 
     return ListTile(
-      onTap: () => context.push('/profile/$username'),
-      contentPadding: const EdgeInsets.symmetric(
-        horizontal: 16,
-        vertical: 4,
-      ),
+      onTap: () => context.pushIfNotCurrent('/profile/$username'),
+      contentPadding: const EdgeInsets.symmetric(horizontal: 16, vertical: 4),
       leading: Container(
         width: 44,
         height: 44,
@@ -518,18 +490,11 @@ class _UserListItem extends StatelessWidget {
         children: [
           Text(
             username,
-            style: const TextStyle(
-              fontWeight: FontWeight.w600,
-              fontSize: 14,
-            ),
+            style: const TextStyle(fontWeight: FontWeight.w600, fontSize: 14),
           ),
           if (isVerified) ...[
             const SizedBox(width: 4),
-            const Icon(
-              Icons.verified,
-              size: 14,
-              color: AppColors.primary,
-            ),
+            const Icon(Icons.verified, size: 14, color: AppColors.primary),
           ],
         ],
       ),
@@ -544,10 +509,7 @@ class _UserListItem extends StatelessWidget {
           : null,
       trailing: showRemoveOption
           ? _RemoveButton(onRemove: onRemove)
-          : FollowButton(
-              targetUserId: userId,
-              compact: true,
-            ),
+          : FollowButton(targetUserId: userId, compact: true),
     );
   }
 
@@ -590,13 +552,8 @@ class _RemoveButtonState extends State<_RemoveButton> {
       },
       style: OutlinedButton.styleFrom(
         side: const BorderSide(color: AppColors.border),
-        shape: RoundedRectangleBorder(
-          borderRadius: BorderRadius.circular(8),
-        ),
-        padding: const EdgeInsets.symmetric(
-          horizontal: 12,
-          vertical: 6,
-        ),
+        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(8)),
+        padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
         minimumSize: Size.zero,
         tapTargetSize: MaterialTapTargetSize.shrinkWrap,
       ),
@@ -621,10 +578,7 @@ class _UserListSkeleton extends StatelessWidget {
     return ListView.builder(
       itemCount: 8,
       itemBuilder: (_, __) => Padding(
-        padding: const EdgeInsets.symmetric(
-          horizontal: 16,
-          vertical: 10,
-        ),
+        padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 10),
         child: Row(
           children: [
             Container(
@@ -640,11 +594,7 @@ class _UserListSkeleton extends StatelessWidget {
               child: Column(
                 crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
-                  Container(
-                    height: 12,
-                    width: 120,
-                    color: AppColors.border,
-                  ),
+                  Container(height: 12, width: 120, color: AppColors.border),
                   const SizedBox(height: 6),
                   Container(
                     height: 10,
@@ -680,11 +630,7 @@ class _EmptyWidget extends StatelessWidget {
       child: Column(
         mainAxisAlignment: MainAxisAlignment.center,
         children: [
-          const Icon(
-            Icons.people_outline,
-            size: 60,
-            color: AppColors.border,
-          ),
+          const Icon(Icons.people_outline, size: 60, color: AppColors.border),
           const SizedBox(height: 16),
           Text(
             message,
@@ -702,10 +648,7 @@ class _EmptyWidget extends StatelessWidget {
 class _ErrorWidget extends StatelessWidget {
   final String message;
   final VoidCallback onRetry;
-  const _ErrorWidget({
-    required this.message,
-    required this.onRetry,
-  });
+  const _ErrorWidget({required this.message, required this.onRetry});
 
   @override
   Widget build(BuildContext context) {

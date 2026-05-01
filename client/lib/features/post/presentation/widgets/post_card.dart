@@ -4,8 +4,8 @@ import 'package:flutter/material.dart';
 import 'package:flutter/gestures.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:cached_network_image/cached_network_image.dart';
-import 'package:go_router/go_router.dart';
 import 'package:timeago/timeago.dart' as timeago;
+import '../../../../core/router/navigation_extensions.dart';
 import '../../../../core/theme/app_theme.dart';
 import '../../data/models/post_model.dart';
 import '../providers/feed_provider.dart';
@@ -150,7 +150,7 @@ class _PostCardState extends ConsumerState<PostCard>
           GestureDetector(
             onTap: () {
               if (post.user != null) {
-                context.push('/profile/${post.user!.username}');
+                context.pushIfNotCurrent('/profile/${post.user!.username}');
               }
             },
             child: _buildAvatar(post.user?.profilePicUrl, 36),
@@ -163,7 +163,7 @@ class _PostCardState extends ConsumerState<PostCard>
             child: GestureDetector(
               onTap: () {
                 if (post.user != null) {
-                  context.push('/profile/${post.user!.username}');
+                  context.pushIfNotCurrent('/profile/${post.user!.username}');
                 }
               },
               child: Column(
@@ -360,7 +360,7 @@ class _PostCardState extends ConsumerState<PostCard>
           // Comment button
           _ActionButton(
             icon: Icons.chat_bubble_outline,
-            onTap: () => context.push('/post/${post.id}'),
+            onTap: () => context.pushIfNotCurrent('/post/${post.id}'),
           ),
 
           // Share button
@@ -391,7 +391,7 @@ class _PostCardState extends ConsumerState<PostCard>
     return Padding(
       padding: const EdgeInsets.symmetric(horizontal: 12),
       child: GestureDetector(
-        onTap: () => context.push('/post/${post.id}/likes'),
+        onTap: () => context.pushIfNotCurrent('/post/${post.id}/likes'),
         child: Text(
           '${_formatCount(post.likeCount)} ${post.likeCount == 1 ? 'like' : 'likes'}',
           style: const TextStyle(
@@ -423,7 +423,7 @@ class _PostCardState extends ConsumerState<PostCard>
     return Padding(
       padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 2),
       child: GestureDetector(
-        onTap: () => context.push('/post/${post.id}'),
+        onTap: () => context.pushIfNotCurrent('/post/${post.id}'),
         child: Text(
           post.commentCount == 1
               ? 'View 1 comment'
@@ -636,38 +636,40 @@ class _CaptionTextState extends State<_CaptionText> {
     );
   }
 
- // In post_card.dart, update _buildCaptionSpans method:
-// FIND this method and REPLACE the hashtag TextSpan:
+  // In post_card.dart, update _buildCaptionSpans method:
+  // FIND this method and REPLACE the hashtag TextSpan:
 
-List<TextSpan> _buildCaptionSpans(
-  String text,
-  BuildContext context,  // ADD context parameter
-) {
-  final spans = <TextSpan>[];
-  final parts = text.split(RegExp(r'(#\w+)'));
+  List<TextSpan> _buildCaptionSpans(
+    String text,
+    BuildContext context, // ADD context parameter
+  ) {
+    final spans = <TextSpan>[];
+    final parts = text.split(RegExp(r'(#\w+)'));
 
-  for (final part in parts) {
-    if (part.startsWith('#')) {
-      final tag = part.substring(1); // Remove #
-      spans.add(TextSpan(
-        text: part,
-        style: const TextStyle(
-          color: AppColors.primary,
-          fontWeight: FontWeight.w500,
-        ),
-        recognizer: TapGestureRecognizer()
-          ..onTap = () {
-            // Navigate to hashtag page
-            context.push('/hashtag/$tag');
-          },
-      ));
-    } else {
-      spans.add(TextSpan(text: part));
+    for (final part in parts) {
+      if (part.startsWith('#')) {
+        final tag = part.substring(1); // Remove #
+        spans.add(
+          TextSpan(
+            text: part,
+            style: const TextStyle(
+              color: AppColors.primary,
+              fontWeight: FontWeight.w500,
+            ),
+            recognizer: TapGestureRecognizer()
+              ..onTap = () {
+                // Navigate to hashtag page
+                context.pushIfNotCurrent('/hashtag/$tag');
+              },
+          ),
+        );
+      } else {
+        spans.add(TextSpan(text: part));
+      }
     }
-  }
 
-  return spans;
-}
+    return spans;
+  }
 }
 
 // ─── ACTION BUTTON ──────────────────────────────────────────

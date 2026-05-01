@@ -20,12 +20,17 @@ import '../../features/profile/presentation/pages/edit_profile_page.dart';
 import '../../features/messages/presentation/pages/messages_page.dart';
 import '../../features/messages/presentation/pages/chat_page.dart';
 import '../../features/story/presentation/pages/story_viewer_page.dart';
+import '../../features/profile/presentation/pages/profile_page.dart';
+import '../../features/profile/presentation/pages/edit_profile_page.dart';
 import '../../features/follow/data/repositories/presentation/pages/followers_page.dart';
 import '../../features/follow/data/repositories/presentation/pages/follow_requests_page.dart';
 import 'main_shell.dart';
 
 // Auth provider
 import '../../features/auth/presentation/providers/auth_provider.dart';
+
+final _rootNavigatorKey = GlobalKey<NavigatorState>();
+final _shellNavigatorKey = GlobalKey<NavigatorState>();
 
 // ─── ROUTE NAMES ────────────────────────────────────────────
 // Use these constants instead of hardcoded strings
@@ -58,6 +63,7 @@ class AppRoutes {
 // Listens to auth state changes and redirects
 final routerProvider = Provider<GoRouter>((ref) {
   return GoRouter(
+    navigatorKey: _rootNavigatorKey,
     // Starting route
     initialLocation: AppRoutes.splash,
 
@@ -112,13 +118,13 @@ final routerProvider = Provider<GoRouter>((ref) {
       ),
 
       GoRoute(
-        path: '/hashtag/:tag',
+        path: AppRoutes.hashtag,
         name: 'hashtag',
         builder: (context, state) {
-           final tag = state.pathParameters['tag'] ?? '';
-         return HashtagPage(tag: tag);
-  },
-),
+          final tag = state.pathParameters['tag'] ?? '';
+          return HashtagPage(tag: tag);
+        },
+      ),
 
       // ── AUTH ROUTES ─────────────────────────────────
       GoRoute(
@@ -130,7 +136,6 @@ final routerProvider = Provider<GoRouter>((ref) {
       GoRoute(
         path: AppRoutes.register,
         name: 'register',
-        builder: (context, state) => const RegisterPage(),
         // Slide from right animation
         pageBuilder: (context, state) => CustomTransitionPage(
           key: state.pageKey,
@@ -153,9 +158,8 @@ final routerProvider = Provider<GoRouter>((ref) {
       // ── MAIN APP ROUTES ─────────────────────────────
       // These use ShellRoute to keep bottom nav visible
       ShellRoute(
-        builder: (context, state, child) {
-          return MainShell(child: child);
-        },
+        navigatorKey: _shellNavigatorKey,
+        builder: (context, state, child) => MainShell(child: child),
         routes: [
           // Home Feed
           GoRoute(
@@ -203,6 +207,7 @@ final routerProvider = Provider<GoRouter>((ref) {
 
       // Create Post (full screen)
       GoRoute(
+        parentNavigatorKey: _rootNavigatorKey,
         path: AppRoutes.createPost,
         name: 'createPost',
         pageBuilder: (context, state) => CustomTransitionPage(
@@ -225,6 +230,7 @@ final routerProvider = Provider<GoRouter>((ref) {
 
       // Post Detail
       GoRoute(
+        parentNavigatorKey: _rootNavigatorKey,
         path: AppRoutes.postDetail,
         name: 'postDetail',
         builder: (context, state) {
@@ -235,6 +241,7 @@ final routerProvider = Provider<GoRouter>((ref) {
 
       // Post Likes
       GoRoute(
+        parentNavigatorKey: _rootNavigatorKey,
         path: AppRoutes.postLikes,
         name: 'postLikes',
         builder: (context, state) {
@@ -245,6 +252,7 @@ final routerProvider = Provider<GoRouter>((ref) {
 
       // Edit Profile
       GoRoute(
+        parentNavigatorKey: _rootNavigatorKey,
         path: AppRoutes.editProfile,
         name: 'editProfile',
         builder: (context, state) => const EditProfilePage(),
@@ -252,6 +260,7 @@ final routerProvider = Provider<GoRouter>((ref) {
 
       // Chat / Conversation
       GoRoute(
+        parentNavigatorKey: _rootNavigatorKey,
         path: AppRoutes.chat,
         name: 'chat',
         builder: (context, state) {
@@ -262,6 +271,7 @@ final routerProvider = Provider<GoRouter>((ref) {
 
       // Story Viewer
       GoRoute(
+        parentNavigatorKey: _rootNavigatorKey,
         path: AppRoutes.story,
         name: 'story',
         pageBuilder: (context, state) => CustomTransitionPage(
@@ -275,6 +285,7 @@ final routerProvider = Provider<GoRouter>((ref) {
 
       // Followers List
       GoRoute(
+        parentNavigatorKey: _rootNavigatorKey,
         path: AppRoutes.followers,
         name: 'followers',
         builder: (context, state) {
@@ -286,6 +297,7 @@ final routerProvider = Provider<GoRouter>((ref) {
 
       // Following List
       GoRoute(
+        parentNavigatorKey: _rootNavigatorKey,
         path: AppRoutes.following,
         name: 'following',
         builder: (context, state) {
@@ -297,6 +309,7 @@ final routerProvider = Provider<GoRouter>((ref) {
 
       // Follow Requests
       GoRoute(
+        parentNavigatorKey: _rootNavigatorKey,
         path: AppRoutes.followRequests,
         name: 'followRequests',
         builder: (context, state) => const FollowRequestsPage(),

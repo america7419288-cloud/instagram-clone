@@ -3,10 +3,9 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:cached_network_image/cached_network_image.dart';
-import 'package:go_router/go_router.dart';
 import 'package:timeago/timeago.dart' as timeago;
+import '../../../../core/router/navigation_extensions.dart';
 import '../../../../core/theme/app_theme.dart';
-import '../../../../core/router/app_router.dart';
 import '../../data/models/notification_model.dart';
 import 'providers/notification_provider.dart';
 
@@ -14,12 +13,10 @@ class NotificationsPage extends ConsumerStatefulWidget {
   const NotificationsPage({super.key});
 
   @override
-  ConsumerState<NotificationsPage> createState() =>
-      _NotificationsPageState();
+  ConsumerState<NotificationsPage> createState() => _NotificationsPageState();
 }
 
-class _NotificationsPageState
-    extends ConsumerState<NotificationsPage> {
+class _NotificationsPageState extends ConsumerState<NotificationsPage> {
   final ScrollController _scrollController = ScrollController();
 
   @override
@@ -66,9 +63,8 @@ class _NotificationsPageState
           // Mark all read button
           if (state.unreadCount > 0)
             TextButton(
-              onPressed: () => ref
-                  .read(notificationProvider.notifier)
-                  .markAllAsRead(),
+              onPressed: () =>
+                  ref.read(notificationProvider.notifier).markAllAsRead(),
               child: const Text(
                 'Mark all read',
                 style: TextStyle(
@@ -83,8 +79,7 @@ class _NotificationsPageState
 
       // ─── BODY ─────────────────────────────────────────────
       body: RefreshIndicator(
-        onRefresh: () =>
-            ref.read(notificationProvider.notifier).refresh(),
+        onRefresh: () => ref.read(notificationProvider.notifier).refresh(),
         color: AppColors.primary,
         child: _buildBody(state),
       ),
@@ -98,12 +93,10 @@ class _NotificationsPageState
     }
 
     // Error
-    if (state.errorMessage != null &&
-        state.notifications.isEmpty) {
+    if (state.errorMessage != null && state.notifications.isEmpty) {
       return _ErrorState(
         message: state.errorMessage!,
-        onRetry: () =>
-            ref.read(notificationProvider.notifier).refresh(),
+        onRetry: () => ref.read(notificationProvider.notifier).refresh(),
       );
     }
 
@@ -170,19 +163,17 @@ class _NotificationsPageState
   void _handleNotificationTap(NotificationModel notification) {
     // Mark as read
     if (!notification.isRead) {
-      ref
-          .read(notificationProvider.notifier)
-          .markAsRead(notification.id);
+      ref.read(notificationProvider.notifier).markAsRead(notification.id);
     }
 
     // Navigate based on notification type
     if (notification.referencePostId != null) {
-      context.push('/post/${notification.referencePostId}');
+      context.pushIfNotCurrent('/post/${notification.referencePostId}');
     } else if (notification.sender != null &&
         (notification.isFollow ||
             notification.isFollowRequest ||
             notification.isFollowAccept)) {
-      context.push('/profile/${notification.sender!.username}');
+      context.pushIfNotCurrent('/profile/${notification.sender!.username}');
     }
   }
 }
@@ -209,11 +200,7 @@ class _NotificationItem extends StatelessWidget {
         alignment: Alignment.centerRight,
         padding: const EdgeInsets.only(right: 20),
         color: AppColors.secondary,
-        child: const Icon(
-          Icons.delete_outline,
-          color: Colors.white,
-          size: 24,
-        ),
+        child: const Icon(Icons.delete_outline, color: Colors.white, size: 24),
       ),
       child: InkWell(
         onTap: onTap,
@@ -221,10 +208,7 @@ class _NotificationItem extends StatelessWidget {
           color: notification.isRead
               ? Colors.transparent
               : AppColors.primary.withOpacity(0.04),
-          padding: const EdgeInsets.symmetric(
-            horizontal: 16,
-            vertical: 10,
-          ),
+          padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 10),
           child: Row(
             crossAxisAlignment: CrossAxisAlignment.center,
             children: [
@@ -318,11 +302,7 @@ class _NotificationItem extends StatelessWidget {
               shape: BoxShape.circle,
               border: Border.all(color: Colors.white, width: 1.5),
             ),
-            child: Icon(
-              _typeIcon(),
-              color: Colors.white,
-              size: 11,
-            ),
+            child: Icon(_typeIcon(), color: Colors.white, size: 11),
           ),
         ),
       ],
@@ -352,8 +332,7 @@ class _NotificationItem extends StatelessWidget {
     // Split message: "username action text"
     // Make username bold, rest normal
     if (notification.message.startsWith(username)) {
-      final rest = notification.message
-          .substring(username.length);
+      final rest = notification.message.substring(username.length);
       return RichText(
         maxLines: 2,
         overflow: TextOverflow.ellipsis,
@@ -366,9 +345,7 @@ class _NotificationItem extends StatelessWidget {
           children: [
             TextSpan(
               text: username,
-              style: const TextStyle(
-                fontWeight: FontWeight.w600,
-              ),
+              style: const TextStyle(fontWeight: FontWeight.w600),
             ),
             TextSpan(text: rest),
           ],
@@ -477,8 +454,7 @@ class _FollowButton extends ConsumerStatefulWidget {
   });
 
   @override
-  ConsumerState<_FollowButton> createState() =>
-      _FollowButtonState();
+  ConsumerState<_FollowButton> createState() => _FollowButtonState();
 }
 
 class _FollowButtonState extends ConsumerState<_FollowButton> {
@@ -492,13 +468,8 @@ class _FollowButtonState extends ConsumerState<_FollowButton> {
         onPressed: () {},
         style: OutlinedButton.styleFrom(
           side: const BorderSide(color: AppColors.border),
-          shape: RoundedRectangleBorder(
-            borderRadius: BorderRadius.circular(8),
-          ),
-          padding: const EdgeInsets.symmetric(
-            horizontal: 12,
-            vertical: 6,
-          ),
+          shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(8)),
+          padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
           minimumSize: Size.zero,
           tapTargetSize: MaterialTapTargetSize.shrinkWrap,
         ),
@@ -519,13 +490,8 @@ class _FollowButtonState extends ConsumerState<_FollowButton> {
         backgroundColor: AppColors.primary,
         foregroundColor: Colors.white,
         elevation: 0,
-        shape: RoundedRectangleBorder(
-          borderRadius: BorderRadius.circular(8),
-        ),
-        padding: const EdgeInsets.symmetric(
-          horizontal: 12,
-          vertical: 6,
-        ),
+        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(8)),
+        padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
         minimumSize: Size.zero,
         tapTargetSize: MaterialTapTargetSize.shrinkWrap,
       ),
@@ -540,10 +506,7 @@ class _FollowButtonState extends ConsumerState<_FollowButton> {
             )
           : Text(
               widget.isFollowRequest ? 'Confirm' : 'Follow',
-              style: const TextStyle(
-                fontSize: 13,
-                fontWeight: FontWeight.w600,
-              ),
+              style: const TextStyle(fontSize: 13, fontWeight: FontWeight.w600),
             ),
     );
   }
@@ -573,10 +536,7 @@ class _NotificationsSkeleton extends StatelessWidget {
     return ListView.builder(
       itemCount: 8,
       itemBuilder: (_, __) => Padding(
-        padding: const EdgeInsets.symmetric(
-          horizontal: 16,
-          vertical: 10,
-        ),
+        padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 10),
         child: Row(
           children: [
             const SizedBox(width: 16),
@@ -646,10 +606,7 @@ class _EmptyNotifications extends StatelessWidget {
               height: 80,
               decoration: BoxDecoration(
                 shape: BoxShape.circle,
-                border: Border.all(
-                  color: AppColors.textPrimary,
-                  width: 2,
-                ),
+                border: Border.all(color: AppColors.textPrimary, width: 2),
               ),
               child: const Icon(
                 Icons.favorite_border,
@@ -660,10 +617,7 @@ class _EmptyNotifications extends StatelessWidget {
             const SizedBox(height: 20),
             const Text(
               'Activity On Your Posts',
-              style: TextStyle(
-                fontSize: 20,
-                fontWeight: FontWeight.bold,
-              ),
+              style: TextStyle(fontSize: 20, fontWeight: FontWeight.bold),
             ),
             const SizedBox(height: 12),
             const Text(
@@ -687,10 +641,7 @@ class _ErrorState extends StatelessWidget {
   final String message;
   final VoidCallback onRetry;
 
-  const _ErrorState({
-    required this.message,
-    required this.onRetry,
-  });
+  const _ErrorState({required this.message, required this.onRetry});
 
   @override
   Widget build(BuildContext context) {
@@ -709,9 +660,7 @@ class _ErrorState extends StatelessWidget {
             Text(
               message,
               textAlign: TextAlign.center,
-              style: const TextStyle(
-                color: AppColors.textSecondary,
-              ),
+              style: const TextStyle(color: AppColors.textSecondary),
             ),
             const SizedBox(height: 24),
             ElevatedButton(

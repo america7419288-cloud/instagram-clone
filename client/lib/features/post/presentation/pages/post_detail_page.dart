@@ -5,8 +5,9 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:cached_network_image/cached_network_image.dart';
 import 'package:go_router/go_router.dart';
 import 'package:timeago/timeago.dart' as timeago;
+import '../../../../core/router/navigation_extensions.dart';
 import '../../../../core/theme/app_theme.dart';
-import '../../../../core/router/app_router.dart';
+import '../../../follow/data/repositories/presentation/providers/widgets/follow_button.dart';
 import '../../data/models/post_model.dart';
 import '../../data/models/comment_model.dart';
 import '../../data/repositories/post_service.dart';
@@ -16,10 +17,7 @@ import '../providers/comment_provider.dart';
 class PostDetailPage extends ConsumerStatefulWidget {
   final String postId;
 
-  const PostDetailPage({
-    super.key,
-    required this.postId,
-  });
+  const PostDetailPage({super.key, required this.postId});
 
   @override
   ConsumerState<PostDetailPage> createState() => _PostDetailPageState();
@@ -78,8 +76,7 @@ class _PostDetailPageState extends ConsumerState<PostDetailPage> {
     if (content.isEmpty) return;
 
     final commentState = ref.read(commentProvider(widget.postId));
-    final notifier =
-        ref.read(commentProvider(widget.postId).notifier);
+    final notifier = ref.read(commentProvider(widget.postId).notifier);
 
     _commentController.clear();
     _commentFocus.unfocus();
@@ -143,10 +140,7 @@ class _PostDetailPageState extends ConsumerState<PostDetailPage> {
         scrolledUnderElevation: 0,
         leading: IconButton(
           onPressed: () => context.pop(),
-          icon: const Icon(
-            Icons.arrow_back,
-            color: AppColors.textPrimary,
-          ),
+          icon: const Icon(Icons.arrow_back, color: AppColors.textPrimary),
         ),
         title: const Text(
           'Post',
@@ -159,10 +153,7 @@ class _PostDetailPageState extends ConsumerState<PostDetailPage> {
         actions: [
           IconButton(
             onPressed: () {},
-            icon: const Icon(
-              Icons.more_horiz,
-              color: AppColors.textPrimary,
-            ),
+            icon: const Icon(Icons.more_horiz, color: AppColors.textPrimary),
           ),
         ],
       ),
@@ -174,54 +165,45 @@ class _PostDetailPageState extends ConsumerState<PostDetailPage> {
           Expanded(
             child: _isLoadingPost
                 ? const Center(
-                    child: CircularProgressIndicator(
-                      color: AppColors.primary,
-                    ),
+                    child: CircularProgressIndicator(color: AppColors.primary),
                   )
                 : _post == null
-                    ? const Center(
-                        child: Text('Post not found'),
-                      )
-                    : CustomScrollView(
-                        controller: _scrollController,
-                        slivers: [
-                          // Post header + image + actions
-                          SliverToBoxAdapter(
-                            child: _buildPostSection(_post!),
-                          ),
+                ? const Center(child: Text('Post not found'))
+                : CustomScrollView(
+                    controller: _scrollController,
+                    slivers: [
+                      // Post header + image + actions
+                      SliverToBoxAdapter(child: _buildPostSection(_post!)),
 
-                          // Comments divider
-                          const SliverToBoxAdapter(
-                            child: Divider(
-                              height: 1,
-                              color: AppColors.border,
-                            ),
-                          ),
-
-                          // Comments header
-                          SliverToBoxAdapter(
-                            child: _buildCommentsHeader(commentState),
-                          ),
-
-                          // Comments list
-                          _buildCommentsList(commentState),
-
-                          // Loading more indicator
-                          SliverToBoxAdapter(
-                            child: commentState.isLoadingMore
-                                ? const Padding(
-                                    padding: EdgeInsets.all(16),
-                                    child: Center(
-                                      child: CircularProgressIndicator(
-                                        color: AppColors.primary,
-                                        strokeWidth: 2,
-                                      ),
-                                    ),
-                                  )
-                                : const SizedBox(height: 80),
-                          ),
-                        ],
+                      // Comments divider
+                      const SliverToBoxAdapter(
+                        child: Divider(height: 1, color: AppColors.border),
                       ),
+
+                      // Comments header
+                      SliverToBoxAdapter(
+                        child: _buildCommentsHeader(commentState),
+                      ),
+
+                      // Comments list
+                      _buildCommentsList(commentState),
+
+                      // Loading more indicator
+                      SliverToBoxAdapter(
+                        child: commentState.isLoadingMore
+                            ? const Padding(
+                                padding: EdgeInsets.all(16),
+                                child: Center(
+                                  child: CircularProgressIndicator(
+                                    color: AppColors.primary,
+                                    strokeWidth: 2,
+                                  ),
+                                ),
+                              )
+                            : const SizedBox(height: 80),
+                      ),
+                    ],
+                  ),
           ),
 
           // Comment input (always at bottom)
@@ -241,8 +223,7 @@ class _PostDetailPageState extends ConsumerState<PostDetailPage> {
         _buildPostHeader(post),
 
         // Image carousel
-        if (post.media.isNotEmpty)
-          _buildImageSection(post),
+        if (post.media.isNotEmpty) _buildImageSection(post),
 
         // Action buttons
         _buildPostActions(post),
@@ -252,7 +233,7 @@ class _PostDetailPageState extends ConsumerState<PostDetailPage> {
           Padding(
             padding: const EdgeInsets.fromLTRB(12, 4, 12, 0),
             child: GestureDetector(
-              onTap: () => context.push('/post/${post.id}/likes'),
+              onTap: () => context.pushIfNotCurrent('/post/${post.id}/likes'),
               child: Text(
                 '${_formatCount(post.likeCount)} likes',
                 style: const TextStyle(
@@ -277,9 +258,7 @@ class _PostDetailPageState extends ConsumerState<PostDetailPage> {
                 children: [
                   TextSpan(
                     text: '${post.user?.username ?? ''} ',
-                    style: const TextStyle(
-                      fontWeight: FontWeight.w600,
-                    ),
+                    style: const TextStyle(fontWeight: FontWeight.w600),
                   ),
                   ..._buildCaptionSpans(post.caption!),
                 ],
@@ -304,20 +283,19 @@ class _PostDetailPageState extends ConsumerState<PostDetailPage> {
   }
 
   Widget _buildPostHeader(PostModel post) {
+    final author = post.user;
+
     return Padding(
-      padding: const EdgeInsets.symmetric(
-        horizontal: 12,
-        vertical: 10,
-      ),
+      padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 10),
       child: Row(
         children: [
           GestureDetector(
             onTap: () {
-              if (post.user != null) {
-                context.push('/profile/${post.user!.username}');
+              if (author != null) {
+                context.pushIfNotCurrent('/profile/${author.username}');
               }
             },
-            child: _buildAvatar(post.user?.profilePicUrl, 36),
+            child: _buildAvatar(author?.profilePicUrl, 36),
           ),
           const SizedBox(width: 10),
           Expanded(
@@ -325,7 +303,7 @@ class _PostDetailPageState extends ConsumerState<PostDetailPage> {
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
                 Text(
-                  post.user?.username ?? '',
+                  author?.username ?? '',
                   style: const TextStyle(
                     fontWeight: FontWeight.w600,
                     fontSize: 14,
@@ -342,6 +320,10 @@ class _PostDetailPageState extends ConsumerState<PostDetailPage> {
               ],
             ),
           ),
+          if (!post.isOwnPost && author != null && author.id.isNotEmpty) ...[
+            FollowButton(targetUserId: author.id, compact: true),
+            const SizedBox(width: 8),
+          ],
           const Icon(Icons.more_horiz),
         ],
       ),
@@ -356,10 +338,8 @@ class _PostDetailPageState extends ConsumerState<PostDetailPage> {
           child: post.isCarousel
               ? PageView.builder(
                   itemCount: post.media.length,
-                  onPageChanged: (i) =>
-                      setState(() => _currentImageIndex = i),
-                  itemBuilder: (_, i) =>
-                      _buildMediaItem(post.media[i]),
+                  onPageChanged: (i) => setState(() => _currentImageIndex = i),
+                  itemBuilder: (_, i) => _buildMediaItem(post.media[i]),
                 )
               : _buildMediaItem(post.media.first),
         ),
@@ -415,12 +395,8 @@ class _PostDetailPageState extends ConsumerState<PostDetailPage> {
           IconButton(
             onPressed: _toggleLike,
             icon: Icon(
-              post.isLiked
-                  ? Icons.favorite
-                  : Icons.favorite_border,
-              color: post.isLiked
-                  ? AppColors.secondary
-                  : AppColors.textPrimary,
+              post.isLiked ? Icons.favorite : Icons.favorite_border,
+              color: post.isLiked ? AppColors.secondary : AppColors.textPrimary,
               size: 26,
             ),
           ),
@@ -447,9 +423,7 @@ class _PostDetailPageState extends ConsumerState<PostDetailPage> {
           IconButton(
             onPressed: _toggleSave,
             icon: Icon(
-              post.isSaved
-                  ? Icons.bookmark
-                  : Icons.bookmark_border,
+              post.isSaved ? Icons.bookmark : Icons.bookmark_border,
               size: 26,
               color: AppColors.textPrimary,
             ),
@@ -470,10 +444,7 @@ class _PostDetailPageState extends ConsumerState<PostDetailPage> {
             state.comments.isEmpty
                 ? 'No comments yet'
                 : '${state.comments.length} comments',
-            style: const TextStyle(
-              fontWeight: FontWeight.bold,
-              fontSize: 15,
-            ),
+            style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 15),
           ),
           if (state.isLoading)
             const SizedBox(
@@ -505,18 +476,12 @@ class _PostDetailPageState extends ConsumerState<PostDetailPage> {
               const SizedBox(height: 12),
               const Text(
                 'No comments yet.',
-                style: TextStyle(
-                  fontWeight: FontWeight.bold,
-                  fontSize: 18,
-                ),
+                style: TextStyle(fontWeight: FontWeight.bold, fontSize: 18),
               ),
               const SizedBox(height: 8),
               const Text(
                 'Start the conversation.',
-                style: TextStyle(
-                  color: AppColors.textSecondary,
-                  fontSize: 14,
-                ),
+                style: TextStyle(color: AppColors.textSecondary, fontSize: 14),
               ),
             ],
           ),
@@ -525,39 +490,36 @@ class _PostDetailPageState extends ConsumerState<PostDetailPage> {
     }
 
     return SliverList(
-      delegate: SliverChildBuilderDelegate(
-        (context, index) {
-          final comment = commentState.comments[index];
-          final replies = commentState.replies[comment.id] ?? [];
-          final isLoadingReplies =
-              commentState.loadingReplies[comment.id] ?? false;
+      delegate: SliverChildBuilderDelegate((context, index) {
+        final comment = commentState.comments[index];
+        final replies = commentState.replies[comment.id] ?? [];
+        final isLoadingReplies =
+            commentState.loadingReplies[comment.id] ?? false;
 
-          return _CommentItem(
-            comment: comment,
-            replies: replies,
-            isLoadingReplies: isLoadingReplies,
-            onLike: () => ref
+        return _CommentItem(
+          comment: comment,
+          replies: replies,
+          isLoadingReplies: isLoadingReplies,
+          onLike: () => ref
+              .read(commentProvider(widget.postId).notifier)
+              .toggleCommentLike(comment.id),
+          onReply: () {
+            ref
                 .read(commentProvider(widget.postId).notifier)
-                .toggleCommentLike(comment.id),
-            onReply: () {
-              ref
-                  .read(commentProvider(widget.postId).notifier)
-                  .setReplyingTo(comment);
-              _commentFocus.requestFocus();
-            },
-            onLoadReplies: () => ref
-                .read(commentProvider(widget.postId).notifier)
-                .loadReplies(comment.id),
-            onDelete: comment.isOwnComment
-                ? () => _confirmDeleteComment(comment.id)
-                : null,
-            onReplyLike: (replyId) => ref
-                .read(commentProvider(widget.postId).notifier)
-                .toggleCommentLike(replyId),
-          );
-        },
-        childCount: commentState.comments.length,
-      ),
+                .setReplyingTo(comment);
+            _commentFocus.requestFocus();
+          },
+          onLoadReplies: () => ref
+              .read(commentProvider(widget.postId).notifier)
+              .loadReplies(comment.id),
+          onDelete: comment.isOwnComment
+              ? () => _confirmDeleteComment(comment.id)
+              : null,
+          onReplyLike: (replyId) => ref
+              .read(commentProvider(widget.postId).notifier)
+              .toggleCommentLike(replyId),
+        );
+      }, childCount: commentState.comments.length),
     );
   }
 
@@ -566,9 +528,7 @@ class _PostDetailPageState extends ConsumerState<PostDetailPage> {
     return Container(
       decoration: const BoxDecoration(
         color: AppColors.white,
-        border: Border(
-          top: BorderSide(color: AppColors.border),
-        ),
+        border: Border(top: BorderSide(color: AppColors.border)),
       ),
       child: SafeArea(
         child: Column(
@@ -595,8 +555,7 @@ class _PostDetailPageState extends ConsumerState<PostDetailPage> {
                     ),
                     GestureDetector(
                       onTap: () => ref
-                          .read(commentProvider(widget.postId)
-                              .notifier)
+                          .read(commentProvider(widget.postId).notifier)
                           .setReplyingTo(null),
                       child: const Icon(
                         Icons.close,
@@ -610,10 +569,7 @@ class _PostDetailPageState extends ConsumerState<PostDetailPage> {
 
             // Input row
             Padding(
-              padding: const EdgeInsets.symmetric(
-                horizontal: 12,
-                vertical: 8,
-              ),
+              padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
               child: Row(
                 children: [
                   // User avatar
@@ -634,9 +590,7 @@ class _PostDetailPageState extends ConsumerState<PostDetailPage> {
                               controller: _commentController,
                               focusNode: _commentFocus,
                               decoration: InputDecoration(
-                                hintText: commentState
-                                            .replyingTo !=
-                                        null
+                                hintText: commentState.replyingTo != null
                                     ? 'Reply to @${commentState.replyingTo!.user?.username ?? ''}...'
                                     : 'Add a comment...',
                                 hintStyle: const TextStyle(
@@ -644,15 +598,13 @@ class _PostDetailPageState extends ConsumerState<PostDetailPage> {
                                   fontSize: 14,
                                 ),
                                 border: InputBorder.none,
-                                contentPadding:
-                                    const EdgeInsets.symmetric(
+                                contentPadding: const EdgeInsets.symmetric(
                                   horizontal: 16,
                                   vertical: 10,
                                 ),
                               ),
                               maxLines: null,
-                              textCapitalization:
-                                  TextCapitalization.sentences,
+                              textCapitalization: TextCapitalization.sentences,
                               onSubmitted: (_) => _submitComment(),
                             ),
                           ),
@@ -707,9 +659,7 @@ class _PostDetailPageState extends ConsumerState<PostDetailPage> {
     final confirmed = await showDialog<bool>(
       context: context,
       builder: (ctx) => AlertDialog(
-        shape: RoundedRectangleBorder(
-          borderRadius: BorderRadius.circular(12),
-        ),
+        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
         title: const Text('Delete Comment'),
         content: const Text(
           'Are you sure you want to delete this comment?'
@@ -722,9 +672,7 @@ class _PostDetailPageState extends ConsumerState<PostDetailPage> {
           ),
           TextButton(
             onPressed: () => Navigator.pop(ctx, true),
-            style: TextButton.styleFrom(
-              foregroundColor: AppColors.secondary,
-            ),
+            style: TextButton.styleFrom(foregroundColor: AppColors.secondary),
             child: const Text('Delete'),
           ),
         ],
@@ -753,15 +701,10 @@ class _PostDetailPageState extends ConsumerState<PostDetailPage> {
             ? CachedNetworkImage(
                 imageUrl: imageUrl,
                 fit: BoxFit.cover,
-                errorWidget: (_, __, ___) => const Icon(
-                  Icons.person,
-                  color: AppColors.textSecondary,
-                ),
+                errorWidget: (_, __, ___) =>
+                    const Icon(Icons.person, color: AppColors.textSecondary),
               )
-            : const Icon(
-                Icons.person,
-                color: AppColors.textSecondary,
-              ),
+            : const Icon(Icons.person, color: AppColors.textSecondary),
       ),
     );
   }
@@ -771,10 +714,12 @@ class _PostDetailPageState extends ConsumerState<PostDetailPage> {
     final parts = text.split(RegExp(r'(#\w+)'));
     for (final part in parts) {
       if (part.startsWith('#')) {
-        spans.add(TextSpan(
-          text: part,
-          style: const TextStyle(color: AppColors.primary),
-        ));
+        spans.add(
+          TextSpan(
+            text: part,
+            style: const TextStyle(color: AppColors.primary),
+          ),
+        );
       } else {
         spans.add(TextSpan(text: part));
       }
@@ -899,12 +844,7 @@ class _CommentItem extends StatelessWidget {
         : '';
 
     return Padding(
-      padding: EdgeInsets.fromLTRB(
-        12,
-        isReply ? 4 : 8,
-        12,
-        4,
-      ),
+      padding: EdgeInsets.fromLTRB(12, isReply ? 4 : 8, 12, 4),
       child: Row(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
@@ -912,7 +852,7 @@ class _CommentItem extends StatelessWidget {
           GestureDetector(
             onTap: () {
               if (comment.user != null) {
-                context.push('/profile/${comment.user!.username}');
+                context.pushIfNotCurrent('/profile/${comment.user!.username}');
               }
             },
             child: Container(
@@ -987,9 +927,7 @@ class _CommentItem extends StatelessWidget {
                     children: [
                       TextSpan(
                         text: '${comment.user?.username ?? ''} ',
-                        style: const TextStyle(
-                          fontWeight: FontWeight.w600,
-                        ),
+                        style: const TextStyle(fontWeight: FontWeight.w600),
                       ),
                       TextSpan(text: comment.content),
                     ],
@@ -1018,8 +956,7 @@ class _CommentItem extends StatelessWidget {
                           fontWeight: FontWeight.w600,
                         ),
                       ),
-                    if (comment.likeCount > 0)
-                      const SizedBox(width: 16),
+                    if (comment.likeCount > 0) const SizedBox(width: 16),
                     GestureDetector(
                       onTap: onReply,
                       child: const Text(
@@ -1056,9 +993,7 @@ class _CommentItem extends StatelessWidget {
             child: Padding(
               padding: const EdgeInsets.only(left: 8, top: 4),
               child: Icon(
-                comment.isLiked
-                    ? Icons.favorite
-                    : Icons.favorite_border,
+                comment.isLiked ? Icons.favorite : Icons.favorite_border,
                 size: 14,
                 color: comment.isLiked
                     ? AppColors.secondary

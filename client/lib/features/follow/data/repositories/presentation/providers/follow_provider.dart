@@ -6,10 +6,10 @@ import '../../follow_service.dart';
 
 // ─── FOLLOW STATUS ENUM ─────────────────────────────────────
 enum FollowStatus {
-  notFollowing,  // Can follow
-  following,     // Already following
-  requested,     // Pending request
-  loading,       // API call in progress
+  notFollowing, // Can follow
+  following, // Already following
+  requested, // Pending request
+  loading, // API call in progress
 }
 
 // ─── FOLLOW STATE (per user) ────────────────────────────────
@@ -52,7 +52,7 @@ class FollowNotifier extends StateNotifier<FollowState> {
   final String targetUserId;
 
   FollowNotifier(this._service, this.targetUserId)
-      : super(const FollowState()) {
+    : super(const FollowState()) {
     _loadFollowStatus();
   }
 
@@ -66,9 +66,11 @@ class FollowNotifier extends StateNotifier<FollowState> {
       FollowStatus status;
       switch (followStatusStr) {
         case 'following':
+        case 'accepted':
           status = FollowStatus.following;
           break;
         case 'requested':
+        case 'pending':
           status = FollowStatus.requested;
           break;
         default:
@@ -77,8 +79,10 @@ class FollowNotifier extends StateNotifier<FollowState> {
 
       state = state.copyWith(
         status: status,
-        followersCount: counts['followers'] as int? ?? 0,
-        followingCount: counts['following'] as int? ?? 0,
+        followersCount:
+            data['followers_count'] as int? ?? counts['followers'] as int? ?? 0,
+        followingCount:
+            data['following_count'] as int? ?? counts['following'] as int? ?? 0,
         isOwnProfile: isOwnProfile,
       );
     } catch (e) {
@@ -99,9 +103,7 @@ class FollowNotifier extends StateNotifier<FollowState> {
       );
       try {
         await _service.unfollowUser(targetUserId);
-        state = state.copyWith(
-          status: FollowStatus.notFollowing,
-        );
+        state = state.copyWith(status: FollowStatus.notFollowing);
       } catch (e) {
         // Revert
         state = state.copyWith(
@@ -115,9 +117,7 @@ class FollowNotifier extends StateNotifier<FollowState> {
       state = state.copyWith(status: FollowStatus.loading);
       try {
         await _service.cancelFollowRequest(targetUserId);
-        state = state.copyWith(
-          status: FollowStatus.notFollowing,
-        );
+        state = state.copyWith(status: FollowStatus.notFollowing);
       } catch (e) {
         state = state.copyWith(status: previousStatus);
         rethrow;
@@ -128,13 +128,12 @@ class FollowNotifier extends StateNotifier<FollowState> {
       try {
         final data = await _service.followUser(targetUserId);
         final newStatus = data['follow_status'] as String?;
+        final isFollowing = newStatus == 'following' || newStatus == 'accepted';
 
         state = state.copyWith(
-          status: newStatus == 'following'
-              ? FollowStatus.following
-              : FollowStatus.requested,
-          followersCount: newStatus == 'following'
-              ? state.followersCount + 1
+          status: isFollowing ? FollowStatus.following : FollowStatus.requested,
+          followersCount: isFollowing
+              ? (data['followers_count'] as int? ?? state.followersCount + 1)
               : state.followersCount,
         );
       } catch (e) {
@@ -175,12 +174,10 @@ class FollowRequestsState {
 }
 
 // ─── FOLLOW REQUESTS NOTIFIER ────────────────────────────────
-class FollowRequestsNotifier
-    extends StateNotifier<FollowRequestsState> {
+class FollowRequestsNotifier extends StateNotifier<FollowRequestsState> {
   final FollowService _service;
 
-  FollowRequestsNotifier(this._service)
-      : super(const FollowRequestsState()) {
+  FollowRequestsNotifier(this._service) : super(const FollowRequestsState()) {
     loadRequests();
   }
 
@@ -191,9 +188,7 @@ class FollowRequestsNotifier
       final requests = result['requests'] as List<dynamic>;
 
       state = state.copyWith(
-        requests: requests
-            .cast<Map<String, dynamic>>()
-            .toList(),
+        requests: requests.cast<Map<String, dynamic>>().toList(),
         isLoading: false,
         pendingCount: requests.length,
       );
@@ -211,11 +206,9 @@ class FollowRequestsNotifier
       // Remove from list
       state = state.copyWith(
         requests: state.requests
-            .where((r) =>
-                r['requester']?['id'] != requesterId)
+            .where((r) => r['requester']?['id'] != requesterId)
             .toList(),
-        pendingCount:
-            state.pendingCount > 0 ? state.pendingCount - 1 : 0,
+        pendingCount: state.pendingCount > 0 ? state.pendingCount - 1 : 0,
       );
     } catch (e) {
       rethrow;
@@ -227,11 +220,9 @@ class FollowRequestsNotifier
       await _service.rejectFollowRequest(requesterId);
       state = state.copyWith(
         requests: state.requests
-            .where((r) =>
-                r['requester']?['id'] != requesterId)
+            .where((r) => r['requester']?['id'] != requesterId)
             .toList(),
-        pendingCount:
-            state.pendingCount > 0 ? state.pendingCount - 1 : 0,
+        pendingCount: state.pendingCount > 0 ? state.pendingCount - 1 : 0,
       );
     } catch (e) {
       rethrow;
@@ -245,19 +236,16 @@ final followServiceProvider = Provider<FollowService>((ref) {
 });
 
 // Per-user follow provider (family)
-final followProvider = StateNotifierProvider.family<
-    FollowNotifier, FollowState, String>(
-  (ref, userId) => FollowNotifier(
-    ref.watch(followServiceProvider),
-    userId,
-  ),
-);
+final followProvider =
+    StateNotifierProvider.family<FollowNotifier, FollowState, String>(
+      (ref, userId) => FollowNotifier(ref.watch(followServiceProvider), userId),
+    );
 
 // Follow requests provider
-final followRequestsProvider = StateNotifierProvider<
-    FollowRequestsNotifier, FollowRequestsState>(
-  (ref) => FollowRequestsNotifier(ref.watch(followServiceProvider)),
-);
+final followRequestsProvider =
+    StateNotifierProvider<FollowRequestsNotifier, FollowRequestsState>(
+      (ref) => FollowRequestsNotifier(ref.watch(followServiceProvider)),
+    );
 
 // Pending requests count (for badge)
 final pendingRequestsCountProvider = Provider<int>((ref) {

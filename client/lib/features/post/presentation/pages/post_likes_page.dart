@@ -4,16 +4,14 @@ import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:cached_network_image/cached_network_image.dart';
 import 'package:go_router/go_router.dart';
+import '../../../../core/router/navigation_extensions.dart';
 import '../../../../core/theme/app_theme.dart';
 import '../../data/repositories/comment_service.dart';
 
 class PostLikesPage extends ConsumerStatefulWidget {
   final String postId;
 
-  const PostLikesPage({
-    super.key,
-    required this.postId,
-  });
+  const PostLikesPage({super.key, required this.postId});
 
   @override
   ConsumerState<PostLikesPage> createState() => _PostLikesPageState();
@@ -33,9 +31,7 @@ class _PostLikesPageState extends ConsumerState<PostLikesPage> {
 
   Future<void> _loadLikers() async {
     try {
-      final likers = await _commentService.getPostLikers(
-        postId: widget.postId,
-      );
+      final likers = await _commentService.getPostLikers(postId: widget.postId);
       if (mounted) {
         setState(() {
           _likers = likers;
@@ -69,55 +65,45 @@ class _PostLikesPageState extends ConsumerState<PostLikesPage> {
         ),
         leading: IconButton(
           onPressed: () => context.pop(),
-          icon: const Icon(
-            Icons.arrow_back,
-            color: AppColors.textPrimary,
-          ),
+          icon: const Icon(Icons.arrow_back, color: AppColors.textPrimary),
         ),
       ),
       body: _isLoading
           ? const Center(
-              child: CircularProgressIndicator(
-                color: AppColors.primary,
-              ),
+              child: CircularProgressIndicator(color: AppColors.primary),
             )
           : _error != null
-              ? Center(child: Text(_error!))
-              : _likers.isEmpty
-                  ? const Center(
-                      child: Column(
-                        mainAxisAlignment: MainAxisAlignment.center,
-                        children: [
-                          Icon(
-                            Icons.favorite_border,
-                            size: 60,
-                            color: AppColors.border,
-                          ),
-                          SizedBox(height: 16),
-                          Text(
-                            'No likes yet',
-                            style: TextStyle(
-                              fontSize: 18,
-                              fontWeight: FontWeight.bold,
-                            ),
-                          ),
-                          SizedBox(height: 8),
-                          Text(
-                            'Be the first to like this post!',
-                            style: TextStyle(
-                              color: AppColors.textSecondary,
-                            ),
-                          ),
-                        ],
-                      ),
-                    )
-                  : ListView.builder(
-                      itemCount: _likers.length,
-                      itemBuilder: (context, index) {
-                        final user = _likers[index];
-                        return _LikerTile(user: user);
-                      },
-                    ),
+          ? Center(child: Text(_error!))
+          : _likers.isEmpty
+          ? const Center(
+              child: Column(
+                mainAxisAlignment: MainAxisAlignment.center,
+                children: [
+                  Icon(
+                    Icons.favorite_border,
+                    size: 60,
+                    color: AppColors.border,
+                  ),
+                  SizedBox(height: 16),
+                  Text(
+                    'No likes yet',
+                    style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold),
+                  ),
+                  SizedBox(height: 8),
+                  Text(
+                    'Be the first to like this post!',
+                    style: TextStyle(color: AppColors.textSecondary),
+                  ),
+                ],
+              ),
+            )
+          : ListView.builder(
+              itemCount: _likers.length,
+              itemBuilder: (context, index) {
+                final user = _likers[index];
+                return _LikerTile(user: user);
+              },
+            ),
     );
   }
 }
@@ -130,7 +116,7 @@ class _LikerTile extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     return ListTile(
-      onTap: () => context.push('/profile/${user['username']}'),
+      onTap: () => context.pushIfNotCurrent('/profile/${user['username']}'),
       leading: Container(
         width: 44,
         height: 44,
@@ -143,42 +129,27 @@ class _LikerTile extends StatelessWidget {
               ? CachedNetworkImage(
                   imageUrl: user['profile_pic_url'],
                   fit: BoxFit.cover,
-                  errorWidget: (_, __, ___) => const Icon(
-                    Icons.person,
-                    color: AppColors.textSecondary,
-                  ),
+                  errorWidget: (_, __, ___) =>
+                      const Icon(Icons.person, color: AppColors.textSecondary),
                 )
-              : const Icon(
-                  Icons.person,
-                  color: AppColors.textSecondary,
-                ),
+              : const Icon(Icons.person, color: AppColors.textSecondary),
         ),
       ),
       title: Row(
         children: [
           Text(
             user['username'] ?? '',
-            style: const TextStyle(
-              fontWeight: FontWeight.w600,
-              fontSize: 14,
-            ),
+            style: const TextStyle(fontWeight: FontWeight.w600, fontSize: 14),
           ),
           if (user['is_verified'] == true) ...[
             const SizedBox(width: 4),
-            const Icon(
-              Icons.verified,
-              size: 14,
-              color: AppColors.primary,
-            ),
+            const Icon(Icons.verified, size: 14, color: AppColors.primary),
           ],
         ],
       ),
       subtitle: Text(
         user['full_name'] ?? '',
-        style: const TextStyle(
-          color: AppColors.textSecondary,
-          fontSize: 13,
-        ),
+        style: const TextStyle(color: AppColors.textSecondary, fontSize: 13),
       ),
       trailing: user['is_following'] == true
           ? OutlinedButton(
@@ -222,10 +193,7 @@ class _LikerTile extends StatelessWidget {
               ),
               child: const Text(
                 'Follow',
-                style: TextStyle(
-                  fontSize: 13,
-                  fontWeight: FontWeight.w600,
-                ),
+                style: TextStyle(fontSize: 13, fontWeight: FontWeight.w600),
               ),
             ),
     );

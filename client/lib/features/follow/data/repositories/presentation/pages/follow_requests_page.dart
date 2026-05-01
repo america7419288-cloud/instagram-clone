@@ -4,6 +4,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:cached_network_image/cached_network_image.dart';
 import 'package:go_router/go_router.dart';
+import '../../../../../../core/router/navigation_extensions.dart';
 import '../../../../../../core/theme/app_theme.dart';
 import '../providers/follow_provider.dart';
 
@@ -29,82 +30,74 @@ class FollowRequestsPage extends ConsumerWidget {
         ),
         leading: IconButton(
           onPressed: () => context.pop(),
-          icon: const Icon(
-            Icons.arrow_back,
-            color: AppColors.textPrimary,
-          ),
+          icon: const Icon(Icons.arrow_back, color: AppColors.textPrimary),
         ),
       ),
       body: state.isLoading
           ? const Center(
-              child: CircularProgressIndicator(
-                color: AppColors.primary,
-              ),
+              child: CircularProgressIndicator(color: AppColors.primary),
             )
           : state.requests.isEmpty
-              ? Center(
-                  child: Column(
-                    mainAxisAlignment: MainAxisAlignment.center,
-                    children: [
-                      const Icon(
-                        Icons.person_add_disabled,
-                        size: 60,
-                        color: AppColors.border,
-                      ),
-                      const SizedBox(height: 16),
-                      const Text(
-                        'No Follow Requests',
-                        style: TextStyle(
-                          fontSize: 18,
-                          fontWeight: FontWeight.bold,
-                        ),
-                      ),
-                      const SizedBox(height: 8),
-                      const Text(
-                        'When someone requests to follow you,\nyou\'ll see them here.',
-                        textAlign: TextAlign.center,
-                        style: TextStyle(
-                          color: AppColors.textSecondary,
-                          fontSize: 14,
-                          height: 1.5,
-                        ),
-                      ),
-                    ],
+          ? Center(
+              child: Column(
+                mainAxisAlignment: MainAxisAlignment.center,
+                children: [
+                  const Icon(
+                    Icons.person_add_disabled,
+                    size: 60,
+                    color: AppColors.border,
                   ),
-                )
-              : ListView.builder(
-                  itemCount: state.requests.length,
-                  itemBuilder: (context, index) {
-                    final request = state.requests[index];
-                    final requester = request['requester']
-                        as Map<String, dynamic>? ?? {};
+                  const SizedBox(height: 16),
+                  const Text(
+                    'No Follow Requests',
+                    style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold),
+                  ),
+                  const SizedBox(height: 8),
+                  const Text(
+                    'When someone requests to follow you,\nyou\'ll see them here.',
+                    textAlign: TextAlign.center,
+                    style: TextStyle(
+                      color: AppColors.textSecondary,
+                      fontSize: 14,
+                      height: 1.5,
+                    ),
+                  ),
+                ],
+              ),
+            )
+          : ListView.builder(
+              itemCount: state.requests.length,
+              itemBuilder: (context, index) {
+                final request = state.requests[index];
+                final requester =
+                    request['requester'] as Map<String, dynamic>? ?? {};
 
-                    return _FollowRequestItem(
-                      requester: requester,
-                      requestedAt: request['requested_at'] as String?,
-                      onAccept: () async {
-                        await ref
-                            .read(followRequestsProvider.notifier)
-                            .acceptRequest(requester['id'] ?? '');
-                        if (context.mounted) {
-                          ScaffoldMessenger.of(context).showSnackBar(
-                            SnackBar(
-                              content: Text(
-                                'You accepted @${requester['username']}\'s request.',
-                              ),
-                              duration: const Duration(seconds: 2),
-                            ),
-                          );
-                        }
-                      },
-                      onDecline: () async {
-                        await ref
-                            .read(followRequestsProvider.notifier)
-                            .rejectRequest(requester['id'] ?? '');
-                      },
-                    );
+                return _FollowRequestItem(
+                  requester: requester,
+                  requestedAt: request['requested_at'] as String?,
+                  onAccept: () async {
+                    await ref
+                        .read(followRequestsProvider.notifier)
+                        .acceptRequest(requester['id'] ?? '');
+                    if (context.mounted) {
+                      ScaffoldMessenger.of(context).showSnackBar(
+                        SnackBar(
+                          content: Text(
+                            'You accepted @${requester['username']}\'s request.',
+                          ),
+                          duration: const Duration(seconds: 2),
+                        ),
+                      );
+                    }
                   },
-                ),
+                  onDecline: () async {
+                    await ref
+                        .read(followRequestsProvider.notifier)
+                        .rejectRequest(requester['id'] ?? '');
+                  },
+                );
+              },
+            ),
     );
   }
 }
@@ -136,21 +129,16 @@ class _FollowRequestItemState extends State<_FollowRequestItem> {
 
     final username = widget.requester['username'] as String? ?? '';
     final fullName = widget.requester['full_name'] as String? ?? '';
-    final profilePicUrl =
-        widget.requester['profile_pic_url'] as String?;
-    final isVerified =
-        widget.requester['is_verified'] as bool? ?? false;
+    final profilePicUrl = widget.requester['profile_pic_url'] as String?;
+    final isVerified = widget.requester['is_verified'] as bool? ?? false;
 
     return Padding(
-      padding: const EdgeInsets.symmetric(
-        horizontal: 16,
-        vertical: 12,
-      ),
+      padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
       child: Row(
         children: [
           // Avatar
           GestureDetector(
-            onTap: () => context.push('/profile/$username'),
+            onTap: () => context.pushIfNotCurrent('/profile/$username'),
             child: Container(
               width: 52,
               height: 52,
@@ -163,8 +151,7 @@ class _FollowRequestItemState extends State<_FollowRequestItem> {
                     ? CachedNetworkImage(
                         imageUrl: profilePicUrl,
                         fit: BoxFit.cover,
-                        errorWidget: (_, __, ___) =>
-                            _defaultAvatar(username),
+                        errorWidget: (_, __, ___) => _defaultAvatar(username),
                       )
                     : _defaultAvatar(username),
               ),
@@ -238,15 +225,11 @@ class _FollowRequestItemState extends State<_FollowRequestItem> {
                       vertical: 8,
                     ),
                     minimumSize: Size.zero,
-                    tapTargetSize:
-                        MaterialTapTargetSize.shrinkWrap,
+                    tapTargetSize: MaterialTapTargetSize.shrinkWrap,
                   ),
                   child: const Text(
                     'Confirm',
-                    style: TextStyle(
-                      fontSize: 13,
-                      fontWeight: FontWeight.w600,
-                    ),
+                    style: TextStyle(fontSize: 13, fontWeight: FontWeight.w600),
                   ),
                 ),
 
@@ -265,8 +248,7 @@ class _FollowRequestItemState extends State<_FollowRequestItem> {
                       vertical: 8,
                     ),
                     minimumSize: Size.zero,
-                    tapTargetSize:
-                        MaterialTapTargetSize.shrinkWrap,
+                    tapTargetSize: MaterialTapTargetSize.shrinkWrap,
                   ),
                   child: const Text(
                     'Delete',
