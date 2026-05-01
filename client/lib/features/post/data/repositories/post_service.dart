@@ -1,5 +1,6 @@
 // lib/features/post/data/repositories/post_service.dart
 
+import 'dart:io';
 import 'package:dio/dio.dart';
 import '../../../../core/network/dio_client.dart';
 import '../../../../core/constants/app_constants.dart';
@@ -9,28 +10,30 @@ class PostService {
   final DioClient _dioClient = DioClient();
 
   // ─── GET FEED ────────────────────────────────────────────
-  Future<Map<String, dynamic>> getFeed({int page = 1, int limit = 12}) async {
+  Future<Map<String, dynamic>> getFeed({
+    int page = 1,
+    int limit = 12,
+  }) async {
     try {
       final response = await _dioClient.get(
         AppConstants.feedEndpoint,
         queryParameters: {'page': page, 'limit': limit},
       );
 
-      final data = response.data as Map<String, dynamic>;
-      final responseData = data['data'];
+      final data = response.data;
 
-      if (responseData is Map<String, dynamic> &&
-          responseData['is_empty_feed'] == true) {
+      // Handle empty feed
+      if (data['data'] is Map &&
+          data['data']['is_empty_feed'] == true) {
         return {
           'posts': <PostModel>[],
-          'pagination': responseData['pagination'],
+          'pagination': data['data']['pagination'],
           'is_empty_feed': true,
         };
       }
 
-      final posts = (responseData as List<dynamic>? ?? [])
-          .whereType<Map<String, dynamic>>()
-          .map(PostModel.fromJson)
+      final posts = (data['data'] as List<dynamic>? ?? [])
+          .map((p) => PostModel.fromJson(p))
           .toList();
 
       return {
@@ -38,6 +41,60 @@ class PostService {
         'pagination': data['pagination'],
         'is_empty_feed': false,
       };
+    } on DioException catch (e) {
+      throw _handleError(e);
+    }
+  }
+
+  // ─── CREATE POST ─────────────────────────────────────────
+  // Upload multiple images + caption to backend
+  Future<PostModel> createPost({
+    required List<File> imageFiles,
+    String? caption,
+    String? location,
+    bool commentsDisabled = false,
+    Function(int sent, int total)? onSendProgress,
+  }) async {
+    try {
+      // Build form data with multiple files
+      final formData = FormData();
+
+      // Add each image file
+      for (int i = 0; i < imageFiles.length; i++) {
+        final file = imageFiles[i];
+        final fileName = 'image_$i.jpg';
+
+        formData.files.add(
+          MapEntry(
+            'media', // Must match backend field name
+            await MultipartFile.fromFile(
+              file.path,
+              filename: fileName,
+              contentType: DioMediaType('image', 'jpeg'),
+            ),
+          ),
+        );
+      }
+
+      // Add text fields
+      if (caption != null && caption.isNotEmpty) {
+        formData.fields.add(MapEntry('caption', caption));
+      }
+      if (location != null && location.isNotEmpty) {
+        formData.fields.add(MapEntry('location', location));
+      }
+      formData.fields.add(
+        MapEntry('comments_disabled', commentsDisabled.toString()),
+      );
+
+      // Upload with progress tracking
+      final response = await _dioClient.uploadFile(
+        AppConstants.postsEndpoint,
+        formData,
+        onSendProgress: onSendProgress,
+      );
+
+      return PostModel.fromJson(response.data['data']['post']);
     } on DioException catch (e) {
       throw _handleError(e);
     }
@@ -70,7 +127,9 @@ class PostService {
   // ─── SAVE POST ───────────────────────────────────────────
   Future<void> savePost(String postId) async {
     try {
-      await _dioClient.post('${AppConstants.postsEndpoint}/$postId/save');
+      await _dioClient.post(
+        '${AppConstants.postsEndpoint}/$postId/save',
+      );
     } on DioException catch (e) {
       throw _handleError(e);
     }
@@ -79,7 +138,9 @@ class PostService {
   // ─── UNSAVE POST ─────────────────────────────────────────
   Future<void> unsavePost(String postId) async {
     try {
-      await _dioClient.delete('${AppConstants.postsEndpoint}/$postId/save');
+      await _dioClient.delete(
+        '${AppConstants.postsEndpoint}/$postId/save',
+      );
     } on DioException catch (e) {
       throw _handleError(e);
     }
@@ -99,7 +160,8 @@ class PostService {
 
   // ─── ERROR HANDLER ───────────────────────────────────────
   Exception _handleError(DioException e) {
-    final message = e.response?.data?['message'] ?? 'Something went wrong';
+    final message =
+        e.response?.data?['message'] ?? 'Something went wrong';
     return Exception(message);
   }
 }

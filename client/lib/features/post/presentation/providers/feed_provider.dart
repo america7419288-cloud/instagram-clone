@@ -207,6 +207,12 @@ class FeedNotifier extends Notifier<FeedState> {
       state = state.copyWith(posts: revertedPosts);
     }
   }
+   void addNewPost(PostModel post) {
+    state = state.copyWith(
+      posts: [post, ...state.posts],
+      isEmptyFeed: false,
+    );
+  }
 }
 
 // ─── PROVIDERS ──────────────────────────────────────────────

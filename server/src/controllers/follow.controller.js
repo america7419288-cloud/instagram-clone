@@ -533,6 +533,29 @@ const acceptFollowRequest = async (req, res) => {
   }
 };
 
+const cancelFollowRequest = async (req, res) => {
+  // Logic is essentially the same as unfollowUser for a pending state
+  return unfollowUser(req, res); 
+};
+
+const blockUser = async (req, res) => {
+  try {
+    // Placeholder for block logic
+    return successResponse(res, 200, 'User blocked successfully.');
+  } catch (error) {
+    return errorResponse(res, 500, 'Failed to block user.');
+  }
+};
+
+const unblockUser = async (req, res) => {
+  try {
+    // Placeholder for unblock logic
+    return successResponse(res, 200, 'User unblocked successfully.');
+  } catch (error) {
+    return errorResponse(res, 500, 'Failed to unblock user.');
+  }
+};
+
 // ─────────────────────────────────────────────────────────────
 // @route   POST /api/v1/users/:id/follow/reject
 // @desc    Reject a follow request
@@ -584,4 +607,9 @@ module.exports = {
   getFollowRequests,
   acceptFollowRequest,
   rejectFollowRequest,
+  blockUser,   // Add this
+  unblockUser, // Add this
+  cancelFollowRequest, // Added this
+  blockUser,          // Added this
+  unblockUser,        // Added this
 };

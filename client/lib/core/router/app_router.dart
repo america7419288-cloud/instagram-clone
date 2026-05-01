@@ -12,6 +12,7 @@ import '../../features/home/presentation/pages/home_page.dart';
 import '../../features/search/presentation/pages/search_page.dart';
 import '../../features/post/presentation/pages/create_post_page.dart';
 import '../../features/post/presentation/pages/post_detail_page.dart';
+import '../../features/post/presentation/pages/post_likes_page.dart';
 import '../../features/notifications/presentation/pages/notifications_page.dart';
 import '../../features/profile/presentation/pages/profile_page.dart';
 import '../../features/profile/presentation/pages/edit_profile_page.dart';
@@ -44,6 +45,7 @@ class AppRoutes {
   static const String story = '/story/:userId';
   static const String followers = '/followers/:username';
   static const String following = '/following/:username';
+  static const String postLikes = '/post/:postId/likes';
 }
 
 // ─── ROUTER PROVIDER ────────────────────────────────────────
@@ -214,6 +216,16 @@ final routerProvider = Provider<GoRouter>((ref) {
         builder: (context, state) {
           final postId = state.pathParameters['postId'] ?? '';
           return PostDetailPage(postId: postId);
+        },
+      ),
+
+      // Post Likes
+      GoRoute(
+        path: AppRoutes.postLikes,
+        name: 'postLikes',
+        builder: (context, state) {
+          final postId = state.pathParameters['postId'] ?? '';
+          return PostLikesPage(postId: postId);
         },
       ),
 

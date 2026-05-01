@@ -32,53 +32,27 @@ class StoriesBar extends ConsumerWidget {
 
     // Placeholder stories (will use real API on Day 16)
     final placeholderStories = [
-      StoryUser(
-        id: 'story_1',
-        username: 'travel_shots',
-        hasUnseenStory: true,
-      ),
-      StoryUser(
-        id: 'story_2',
-        username: 'food_diary',
-        hasUnseenStory: true,
-      ),
-      StoryUser(
-        id: 'story_3',
-        username: 'city_life',
-        hasUnseenStory: false,
-      ),
-      StoryUser(
-        id: 'story_4',
-        username: 'sunset_pics',
-        hasUnseenStory: true,
-      ),
-      StoryUser(
-        id: 'story_5',
-        username: 'adventures',
-        hasUnseenStory: false,
-      ),
+      StoryUser(id: 'story_1', username: 'travel_shots', hasUnseenStory: true),
+      StoryUser(id: 'story_2', username: 'food_diary', hasUnseenStory: true),
+      StoryUser(id: 'story_3', username: 'city_life', hasUnseenStory: false),
+      StoryUser(id: 'story_4', username: 'sunset_pics', hasUnseenStory: true),
+      StoryUser(id: 'story_5', username: 'adventures', hasUnseenStory: false),
     ];
 
     return Container(
-      height: 95,
+      height: 104,
       color: AppColors.white,
       child: ListView(
         scrollDirection: Axis.horizontal,
-        padding: const EdgeInsets.symmetric(
-          horizontal: 12,
-          vertical: 8,
-        ),
+        padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
         children: [
           // Your Story (first item)
-          if (currentUser != null)
-            _YourStoryItem(user: currentUser),
+          if (currentUser != null) _YourStoryItem(user: currentUser),
 
           const SizedBox(width: 4),
 
           // Other users' stories
-          ...placeholderStories.map(
-            (story) => _StoryItem(story: story),
-          ),
+          ...placeholderStories.map((story) => _StoryItem(story: story)),
         ],
       ),
     );
@@ -118,10 +92,7 @@ class _YourStoryItem extends StatelessWidget {
                   height: 64,
                   decoration: BoxDecoration(
                     shape: BoxShape.circle,
-                    border: Border.all(
-                      color: AppColors.border,
-                      width: 1,
-                    ),
+                    border: Border.all(color: AppColors.border, width: 1),
                   ),
                   child: ClipOval(
                     child: user.profilePicUrl != null
@@ -152,16 +123,9 @@ class _YourStoryItem extends StatelessWidget {
                     decoration: BoxDecoration(
                       color: AppColors.primary,
                       shape: BoxShape.circle,
-                      border: Border.all(
-                        color: Colors.white,
-                        width: 2,
-                      ),
+                      border: Border.all(color: Colors.white, width: 2),
                     ),
-                    child: const Icon(
-                      Icons.add,
-                      color: Colors.white,
-                      size: 14,
-                    ),
+                    child: const Icon(Icons.add, color: Colors.white, size: 14),
                   ),
                 ),
               ],
@@ -194,9 +158,7 @@ class _YourStoryItem extends StatelessWidget {
       color: AppColors.border,
       child: Center(
         child: Text(
-          username.isNotEmpty
-              ? username[0].toUpperCase()
-              : '?',
+          username.isNotEmpty ? username[0].toUpperCase() : '?',
           style: const TextStyle(
             fontSize: 24,
             fontWeight: FontWeight.bold,
@@ -235,9 +197,7 @@ class _StoryItem extends StatelessWidget {
                 gradient: story.hasUnseenStory
                     ? AppColors.storyRingGradient
                     : null,
-                color: story.hasUnseenStory
-                    ? null
-                    : AppColors.border,
+                color: story.hasUnseenStory ? null : AppColors.border,
               ),
               child: Container(
                 padding: const EdgeInsets.all(2),
