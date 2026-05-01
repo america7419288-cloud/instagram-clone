@@ -1,5 +1,7 @@
 // lib/features/auth/data/repositories/auth_service.dart
 
+import 'dart:developer' as developer;
+
 import 'package:dio/dio.dart';
 import 'package:flutter_secure_storage/flutter_secure_storage.dart';
 import '../../../../core/network/dio_client.dart';
@@ -29,9 +31,7 @@ class AuthService {
       );
 
       // Parse response data
-      final authResponse = AuthResponseModel.fromJson(
-        response.data['data'],
-      );
+      final authResponse = AuthResponseModel.fromJson(response.data['data']);
 
       // Save tokens securely
       await _saveTokens(
@@ -43,7 +43,6 @@ class AuthService {
       await _saveUser(authResponse.user);
 
       return authResponse;
-
     } on DioException catch (e) {
       throw _handleDioError(e);
     } catch (e) {
@@ -59,15 +58,10 @@ class AuthService {
     try {
       final response = await _dioClient.post(
         AppConstants.loginEndpoint,
-        data: {
-          'identifier': identifier,
-          'password': password,
-        },
+        data: {'identifier': identifier, 'password': password},
       );
 
-      final authResponse = AuthResponseModel.fromJson(
-        response.data['data'],
-      );
+      final authResponse = AuthResponseModel.fromJson(response.data['data']);
 
       // Save tokens securely
       await _saveTokens(
@@ -79,7 +73,6 @@ class AuthService {
       await _saveUser(authResponse.user);
 
       return authResponse;
-
     } on DioException catch (e) {
       throw _handleDioError(e);
     } catch (e) {
@@ -94,7 +87,7 @@ class AuthService {
       await _dioClient.post(AppConstants.logoutEndpoint);
     } catch (e) {
       // Even if API call fails, clear local storage
-      print('Logout API error (still clearing local data): $e');
+      developer.log('Logout API error (still clearing local data): $e');
     } finally {
       // Always clear local storage
       await _clearStorage();
@@ -117,9 +110,7 @@ class AuthService {
   // ─── CHECK USERNAME AVAILABILITY ───────────────────────
   Future<Map<String, dynamic>> checkUsername(String username) async {
     try {
-      final response = await _dioClient.get(
-        '/auth/check-username/$username',
-      );
+      final response = await _dioClient.get('/auth/check-username/$username');
       return response.data['data'] as Map<String, dynamic>;
     } on DioException catch (e) {
       throw _handleDioError(e);
@@ -129,9 +120,7 @@ class AuthService {
   // ─── CHECK EMAIL AVAILABILITY ──────────────────────────
   Future<Map<String, dynamic>> checkEmail(String email) async {
     try {
-      final response = await _dioClient.get(
-        '/auth/check-email/$email',
-      );
+      final response = await _dioClient.get('/auth/check-email/$email');
       return response.data['data'] as Map<String, dynamic>;
     } on DioException catch (e) {
       throw _handleDioError(e);
@@ -168,10 +157,7 @@ class AuthService {
     required String accessToken,
     required String refreshToken,
   }) async {
-    await _storage.write(
-      key: AppConstants.tokenKey,
-      value: accessToken,
-    );
+    await _storage.write(key: AppConstants.tokenKey, value: accessToken);
     await _storage.write(
       key: AppConstants.refreshTokenKey,
       value: refreshToken,
@@ -180,10 +166,7 @@ class AuthService {
 
   Future<void> _saveUser(UserModel user) async {
     // Save basic user info as key-value pairs
-    await _storage.write(
-      key: '${AppConstants.userKey}_id',
-      value: user.id,
-    );
+    await _storage.write(key: '${AppConstants.userKey}_id', value: user.id);
     await _storage.write(
       key: '${AppConstants.userKey}_username',
       value: user.username,
@@ -206,8 +189,7 @@ class AuthService {
   Exception _handleDioError(DioException e) {
     if (e.response != null) {
       // Server responded with error
-      final message = e.response?.data?['message']
-          ?? 'Something went wrong';
+      final message = e.response?.data?['message'] ?? 'Something went wrong';
       final errors = e.response?.data?['errors'];
 
       if (errors != null && errors is List) {
@@ -224,7 +206,7 @@ class AuthService {
       return Exception('Connection timeout. Please check your internet.');
     } else if (e.type == DioExceptionType.connectionError) {
       return Exception(
-        'Cannot connect to server. Make sure backend is running.'
+        'Cannot connect to server. Make sure backend is running.',
       );
     }
     return Exception('Network error: ${e.message}');

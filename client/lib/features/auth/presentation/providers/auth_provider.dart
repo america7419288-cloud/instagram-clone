@@ -7,10 +7,10 @@ import '../../data/repositories/auth_service.dart';
 // ─── AUTH STATE CLASS ───────────────────────────────────────
 // Holds all auth-related state
 class AuthState {
-  final UserModel? user;         // Current logged-in user
-  final bool isLoading;          // Loading indicator
-  final String? errorMessage;    // Error message to show
-  final bool isAuthenticated;    // Is user logged in?
+  final UserModel? user; // Current logged-in user
+  final bool isLoading; // Loading indicator
+  final String? errorMessage; // Error message to show
+  final bool isAuthenticated; // Is user logged in?
 
   const AuthState({
     this.user,
@@ -29,26 +29,24 @@ class AuthState {
     return AuthState(
       user: user ?? this.user,
       isLoading: isLoading ?? this.isLoading,
-      errorMessage: errorMessage,      // null clears error
+      errorMessage: errorMessage, // null clears error
       isAuthenticated: isAuthenticated ?? this.isAuthenticated,
     );
   }
 
   // Initial state
-  static const initial = AuthState(
-    isLoading: false,
-    isAuthenticated: false,
-  );
+  static const initial = AuthState(isLoading: false, isAuthenticated: false);
 }
 
 // ─── AUTH NOTIFIER ──────────────────────────────────────────
 // Contains all auth logic (register, login, logout)
-class AuthNotifier extends StateNotifier<AuthState> {
-  final AuthService _authService;
+class AuthNotifier extends Notifier<AuthState> {
+  AuthService get _authService => ref.read(authServiceProvider);
 
-  AuthNotifier(this._authService) : super(AuthState.initial) {
-    // Check if user is already logged in when app starts
-    _checkAuthStatus();
+  @override
+  AuthState build() {
+    Future.microtask(_checkAuthStatus);
+    return AuthState.initial;
   }
 
   // ─── CHECK IF ALREADY LOGGED IN ──────────────────────
@@ -68,22 +66,13 @@ class AuthNotifier extends StateNotifier<AuthState> {
         } else {
           // Token expired or invalid
           await _authService.logout();
-          state = state.copyWith(
-            isAuthenticated: false,
-            isLoading: false,
-          );
+          state = state.copyWith(isAuthenticated: false, isLoading: false);
         }
       } else {
-        state = state.copyWith(
-          isAuthenticated: false,
-          isLoading: false,
-        );
+        state = state.copyWith(isAuthenticated: false, isLoading: false);
       }
     } catch (e) {
-      state = state.copyWith(
-        isAuthenticated: false,
-        isLoading: false,
-      );
+      state = state.copyWith(isAuthenticated: false, isLoading: false);
     }
   }
 
@@ -95,10 +84,7 @@ class AuthNotifier extends StateNotifier<AuthState> {
     required String password,
   }) async {
     // Clear previous errors and start loading
-    state = state.copyWith(
-      isLoading: true,
-      errorMessage: null,
-    );
+    state = state.copyWith(isLoading: true, errorMessage: null);
 
     try {
       final authResponse = await _authService.register(
@@ -117,7 +103,6 @@ class AuthNotifier extends StateNotifier<AuthState> {
       );
 
       return true; // Success
-
     } catch (e) {
       // Failed! Show error
       state = state.copyWith(
@@ -134,10 +119,7 @@ class AuthNotifier extends StateNotifier<AuthState> {
     required String identifier,
     required String password,
   }) async {
-    state = state.copyWith(
-      isLoading: true,
-      errorMessage: null,
-    );
+    state = state.copyWith(isLoading: true, errorMessage: null);
 
     try {
       final authResponse = await _authService.login(
@@ -153,7 +135,6 @@ class AuthNotifier extends StateNotifier<AuthState> {
       );
 
       return true;
-
     } catch (e) {
       state = state.copyWith(
         isLoading: false,
@@ -191,10 +172,9 @@ final authServiceProvider = Provider<AuthService>((ref) {
 
 // Auth state provider
 // This is what screens will watch
-final authProvider = StateNotifierProvider<AuthNotifier, AuthState>((ref) {
-  final authService = ref.watch(authServiceProvider);
-  return AuthNotifier(authService);
-});
+final authProvider = NotifierProvider<AuthNotifier, AuthState>(
+  AuthNotifier.new,
+);
 
 // Convenience providers
 // Use these in screens for cleaner code

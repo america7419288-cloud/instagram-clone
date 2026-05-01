@@ -2,556 +2,386 @@
 
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
+import 'package:go_router/go_router.dart';
 import '../../../../core/theme/app_theme.dart';
-import '../../../auth/presentation/providers/auth_provider.dart';
-import '../../../auth/presentation/pages/login_page.dart';
+import '../../../../core/router/app_router.dart';
+import '../../../post/presentation/providers/feed_provider.dart';
+import '../../../post/presentation/widgets/post_card.dart';
+import '../../../story/presentation/widgets/stories_bar.dart';
+import '../../../../shared/widgets/shimmer_widget.dart';
 
 class HomePage extends ConsumerWidget {
   const HomePage({super.key});
 
   @override
   Widget build(BuildContext context, WidgetRef ref) {
-    final authState = ref.watch(authProvider);
-    final user = authState.user;
+    return const Scaffold(body: HomePageContent());
+  }
+}
+
+class HomePageContent extends ConsumerStatefulWidget {
+  const HomePageContent({super.key});
+
+  @override
+  ConsumerState<HomePageContent> createState() => _HomePageContentState();
+}
+
+class _HomePageContentState extends ConsumerState<HomePageContent> {
+  final ScrollController _scrollController = ScrollController();
+
+  @override
+  void initState() {
+    super.initState();
+    // Listen for scroll to bottom → load more
+    _scrollController.addListener(_onScroll);
+  }
+
+  @override
+  void dispose() {
+    _scrollController.removeListener(_onScroll);
+    _scrollController.dispose();
+    super.dispose();
+  }
+
+  void _onScroll() {
+    // When 200px from bottom → load more
+    if (_scrollController.position.pixels >=
+        _scrollController.position.maxScrollExtent - 200) {
+      ref.read(feedProvider.notifier).loadMore();
+    }
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    final feedState = ref.watch(feedProvider);
 
     return Scaffold(
       backgroundColor: AppColors.white,
 
-      // ─── APP BAR ──────────────────────────────────────────
-      appBar: AppBar(
-        backgroundColor: AppColors.white,
-        elevation: 0,
-        title: ShaderMask(
-          shaderCallback: (bounds) =>
-              AppColors.instagramGradient.createShader(
-            Rect.fromLTWH(0, 0, bounds.width, bounds.height),
-          ),
-          child: const Text(
-            'Instagram',
-            style: TextStyle(
-              fontSize: 28,
-              fontFamily: 'Billabong',
-              color: Colors.white,
-            ),
-          ),
-        ),
-        actions: [
-          // Notifications icon
-          IconButton(
-            onPressed: () {},
-            icon: const Icon(
-              Icons.favorite_border,
-              color: AppColors.textPrimary,
-            ),
-          ),
-          // Messages icon
-          IconButton(
-            onPressed: () {},
-            icon: const Icon(
-              Icons.send_outlined,
-              color: AppColors.textPrimary,
-            ),
-          ),
-        ],
-      ),
+      // ─── APP BAR ────────────────────────────────────────
+      appBar: _buildAppBar(context),
 
-      // ─── BODY ─────────────────────────────────────────────
-      body: SingleChildScrollView(
-        child: Column(
-          crossAxisAlignment: CrossAxisAlignment.start,
-          children: [
-            const Divider(height: 1, color: AppColors.border),
-
-            // ─── WELCOME CARD ──────────────────────────────
-            _buildWelcomeCard(user),
-
-            const SizedBox(height: 16),
-
-            // ─── PLACEHOLDER FEED ──────────────────────────
-            _buildPlaceholderFeed(),
-          ],
-        ),
-      ),
-
-      // ─── BOTTOM NAVIGATION ────────────────────────────────
-      bottomNavigationBar: _buildBottomNav(context, ref),
-    );
-  }
-
-  // ─── WELCOME CARD ─────────────────────────────────────────
-  Widget _buildWelcomeCard(user) {
-    return Container(
-      margin: const EdgeInsets.all(16),
-      padding: const EdgeInsets.all(20),
-      decoration: BoxDecoration(
-        gradient: const LinearGradient(
-          colors: [Color(0xFF833AB4), Color(0xFFFD1D1D), Color(0xFFFCB045)],
-          begin: Alignment.topLeft,
-          end: Alignment.bottomRight,
-        ),
-        borderRadius: BorderRadius.circular(16),
-      ),
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
-          const Row(
-            children: [
-              Icon(Icons.check_circle, color: Colors.white, size: 20),
-              SizedBox(width: 8),
-              Text(
-                'Auth System Complete! ✅',
-                style: TextStyle(
-                  color: Colors.white,
-                  fontSize: 16,
-                  fontWeight: FontWeight.bold,
-                ),
-              ),
-            ],
-          ),
-          const SizedBox(height: 12),
-
-          // User info
-          if (user != null) ...[
-            _infoRow('👤 Username', '@${user.username}'),
-            _infoRow('📧 Email', user.email),
-            _infoRow('📝 Full Name', user.fullName),
-            _infoRow(
-              '🔒 Account Type',
-              user.isPrivate ? 'Private' : 'Public',
-            ),
-            _infoRow(
-              '✔️ Verified',
-              user.isVerified ? 'Yes' : 'No',
-            ),
-          ],
-
-          const SizedBox(height: 12),
-
-          Container(
-            padding: const EdgeInsets.all(12),
-            decoration: BoxDecoration(
-              color: Colors.white.withOpacity(0.2),
-              borderRadius: BorderRadius.circular(8),
-            ),
-            child: const Text(
-              '🚧 Home Feed coming on Day 12!\n'
-              'Currently building backend APIs...',
-              style: TextStyle(
-                color: Colors.white,
-                fontSize: 13,
-                height: 1.5,
-              ),
-            ),
-          ),
-        ],
+      // ─── BODY ───────────────────────────────────────────
+      body: RefreshIndicator(
+        onRefresh: () => ref.read(feedProvider.notifier).refreshFeed(),
+        color: AppColors.primary,
+        child: _buildBody(feedState),
       ),
     );
   }
 
-  Widget _infoRow(String label, String value) {
-    return Padding(
-      padding: const EdgeInsets.only(bottom: 6),
-      child: Row(
-        children: [
-          Text(
-            '$label: ',
-            style: const TextStyle(
-              color: Colors.white70,
-              fontSize: 13,
-            ),
+  // ─── APP BAR ──────────────────────────────────────────────
+  PreferredSizeWidget _buildAppBar(BuildContext context) {
+    return AppBar(
+      backgroundColor: AppColors.white,
+      elevation: 0,
+      scrolledUnderElevation: 0,
+
+      title: ShaderMask(
+        shaderCallback: (bounds) => AppColors.instagramGradient.createShader(
+          Rect.fromLTWH(0, 0, bounds.width, bounds.height),
+        ),
+        child: const Text(
+          'Instagram',
+          style: TextStyle(
+            fontSize: 28,
+            fontFamily: 'Billabong',
+            color: Colors.white,
           ),
-          Text(
-            value,
-            style: const TextStyle(
-              color: Colors.white,
-              fontSize: 13,
-              fontWeight: FontWeight.w600,
-            ),
-          ),
-        ],
+        ),
       ),
-    );
-  }
 
-  // ─── PLACEHOLDER FEED POSTS ───────────────────────────────
-  Widget _buildPlaceholderFeed() {
-    return Column(
-      children: List.generate(
-        3,
-        (index) => _buildPlaceholderPost(index),
-      ),
-    );
-  }
-
-  Widget _buildPlaceholderPost(int index) {
-    final colors = [
-      const Color(0xFF833AB4),
-      const Color(0xFFFD1D1D),
-      const Color(0xFF405DE6),
-    ];
-
-    return Column(
-      crossAxisAlignment: CrossAxisAlignment.start,
-      children: [
-        // Post header
-        Padding(
-          padding: const EdgeInsets.symmetric(
-            horizontal: 12,
-            vertical: 8,
-          ),
-          child: Row(
-            children: [
-              // Avatar placeholder
-              Container(
-                width: 36,
-                height: 36,
-                decoration: BoxDecoration(
-                  color: colors[index].withOpacity(0.2),
-                  shape: BoxShape.circle,
-                  border: Border.all(
-                    color: colors[index],
-                    width: 1.5,
-                  ),
-                ),
-                child: Icon(
-                  Icons.person,
-                  size: 20,
-                  color: colors[index],
-                ),
-              ),
-              const SizedBox(width: 10),
-              Column(
-                crossAxisAlignment: CrossAxisAlignment.start,
-                children: [
-                  Container(
-                    width: 100,
-                    height: 12,
-                    decoration: BoxDecoration(
-                      color: AppColors.shimmer,
-                      borderRadius: BorderRadius.circular(6),
-                    ),
-                  ),
-                  const SizedBox(height: 4),
-                  Container(
-                    width: 60,
-                    height: 10,
-                    decoration: BoxDecoration(
-                      color: AppColors.shimmer.withOpacity(0.5),
-                      borderRadius: BorderRadius.circular(5),
-                    ),
-                  ),
-                ],
-              ),
-              const Spacer(),
-              const Icon(
-                Icons.more_horiz,
-                color: AppColors.textSecondary,
-              ),
-            ],
+      actions: [
+        // Notifications
+        IconButton(
+          onPressed: () => context.go(AppRoutes.notifications),
+          icon: const Icon(
+            Icons.favorite_border,
+            color: AppColors.textPrimary,
+            size: 26,
           ),
         ),
-
-        // Post image placeholder
-        Container(
-          width: double.infinity,
-          height: 300,
-          color: colors[index].withOpacity(0.1),
-          child: Center(
-            child: Column(
-              mainAxisAlignment: MainAxisAlignment.center,
-              children: [
-                Icon(
-                  Icons.image_outlined,
-                  size: 60,
-                  color: colors[index].withOpacity(0.4),
-                ),
-                const SizedBox(height: 8),
-                Text(
-                  'Post ${index + 1} - Coming Day 12',
-                  style: TextStyle(
-                    color: colors[index].withOpacity(0.6),
-                    fontSize: 14,
-                  ),
-                ),
-              ],
-            ),
+        // Messages
+        IconButton(
+          onPressed: () => context.go(AppRoutes.messages),
+          icon: const Icon(
+            Icons.send_outlined,
+            color: AppColors.textPrimary,
+            size: 26,
           ),
         ),
-
-        // Post actions
-        Padding(
-          padding: const EdgeInsets.symmetric(
-            horizontal: 12,
-            vertical: 8,
-          ),
-          child: Row(
-            children: [
-              const Icon(Icons.favorite_border, size: 26),
-              const SizedBox(width: 16),
-              const Icon(Icons.chat_bubble_outline, size: 24),
-              const SizedBox(width: 16),
-              const Icon(Icons.send_outlined, size: 24),
-              const Spacer(),
-              const Icon(Icons.bookmark_border, size: 24),
-            ],
-          ),
-        ),
-
-        // Likes count placeholder
-        Padding(
-          padding: const EdgeInsets.symmetric(horizontal: 12),
-          child: Container(
-            width: 80,
-            height: 12,
-            decoration: BoxDecoration(
-              color: AppColors.shimmer,
-              borderRadius: BorderRadius.circular(6),
-            ),
-          ),
-        ),
-        const SizedBox(height: 8),
-
-        // Caption placeholder
-        Padding(
-          padding: const EdgeInsets.symmetric(horizontal: 12),
-          child: Container(
-            width: double.infinity,
-            height: 12,
-            decoration: BoxDecoration(
-              color: AppColors.shimmer.withOpacity(0.5),
-              borderRadius: BorderRadius.circular(6),
-            ),
-          ),
-        ),
-
-        const SizedBox(height: 16),
-        const Divider(height: 1, color: AppColors.border),
+        const SizedBox(width: 4),
       ],
     );
   }
 
-  // ─── BOTTOM NAVIGATION BAR ────────────────────────────────
-  Widget _buildBottomNav(BuildContext context, WidgetRef ref) {
-    return Container(
-      decoration: const BoxDecoration(
-        border: Border(
-          top: BorderSide(color: AppColors.border),
-        ),
-      ),
-      child: BottomNavigationBar(
-        type: BottomNavigationBarType.fixed,
-        backgroundColor: AppColors.white,
-        elevation: 0,
-        selectedItemColor: AppColors.textPrimary,
-        unselectedItemColor: AppColors.textSecondary,
-        showSelectedLabels: false,
-        showUnselectedLabels: false,
-        currentIndex: 0,
-        items: const [
-          BottomNavigationBarItem(
-            icon: Icon(Icons.home_outlined),
-            activeIcon: Icon(Icons.home),
-            label: 'Home',
-          ),
-          BottomNavigationBarItem(
-            icon: Icon(Icons.search),
-            label: 'Search',
-          ),
-          BottomNavigationBarItem(
-            icon: Icon(Icons.add_box_outlined),
-            activeIcon: Icon(Icons.add_box),
-            label: 'Create',
-          ),
-          BottomNavigationBarItem(
-            icon: Icon(Icons.favorite_border),
-            activeIcon: Icon(Icons.favorite),
-            label: 'Activity',
-          ),
-          BottomNavigationBarItem(
-            icon: Icon(Icons.person_outline),
-            activeIcon: Icon(Icons.person),
-            label: 'Profile',
-          ),
-        ],
-        onTap: (index) {
-          if (index == 4) {
-            // Profile tab → show user options
-            _showProfileOptions(context, ref);
-          }
-        },
-      ),
-    );
+  // ─── BODY BUILDER ─────────────────────────────────────────
+  Widget _buildBody(FeedState feedState) {
+    // Initial loading
+    if (feedState.isLoading) {
+      return const _LoadingFeed();
+    }
+
+    // Error state
+    if (feedState.errorMessage != null && feedState.posts.isEmpty) {
+      return _ErrorState(
+        message: feedState.errorMessage!,
+        onRetry: () => ref.read(feedProvider.notifier).loadFeed(),
+      );
+    }
+
+    // Empty feed (not following anyone)
+    if (feedState.isEmptyFeed || feedState.posts.isEmpty) {
+      return _EmptyFeedState();
+    }
+
+    // Real feed
+    return _buildFeedList(feedState);
   }
 
-  // ─── PROFILE OPTIONS (including logout) ───────────────────
-  void _showProfileOptions(BuildContext context, WidgetRef ref) {
-    final user = ref.read(authProvider).user;
-
-    showModalBottomSheet(
-      context: context,
-      shape: const RoundedRectangleBorder(
-        borderRadius: BorderRadius.vertical(
-          top: Radius.circular(16),
-        ),
-      ),
-      builder: (context) {
-        return Padding(
-          padding: const EdgeInsets.all(24),
+  // ─── FEED LIST ────────────────────────────────────────────
+  Widget _buildFeedList(FeedState feedState) {
+    return CustomScrollView(
+      controller: _scrollController,
+      slivers: [
+        // Stories bar
+        const SliverToBoxAdapter(
           child: Column(
-            mainAxisSize: MainAxisSize.min,
             children: [
-              // Handle bar
-              Container(
-                width: 40,
-                height: 4,
-                decoration: BoxDecoration(
-                  color: AppColors.border,
-                  borderRadius: BorderRadius.circular(2),
-                ),
-              ),
-              const SizedBox(height: 20),
-
-              // User info
-              if (user != null) ...[
-                CircleAvatar(
-                  radius: 40,
-                  backgroundColor: AppColors.border,
-                  backgroundImage: user.profilePicUrl != null
-                      ? NetworkImage(user.profilePicUrl!)
-                      : null,
-                  child: user.profilePicUrl == null
-                      ? Text(
-                          user.username[0].toUpperCase(),
-                          style: const TextStyle(
-                            fontSize: 32,
-                            fontWeight: FontWeight.bold,
-                            color: AppColors.textSecondary,
-                          ),
-                        )
-                      : null,
-                ),
-                const SizedBox(height: 12),
-                Text(
-                  '@${user.username}',
-                  style: const TextStyle(
-                    fontSize: 18,
-                    fontWeight: FontWeight.bold,
-                  ),
-                ),
-                Text(
-                  user.email,
-                  style: const TextStyle(
-                    color: AppColors.textSecondary,
-                    fontSize: 14,
-                  ),
-                ),
-              ],
-
-              const SizedBox(height: 24),
-              const Divider(),
-              const SizedBox(height: 8),
-
-              // Menu items
-              _buildMenuItem(
-                icon: Icons.person_outline,
-                label: 'View Profile',
-                onTap: () {
-                  Navigator.pop(context);
-                  // Will navigate to profile page on Day 12
-                },
-              ),
-              _buildMenuItem(
-                icon: Icons.settings_outlined,
-                label: 'Settings',
-                onTap: () {
-                  Navigator.pop(context);
-                },
-              ),
-              const Divider(),
-              _buildMenuItem(
-                icon: Icons.logout,
-                label: 'Log Out',
-                color: AppColors.secondary,
-                onTap: () async {
-                  Navigator.pop(context);
-                  await _handleLogout(context, ref);
-                },
-              ),
-              const SizedBox(height: 8),
+              StoriesBar(),
+              Divider(height: 1, color: AppColors.border),
             ],
           ),
-        );
-      },
+        ),
+
+        // Posts
+        SliverList(
+          delegate: SliverChildBuilderDelegate((context, index) {
+            // Last item: loading indicator or end message
+            if (index == feedState.posts.length) {
+              if (feedState.isLoadingMore) {
+                return const Padding(
+                  padding: EdgeInsets.all(20),
+                  child: Center(
+                    child: CircularProgressIndicator(
+                      color: AppColors.primary,
+                      strokeWidth: 2,
+                    ),
+                  ),
+                );
+              }
+              if (!feedState.hasMore) {
+                return const _EndOfFeedMessage();
+              }
+              return const SizedBox.shrink();
+            }
+
+            final post = feedState.posts[index];
+            return Column(
+              children: [
+                PostCard(key: ValueKey(post.id), post: post),
+                const Divider(height: 1, color: AppColors.border),
+              ],
+            );
+          }, childCount: feedState.posts.length + 1),
+        ),
+
+        // Bottom padding
+        const SliverToBoxAdapter(child: SizedBox(height: 20)),
+      ],
     );
   }
+}
 
-  Widget _buildMenuItem({
-    required IconData icon,
-    required String label,
-    required VoidCallback onTap,
-    Color? color,
-  }) {
-    return ListTile(
-      leading: Icon(
-        icon,
-        color: color ?? AppColors.textPrimary,
+// ─── LOADING STATE ────────────────────────────────────────────
+class _LoadingFeed extends StatelessWidget {
+  const _LoadingFeed();
+
+  @override
+  Widget build(BuildContext context) {
+    return const SingleChildScrollView(
+      physics: NeverScrollableScrollPhysics(),
+      child: Column(
+        children: [
+          StoryBarSkeleton(),
+          Divider(height: 1, color: AppColors.border),
+          FeedSkeleton(),
+        ],
       ),
-      title: Text(
-        label,
-        style: TextStyle(
-          color: color ?? AppColors.textPrimary,
-          fontSize: 15,
-          fontWeight: FontWeight.w500,
-        ),
-      ),
-      onTap: onTap,
-      contentPadding: EdgeInsets.zero,
     );
   }
+}
 
-  // ─── HANDLE LOGOUT ────────────────────────────────────────
-  Future<void> _handleLogout(BuildContext context, WidgetRef ref) async {
-    // Show confirmation dialog
-    final confirm = await showDialog<bool>(
-      context: context,
-      builder: (context) => AlertDialog(
-        shape: RoundedRectangleBorder(
-          borderRadius: BorderRadius.circular(12),
-        ),
-        title: const Text('Log Out'),
-        content: const Text(
-          'Are you sure you want to log out?',
-        ),
-        actions: [
-          TextButton(
-            onPressed: () => Navigator.pop(context, false),
-            child: const Text('Cancel'),
-          ),
-          TextButton(
-            onPressed: () => Navigator.pop(context, true),
-            style: TextButton.styleFrom(
-              foregroundColor: AppColors.secondary,
+// ─── ERROR STATE ──────────────────────────────────────────────
+class _ErrorState extends StatelessWidget {
+  final String message;
+  final VoidCallback onRetry;
+
+  const _ErrorState({required this.message, required this.onRetry});
+
+  @override
+  Widget build(BuildContext context) {
+    return Center(
+      child: Padding(
+        padding: const EdgeInsets.all(32),
+        child: Column(
+          mainAxisAlignment: MainAxisAlignment.center,
+          children: [
+            const Icon(
+              Icons.wifi_off_outlined,
+              size: 60,
+              color: AppColors.textSecondary,
             ),
-            child: const Text(
-              'Log Out',
-              style: TextStyle(fontWeight: FontWeight.bold),
+            const SizedBox(height: 16),
+            const Text(
+              'Could not load feed',
+              style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold),
+            ),
+            const SizedBox(height: 8),
+            Text(
+              message,
+              textAlign: TextAlign.center,
+              style: const TextStyle(
+                color: AppColors.textSecondary,
+                fontSize: 14,
+              ),
+            ),
+            const SizedBox(height: 24),
+            ElevatedButton(
+              onPressed: onRetry,
+              style: ElevatedButton.styleFrom(
+                backgroundColor: AppColors.primary,
+                foregroundColor: Colors.white,
+                shape: RoundedRectangleBorder(
+                  borderRadius: BorderRadius.circular(8),
+                ),
+              ),
+              child: const Text('Try Again'),
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+}
+
+// ─── EMPTY FEED STATE ─────────────────────────────────────────
+class _EmptyFeedState extends ConsumerWidget {
+  @override
+  Widget build(BuildContext context, WidgetRef ref) {
+    return SingleChildScrollView(
+      physics: const AlwaysScrollableScrollPhysics(),
+      child: SizedBox(
+        height: MediaQuery.of(context).size.height - 200,
+        child: Column(
+          mainAxisAlignment: MainAxisAlignment.center,
+          children: [
+            // Camera icon
+            Container(
+              width: 100,
+              height: 100,
+              decoration: BoxDecoration(
+                shape: BoxShape.circle,
+                border: Border.all(color: AppColors.textPrimary, width: 2),
+              ),
+              child: const Icon(
+                Icons.camera_alt_outlined,
+                size: 50,
+                color: AppColors.textPrimary,
+              ),
+            ),
+            const SizedBox(height: 24),
+
+            const Text(
+              'Welcome to Instagram',
+              style: TextStyle(
+                fontSize: 22,
+                fontWeight: FontWeight.bold,
+                color: AppColors.textPrimary,
+              ),
+            ),
+            const SizedBox(height: 8),
+
+            const Padding(
+              padding: EdgeInsets.symmetric(horizontal: 40),
+              child: Text(
+                'Follow people to see their photos\nand videos here.',
+                textAlign: TextAlign.center,
+                style: TextStyle(
+                  color: AppColors.textSecondary,
+                  fontSize: 14,
+                  height: 1.5,
+                ),
+              ),
+            ),
+            const SizedBox(height: 32),
+
+            // Find people button
+            Padding(
+              padding: const EdgeInsets.symmetric(horizontal: 60),
+              child: ElevatedButton(
+                onPressed: () => context.go(AppRoutes.search),
+                style: ElevatedButton.styleFrom(
+                  backgroundColor: AppColors.primary,
+                  foregroundColor: Colors.white,
+                  minimumSize: const Size(double.infinity, 44),
+                  shape: RoundedRectangleBorder(
+                    borderRadius: BorderRadius.circular(8),
+                  ),
+                ),
+                child: const Text(
+                  'Find People to Follow',
+                  style: TextStyle(fontWeight: FontWeight.w600, fontSize: 14),
+                ),
+              ),
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+}
+
+// ─── END OF FEED MESSAGE ──────────────────────────────────────
+class _EndOfFeedMessage extends StatelessWidget {
+  const _EndOfFeedMessage();
+
+  @override
+  Widget build(BuildContext context) {
+    return Padding(
+      padding: const EdgeInsets.all(24),
+      child: Column(
+        children: [
+          Container(
+            width: 60,
+            height: 60,
+            decoration: BoxDecoration(
+              shape: BoxShape.circle,
+              border: Border.all(color: AppColors.border, width: 2),
+            ),
+            child: const Icon(
+              Icons.camera_alt_outlined,
+              color: AppColors.textSecondary,
+              size: 28,
+            ),
+          ),
+          const SizedBox(height: 12),
+          const Text(
+            "You're all caught up",
+            style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold),
+          ),
+          const SizedBox(height: 4),
+          const Text(
+            'You have seen all new posts from\nthe past 3 days.',
+            textAlign: TextAlign.center,
+            style: TextStyle(
+              color: AppColors.textSecondary,
+              fontSize: 14,
+              height: 1.4,
             ),
           ),
         ],
       ),
     );
-
-    if (confirm == true && context.mounted) {
-      // Call logout
-      await ref.read(authProvider.notifier).logout();
-
-      if (context.mounted) {
-        // Navigate to login and clear all routes
-        Navigator.of(context).pushAndRemoveUntil(
-          MaterialPageRoute(builder: (_) => const LoginPage()),
-          (route) => false,
-        );
-      }
-    }
   }
 }

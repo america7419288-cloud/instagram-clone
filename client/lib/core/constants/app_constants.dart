@@ -21,6 +21,9 @@ class AppConstants {
   static const String storiesEndpoint = '/stories';
   static const String notificationsEndpoint = '/notifications';
   static const String conversationsEndpoint = '/conversations';
+  static const String searchEndpoint = '/users/search';
+  static const String suggestionsEndpoint = '/users/suggestions';
+  static const String exploreEndpoint = '/posts/explore';
 
  
   static const String tokenKey = 'auth_token';

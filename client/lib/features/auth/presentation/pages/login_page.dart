@@ -3,12 +3,12 @@
 import 'package:flutter/material.dart';
 import 'package:flutter/gestures.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
+import 'package:go_router/go_router.dart';
+import '../../../../core/router/app_router.dart';
 import '../../../../core/theme/app_theme.dart';
 import '../../../../shared/widgets/custom_button.dart';
 import '../../../../shared/widgets/custom_text_field.dart';
 import '../providers/auth_provider.dart';
-import 'register_page.dart';
-import '../../../home/presentation/pages/home_page.dart';
 
 class LoginPage extends ConsumerStatefulWidget {
   const LoginPage({super.key});
@@ -50,17 +50,15 @@ class _LoginPageState extends ConsumerState<LoginPage> {
     FocusScope.of(context).unfocus();
 
     // Call login through Riverpod
-    final success = await ref.read(authProvider.notifier).login(
-      identifier: _identifierController.text.trim(),
-      password: _passwordController.text,
-    );
+    final success = await ref
+        .read(authProvider.notifier)
+        .login(
+          identifier: _identifierController.text.trim(),
+          password: _passwordController.text,
+        );
 
     if (success && mounted) {
-      // Navigate to home and remove all previous routes
-      Navigator.of(context).pushAndRemoveUntil(
-        MaterialPageRoute(builder: (_) => const HomePage()),
-        (route) => false,  // Remove all routes below
-      );
+      context.go(AppRoutes.home);
     } else if (mounted) {
       // Show error
       final error = ref.read(authProvider).errorMessage;
@@ -73,9 +71,7 @@ class _LoginPageState extends ConsumerState<LoginPage> {
     // Clear error when navigating
     ref.read(authProvider.notifier).clearError();
 
-    Navigator.of(context).push(
-      MaterialPageRoute(builder: (_) => const RegisterPage()),
-    );
+    context.push(AppRoutes.register);
   }
 
   // ─── BUILD ────────────────────────────────────────────────
@@ -139,8 +135,7 @@ class _LoginPageState extends ConsumerState<LoginPage> {
                 const SizedBox(height: 16),
 
                 // ─── SERVER ERROR ──────────────────────
-                if (_serverError != null)
-                  _buildErrorBox(_serverError!),
+                if (_serverError != null) _buildErrorBox(_serverError!),
 
                 // ─── FORGOT PASSWORD ───────────────────
                 Align(
@@ -205,8 +200,7 @@ class _LoginPageState extends ConsumerState<LoginPage> {
 
   Widget _buildLogo() {
     return ShaderMask(
-      shaderCallback: (bounds) =>
-          AppColors.instagramGradient.createShader(
+      shaderCallback: (bounds) => AppColors.instagramGradient.createShader(
         Rect.fromLTWH(0, 0, bounds.width, bounds.height),
       ),
       child: const Text(
@@ -227,20 +221,14 @@ class _LoginPageState extends ConsumerState<LoginPage> {
       padding: const EdgeInsets.all(12),
       margin: const EdgeInsets.only(bottom: 12),
       decoration: BoxDecoration(
-        color: AppColors.secondary.withOpacity(0.08),
+        color: AppColors.secondary.withValues(alpha: 0.08),
         borderRadius: BorderRadius.circular(8),
-        border: Border.all(
-          color: AppColors.secondary.withOpacity(0.3),
-        ),
+        border: Border.all(color: AppColors.secondary.withValues(alpha: 0.3)),
       ),
       child: Row(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          const Icon(
-            Icons.info_outline,
-            color: AppColors.secondary,
-            size: 18,
-          ),
+          const Icon(Icons.info_outline, color: AppColors.secondary, size: 18),
           const SizedBox(width: 8),
           Expanded(
             child: Text(
@@ -260,9 +248,7 @@ class _LoginPageState extends ConsumerState<LoginPage> {
   Widget _buildOrDivider() {
     return const Row(
       children: [
-        Expanded(
-          child: Divider(color: AppColors.border, thickness: 1),
-        ),
+        Expanded(child: Divider(color: AppColors.border, thickness: 1)),
         Padding(
           padding: EdgeInsets.symmetric(horizontal: 16),
           child: Text(
@@ -275,9 +261,7 @@ class _LoginPageState extends ConsumerState<LoginPage> {
             ),
           ),
         ),
-        Expanded(
-          child: Divider(color: AppColors.border, thickness: 1),
-        ),
+        Expanded(child: Divider(color: AppColors.border, thickness: 1)),
       ],
     );
   }
@@ -332,15 +316,9 @@ class _LoginPageState extends ConsumerState<LoginPage> {
         Row(
           mainAxisAlignment: MainAxisAlignment.center,
           children: [
-            _buildStoreBadge(
-              'App Store',
-              Icons.apple,
-            ),
+            _buildStoreBadge('App Store', Icons.apple),
             const SizedBox(width: 8),
-            _buildStoreBadge(
-              'Google Play',
-              Icons.android,
-            ),
+            _buildStoreBadge('Google Play', Icons.android),
           ],
         ),
       ],
@@ -349,10 +327,7 @@ class _LoginPageState extends ConsumerState<LoginPage> {
 
   Widget _buildStoreBadge(String store, IconData icon) {
     return Container(
-      padding: const EdgeInsets.symmetric(
-        horizontal: 12,
-        vertical: 8,
-      ),
+      padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
       decoration: BoxDecoration(
         border: Border.all(color: AppColors.border),
         borderRadius: BorderRadius.circular(6),
@@ -379,9 +354,7 @@ class _LoginPageState extends ConsumerState<LoginPage> {
     return Container(
       height: 60,
       decoration: const BoxDecoration(
-        border: Border(
-          top: BorderSide(color: AppColors.border),
-        ),
+        border: Border(top: BorderSide(color: AppColors.border)),
       ),
       child: Center(
         child: RichText(
@@ -398,8 +371,7 @@ class _LoginPageState extends ConsumerState<LoginPage> {
                   color: AppColors.primary,
                   fontWeight: FontWeight.w600,
                 ),
-                recognizer: TapGestureRecognizer()
-                  ..onTap = _goToRegister,
+                recognizer: TapGestureRecognizer()..onTap = _goToRegister,
               ),
             ],
           ),
@@ -416,9 +388,7 @@ class _LoginPageState extends ConsumerState<LoginPage> {
       context: context,
       isScrollControlled: true,
       shape: const RoundedRectangleBorder(
-        borderRadius: BorderRadius.vertical(
-          top: Radius.circular(16),
-        ),
+        borderRadius: BorderRadius.vertical(top: Radius.circular(16)),
       ),
       builder: (context) {
         return Padding(

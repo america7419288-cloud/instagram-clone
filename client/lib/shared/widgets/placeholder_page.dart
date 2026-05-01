@@ -1,7 +1,8 @@
 // lib/shared/widgets/placeholder_page.dart
 
 import 'package:flutter/material.dart';
-import '../../../client/lib/core/theme/app_theme.dart';
+
+import '../../core/theme/app_theme.dart';
 
 // Generic placeholder page
 // Used for screens not built yet
@@ -55,14 +56,10 @@ class PlaceholderPage extends StatelessWidget {
                 width: 100,
                 height: 100,
                 decoration: BoxDecoration(
-                  color: AppColors.border.withOpacity(0.3),
+                  color: AppColors.border.withValues(alpha: 0.3),
                   shape: BoxShape.circle,
                 ),
-                child: Icon(
-                  icon,
-                  size: 48,
-                  color: AppColors.textSecondary,
-                ),
+                child: Icon(icon, size: 48, color: AppColors.textSecondary),
               ),
               const SizedBox(height: 24),
               Text(
@@ -93,7 +90,7 @@ class PlaceholderPage extends StatelessWidget {
                     vertical: 8,
                   ),
                   decoration: BoxDecoration(
-                    color: AppColors.primary.withOpacity(0.1),
+                    color: AppColors.primary.withValues(alpha: 0.1),
                     borderRadius: BorderRadius.circular(20),
                   ),
                   child: Text(
