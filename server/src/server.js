@@ -2,6 +2,7 @@ const app = require('./app');
 const { connectDB } = require('./config/database');
 const { syncDatabase } = require('./models');
 const { testCloudinary } = require('./config/cloudinary');
+const { startCleanupJob } = require('./utils/cleanup.utils');
 require('dotenv').config();
 
 const PORT = process.env.PORT || 5000;
@@ -14,6 +15,8 @@ const startServer = async () => {
 
     await testCloudinary();
 
+    startCleanupJob();
+
     const server = app.listen(PORT, () => {
       console.log('─────────────────────────────────────');
       console.log(`🚀 Server running on port ${PORT}`);
@@ -23,6 +26,7 @@ const startServer = async () => {
       console.log('📌 Auth endpoints ready');
       console.log('📌 User endpoints ready');
       console.log('─────────────────────────────────────');
+      console.log('   /api/v1/stories');
     });
 
     process.on('unhandledRejection', (err) => {

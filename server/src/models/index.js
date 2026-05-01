@@ -13,8 +13,10 @@ const PostHashtag = require('./PostHashtag.model');
 const SavedPost = require('./SavedPost.model');
 const Comment = require('./Comment.model');
 const CommentLike = require('./CommentLike.model');
-const Follower = require('./Follower.model');   // ⭐ NEW
-const Block = require('./Block.model');         // ⭐ NEW
+const Follower = require('./Follower.model');  
+const Block = require('./Block.model');         
+const Story = require('./Story.model');       
+const StoryView = require('./StoryView.model'); 
 
 // ─── ALL ASSOCIATIONS ──────────────────────────────────────
 
@@ -190,8 +192,10 @@ const syncDatabase = async () => {
     console.log('   → saved_posts');
     console.log('   → comments');
     console.log('   → comment_likes');
-    console.log('   → followers');  // ⭐ NEW
-    console.log('   → blocks');     // ⭐ NEW
+    console.log('   → followers'); 
+    console.log('   → blocks');    
+    console.log('   → stories');     
+    console.log('   → story_views');  
   } catch (error) {
     console.error('❌ Database sync failed:', error.message);
     throw error;
@@ -212,4 +216,6 @@ module.exports = {
   CommentLike,
   Follower,
   Block,
+  Story,
+  StoryView,
 };
