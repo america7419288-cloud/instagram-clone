@@ -1,45 +1,17 @@
+// lib/features/auth/data/repositories/auth_service.dart
+
 import 'package:dio/dio.dart';
 import 'package:flutter_secure_storage/flutter_secure_storage.dart';
-
-import '../../../../core/constants/app_constants.dart';
 import '../../../../core/network/dio_client.dart';
+import '../../../../core/constants/app_constants.dart';
 import '../../../../shared/models/user_model.dart';
 
-class AuthResult {
-  const AuthResult({
-    required this.user,
-    required this.accessToken,
-    required this.refreshToken,
-  });
-
-  final UserModel user;
-  final String accessToken;
-  final String refreshToken;
-}
-
 class AuthService {
-  AuthService({DioClient? dioClient, FlutterSecureStorage? storage})
-    : _dioClient = dioClient ?? DioClient(),
-      _storage = storage ?? const FlutterSecureStorage();
+  final DioClient _dioClient = DioClient();
+  final FlutterSecureStorage _storage = const FlutterSecureStorage();
 
-  final DioClient _dioClient;
-  final FlutterSecureStorage _storage;
-
-  Future<Map<String, dynamic>> checkUsername(String username) async {
-    try {
-      final response = await _dioClient.get('/auth/check-username/$username');
-      final data = Map<String, dynamic>.from(response.data['data'] as Map);
-      return data;
-    } on DioException catch (error) {
-      final responseData = error.response?.data;
-      if (responseData is Map && responseData['message'] != null) {
-        throw AuthException(responseData['message'].toString());
-      }
-      throw const AuthException('Unable to check username. Please try again.');
-    }
-  }
-
-  Future<AuthResult> register({
+  // ─── REGISTER ──────────────────────────────────────────
+  Future<AuthResponseModel> register({
     required String fullName,
     required String email,
     required String username,
@@ -56,52 +28,205 @@ class AuthService {
         },
       );
 
-      final data = Map<String, dynamic>.from(response.data['data'] as Map);
-      final user = UserModel.fromJson(
-        Map<String, dynamic>.from(data['user'] as Map),
-      );
-      final tokens = Map<String, dynamic>.from(data['tokens'] as Map);
-      final accessToken = tokens['accessToken']?.toString() ?? '';
-      final refreshToken = tokens['refreshToken']?.toString() ?? '';
-
-      await _storage.write(key: AppConstants.tokenKey, value: accessToken);
-      await _storage.write(
-        key: AppConstants.refreshTokenKey,
-        value: refreshToken,
+      // Parse response data
+      final authResponse = AuthResponseModel.fromJson(
+        response.data['data'],
       );
 
-      return AuthResult(
-        user: user,
-        accessToken: accessToken,
-        refreshToken: refreshToken,
+      // Save tokens securely
+      await _saveTokens(
+        accessToken: authResponse.accessToken,
+        refreshToken: authResponse.refreshToken,
       );
-    } on DioException catch (error) {
-      final responseData = error.response?.data;
-      if (responseData is Map && responseData['message'] != null) {
-        throw AuthException(responseData['message'].toString());
-      }
-      throw const AuthException('Unable to create account. Please try again.');
+
+      // Save user data
+      await _saveUser(authResponse.user);
+
+      return authResponse;
+
+    } on DioException catch (e) {
+      throw _handleDioError(e);
+    } catch (e) {
+      throw Exception('Registration failed: ${e.toString()}');
     }
   }
 
+  // ─── LOGIN ─────────────────────────────────────────────
+  Future<AuthResponseModel> login({
+    required String identifier,
+    required String password,
+  }) async {
+    try {
+      final response = await _dioClient.post(
+        AppConstants.loginEndpoint,
+        data: {
+          'identifier': identifier,
+          'password': password,
+        },
+      );
+
+      final authResponse = AuthResponseModel.fromJson(
+        response.data['data'],
+      );
+
+      // Save tokens securely
+      await _saveTokens(
+        accessToken: authResponse.accessToken,
+        refreshToken: authResponse.refreshToken,
+      );
+
+      // Save user data
+      await _saveUser(authResponse.user);
+
+      return authResponse;
+
+    } on DioException catch (e) {
+      throw _handleDioError(e);
+    } catch (e) {
+      throw Exception('Login failed: ${e.toString()}');
+    }
+  }
+
+  // ─── LOGOUT ────────────────────────────────────────────
   Future<void> logout() async {
     try {
+      // Call backend logout
       await _dioClient.post(AppConstants.logoutEndpoint);
-    } on DioException {
-      // Still clear local credentials if the network/server logout fails.
+    } catch (e) {
+      // Even if API call fails, clear local storage
+      print('Logout API error (still clearing local data): $e');
     } finally {
-      await _storage.delete(key: AppConstants.tokenKey);
-      await _storage.delete(key: AppConstants.refreshTokenKey);
-      await _storage.delete(key: AppConstants.userKey);
+      // Always clear local storage
+      await _clearStorage();
     }
   }
-}
 
-class AuthException implements Exception {
-  const AuthException(this.message);
+  // ─── GET CURRENT USER ──────────────────────────────────
+  Future<UserModel?> getCurrentUser() async {
+    try {
+      final response = await _dioClient.get(AppConstants.profileEndpoint);
+      return UserModel.fromJson(response.data['data']['user']);
+    } on DioException catch (e) {
+      if (e.response?.statusCode == 401) {
+        return null; // Token expired
+      }
+      throw _handleDioError(e);
+    }
+  }
 
-  final String message;
+  // ─── CHECK USERNAME AVAILABILITY ───────────────────────
+  Future<Map<String, dynamic>> checkUsername(String username) async {
+    try {
+      final response = await _dioClient.get(
+        '/auth/check-username/$username',
+      );
+      return response.data['data'] as Map<String, dynamic>;
+    } on DioException catch (e) {
+      throw _handleDioError(e);
+    }
+  }
 
-  @override
-  String toString() => message;
+  // ─── CHECK EMAIL AVAILABILITY ──────────────────────────
+  Future<Map<String, dynamic>> checkEmail(String email) async {
+    try {
+      final response = await _dioClient.get(
+        '/auth/check-email/$email',
+      );
+      return response.data['data'] as Map<String, dynamic>;
+    } on DioException catch (e) {
+      throw _handleDioError(e);
+    }
+  }
+
+  // ─── CHECK IF LOGGED IN ────────────────────────────────
+  Future<bool> isLoggedIn() async {
+    final token = await _storage.read(key: AppConstants.tokenKey);
+    return token != null && token.isNotEmpty;
+  }
+
+  // ─── GET STORED TOKEN ──────────────────────────────────
+  Future<String?> getAccessToken() async {
+    return await _storage.read(key: AppConstants.tokenKey);
+  }
+
+  // ─── GET STORED USER ───────────────────────────────────
+  Future<UserModel?> getStoredUser() async {
+    try {
+      final userJson = await _storage.read(key: AppConstants.userKey);
+      if (userJson == null) return null;
+      // Parse JSON string back to map
+      // We'll store user as JSON string
+      return null; // Simplified for now
+    } catch (e) {
+      return null;
+    }
+  }
+
+  // ─── PRIVATE HELPERS ───────────────────────────────────
+
+  Future<void> _saveTokens({
+    required String accessToken,
+    required String refreshToken,
+  }) async {
+    await _storage.write(
+      key: AppConstants.tokenKey,
+      value: accessToken,
+    );
+    await _storage.write(
+      key: AppConstants.refreshTokenKey,
+      value: refreshToken,
+    );
+  }
+
+  Future<void> _saveUser(UserModel user) async {
+    // Save basic user info as key-value pairs
+    await _storage.write(
+      key: '${AppConstants.userKey}_id',
+      value: user.id,
+    );
+    await _storage.write(
+      key: '${AppConstants.userKey}_username',
+      value: user.username,
+    );
+    await _storage.write(
+      key: '${AppConstants.userKey}_email',
+      value: user.email,
+    );
+  }
+
+  Future<void> _clearStorage() async {
+    await _storage.delete(key: AppConstants.tokenKey);
+    await _storage.delete(key: AppConstants.refreshTokenKey);
+    await _storage.delete(key: '${AppConstants.userKey}_id');
+    await _storage.delete(key: '${AppConstants.userKey}_username');
+    await _storage.delete(key: '${AppConstants.userKey}_email');
+  }
+
+  // ─── HANDLE DIO ERRORS ─────────────────────────────────
+  Exception _handleDioError(DioException e) {
+    if (e.response != null) {
+      // Server responded with error
+      final message = e.response?.data?['message']
+          ?? 'Something went wrong';
+      final errors = e.response?.data?['errors'];
+
+      if (errors != null && errors is List) {
+        // Validation errors
+        final errorMessages = errors
+            .map((err) => err['message'] as String)
+            .join('\n');
+        return Exception(errorMessages);
+      }
+
+      return Exception(message);
+    } else if (e.type == DioExceptionType.connectionTimeout ||
+        e.type == DioExceptionType.receiveTimeout) {
+      return Exception('Connection timeout. Please check your internet.');
+    } else if (e.type == DioExceptionType.connectionError) {
+      return Exception(
+        'Cannot connect to server. Make sure backend is running.'
+      );
+    }
+    return Exception('Network error: ${e.message}');
+  }
 }
