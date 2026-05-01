@@ -1,13 +1,16 @@
 // lib/features/home/presentation/pages/home_page.dart
+// COMPLETE UPDATED FILE
 
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 import '../../../../core/theme/app_theme.dart';
 import '../../../../core/router/app_router.dart';
+import '../../../auth/presentation/providers/auth_provider.dart';
 import '../../../post/presentation/providers/feed_provider.dart';
 import '../../../post/presentation/widgets/post_card.dart';
 import '../../../story/presentation/widgets/stories_bar.dart';
+import '../../../story/presentation/providers/story_provider.dart';
 import '../../../../shared/widgets/shimmer_widget.dart';
 
 class HomePage extends ConsumerWidget {
@@ -15,7 +18,9 @@ class HomePage extends ConsumerWidget {
 
   @override
   Widget build(BuildContext context, WidgetRef ref) {
-    return const Scaffold(body: HomePageContent());
+    return const Scaffold(
+      body: HomePageContent(),
+    );
   }
 }
 
@@ -23,7 +28,8 @@ class HomePageContent extends ConsumerStatefulWidget {
   const HomePageContent({super.key});
 
   @override
-  ConsumerState<HomePageContent> createState() => _HomePageContentState();
+  ConsumerState<HomePageContent> createState() =>
+      _HomePageContentState();
 }
 
 class _HomePageContentState extends ConsumerState<HomePageContent> {
@@ -32,7 +38,6 @@ class _HomePageContentState extends ConsumerState<HomePageContent> {
   @override
   void initState() {
     super.initState();
-    // Listen for scroll to bottom → load more
     _scrollController.addListener(_onScroll);
   }
 
@@ -44,7 +49,6 @@ class _HomePageContentState extends ConsumerState<HomePageContent> {
   }
 
   void _onScroll() {
-    // When 200px from bottom → load more
     if (_scrollController.position.pixels >=
         _scrollController.position.maxScrollExtent - 200) {
       ref.read(feedProvider.notifier).loadMore();
@@ -57,28 +61,29 @@ class _HomePageContentState extends ConsumerState<HomePageContent> {
 
     return Scaffold(
       backgroundColor: AppColors.white,
-
-      // ─── APP BAR ────────────────────────────────────────
       appBar: _buildAppBar(context),
-
-      // ─── BODY ───────────────────────────────────────────
       body: RefreshIndicator(
-        onRefresh: () => ref.read(feedProvider.notifier).refreshFeed(),
+        onRefresh: () async {
+          // Refresh both feed and stories
+          await Future.wait<void>([
+            ref.read(feedProvider.notifier).refreshFeed(),
+            ref.read(storyFeedProvider.notifier).loadStories(),
+          ]);
+        },
         color: AppColors.primary,
         child: _buildBody(feedState),
       ),
     );
   }
 
-  // ─── APP BAR ──────────────────────────────────────────────
   PreferredSizeWidget _buildAppBar(BuildContext context) {
     return AppBar(
       backgroundColor: AppColors.white,
       elevation: 0,
       scrolledUnderElevation: 0,
-
       title: ShaderMask(
-        shaderCallback: (bounds) => AppColors.instagramGradient.createShader(
+        shaderCallback: (bounds) =>
+            AppColors.instagramGradient.createShader(
           Rect.fromLTWH(0, 0, bounds.width, bounds.height),
         ),
         child: const Text(
@@ -90,9 +95,7 @@ class _HomePageContentState extends ConsumerState<HomePageContent> {
           ),
         ),
       ),
-
       actions: [
-        // Notifications
         IconButton(
           onPressed: () => context.go(AppRoutes.notifications),
           icon: const Icon(
@@ -101,7 +104,6 @@ class _HomePageContentState extends ConsumerState<HomePageContent> {
             size: 26,
           ),
         ),
-        // Messages
         IconButton(
           onPressed: () => context.go(AppRoutes.messages),
           icon: const Icon(
@@ -115,14 +117,11 @@ class _HomePageContentState extends ConsumerState<HomePageContent> {
     );
   }
 
-  // ─── BODY BUILDER ─────────────────────────────────────────
   Widget _buildBody(FeedState feedState) {
-    // Initial loading
     if (feedState.isLoading) {
       return const _LoadingFeed();
     }
 
-    // Error state
     if (feedState.errorMessage != null && feedState.posts.isEmpty) {
       return _ErrorState(
         message: feedState.errorMessage!,
@@ -130,25 +129,22 @@ class _HomePageContentState extends ConsumerState<HomePageContent> {
       );
     }
 
-    // Empty feed (not following anyone)
     if (feedState.isEmptyFeed || feedState.posts.isEmpty) {
       return _EmptyFeedState();
     }
 
-    // Real feed
     return _buildFeedList(feedState);
   }
 
-  // ─── FEED LIST ────────────────────────────────────────────
   Widget _buildFeedList(FeedState feedState) {
     return CustomScrollView(
       controller: _scrollController,
       slivers: [
-        // Stories bar
+        // Stories bar (REAL data now)
         const SliverToBoxAdapter(
           child: Column(
             children: [
-              StoriesBar(),
+              StoriesBar(), // ⭐ Real stories
               Divider(height: 1, color: AppColors.border),
             ],
           ),
@@ -156,37 +152,38 @@ class _HomePageContentState extends ConsumerState<HomePageContent> {
 
         // Posts
         SliverList(
-          delegate: SliverChildBuilderDelegate((context, index) {
-            // Last item: loading indicator or end message
-            if (index == feedState.posts.length) {
-              if (feedState.isLoadingMore) {
-                return const Padding(
-                  padding: EdgeInsets.all(20),
-                  child: Center(
-                    child: CircularProgressIndicator(
-                      color: AppColors.primary,
-                      strokeWidth: 2,
+          delegate: SliverChildBuilderDelegate(
+            (context, index) {
+              if (index == feedState.posts.length) {
+                if (feedState.isLoadingMore) {
+                  return const Padding(
+                    padding: EdgeInsets.all(20),
+                    child: Center(
+                      child: CircularProgressIndicator(
+                        color: AppColors.primary,
+                        strokeWidth: 2,
+                      ),
                     ),
-                  ),
-                );
+                  );
+                }
+                if (!feedState.hasMore) {
+                  return const _EndOfFeedMessage();
+                }
+                return const SizedBox.shrink();
               }
-              if (!feedState.hasMore) {
-                return const _EndOfFeedMessage();
-              }
-              return const SizedBox.shrink();
-            }
 
-            final post = feedState.posts[index];
-            return Column(
-              children: [
-                PostCard(key: ValueKey(post.id), post: post),
-                const Divider(height: 1, color: AppColors.border),
-              ],
-            );
-          }, childCount: feedState.posts.length + 1),
+              final post = feedState.posts[index];
+              return Column(
+                children: [
+                  PostCard(key: ValueKey(post.id), post: post),
+                  const Divider(height: 1, color: AppColors.border),
+                ],
+              );
+            },
+            childCount: feedState.posts.length + 1,
+          ),
         ),
 
-        // Bottom padding
         const SliverToBoxAdapter(child: SizedBox(height: 20)),
       ],
     );
@@ -235,7 +232,10 @@ class _ErrorState extends StatelessWidget {
             const SizedBox(height: 16),
             const Text(
               'Could not load feed',
-              style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold),
+              style: TextStyle(
+                fontSize: 18,
+                fontWeight: FontWeight.bold,
+              ),
             ),
             const SizedBox(height: 8),
             Text(
@@ -252,9 +252,6 @@ class _ErrorState extends StatelessWidget {
               style: ElevatedButton.styleFrom(
                 backgroundColor: AppColors.primary,
                 foregroundColor: Colors.white,
-                shape: RoundedRectangleBorder(
-                  borderRadius: BorderRadius.circular(8),
-                ),
               ),
               child: const Text('Try Again'),
             ),
@@ -265,7 +262,7 @@ class _ErrorState extends StatelessWidget {
   }
 }
 
-// ─── EMPTY FEED STATE ─────────────────────────────────────────
+// ─── EMPTY FEED ───────────────────────────────────────────────
 class _EmptyFeedState extends ConsumerWidget {
   @override
   Widget build(BuildContext context, WidgetRef ref) {
@@ -276,13 +273,15 @@ class _EmptyFeedState extends ConsumerWidget {
         child: Column(
           mainAxisAlignment: MainAxisAlignment.center,
           children: [
-            // Camera icon
             Container(
               width: 100,
               height: 100,
               decoration: BoxDecoration(
                 shape: BoxShape.circle,
-                border: Border.all(color: AppColors.textPrimary, width: 2),
+                border: Border.all(
+                  color: AppColors.textPrimary,
+                  width: 2,
+                ),
               ),
               child: const Icon(
                 Icons.camera_alt_outlined,
@@ -291,21 +290,18 @@ class _EmptyFeedState extends ConsumerWidget {
               ),
             ),
             const SizedBox(height: 24),
-
             const Text(
               'Welcome to Instagram',
               style: TextStyle(
                 fontSize: 22,
                 fontWeight: FontWeight.bold,
-                color: AppColors.textPrimary,
               ),
             ),
             const SizedBox(height: 8),
-
             const Padding(
               padding: EdgeInsets.symmetric(horizontal: 40),
               child: Text(
-                'Follow people to see their photos\nand videos here.',
+                'Follow people to see their photos and videos here.',
                 textAlign: TextAlign.center,
                 style: TextStyle(
                   color: AppColors.textSecondary,
@@ -315,8 +311,6 @@ class _EmptyFeedState extends ConsumerWidget {
               ),
             ),
             const SizedBox(height: 32),
-
-            // Find people button
             Padding(
               padding: const EdgeInsets.symmetric(horizontal: 60),
               child: ElevatedButton(
@@ -331,7 +325,7 @@ class _EmptyFeedState extends ConsumerWidget {
                 ),
                 child: const Text(
                   'Find People to Follow',
-                  style: TextStyle(fontWeight: FontWeight.w600, fontSize: 14),
+                  style: TextStyle(fontWeight: FontWeight.w600),
                 ),
               ),
             ),
@@ -342,7 +336,7 @@ class _EmptyFeedState extends ConsumerWidget {
   }
 }
 
-// ─── END OF FEED MESSAGE ──────────────────────────────────────
+// ─── END OF FEED ──────────────────────────────────────────────
 class _EndOfFeedMessage extends StatelessWidget {
   const _EndOfFeedMessage();
 
@@ -357,7 +351,10 @@ class _EndOfFeedMessage extends StatelessWidget {
             height: 60,
             decoration: BoxDecoration(
               shape: BoxShape.circle,
-              border: Border.all(color: AppColors.border, width: 2),
+              border: Border.all(
+                color: AppColors.border,
+                width: 2,
+              ),
             ),
             child: const Icon(
               Icons.camera_alt_outlined,
@@ -368,11 +365,14 @@ class _EndOfFeedMessage extends StatelessWidget {
           const SizedBox(height: 12),
           const Text(
             "You're all caught up",
-            style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold),
+            style: TextStyle(
+              fontSize: 18,
+              fontWeight: FontWeight.bold,
+            ),
           ),
           const SizedBox(height: 4),
           const Text(
-            'You have seen all new posts from\nthe past 3 days.',
+            'You have seen all new posts\nfrom the past 3 days.',
             textAlign: TextAlign.center,
             style: TextStyle(
               color: AppColors.textSecondary,

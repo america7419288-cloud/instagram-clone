@@ -1,59 +1,120 @@
 // lib/features/story/presentation/widgets/stories_bar.dart
 
 import 'package:flutter/material.dart';
+import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:cached_network_image/cached_network_image.dart';
 import '../../../../core/theme/app_theme.dart';
 import '../../../../features/auth/presentation/providers/auth_provider.dart';
-import 'package:flutter_riverpod/flutter_riverpod.dart';
-
-// Placeholder story data (real stories come on Day 16)
-class StoryUser {
-  final String id;
-  final String username;
-  final String? profilePicUrl;
-  final bool hasUnseenStory;
-  final bool isOwn;
-
-  const StoryUser({
-    required this.id,
-    required this.username,
-    this.profilePicUrl,
-    this.hasUnseenStory = false,
-    this.isOwn = false,
-  });
-}
+import '../../data/models/story_model.dart';
+import '../providers/story_provider.dart';
+import 'story_viewer.dart';
 
 class StoriesBar extends ConsumerWidget {
   const StoriesBar({super.key});
 
   @override
   Widget build(BuildContext context, WidgetRef ref) {
+    final storyState = ref.watch(storyFeedProvider);
     final currentUser = ref.watch(currentUserProvider);
 
-    // Placeholder stories (will use real API on Day 16)
-    final placeholderStories = [
-      StoryUser(id: 'story_1', username: 'travel_shots', hasUnseenStory: true),
-      StoryUser(id: 'story_2', username: 'food_diary', hasUnseenStory: true),
-      StoryUser(id: 'story_3', username: 'city_life', hasUnseenStory: false),
-      StoryUser(id: 'story_4', username: 'sunset_pics', hasUnseenStory: true),
-      StoryUser(id: 'story_5', username: 'adventures', hasUnseenStory: false),
-    ];
+    // Still loading
+    if (storyState.isLoading) {
+      return const _StoriesBarSkeleton();
+    }
 
-    return Container(
-      height: 104,
-      color: AppColors.white,
+    // No stories at all
+    if (storyState.isEmpty && currentUser == null) {
+      return const SizedBox.shrink();
+    }
+
+    return SizedBox(
+      height: 100,
       child: ListView(
         scrollDirection: Axis.horizontal,
-        padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
+        padding: const EdgeInsets.symmetric(
+          horizontal: 8,
+          vertical: 8,
+        ),
         children: [
-          // Your Story (first item)
-          if (currentUser != null) _YourStoryItem(user: currentUser),
+          // ─── YOUR STORY ─────────────────────────────────
+          if (currentUser != null)
+            _YourStoryItem(
+              profilePicUrl: currentUser.profilePicUrl,
+              username: currentUser.username,
+              hasStory: storyState.userGroups.any((g) => g.isOwn),
+              onTap: () {
+                final ownGroup = storyState.userGroups
+                    .where((g) => g.isOwn)
+                    .firstOrNull;
 
-          const SizedBox(width: 4),
+                if (ownGroup != null && ownGroup.stories.isNotEmpty) {
+                  // View own stories
+                  _openStoryViewer(context, ref, storyState.userGroups,
+                      storyState.userGroups.indexOf(ownGroup));
+                } else {
+                  // No stories yet → prompt to create
+                  _showCreateStoryPrompt(context);
+                }
+              },
+            ),
 
-          // Other users' stories
-          ...placeholderStories.map((story) => _StoryItem(story: story)),
+          // ─── OTHER USERS' STORIES ────────────────────────
+          ...storyState.userGroups
+              .where((g) => !g.isOwn)
+              .map((group) => _StoryItem(
+                    group: group,
+                    onTap: () {
+                      final index =
+                          storyState.userGroups.indexOf(group);
+                      _openStoryViewer(
+                          context, ref, storyState.userGroups, index);
+                    },
+                  )),
         ],
+      ),
+    );
+  }
+
+  // Open full-screen story viewer
+  void _openStoryViewer(
+    BuildContext context,
+    WidgetRef ref,
+    List<StoryUserGroup> groups,
+    int initialGroupIndex,
+  ) {
+    // Filter out empty groups and own group (show own at front)
+    final nonEmptyGroups =
+        groups.where((g) => g.stories.isNotEmpty).toList();
+
+    if (nonEmptyGroups.isEmpty) return;
+
+    Navigator.of(context).push(
+      PageRouteBuilder(
+        pageBuilder: (context, animation, secondaryAnimation) {
+          return StoryViewer(
+            groups: nonEmptyGroups,
+            initialGroupIndex: initialGroupIndex
+                .clamp(0, nonEmptyGroups.length - 1),
+          );
+        },
+        transitionsBuilder: (context, animation, secondary, child) {
+          return FadeTransition(
+            opacity: animation,
+            child: child,
+          );
+        },
+        transitionDuration: const Duration(milliseconds: 200),
+      ),
+    );
+  }
+
+  void _showCreateStoryPrompt(BuildContext context) {
+    ScaffoldMessenger.of(context).showSnackBar(
+      const SnackBar(
+        content: Text(
+          '📖 Story creation coming soon!',
+        ),
+        duration: Duration(seconds: 2),
       ),
     );
   }
@@ -61,79 +122,90 @@ class StoriesBar extends ConsumerWidget {
 
 // ─── YOUR STORY ITEM ────────────────────────────────────────
 class _YourStoryItem extends StatelessWidget {
-  final dynamic user;
+  final String? profilePicUrl;
+  final String username;
+  final bool hasStory;
+  final VoidCallback onTap;
 
-  const _YourStoryItem({required this.user});
+  const _YourStoryItem({
+    required this.profilePicUrl,
+    required this.username,
+    required this.hasStory,
+    required this.onTap,
+  });
 
   @override
   Widget build(BuildContext context) {
     return GestureDetector(
-      onTap: () {
-        // Navigate to create story
-        // Will implement on Day 16
-        ScaffoldMessenger.of(context).showSnackBar(
-          const SnackBar(
-            content: Text('Stories coming on Day 16! 📖'),
-            duration: Duration(seconds: 1),
-          ),
-        );
-      },
+      onTap: onTap,
       child: Padding(
-        padding: const EdgeInsets.only(right: 16),
+        padding: const EdgeInsets.only(right: 12),
         child: Column(
           mainAxisSize: MainAxisSize.min,
           children: [
-            // Avatar with + button
+            // Avatar with gradient ring (if has story) or + button
             Stack(
               children: [
-                // Profile picture
                 Container(
                   width: 64,
                   height: 64,
+                  padding: const EdgeInsets.all(2),
                   decoration: BoxDecoration(
                     shape: BoxShape.circle,
-                    border: Border.all(color: AppColors.border, width: 1),
+                    gradient: hasStory
+                        ? AppColors.storyRingGradient
+                        : null,
+                    color: hasStory
+                        ? null
+                        : AppColors.border,
                   ),
-                  child: ClipOval(
-                    child: user.profilePicUrl != null
-                        ? CachedNetworkImage(
-                            imageUrl: user.profilePicUrl!,
-                            fit: BoxFit.cover,
-                            placeholder: (context, url) => Container(
-                              color: AppColors.border,
-                              child: const Icon(
-                                Icons.person,
-                                color: AppColors.textSecondary,
-                              ),
-                            ),
-                            errorWidget: (context, url, error) =>
-                                _defaultAvatar(user.username),
-                          )
-                        : _defaultAvatar(user.username),
+                  child: Container(
+                    padding: const EdgeInsets.all(2),
+                    decoration: const BoxDecoration(
+                      color: Colors.white,
+                      shape: BoxShape.circle,
+                    ),
+                    child: ClipOval(
+                      child: profilePicUrl != null
+                          ? CachedNetworkImage(
+                              imageUrl: profilePicUrl!,
+                              fit: BoxFit.cover,
+                              errorWidget: (_, __, ___) =>
+                                  _defaultAvatar(username),
+                            )
+                          : _defaultAvatar(username),
+                    ),
                   ),
                 ),
 
-                // Blue + button (bottom right)
-                Positioned(
-                  bottom: 0,
-                  right: 0,
-                  child: Container(
-                    width: 22,
-                    height: 22,
-                    decoration: BoxDecoration(
-                      color: AppColors.primary,
-                      shape: BoxShape.circle,
-                      border: Border.all(color: Colors.white, width: 2),
+                // + button (bottom right)
+                if (!hasStory)
+                  Positioned(
+                    bottom: 0,
+                    right: 0,
+                    child: Container(
+                      width: 22,
+                      height: 22,
+                      decoration: BoxDecoration(
+                        color: AppColors.primary,
+                        shape: BoxShape.circle,
+                        border: Border.all(
+                          color: Colors.white,
+                          width: 2,
+                        ),
+                      ),
+                      child: const Icon(
+                        Icons.add,
+                        color: Colors.white,
+                        size: 14,
+                      ),
                     ),
-                    child: const Icon(Icons.add, color: Colors.white, size: 14),
                   ),
-                ),
               ],
             ),
 
             const SizedBox(height: 4),
 
-            // Username
             SizedBox(
               width: 64,
               child: Text(
@@ -160,7 +232,7 @@ class _YourStoryItem extends StatelessWidget {
         child: Text(
           username.isNotEmpty ? username[0].toUpperCase() : '?',
           style: const TextStyle(
-            fontSize: 24,
+            fontSize: 22,
             fontWeight: FontWeight.bold,
             color: AppColors.textSecondary,
           ),
@@ -170,34 +242,38 @@ class _YourStoryItem extends StatelessWidget {
   }
 }
 
-// ─── STORY ITEM (other users) ───────────────────────────────
+// ─── OTHER USER STORY ITEM ──────────────────────────────────
 class _StoryItem extends StatelessWidget {
-  final StoryUser story;
+  final StoryUserGroup group;
+  final VoidCallback onTap;
 
-  const _StoryItem({required this.story});
+  const _StoryItem({
+    required this.group,
+    required this.onTap,
+  });
 
   @override
   Widget build(BuildContext context) {
     return GestureDetector(
-      onTap: () {
-        // Will navigate to story viewer on Day 16
-      },
+      onTap: onTap,
       child: Padding(
-        padding: const EdgeInsets.only(right: 16),
+        padding: const EdgeInsets.only(right: 12),
         child: Column(
           mainAxisSize: MainAxisSize.min,
           children: [
-            // Story ring + avatar
+            // Avatar with gradient or gray ring
             Container(
               width: 68,
               height: 68,
               padding: const EdgeInsets.all(2),
               decoration: BoxDecoration(
                 shape: BoxShape.circle,
-                gradient: story.hasUnseenStory
+                gradient: group.hasUnseen
                     ? AppColors.storyRingGradient
                     : null,
-                color: story.hasUnseenStory ? null : AppColors.border,
+                color: group.hasUnseen
+                    ? null
+                    : AppColors.border,
               ),
               child: Container(
                 padding: const EdgeInsets.all(2),
@@ -206,21 +282,14 @@ class _StoryItem extends StatelessWidget {
                   shape: BoxShape.circle,
                 ),
                 child: ClipOval(
-                  child: Container(
-                    color: AppColors.border,
-                    child: Center(
-                      child: Text(
-                        story.username.isNotEmpty
-                            ? story.username[0].toUpperCase()
-                            : '?',
-                        style: const TextStyle(
-                          fontSize: 22,
-                          fontWeight: FontWeight.bold,
-                          color: AppColors.textSecondary,
-                        ),
-                      ),
-                    ),
-                  ),
+                  child: group.user.profilePicUrl != null
+                      ? CachedNetworkImage(
+                          imageUrl: group.user.profilePicUrl!,
+                          fit: BoxFit.cover,
+                          errorWidget: (_, __, ___) =>
+                              _defaultAvatar(),
+                        )
+                      : _defaultAvatar(),
                 ),
               ),
             ),
@@ -231,22 +300,84 @@ class _StoryItem extends StatelessWidget {
             SizedBox(
               width: 64,
               child: Text(
-                story.username,
+                group.user.username,
                 textAlign: TextAlign.center,
                 maxLines: 1,
                 overflow: TextOverflow.ellipsis,
                 style: TextStyle(
                   fontSize: 12,
-                  color: story.hasUnseenStory
+                  fontWeight: group.hasUnseen
+                      ? FontWeight.w600
+                      : FontWeight.normal,
+                  color: group.hasUnseen
                       ? AppColors.textPrimary
                       : AppColors.textSecondary,
-                  fontWeight: story.hasUnseenStory
-                      ? FontWeight.w500
-                      : FontWeight.normal,
                 ),
               ),
             ),
           ],
+        ),
+      ),
+    );
+  }
+
+  Widget _defaultAvatar() {
+    final username = group.user.username;
+    return Container(
+      color: AppColors.border,
+      child: Center(
+        child: Text(
+          username.isNotEmpty ? username[0].toUpperCase() : '?',
+          style: const TextStyle(
+            fontSize: 22,
+            fontWeight: FontWeight.bold,
+            color: AppColors.textSecondary,
+          ),
+        ),
+      ),
+    );
+  }
+}
+
+// ─── SKELETON LOADING ───────────────────────────────────────
+class _StoriesBarSkeleton extends StatelessWidget {
+  const _StoriesBarSkeleton();
+
+  @override
+  Widget build(BuildContext context) {
+    return SizedBox(
+      height: 100,
+      child: ListView.builder(
+        scrollDirection: Axis.horizontal,
+        padding: const EdgeInsets.symmetric(
+          horizontal: 12,
+          vertical: 8,
+        ),
+        itemCount: 6,
+        itemBuilder: (_, __) => Padding(
+          padding: const EdgeInsets.only(right: 12),
+          child: Column(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              Container(
+                width: 64,
+                height: 64,
+                decoration: const BoxDecoration(
+                  color: AppColors.border,
+                  shape: BoxShape.circle,
+                ),
+              ),
+              const SizedBox(height: 4),
+              Container(
+                width: 48,
+                height: 10,
+                decoration: BoxDecoration(
+                  color: AppColors.border,
+                  borderRadius: BorderRadius.circular(5),
+                ),
+              ),
+            ],
+          ),
         ),
       ),
     );
