@@ -1,6 +1,6 @@
 // server/src/controllers/post.controller.js
 
-const { Post, PostMedia, User, Like, Hashtag, SavedPost, sequelize } =
+const { Post, PostMedia, User, Like, Hashtag, SavedPost, Follower, sequelize } =
   require('../models');
 const { successResponse, errorResponse, paginatedResponse } =
   require('../utils/response.utils');
@@ -239,12 +239,30 @@ const getFeed = async (req, res) => {
     const limit = parseInt(req.query.limit) || 12;
     const offset = (page - 1) * limit;
 
-    // NOTE: For now we show ALL posts (not just followed users)
-    // We will update this on Day 11 when Follower model is ready
-    // Then: WHERE user_id IN (SELECT following_id FROM followers WHERE follower_id = currentUserId)
+    const following = await Follower.findAll({
+      where: {
+        follower_id: currentUserId,
+        status: 'accepted',
+      },
+      attributes: ['following_id'],
+      raw: true,
+    });
+
+    const followingIds = [
+      currentUserId,
+      ...following.map((follow) => follow.following_id),
+    ];
+
+    const whereClause =
+      followingIds.length > 1
+        ? {
+            is_archived: false,
+            user_id: { [Op.in]: followingIds },
+          }
+        : { is_archived: false };
 
     const { count, rows: posts } = await Post.findAndCountAll({
-      where: { is_archived: false },
+      where: whereClause,
       include: [
         {
           model: User,
@@ -269,72 +287,58 @@ const getFeed = async (req, res) => {
       order: [['created_at', 'DESC']],
       limit,
       offset,
-      distinct: true, // Important with associations
+      distinct: true,
     });
 
-    // Get like/save counts and user interactions for all posts at once
     const postIds = posts.map((p) => p.id);
 
-    // Count likes for all posts in one query
-    const likeCounts = await Like.findAll({
-      where: { post_id: { [Op.in]: postIds } },
-      attributes: [
-        'post_id',
-        [sequelize.fn('COUNT', sequelize.col('id')), 'count'],
-      ],
-      group: ['post_id'],
-      raw: true,
-    });
+    const [likeCounts, saveCounts, userLikes, userSaves] = await Promise.all([
+      Like.findAll({
+        where: { post_id: { [Op.in]: postIds } },
+        attributes: [
+          'post_id',
+          [sequelize.fn('COUNT', sequelize.col('id')), 'count'],
+        ],
+        group: ['post_id'],
+        raw: true,
+      }),
+      SavedPost.findAll({
+        where: { post_id: { [Op.in]: postIds } },
+        attributes: [
+          'post_id',
+          [sequelize.fn('COUNT', sequelize.col('id')), 'count'],
+        ],
+        group: ['post_id'],
+        raw: true,
+      }),
+      Like.findAll({
+        where: { user_id: currentUserId, post_id: { [Op.in]: postIds } },
+        attributes: ['post_id'],
+        raw: true,
+      }),
+      SavedPost.findAll({
+        where: { user_id: currentUserId, post_id: { [Op.in]: postIds } },
+        attributes: ['post_id'],
+        raw: true,
+      }),
+    ]);
 
-    // Count saves for all posts
-    const saveCounts = await SavedPost.findAll({
-      where: { post_id: { [Op.in]: postIds } },
-      attributes: [
-        'post_id',
-        [sequelize.fn('COUNT', sequelize.col('id')), 'count'],
-      ],
-      group: ['post_id'],
-      raw: true,
-    });
-
-    // Get current user's likes
-    const userLikes = await Like.findAll({
-      where: {
-        user_id: currentUserId,
-        post_id: { [Op.in]: postIds },
-      },
-      attributes: ['post_id'],
-      raw: true,
-    });
-
-    // Get current user's saves
-    const userSaves = await SavedPost.findAll({
-      where: {
-        user_id: currentUserId,
-        post_id: { [Op.in]: postIds },
-      },
-      attributes: ['post_id'],
-      raw: true,
-    });
-
-    // Build lookup maps for O(1) access
     const likeCountMap = {};
     likeCounts.forEach((l) => { likeCountMap[l.post_id] = parseInt(l.count); });
 
     const saveCountMap = {};
     saveCounts.forEach((s) => { saveCountMap[s.post_id] = parseInt(s.count); });
 
-    const likedPostIds = new Set(userLikes.map((l) => l.post_id));
-    const savedPostIds = new Set(userSaves.map((s) => s.post_id));
+    const likedSet = new Set(userLikes.map((l) => l.post_id));
+    const savedSet = new Set(userSaves.map((s) => s.post_id));
 
-    // Format posts with counts and interactions
     const formattedPosts = posts.map((post) => {
       const postData = post.toJSON();
       postData.like_count = likeCountMap[post.id] || 0;
       postData.save_count = saveCountMap[post.id] || 0;
-      postData.comment_count = 0; // Day 10
-      postData.is_liked = likedPostIds.has(post.id);
-      postData.is_saved = savedPostIds.has(post.id);
+      postData.comment_count = 0;
+      postData.is_liked = likedSet.has(post.id);
+      postData.is_saved = savedSet.has(post.id);
       return formatPost(postData, currentUserId);
     });
 

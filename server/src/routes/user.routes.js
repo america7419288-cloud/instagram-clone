@@ -1,4 +1,5 @@
 // server/src/routes/user.routes.js
+// COMPLETE UPDATED FILE with follow endpoints
 
 const express = require('express');
 const router = express.Router();
@@ -14,16 +15,21 @@ const {
   getUserById,
 } = require('../controllers/user.controller');
 
-// Middleware
 const {
-  protect,
-  optionalAuth,
-} = require('../middleware/auth.middleware');
+  followUser,
+  unfollowUser,
+  getFollowStatus,
+  getFollowers,
+  getFollowing,
+  removeFollower,
+  getFollowRequests,
+  acceptFollowRequest,
+  rejectFollowRequest,
+} = require('../controllers/follow.controller');
 
-// Upload middleware
-const {
-  uploadSingleImage,
-} = require('../services/upload.service');
+// Middleware
+const { protect, optionalAuth } = require('../middleware/auth.middleware');
+const { uploadSingleImage } = require('../services/upload.service');
 
 // Validators
 const {
@@ -32,81 +38,54 @@ const {
   handleValidationErrors,
 } = require('../validators/user.validator');
 
+// ─── MULTER HANDLER ────────────────────────────────────────
+const handleUpload = (req, res, next) => {
+  uploadSingleImage(req, res, (err) => {
+    if (err) {
+      return res.status(400).json({
+        success: false,
+        message: err.message || 'File upload error',
+      });
+    }
+    next();
+  });
+};
+
 // ─── ROUTES ────────────────────────────────────────────────
+// ⚠️ SPECIFIC ROUTES BEFORE PARAM ROUTES
 
-// ⚠️ ORDER MATTERS IN EXPRESS!
-// Specific routes MUST come BEFORE parameter routes
-// /search must come before /:username
-// /suggestions must come before /:username
-// /profile must come before /:username
+// Search users
+router.get('/search', protect, searchValidation, handleValidationErrors, searchUsers);
 
-// GET /api/v1/users/search?q=john
-router.get(
-  '/search',
-  protect,
-  searchValidation,
-  handleValidationErrors,
-  searchUsers
-);
+// Suggested users
+router.get('/suggestions', protect, getSuggestedUsers);
 
-// GET /api/v1/users/suggestions
-router.get(
-  '/suggestions',
-  protect,
-  getSuggestedUsers
-);
+// ⭐ Follow requests (must be before /:id routes)
+router.get('/follow-requests', protect, getFollowRequests);
 
-// PUT /api/v1/users/profile
-router.put(
-  '/profile',
-  protect,
-  updateProfileValidation,
-  handleValidationErrors,
-  updateProfile
-);
+// Edit own profile
+router.put('/profile', protect, updateProfileValidation, handleValidationErrors, updateProfile);
 
-// PUT /api/v1/users/profile-picture
-// uploadSingleImage is multer middleware
-// It processes the file before controller runs
-router.put(
-  '/profile-picture',
-  protect,
-  (req, res, next) => {
-    // Handle multer errors gracefully
-    uploadSingleImage(req, res, (err) => {
-      if (err) {
-        return res.status(400).json({
-          success: false,
-          message: err.message || 'File upload error',
-          timestamp: new Date().toISOString(),
-        });
-      }
-      next();
-    });
-  },
-  updateProfilePicture
-);
+// Profile picture
+router.put('/profile-picture', protect, handleUpload, updateProfilePicture);
+router.delete('/profile-picture', protect, removeProfilePicture);
 
-// DELETE /api/v1/users/profile-picture
-router.delete(
-  '/profile-picture',
-  protect,
-  removeProfilePicture
-);
+// ─── USER SPECIFIC ROUTES (with :id param) ─────────────────
 
-// GET /api/v1/users/:id/basic
-router.get(
-  '/:id/basic',
-  protect,
-  getUserById
-);
+// Get user by UUID
+router.get('/:id/basic', protect, getUserById);
 
-// GET /api/v1/users/:username
-// optionalAuth: works for logged-in AND guest users
-router.get(
-  '/:username',
-  optionalAuth,
-  getUserProfile
-);
+// ⭐ Follow system
+router.post('/:id/follow', protect, followUser);
+router.delete('/:id/follow', protect, unfollowUser);
+router.get('/:id/follow-status', protect, getFollowStatus);
+router.get('/:id/followers', protect, getFollowers);
+router.get('/:id/following', protect, getFollowing);
+router.delete('/:id/follower', protect, removeFollower);
+router.post('/:id/follow/accept', protect, acceptFollowRequest);
+router.post('/:id/follow/reject', protect, rejectFollowRequest);
+
+// Get user profile by username (must be LAST - catches everything)
+router.get('/:username', optionalAuth, getUserProfile);
 
 module.exports = router;
