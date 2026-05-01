@@ -1,6 +1,6 @@
 // server/src/controllers/user.controller.js
 
-const { User } = require('../models');
+const { User, Follower, Block, Post, sequelize } = require('../models');
 const { successResponse, errorResponse } = require('../utils/response.utils');
 const {
   uploadProfilePicture,
@@ -33,10 +33,8 @@ const formatPublicProfile = (user, extras = {}) => ({
 const getUserProfile = async (req, res) => {
   try {
     const { username } = req.params;
-    // req.user exists if logged in (optionalAuth middleware)
     const currentUserId = req.user?.id || null;
 
-    // 1. FIND USER BY USERNAME
     const user = await User.findOne({
       where: {
         username: username.toLowerCase(),
@@ -45,28 +43,70 @@ const getUserProfile = async (req, res) => {
       },
     });
 
-    // 2. CHECK IF USER EXISTS
     if (!user) {
       return errorResponse(res, 404, 'User not found.');
     }
 
-    // 3. COUNT POSTS, FOLLOWERS, FOLLOWING
-    // We'll use raw queries for now
-    // Later these will use actual Post and Follower models
-    const postCount = 0;      // Will update on Day 8 when Post model is ready
-    const followersCount = 0; // Will update on Day 11 when Follower model ready
-    const followingCount = 0; // Will update on Day 11
+    if (currentUserId && currentUserId !== user.id) {
+      const blockExists = await Block.findOne({
+        where: {
+          [Op.or]: [
+            { blocker_id: currentUserId, blocked_id: user.id },
+            { blocker_id: user.id, blocked_id: currentUserId },
+          ],
+        },
+      });
 
-    // 4. CHECK IF CURRENT USER FOLLOWS THIS USER
-    // Will update on Day 11 when Follower model is ready
-    const isFollowing = false;
-    const isFollowedBy = false;
-    const followStatus = null; // 'following', 'requested', 'not_following'
+      if (blockExists) {
+        return errorResponse(res, 404, 'User not found.');
+      }
+    }
 
-    // 5. CHECK IF VIEWING OWN PROFILE
+    const [postCount, followersCount, followingCount] = await Promise.all([
+      Post.count({
+        where: { user_id: user.id, is_archived: false },
+      }),
+      Follower.count({
+        where: { following_id: user.id, status: 'accepted' },
+      }),
+      Follower.count({
+        where: { follower_id: user.id, status: 'accepted' },
+      }),
+    ]);
+
     const isOwnProfile = currentUserId === user.id;
+    let followStatus = null;
+    let isFollowing = false;
+    let isFollowedBy = false;
 
-    // 6. BUILD RESPONSE
+    if (currentUserId && !isOwnProfile) {
+      const [myFollow, theirFollow] = await Promise.all([
+        Follower.findOne({
+          where: {
+            follower_id: currentUserId,
+            following_id: user.id,
+          },
+        }),
+        Follower.findOne({
+          where: {
+            follower_id: user.id,
+            following_id: currentUserId,
+            status: 'accepted',
+          },
+        }),
+      ]);
+
+      if (myFollow) {
+        followStatus =
+          myFollow.status === 'accepted' ? 'following' : 'requested';
+        isFollowing = myFollow.status === 'accepted';
+      } else {
+        followStatus = 'not_following';
+      }
+
+      isFollowedBy = !!theirFollow;
+    }
+
     const profileData = formatPublicProfile(user, {
       post_count: postCount,
       followers_count: followersCount,
@@ -77,15 +117,12 @@ const getUserProfile = async (req, res) => {
       is_followed_by: isOwnProfile ? null : isFollowedBy,
     });
 
-    // 7. IF PRIVATE ACCOUNT AND NOT FOLLOWING
-    // Hide some details
     if (user.is_private && !isOwnProfile && !isFollowing) {
       return successResponse(res, 200, 'User profile fetched', {
         user: {
           ...profileData,
-          // Don't show posts for private accounts
           is_restricted: true,
-          message: 'This account is private. Follow to see their posts.',
+          message: 'This account is private.',
         },
       });
     }
@@ -484,14 +521,36 @@ const getSuggestedUsers = async (req, res) => {
     const currentUserId = req.user.id;
     const limit = parseInt(req.query.limit) || 10;
 
-    // SUGGESTION LOGIC:
-    // For now: get random active users that are not the current user
-    // Later (Day 11): Exclude people already followed
-    // Even later: Use ML-based suggestions
+    const alreadyFollowing = await Follower.findAll({
+      where: { follower_id: currentUserId },
+      attributes: ['following_id'],
+      raw: true,
+    });
+
+    const blockedUsers = await Block.findAll({
+      where: {
+        [Op.or]: [
+          { blocker_id: currentUserId },
+          { blocked_id: currentUserId },
+        ],
+      },
+      attributes: ['blocker_id', 'blocked_id'],
+      raw: true,
+    });
+
+    const excludeIds = [
+      currentUserId,
+      ...alreadyFollowing.map((follow) => follow.following_id),
+      ...blockedUsers.map((block) =>
+        block.blocker_id === currentUserId
+          ? block.blocked_id
+          : block.blocker_id
+      ),
+    ];
 
     const users = await User.findAll({
       where: {
-        id: { [Op.ne]: currentUserId },
+        id: { [Op.notIn]: excludeIds },
         is_active: true,
         is_banned: false,
       },
@@ -504,7 +563,7 @@ const getSuggestedUsers = async (req, res) => {
         'is_private',
         'bio',
       ],
-      order: User.sequelize.random(), // Random order
+      order: sequelize.random(),
       limit,
     });
 
@@ -516,8 +575,8 @@ const getSuggestedUsers = async (req, res) => {
       is_verified: user.is_verified,
       is_private: user.is_private,
       bio: user.bio,
-      is_following: false,          // Will update Day 11
-      mutual_followers_count: 0,    // Will update Day 11
+      is_following: false,
+      mutual_followers_count: 0,
     }));
 
     return successResponse(

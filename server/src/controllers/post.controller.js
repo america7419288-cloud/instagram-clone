@@ -1,7 +1,16 @@
 // server/src/controllers/post.controller.js
 
-const { Post, PostMedia, User, Like, Hashtag, SavedPost, Follower, sequelize } =
-  require('../models');
+const {
+  Post,
+  PostMedia,
+  User,
+  Like,
+  Hashtag,
+  SavedPost,
+  Comment,
+  Follower,
+  sequelize,
+} = require('../models');
 const { successResponse, errorResponse, paginatedResponse } =
   require('../utils/response.utils');
 const { uploadPostMedia, deleteFromCloudinary } =
@@ -248,21 +257,35 @@ const getFeed = async (req, res) => {
       raw: true,
     });
 
-    const followingIds = [
-      currentUserId,
-      ...following.map((follow) => follow.following_id),
-    ];
+    const followingIds = following.map((follow) => follow.following_id);
+    const feedUserIds = [...followingIds, currentUserId];
 
-    const whereClause =
-      followingIds.length > 1
-        ? {
-            is_archived: false,
-            user_id: { [Op.in]: followingIds },
-          }
-        : { is_archived: false };
+    if (followingIds.length === 0) {
+      return successResponse(
+        res,
+        200,
+        'Start following people to see their posts!',
+        {
+          posts: [],
+          pagination: {
+            currentPage: page,
+            totalPages: 0,
+            totalItems: 0,
+            itemsPerPage: limit,
+            hasNextPage: false,
+            hasPrevPage: false,
+          },
+          is_empty_feed: true,
+          message: 'Follow people to see posts in your feed.',
+        }
+      );
+    }
 
     const { count, rows: posts } = await Post.findAndCountAll({
-      where: whereClause,
+      where: {
+        user_id: { [Op.in]: feedUserIds },
+        is_archived: false,
+      },
       include: [
         {
           model: User,
@@ -292,7 +315,22 @@ const getFeed = async (req, res) => {
 
     const postIds = posts.map((p) => p.id);
 
-    const [likeCounts, saveCounts, userLikes, userSaves] = await Promise.all([
+    if (postIds.length === 0) {
+      return paginatedResponse(
+        res,
+        'Feed fetched successfully',
+        [],
+        { page, totalPages: 0, totalItems: 0, limit }
+      );
+    }
+
+    const [
+      likeCounts,
+      saveCounts,
+      commentCounts,
+      userLikes,
+      userSaves,
+    ] = await Promise.all([
       Like.findAll({
         where: { post_id: { [Op.in]: postIds } },
         attributes: [
@@ -304,6 +342,19 @@ const getFeed = async (req, res) => {
       }),
       SavedPost.findAll({
         where: { post_id: { [Op.in]: postIds } },
+        attributes: [
+          'post_id',
+          [sequelize.fn('COUNT', sequelize.col('id')), 'count'],
+        ],
+        group: ['post_id'],
+        raw: true,
+      }),
+      Comment.findAll({
+        where: {
+          post_id: { [Op.in]: postIds },
+          is_hidden: false,
+          parent_comment_id: null,
+        },
         attributes: [
           'post_id',
           [sequelize.fn('COUNT', sequelize.col('id')), 'count'],
@@ -329,6 +380,11 @@ const getFeed = async (req, res) => {
     const saveCountMap = {};
     saveCounts.forEach((s) => { saveCountMap[s.post_id] = parseInt(s.count); });
 
+    const commentCountMap = {};
+    commentCounts.forEach((comment) => {
+      commentCountMap[comment.post_id] = parseInt(comment.count);
+    });
+
     const likedSet = new Set(userLikes.map((l) => l.post_id));
     const savedSet = new Set(userSaves.map((s) => s.post_id));
 
@@ -336,7 +392,7 @@ const getFeed = async (req, res) => {
       const postData = post.toJSON();
       postData.like_count = likeCountMap[post.id] || 0;
       postData.save_count = saveCountMap[post.id] || 0;
-      postData.comment_count = 0;
+      postData.comment_count = commentCountMap[post.id] || 0;
       postData.is_liked = likedSet.has(post.id);
       postData.is_saved = savedSet.has(post.id);
       return formatPost(postData, currentUserId);
