@@ -2,8 +2,8 @@
 
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
-import '../../../../core/theme/app_theme.dart';
-import '../providers/follow_provider.dart';
+import '../../../../../../../core/theme/app_theme.dart';
+import '../follow_provider.dart';
 
 // ─── FOLLOW BUTTON ──────────────────────────────────────────
 // Reusable widget used everywhere (profile, search, suggestions)

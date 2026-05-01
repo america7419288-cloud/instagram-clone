@@ -1,7 +1,8 @@
 // lib/features/follow/presentation/providers/follow_provider.dart
 
 import 'package:flutter_riverpod/flutter_riverpod.dart';
-import '../../data/repositories/follow_service.dart';
+import 'package:flutter_riverpod/legacy.dart';
+import '../../follow_service.dart';
 
 // ─── FOLLOW STATUS ENUM ─────────────────────────────────────
 enum FollowStatus {

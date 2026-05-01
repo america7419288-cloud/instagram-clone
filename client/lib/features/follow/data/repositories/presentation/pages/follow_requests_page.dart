@@ -4,7 +4,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:cached_network_image/cached_network_image.dart';
 import 'package:go_router/go_router.dart';
-import '../../../../core/theme/app_theme.dart';
+import '../../../../../../core/theme/app_theme.dart';
 import '../providers/follow_provider.dart';
 
 class FollowRequestsPage extends ConsumerWidget {
@@ -112,8 +112,8 @@ class FollowRequestsPage extends ConsumerWidget {
 class _FollowRequestItem extends StatefulWidget {
   final Map<String, dynamic> requester;
   final String? requestedAt;
-  final VoidCallback onAccept;
-  final VoidCallback onDecline;
+  final Future<void> Function() onAccept;
+  final Future<void> Function() onDecline;
 
   const _FollowRequestItem({
     required this.requester,

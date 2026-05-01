@@ -12,6 +12,7 @@ import '../../features/home/presentation/pages/home_page.dart';
 import '../../features/search/presentation/pages/search_page.dart';
 import '../../features/post/presentation/pages/create_post_page.dart';
 import '../../features/post/presentation/pages/post_detail_page.dart';
+import '../../features/search/presentation/pages/hashtag_page.dart';
 import '../../features/post/presentation/pages/post_likes_page.dart';
 import '../../features/notifications/presentation/pages/notifications_page.dart';
 import '../../features/profile/presentation/pages/profile_page.dart';
@@ -49,6 +50,7 @@ class AppRoutes {
   static const String following = '/following/:username/:userId';
   static const String followRequests = '/follow-requests';
   static const String postLikes = '/post/:postId/likes';
+  static const String hashtag = '/hashtag/:tag';
 }
 
 // ─── ROUTER PROVIDER ────────────────────────────────────────
@@ -108,6 +110,15 @@ final routerProvider = Provider<GoRouter>((ref) {
         name: 'splash',
         builder: (context, state) => const SplashPage(),
       ),
+
+      GoRoute(
+        path: '/hashtag/:tag',
+        name: 'hashtag',
+        builder: (context, state) {
+           final tag = state.pathParameters['tag'] ?? '';
+         return HashtagPage(tag: tag);
+  },
+),
 
       // ── AUTH ROUTES ─────────────────────────────────
       GoRoute(

@@ -4,10 +4,10 @@ import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:cached_network_image/cached_network_image.dart';
 import 'package:go_router/go_router.dart';
-import '../../../../core/theme/app_theme.dart';
-import '../../../../features/auth/presentation/providers/auth_provider.dart';
-import '../../data/repositories/follow_service.dart';
-import '../widgets/follow_button.dart';
+import '../../../../../../core/theme/app_theme.dart';
+import '../../../../../auth/presentation/providers/auth_provider.dart';
+import '../../follow_service.dart';
+import '../providers/widgets/follow_button.dart';
 
 class FollowersPage extends ConsumerStatefulWidget {
   final String userId;

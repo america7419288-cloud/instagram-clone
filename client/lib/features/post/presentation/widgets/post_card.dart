@@ -1,6 +1,7 @@
 // lib/features/post/presentation/widgets/post_card.dart
 
 import 'package:flutter/material.dart';
+import 'package:flutter/gestures.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:cached_network_image/cached_network_image.dart';
 import 'package:go_router/go_router.dart';
@@ -619,7 +620,7 @@ class _CaptionTextState extends State<_CaptionText> {
               ),
             ),
             // Caption text with hashtags colored
-            ..._buildCaptionSpans(fullText),
+            ..._buildCaptionSpans(fullText, context),
             // "more" button
             if (isLong && !_expanded)
               const TextSpan(
@@ -635,28 +636,38 @@ class _CaptionTextState extends State<_CaptionText> {
     );
   }
 
-  List<TextSpan> _buildCaptionSpans(String text) {
-    final spans = <TextSpan>[];
-    final parts = text.split(RegExp(r'(#\w+)'));
+ // In post_card.dart, update _buildCaptionSpans method:
+// FIND this method and REPLACE the hashtag TextSpan:
 
-    for (final part in parts) {
-      if (part.startsWith('#')) {
-        spans.add(
-          TextSpan(
-            text: part,
-            style: const TextStyle(
-              color: AppColors.primary,
-              fontWeight: FontWeight.w500,
-            ),
-          ),
-        );
-      } else {
-        spans.add(TextSpan(text: part));
-      }
+List<TextSpan> _buildCaptionSpans(
+  String text,
+  BuildContext context,  // ADD context parameter
+) {
+  final spans = <TextSpan>[];
+  final parts = text.split(RegExp(r'(#\w+)'));
+
+  for (final part in parts) {
+    if (part.startsWith('#')) {
+      final tag = part.substring(1); // Remove #
+      spans.add(TextSpan(
+        text: part,
+        style: const TextStyle(
+          color: AppColors.primary,
+          fontWeight: FontWeight.w500,
+        ),
+        recognizer: TapGestureRecognizer()
+          ..onTap = () {
+            // Navigate to hashtag page
+            context.push('/hashtag/$tag');
+          },
+      ));
+    } else {
+      spans.add(TextSpan(text: part));
     }
-
-    return spans;
   }
+
+  return spans;
+}
 }
 
 // ─── ACTION BUTTON ──────────────────────────────────────────
