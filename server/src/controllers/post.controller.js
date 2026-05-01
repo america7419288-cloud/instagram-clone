@@ -19,6 +19,10 @@ const {
   saveHashtagsForPost,
   removeHashtagsForPost,
 } = require('../utils/hashtag.utils');
+const {
+  notifyLike,
+  processMentions,
+} = require('../services/notification.service');
 const { Op } = require('sequelize');
 
 // ─── HELPER: Format post for response ──────────────────────
@@ -219,6 +223,10 @@ const createPost = async (req, res) => {
     // 6. COMMIT TRANSACTION
     await transaction.commit();
     console.log(`✅ Post creation complete: ${post.id}`);
+
+    if (caption) {
+      processMentions(caption, userId, post.id);
+    }
 
     // 7. GET FULL POST DATA FOR RESPONSE
     const fullPost = await getFullPost(post.id, userId);
@@ -722,6 +730,8 @@ const likePost = async (req, res) => {
     if (!created) {
       return errorResponse(res, 400, 'You already liked this post.');
     }
+
+    notifyLike(userId, postId);
 
     // Get updated like count
     const likeCount = await Like.count({ where: { post_id: postId } });

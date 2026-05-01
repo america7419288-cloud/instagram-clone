@@ -36,8 +36,7 @@ class StoryFeedState {
 class StoryFeedNotifier extends StateNotifier<StoryFeedState> {
   final StoryService _storyService;
 
-  StoryFeedNotifier(this._storyService)
-      : super(const StoryFeedState()) {
+  StoryFeedNotifier(this._storyService) : super(const StoryFeedState()) {
     loadStories();
   }
 
@@ -47,10 +46,7 @@ class StoryFeedNotifier extends StateNotifier<StoryFeedState> {
 
     try {
       final groups = await _storyService.getStoryFeed();
-      state = state.copyWith(
-        userGroups: groups,
-        isLoading: false,
-      );
+      state = state.copyWith(userGroups: groups, isLoading: false);
     } catch (e) {
       state = state.copyWith(
         isLoading: false,
@@ -60,10 +56,7 @@ class StoryFeedNotifier extends StateNotifier<StoryFeedState> {
   }
 
   // ─── MARK STORY AS VIEWED ─────────────────────────────────
-  Future<void> markStoryViewed(
-    String userId,
-    String storyId,
-  ) async {
+  Future<void> markStoryViewed(String userId, String storyId) async {
     // Update local state immediately
     final updatedGroups = state.userGroups.map((group) {
       if (group.user.id != userId) return group;
@@ -75,8 +68,7 @@ class StoryFeedNotifier extends StateNotifier<StoryFeedState> {
       }).toList();
 
       // Check if any unseen stories remain
-      final stillHasUnseen =
-          updatedStories.any((s) => !s.isViewed);
+      final stillHasUnseen = updatedStories.any((s) => !s.isViewed);
 
       return StoryUserGroup(
         user: group.user,
@@ -121,8 +113,9 @@ class StoryFeedNotifier extends StateNotifier<StoryFeedState> {
     final groups = state.userGroups.map((group) {
       if (!group.isOwn) return group;
 
-      final updatedStories =
-          group.stories.where((s) => s.id != storyId).toList();
+      final updatedStories = group.stories
+          .where((s) => s.id != storyId)
+          .toList();
 
       return StoryUserGroup(
         user: group.user,
@@ -144,5 +137,5 @@ final storyServiceProvider = Provider<StoryService>((ref) {
 
 final storyFeedProvider =
     StateNotifierProvider<StoryFeedNotifier, StoryFeedState>((ref) {
-  return StoryFeedNotifier(ref.watch(storyServiceProvider));
-});
+      return StoryFeedNotifier(ref.watch(storyServiceProvider));
+    });

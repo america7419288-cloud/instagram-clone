@@ -18,9 +18,7 @@ class HomePage extends ConsumerWidget {
 
   @override
   Widget build(BuildContext context, WidgetRef ref) {
-    return const Scaffold(
-      body: HomePageContent(),
-    );
+    return const Scaffold(body: HomePageContent());
   }
 }
 
@@ -28,8 +26,7 @@ class HomePageContent extends ConsumerStatefulWidget {
   const HomePageContent({super.key});
 
   @override
-  ConsumerState<HomePageContent> createState() =>
-      _HomePageContentState();
+  ConsumerState<HomePageContent> createState() => _HomePageContentState();
 }
 
 class _HomePageContentState extends ConsumerState<HomePageContent> {
@@ -82,8 +79,7 @@ class _HomePageContentState extends ConsumerState<HomePageContent> {
       elevation: 0,
       scrolledUnderElevation: 0,
       title: ShaderMask(
-        shaderCallback: (bounds) =>
-            AppColors.instagramGradient.createShader(
+        shaderCallback: (bounds) => AppColors.instagramGradient.createShader(
           Rect.fromLTWH(0, 0, bounds.width, bounds.height),
         ),
         child: const Text(
@@ -152,36 +148,33 @@ class _HomePageContentState extends ConsumerState<HomePageContent> {
 
         // Posts
         SliverList(
-          delegate: SliverChildBuilderDelegate(
-            (context, index) {
-              if (index == feedState.posts.length) {
-                if (feedState.isLoadingMore) {
-                  return const Padding(
-                    padding: EdgeInsets.all(20),
-                    child: Center(
-                      child: CircularProgressIndicator(
-                        color: AppColors.primary,
-                        strokeWidth: 2,
-                      ),
+          delegate: SliverChildBuilderDelegate((context, index) {
+            if (index == feedState.posts.length) {
+              if (feedState.isLoadingMore) {
+                return const Padding(
+                  padding: EdgeInsets.all(20),
+                  child: Center(
+                    child: CircularProgressIndicator(
+                      color: AppColors.primary,
+                      strokeWidth: 2,
                     ),
-                  );
-                }
-                if (!feedState.hasMore) {
-                  return const _EndOfFeedMessage();
-                }
-                return const SizedBox.shrink();
+                  ),
+                );
               }
+              if (!feedState.hasMore) {
+                return const _EndOfFeedMessage();
+              }
+              return const SizedBox.shrink();
+            }
 
-              final post = feedState.posts[index];
-              return Column(
-                children: [
-                  PostCard(key: ValueKey(post.id), post: post),
-                  const Divider(height: 1, color: AppColors.border),
-                ],
-              );
-            },
-            childCount: feedState.posts.length + 1,
-          ),
+            final post = feedState.posts[index];
+            return Column(
+              children: [
+                PostCard(key: ValueKey(post.id), post: post),
+                const Divider(height: 1, color: AppColors.border),
+              ],
+            );
+          }, childCount: feedState.posts.length + 1),
         ),
 
         const SliverToBoxAdapter(child: SizedBox(height: 20)),
@@ -232,10 +225,7 @@ class _ErrorState extends StatelessWidget {
             const SizedBox(height: 16),
             const Text(
               'Could not load feed',
-              style: TextStyle(
-                fontSize: 18,
-                fontWeight: FontWeight.bold,
-              ),
+              style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold),
             ),
             const SizedBox(height: 8),
             Text(
@@ -278,10 +268,7 @@ class _EmptyFeedState extends ConsumerWidget {
               height: 100,
               decoration: BoxDecoration(
                 shape: BoxShape.circle,
-                border: Border.all(
-                  color: AppColors.textPrimary,
-                  width: 2,
-                ),
+                border: Border.all(color: AppColors.textPrimary, width: 2),
               ),
               child: const Icon(
                 Icons.camera_alt_outlined,
@@ -292,10 +279,7 @@ class _EmptyFeedState extends ConsumerWidget {
             const SizedBox(height: 24),
             const Text(
               'Welcome to Instagram',
-              style: TextStyle(
-                fontSize: 22,
-                fontWeight: FontWeight.bold,
-              ),
+              style: TextStyle(fontSize: 22, fontWeight: FontWeight.bold),
             ),
             const SizedBox(height: 8),
             const Padding(
@@ -351,10 +335,7 @@ class _EndOfFeedMessage extends StatelessWidget {
             height: 60,
             decoration: BoxDecoration(
               shape: BoxShape.circle,
-              border: Border.all(
-                color: AppColors.border,
-                width: 2,
-              ),
+              border: Border.all(color: AppColors.border, width: 2),
             ),
             child: const Icon(
               Icons.camera_alt_outlined,
@@ -365,10 +346,7 @@ class _EndOfFeedMessage extends StatelessWidget {
           const SizedBox(height: 12),
           const Text(
             "You're all caught up",
-            style: TextStyle(
-              fontSize: 18,
-              fontWeight: FontWeight.bold,
-            ),
+            style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold),
           ),
           const SizedBox(height: 4),
           const Text(

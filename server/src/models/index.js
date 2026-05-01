@@ -13,12 +13,13 @@ const PostHashtag = require('./PostHashtag.model');
 const SavedPost = require('./SavedPost.model');
 const Comment = require('./Comment.model');
 const CommentLike = require('./CommentLike.model');
-const Follower = require('./Follower.model');  
-const Block = require('./Block.model');         
-const Story = require('./Story.model');       
-const StoryView = require('./StoryView.model'); 
+const Follower = require('./Follower.model');
+const Block = require('./Block.model');
+const Story = require('./Story.model');
+const StoryView = require('./StoryView.model');
+const Notification = require('./Notification.model'); // ⭐ NEW
 
-// ─── ALL ASSOCIATIONS ──────────────────────────────────────
+// ─── ASSOCIATIONS ──────────────────────────────────────────
 
 // USER → POSTS
 User.hasMany(Post, {
@@ -26,21 +27,15 @@ User.hasMany(Post, {
   as: 'posts',
   onDelete: 'CASCADE',
 });
-Post.belongsTo(User, {
-  foreignKey: 'user_id',
-  as: 'user',
-});
+Post.belongsTo(User, { foreignKey: 'user_id', as: 'user' });
 
-// POST → POST MEDIA
+// POST → MEDIA
 Post.hasMany(PostMedia, {
   foreignKey: 'post_id',
   as: 'media',
   onDelete: 'CASCADE',
 });
-PostMedia.belongsTo(Post, {
-  foreignKey: 'post_id',
-  as: 'post',
-});
+PostMedia.belongsTo(Post, { foreignKey: 'post_id', as: 'post' });
 
 // POST → LIKES
 Post.hasMany(Like, {
@@ -49,8 +44,6 @@ Post.hasMany(Like, {
   onDelete: 'CASCADE',
 });
 Like.belongsTo(Post, { foreignKey: 'post_id', as: 'post' });
-
-// USER → LIKES
 User.hasMany(Like, {
   foreignKey: 'user_id',
   as: 'likes',
@@ -72,15 +65,13 @@ Hashtag.belongsToMany(Post, {
   as: 'posts',
 });
 
-// POST → SAVED
+// SAVED POSTS
 Post.hasMany(SavedPost, {
   foreignKey: 'post_id',
   as: 'saves',
   onDelete: 'CASCADE',
 });
 SavedPost.belongsTo(Post, { foreignKey: 'post_id', as: 'post' });
-
-// USER → SAVED POSTS
 User.hasMany(SavedPost, {
   foreignKey: 'user_id',
   as: 'savedPosts',
@@ -88,15 +79,13 @@ User.hasMany(SavedPost, {
 });
 SavedPost.belongsTo(User, { foreignKey: 'user_id', as: 'user' });
 
-// POST → COMMENTS
+// COMMENTS
 Post.hasMany(Comment, {
   foreignKey: 'post_id',
   as: 'comments',
   onDelete: 'CASCADE',
 });
 Comment.belongsTo(Post, { foreignKey: 'post_id', as: 'post' });
-
-// USER → COMMENTS
 User.hasMany(Comment, {
   foreignKey: 'user_id',
   as: 'comments',
@@ -104,7 +93,7 @@ User.hasMany(Comment, {
 });
 Comment.belongsTo(User, { foreignKey: 'user_id', as: 'user' });
 
-// COMMENT → REPLIES (self-referencing)
+// COMMENT REPLIES (self-ref)
 Comment.hasMany(Comment, {
   foreignKey: 'parent_comment_id',
   as: 'replies',
@@ -115,7 +104,7 @@ Comment.belongsTo(Comment, {
   as: 'parent',
 });
 
-// COMMENT → COMMENT LIKES
+// COMMENT LIKES
 Comment.hasMany(CommentLike, {
   foreignKey: 'comment_id',
   as: 'likes',
@@ -135,47 +124,107 @@ CommentLike.belongsTo(User, {
   as: 'user',
 });
 
-// ─── FOLLOW ASSOCIATIONS ───────────────────────────────────
-
-// A user has many FOLLOWERS (people following them)
+// FOLLOWERS
 User.hasMany(Follower, {
-  foreignKey: 'following_id',  // "I am being followed"
+  foreignKey: 'following_id',
   as: 'followers',
   onDelete: 'CASCADE',
 });
-
-// A user FOLLOWS many people
 User.hasMany(Follower, {
-  foreignKey: 'follower_id',   // "I am following"
+  foreignKey: 'follower_id',
   as: 'following',
   onDelete: 'CASCADE',
 });
-
-// Follower belongs to the person being followed
 Follower.belongsTo(User, {
   foreignKey: 'following_id',
   as: 'followingUser',
 });
-
-// Follower belongs to the person who is following
 Follower.belongsTo(User, {
   foreignKey: 'follower_id',
   as: 'followerUser',
 });
 
-// ─── BLOCK ASSOCIATIONS ────────────────────────────────────
+// BLOCKS
 User.hasMany(Block, {
   foreignKey: 'blocker_id',
   as: 'blockedUsers',
   onDelete: 'CASCADE',
 });
-Block.belongsTo(User, {
-  foreignKey: 'blocker_id',
-  as: 'blocker',
-});
+Block.belongsTo(User, { foreignKey: 'blocker_id', as: 'blocker' });
 Block.belongsTo(User, {
   foreignKey: 'blocked_id',
   as: 'blockedUser',
+});
+
+// STORIES
+User.hasMany(Story, {
+  foreignKey: 'user_id',
+  as: 'stories',
+  onDelete: 'CASCADE',
+});
+Story.belongsTo(User, { foreignKey: 'user_id', as: 'user' });
+Story.hasMany(StoryView, {
+  foreignKey: 'story_id',
+  as: 'views',
+  onDelete: 'CASCADE',
+});
+StoryView.belongsTo(Story, {
+  foreignKey: 'story_id',
+  as: 'story',
+});
+User.hasMany(StoryView, {
+  foreignKey: 'viewer_id',
+  as: 'storyViews',
+  onDelete: 'CASCADE',
+});
+StoryView.belongsTo(User, {
+  foreignKey: 'viewer_id',
+  as: 'viewer',
+});
+
+// ─── NOTIFICATION ASSOCIATIONS ─────────────────────────────
+
+// User receives many notifications
+User.hasMany(Notification, {
+  foreignKey: 'recipient_id',
+  as: 'receivedNotifications',
+  onDelete: 'CASCADE',
+});
+Notification.belongsTo(User, {
+  foreignKey: 'recipient_id',
+  as: 'recipient',
+});
+
+// User sends/triggers many notifications
+User.hasMany(Notification, {
+  foreignKey: 'sender_id',
+  as: 'sentNotifications',
+  onDelete: 'CASCADE',
+});
+Notification.belongsTo(User, {
+  foreignKey: 'sender_id',
+  as: 'sender',
+});
+
+// Notification references a post
+Notification.belongsTo(Post, {
+  foreignKey: 'reference_post_id',
+  as: 'referencePost',
+  constraints: false, // Allow null
+});
+
+// Notification references a comment
+Notification.belongsTo(Comment, {
+  foreignKey: 'reference_comment_id',
+  as: 'referenceComment',
+  constraints: false,
+});
+
+// Notification references a story
+Notification.belongsTo(Story, {
+  foreignKey: 'reference_story_id',
+  as: 'referenceStory',
+  constraints: false,
 });
 
 // ─── SYNC DATABASE ─────────────────────────────────────────
@@ -183,19 +232,12 @@ const syncDatabase = async () => {
   try {
     await sequelize.sync({ alter: true });
     console.log('✅ Database tables synced!');
-    console.log('   → users');
-    console.log('   → posts');
-    console.log('   → post_media');
-    console.log('   → likes');
-    console.log('   → hashtags');
-    console.log('   → post_hashtags');
-    console.log('   → saved_posts');
-    console.log('   → comments');
-    console.log('   → comment_likes');
-    console.log('   → followers'); 
-    console.log('   → blocks');    
-    console.log('   → stories');     
-    console.log('   → story_views');  
+    console.log('   → users, posts, post_media');
+    console.log('   → likes, hashtags, post_hashtags');
+    console.log('   → saved_posts, comments, comment_likes');
+    console.log('   → followers, blocks');
+    console.log('   → stories, story_views');
+    console.log('   → notifications'); // ⭐ NEW
   } catch (error) {
     console.error('❌ Database sync failed:', error.message);
     throw error;
@@ -218,4 +260,5 @@ module.exports = {
   Block,
   Story,
   StoryView,
+  Notification,
 };

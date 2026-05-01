@@ -6,6 +6,11 @@ const {
   errorResponse,
   paginatedResponse,
 } = require('../utils/response.utils');
+const {
+  notifyFollow,
+  notifyFollowRequest,
+  notifyFollowAccepted,
+} = require('../services/notification.service');
 const { Op } = require('sequelize');
 
 // ─── HELPER: Format user for follow lists ──────────────────
@@ -78,6 +83,12 @@ const followUser = async (req, res) => {
       following_id: followingId,
       status,
     });
+
+    if (status === 'accepted') {
+      notifyFollow(followerId, followingId);
+    } else {
+      notifyFollowRequest(followerId, followingId);
+    }
 
     console.log(
       `👥 Follow: ${followerId} → ${followingId} (${status})`
@@ -509,6 +520,8 @@ const acceptFollowRequest = async (req, res) => {
     }
 
     await follow.update({ status: 'accepted' });
+
+    notifyFollowAccepted(currentUserId, requesterId);
 
     const requester = await User.findByPk(requesterId, {
       attributes: ['id', 'username', 'profile_pic_url'],

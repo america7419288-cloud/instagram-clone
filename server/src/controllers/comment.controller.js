@@ -12,6 +12,12 @@ const {
   errorResponse,
   paginatedResponse,
 } = require('../utils/response.utils');
+const {
+  notifyComment,
+  notifyReply,
+  notifyCommentLike,
+  processMentions,
+} = require('../services/notification.service');
 const { Op } = require('sequelize');
 
 // ─── HELPER: Format comment ────────────────────────────────
@@ -92,8 +98,9 @@ const addComment = async (req, res) => {
     }
 
     // 4. IF REPLY: CHECK PARENT COMMENT EXISTS
+    let parentComment = null;
     if (parent_comment_id) {
-      const parentComment = await Comment.findOne({
+      parentComment = await Comment.findOne({
         where: {
           id: parent_comment_id,
           post_id: postId, // Must be on same post
@@ -115,6 +122,16 @@ const addComment = async (req, res) => {
       content: content.trim(),
       parent_comment_id: parent_comment_id || null,
     });
+
+    if (parentComment) {
+      if (parentComment.user_id !== userId) {
+        notifyReply(userId, comment.id, parentComment.post_id, parentComment.user_id);
+      }
+    } else {
+      notifyComment(userId, postId, comment.id);
+    }
+
+    processMentions(content.trim(), userId, postId, comment.id);
 
     // 6. FETCH WITH USER DATA
     const fullComment = await Comment.findByPk(comment.id, {
@@ -486,6 +503,18 @@ const likeComment = async (req, res) => {
       return errorResponse(
         res, 400,
         'You already liked this comment.'
+      );
+    }
+
+    const commentToNotify = await Comment.findByPk(commentId, {
+      include: [{ model: Post, as: 'post' }],
+    });
+    if (commentToNotify) {
+      notifyCommentLike(
+        userId,
+        commentId,
+        commentToNotify.user_id,
+        commentToNotify.post_id
       );
     }
 

@@ -1,0 +1,292 @@
+// server/src/controllers/notification.controller.js
+
+const { Notification, User, Post, PostMedia, Comment } =
+  require('../models');
+const {
+  successResponse,
+  errorResponse,
+  paginatedResponse,
+} = require('../utils/response.utils');
+const { Op } = require('sequelize');
+
+// ─── HELPER: Format notification ───────────────────────────
+const formatNotification = async (notification) => {
+  const n = notification.toJSON ? notification.toJSON() : notification;
+
+  // Get post thumbnail if needed
+  let postThumbnail = null;
+  if (n.reference_post_id) {
+    const media = await PostMedia.findOne({
+      where: { post_id: n.reference_post_id },
+      order: [['display_order', 'ASC']],
+      attributes: ['small_url', 'media_url'],
+    });
+    postThumbnail = media?.small_url || media?.media_url;
+  }
+
+  // Build human-readable message based on type
+  const senderUsername = n.sender?.username || 'Someone';
+  const messageMap = {
+    like: `${senderUsername} liked your photo.`,
+    comment: `${senderUsername} commented on your photo.`,
+    reply: `${senderUsername} replied to your comment.`,
+    follow: `${senderUsername} started following you.`,
+    follow_request: `${senderUsername} requested to follow you.`,
+    follow_accept: `${senderUsername} accepted your follow request.`,
+    mention_post: `${senderUsername} mentioned you in a photo.`,
+    mention_comment: `${senderUsername} mentioned you in a comment.`,
+    comment_like: `${senderUsername} liked your comment.`,
+    story_view: `${senderUsername} viewed your story.`,
+    system: n.message || 'System notification.',
+  };
+
+  return {
+    id: n.id,
+    type: n.type,
+    is_read: n.is_read,
+    message: messageMap[n.type] || n.message,
+    created_at: n.created_at || n.createdAt,
+
+    // Who sent the notification
+    sender: n.sender
+      ? {
+          id: n.sender.id,
+          username: n.sender.username,
+          full_name: n.sender.full_name,
+          profile_pic_url: n.sender.profile_pic_url,
+          is_verified: n.sender.is_verified,
+        }
+      : null,
+
+    // References (for deep linking)
+    reference_post_id: n.reference_post_id,
+    reference_comment_id: n.reference_comment_id,
+    reference_story_id: n.reference_story_id,
+    post_thumbnail: postThumbnail,
+  };
+};
+
+// ─────────────────────────────────────────────────────────────
+// @route   GET /api/v1/notifications/
+// @desc    Get all notifications for current user
+// @access  Private
+// ─────────────────────────────────────────────────────────────
+const getNotifications = async (req, res) => {
+  try {
+    const userId = req.user.id;
+    const page = parseInt(req.query.page) || 1;
+    const limit = parseInt(req.query.limit) || 20;
+    const offset = (page - 1) * limit;
+    const type = req.query.type || null; // Filter by type
+
+    const whereClause = {
+      recipient_id: userId,
+      ...(type && { type }),
+    };
+
+    const { count, rows: notifications } =
+      await Notification.findAndCountAll({
+        where: whereClause,
+        include: [
+          {
+            model: User,
+            as: 'sender',
+            attributes: [
+              'id', 'username', 'full_name',
+              'profile_pic_url', 'is_verified',
+            ],
+          },
+        ],
+        order: [['created_at', 'DESC']],
+        limit,
+        offset,
+      });
+
+    // Format all notifications
+    const formattedNotifications = await Promise.all(
+      notifications.map(formatNotification)
+    );
+
+    return paginatedResponse(
+      res,
+      'Notifications fetched successfully',
+      formattedNotifications,
+      {
+        page,
+        totalPages: Math.ceil(count / limit),
+        totalItems: count,
+        limit,
+      }
+    );
+
+  } catch (error) {
+    console.error('❌ Get notifications error:', error);
+    return errorResponse(res, 500, 'Failed to fetch notifications.');
+  }
+};
+
+// ─────────────────────────────────────────────────────────────
+// @route   GET /api/v1/notifications/unread-count
+// @desc    Get count of unread notifications (for badge)
+// @access  Private
+// ─────────────────────────────────────────────────────────────
+const getUnreadCount = async (req, res) => {
+  try {
+    const userId = req.user.id;
+
+    const count = await Notification.count({
+      where: {
+        recipient_id: userId,
+        is_read: false,
+      },
+    });
+
+    return successResponse(
+      res,
+      200,
+      'Unread count fetched',
+      { unread_count: count }
+    );
+
+  } catch (error) {
+    console.error('❌ Get unread count error:', error);
+    return errorResponse(res, 500, 'Failed to get unread count.');
+  }
+};
+
+// ─────────────────────────────────────────────────────────────
+// @route   PUT /api/v1/notifications/read-all
+// @desc    Mark ALL notifications as read
+// @access  Private
+// ─────────────────────────────────────────────────────────────
+const markAllAsRead = async (req, res) => {
+  try {
+    const userId = req.user.id;
+
+    const [updatedCount] = await Notification.update(
+      { is_read: true },
+      {
+        where: {
+          recipient_id: userId,
+          is_read: false,
+        },
+      }
+    );
+
+    return successResponse(
+      res,
+      200,
+      'All notifications marked as read.',
+      { updated_count: updatedCount }
+    );
+
+  } catch (error) {
+    console.error('❌ Mark all read error:', error);
+    return errorResponse(res, 500, 'Failed to mark notifications as read.');
+  }
+};
+
+// ─────────────────────────────────────────────────────────────
+// @route   PUT /api/v1/notifications/:id/read
+// @desc    Mark ONE notification as read
+// @access  Private
+// ─────────────────────────────────────────────────────────────
+const markAsRead = async (req, res) => {
+  try {
+    const { id } = req.params;
+    const userId = req.user.id;
+
+    const notification = await Notification.findOne({
+      where: {
+        id,
+        recipient_id: userId, // Security: only own notifications
+      },
+    });
+
+    if (!notification) {
+      return errorResponse(res, 404, 'Notification not found.');
+    }
+
+    await notification.update({ is_read: true });
+
+    return successResponse(
+      res,
+      200,
+      'Notification marked as read.',
+      { id, is_read: true }
+    );
+
+  } catch (error) {
+    console.error('❌ Mark as read error:', error);
+    return errorResponse(res, 500, 'Failed to mark notification as read.');
+  }
+};
+
+// ─────────────────────────────────────────────────────────────
+// @route   DELETE /api/v1/notifications/:id
+// @desc    Delete ONE notification
+// @access  Private
+// ─────────────────────────────────────────────────────────────
+const deleteNotification = async (req, res) => {
+  try {
+    const { id } = req.params;
+    const userId = req.user.id;
+
+    const deleted = await Notification.destroy({
+      where: {
+        id,
+        recipient_id: userId,
+      },
+    });
+
+    if (deleted === 0) {
+      return errorResponse(res, 404, 'Notification not found.');
+    }
+
+    return successResponse(
+      res,
+      200,
+      'Notification deleted.',
+      { id }
+    );
+
+  } catch (error) {
+    console.error('❌ Delete notification error:', error);
+    return errorResponse(res, 500, 'Failed to delete notification.');
+  }
+};
+
+// ─────────────────────────────────────────────────────────────
+// @route   DELETE /api/v1/notifications/
+// @desc    Delete ALL notifications for current user
+// @access  Private
+// ─────────────────────────────────────────────────────────────
+const deleteAllNotifications = async (req, res) => {
+  try {
+    const userId = req.user.id;
+
+    const deletedCount = await Notification.destroy({
+      where: { recipient_id: userId },
+    });
+
+    return successResponse(
+      res,
+      200,
+      `${deletedCount} notifications cleared.`,
+      { deleted_count: deletedCount }
+    );
+
+  } catch (error) {
+    console.error('❌ Delete all notifications error:', error);
+    return errorResponse(res, 500, 'Failed to clear notifications.');
+  }
+};
+
+module.exports = {
+  getNotifications,
+  getUnreadCount,
+  markAllAsRead,
+  markAsRead,
+  deleteNotification,
+  deleteAllNotifications,
+};
