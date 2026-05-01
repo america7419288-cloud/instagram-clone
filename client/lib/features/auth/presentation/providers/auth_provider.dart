@@ -67,4 +67,15 @@ class AuthNotifier extends Notifier<AuthState> {
       return false;
     }
   }
+
+  Future<void> logout() async {
+    state = state.copyWith(isLoading: true, clearError: true);
+    await ref.read(authServiceProvider).logout();
+    state = const AuthState();
+  }
+
+  void clearError() {
+    if (state.errorMessage == null) return;
+    state = state.copyWith(clearError: true);
+  }
 }

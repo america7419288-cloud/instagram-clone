@@ -25,6 +25,20 @@ class AuthService {
   final DioClient _dioClient;
   final FlutterSecureStorage _storage;
 
+  Future<Map<String, dynamic>> checkUsername(String username) async {
+    try {
+      final response = await _dioClient.get('/auth/check-username/$username');
+      final data = Map<String, dynamic>.from(response.data['data'] as Map);
+      return data;
+    } on DioException catch (error) {
+      final responseData = error.response?.data;
+      if (responseData is Map && responseData['message'] != null) {
+        throw AuthException(responseData['message'].toString());
+      }
+      throw const AuthException('Unable to check username. Please try again.');
+    }
+  }
+
   Future<AuthResult> register({
     required String fullName,
     required String email,
@@ -67,6 +81,18 @@ class AuthService {
         throw AuthException(responseData['message'].toString());
       }
       throw const AuthException('Unable to create account. Please try again.');
+    }
+  }
+
+  Future<void> logout() async {
+    try {
+      await _dioClient.post(AppConstants.logoutEndpoint);
+    } on DioException {
+      // Still clear local credentials if the network/server logout fails.
+    } finally {
+      await _storage.delete(key: AppConstants.tokenKey);
+      await _storage.delete(key: AppConstants.refreshTokenKey);
+      await _storage.delete(key: AppConstants.userKey);
     }
   }
 }
