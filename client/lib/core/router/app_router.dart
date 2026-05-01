@@ -19,6 +19,8 @@ import '../../features/profile/presentation/pages/edit_profile_page.dart';
 import '../../features/messages/presentation/pages/messages_page.dart';
 import '../../features/messages/presentation/pages/chat_page.dart';
 import '../../features/story/presentation/pages/story_viewer_page.dart';
+import '../../features/follow/data/repositories/presentation/pages/followers_page.dart';
+import '../../features/follow/data/repositories/presentation/pages/follow_requests_page.dart';
 import 'main_shell.dart';
 
 // Auth provider
@@ -43,8 +45,9 @@ class AppRoutes {
   static const String editProfile = '/profile/edit';
   static const String postDetail = '/post/:postId';
   static const String story = '/story/:userId';
-  static const String followers = '/followers/:username';
-  static const String following = '/following/:username';
+  static const String followers = '/followers/:username/:userId';
+  static const String following = '/following/:username/:userId';
+  static const String followRequests = '/follow-requests';
   static const String postLikes = '/post/:postId/likes';
 }
 
@@ -265,7 +268,8 @@ final routerProvider = Provider<GoRouter>((ref) {
         name: 'followers',
         builder: (context, state) {
           final username = state.pathParameters['username'] ?? '';
-          return ProfilePage(username: username);
+          final userId = state.pathParameters['userId'] ?? '';
+          return FollowersPage(userId: userId, username: username);
         },
       ),
 
@@ -275,8 +279,16 @@ final routerProvider = Provider<GoRouter>((ref) {
         name: 'following',
         builder: (context, state) {
           final username = state.pathParameters['username'] ?? '';
-          return ProfilePage(username: username);
+          final userId = state.pathParameters['userId'] ?? '';
+          return FollowingPage(userId: userId, username: username);
         },
+      ),
+
+      // Follow Requests
+      GoRoute(
+        path: AppRoutes.followRequests,
+        name: 'followRequests',
+        builder: (context, state) => const FollowRequestsPage(),
       ),
     ],
 
