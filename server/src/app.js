@@ -7,6 +7,8 @@ require('dotenv').config();
 const app = express();
 app.use(helmet());
 
+const normalizeOrigin = (origin) => origin?.trim().replace(/\/$/, '');
+
 const allowedOrigins = [
     process.env.CLIENT_URL,
     process.env.CORS_ORIGIN,
@@ -14,17 +16,27 @@ const allowedOrigins = [
 ]
     .filter(Boolean)
     .flatMap((origin) => origin.split(','))
-    .map((origin) => origin.trim())
+    .map(normalizeOrigin)
     .filter(Boolean);
+
+const allowAllOrigins = allowedOrigins.includes('*');
 
 const isProduction = process.env.NODE_ENV === 'production' || process.env.MODE_ENV === 'production';
 
 app.use(cors({
     origin: (origin, callback) => {
-        if (!origin || !isProduction || allowedOrigins.includes(origin)) {
+        const requestOrigin = normalizeOrigin(origin);
+
+        if (
+            !requestOrigin ||
+            !isProduction ||
+            allowAllOrigins ||
+            allowedOrigins.includes(requestOrigin)
+        ) {
             return callback(null, true);
         }
 
+        console.warn(`Blocked by CORS: ${requestOrigin}`);
         return callback(new Error('Not allowed by CORS'));
     },
     methods: ['GET', 'POST', 'PUT', 'DELETE', 'PATCH', 'OPTIONS'],
