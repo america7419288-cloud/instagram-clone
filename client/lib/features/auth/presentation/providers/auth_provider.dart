@@ -1,16 +1,16 @@
 // lib/features/auth/presentation/providers/auth_provider.dart
+// COMPLETE UPDATED FILE
 
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import '../../../../shared/models/user_model.dart';
 import '../../data/repositories/auth_service.dart';
+import '../../../../core/socket/socket_provider.dart';
 
-// ─── AUTH STATE CLASS ───────────────────────────────────────
-// Holds all auth-related state
 class AuthState {
-  final UserModel? user; // Current logged-in user
-  final bool isLoading; // Loading indicator
-  final String? errorMessage; // Error message to show
-  final bool isAuthenticated; // Is user logged in?
+  final UserModel? user;
+  final bool isLoading;
+  final String? errorMessage;
+  final bool isAuthenticated;
 
   const AuthState({
     this.user,
@@ -19,7 +19,6 @@ class AuthState {
     this.isAuthenticated = false,
   });
 
-  // Create a copy with some fields changed
   AuthState copyWith({
     UserModel? user,
     bool? isLoading,
@@ -29,61 +28,79 @@ class AuthState {
     return AuthState(
       user: user ?? this.user,
       isLoading: isLoading ?? this.isLoading,
-      errorMessage: errorMessage, // null clears error
+      errorMessage: errorMessage,
       isAuthenticated: isAuthenticated ?? this.isAuthenticated,
     );
   }
 
-  // Initial state
-  static const initial = AuthState(isLoading: false, isAuthenticated: false);
+  static const initial = AuthState(
+    isLoading: false,
+    isAuthenticated: false,
+  );
 }
 
-// ─── AUTH NOTIFIER ──────────────────────────────────────────
-// Contains all auth logic (register, login, logout)
-class AuthNotifier extends Notifier<AuthState> {
-  AuthService get _authService => ref.read(authServiceProvider);
+class AuthNotifier extends StateNotifier<AuthState> {
+  final AuthService _authService;
+  final Ref _ref;
 
-  @override
-  AuthState build() {
-    Future.microtask(_checkAuthStatus);
-    return AuthState.initial;
+  AuthNotifier(this._authService, this._ref)
+      : super(AuthState.initial) {
+    _checkAuthStatus();
   }
 
-  // ─── CHECK IF ALREADY LOGGED IN ──────────────────────
   Future<void> _checkAuthStatus() async {
+    if (!mounted) return;
     state = state.copyWith(isLoading: true);
+
     try {
       final isLoggedIn = await _authService.isLoggedIn();
+      if (!mounted) return;
+
       if (isLoggedIn) {
-        // Get fresh user data from API
         final user = await _authService.getCurrentUser();
+        if (!mounted) return;
+
         if (user != null) {
           state = state.copyWith(
             user: user,
             isAuthenticated: true,
             isLoading: false,
           );
+
+          // ⭐ Connect socket when already logged in
+          _connectSocket();
         } else {
-          // Token expired or invalid
           await _authService.logout();
-          state = state.copyWith(isAuthenticated: false, isLoading: false);
+          if (!mounted) return;
+          state = state.copyWith(
+            isAuthenticated: false,
+            isLoading: false,
+          );
         }
       } else {
-        state = state.copyWith(isAuthenticated: false, isLoading: false);
+        if (!mounted) return;
+        state = state.copyWith(
+          isAuthenticated: false,
+          isLoading: false,
+        );
       }
     } catch (e) {
-      state = state.copyWith(isAuthenticated: false, isLoading: false);
+      if (!mounted) return;
+      state = state.copyWith(
+        isAuthenticated: false,
+        isLoading: false,
+      );
     }
   }
 
-  // ─── REGISTER ────────────────────────────────────────
+  // ─── REGISTER ─────────────────────────────────────────────
   Future<bool> register({
     required String fullName,
     required String email,
     required String username,
     required String password,
   }) async {
-    // Clear previous errors and start loading
+    if (!mounted) return false;
     state = state.copyWith(isLoading: true, errorMessage: null);
 
     try {
@@ -93,39 +110,7 @@ class AuthNotifier extends Notifier<AuthState> {
         username: username,
         password: password,
       );
-
-      // Success! Update state
-      state = state.copyWith(
-        user: authResponse.user,
-        isAuthenticated: true,
-        isLoading: false,
-        errorMessage: null,
-      );
-
-      return true; // Success
-    } catch (e) {
-      // Failed! Show error
-      state = state.copyWith(
-        isLoading: false,
-        errorMessage: e.toString().replaceAll('Exception: ', ''),
-        isAuthenticated: false,
-      );
-      return false; // Failed
-    }
-  }
-
-  // ─── LOGIN ───────────────────────────────────────────
-  Future<bool> login({
-    required String identifier,
-    required String password,
-  }) async {
-    state = state.copyWith(isLoading: true, errorMessage: null);
-
-    try {
-      final authResponse = await _authService.login(
-        identifier: identifier,
-        password: password,
-      );
+      if (!mounted) return false;
 
       state = state.copyWith(
         user: authResponse.user,
@@ -133,9 +118,13 @@ class AuthNotifier extends Notifier<AuthState> {
         isLoading: false,
         errorMessage: null,
       );
+
+      // ⭐ Connect socket after register
+      _connectSocket();
 
       return true;
     } catch (e) {
+      if (!mounted) return false;
       state = state.copyWith(
         isLoading: false,
         errorMessage: e.toString().replaceAll('Exception: ', ''),
@@ -145,51 +134,103 @@ class AuthNotifier extends Notifier<AuthState> {
     }
   }
 
-  // ─── LOGOUT ──────────────────────────────────────────
-  Future<void> logout() async {
-    state = state.copyWith(isLoading: true);
-    await _authService.logout();
-    state = AuthState.initial; // Reset to initial state
+  // ─── LOGIN ────────────────────────────────────────────────
+  Future<bool> login({
+    required String identifier,
+    required String password,
+  }) async {
+    if (!mounted) return false;
+    state = state.copyWith(isLoading: true, errorMessage: null);
+
+    try {
+      final authResponse = await _authService.login(
+        identifier: identifier,
+        password: password,
+      );
+      if (!mounted) return false;
+
+      state = state.copyWith(
+        user: authResponse.user,
+        isAuthenticated: true,
+        isLoading: false,
+        errorMessage: null,
+      );
+
+      // ⭐ Connect socket after login
+      _connectSocket();
+
+      return true;
+    } catch (e) {
+      if (!mounted) return false;
+      state = state.copyWith(
+        isLoading: false,
+        errorMessage: e.toString().replaceAll('Exception: ', ''),
+        isAuthenticated: false,
+      );
+      return false;
+    }
   }
 
-  // ─── CLEAR ERROR ─────────────────────────────────────
+  // ─── LOGOUT ───────────────────────────────────────────────
+  Future<void> logout() async {
+    // ⭐ Disconnect socket before logout
+    _disconnectSocket();
+
+    await _authService.logout();
+    if (!mounted) return;
+    state = AuthState.initial;
+  }
+
+  // ─── CLEAR ERROR ──────────────────────────────────────────
   void clearError() {
+    if (!mounted) return;
     state = state.copyWith(errorMessage: null);
   }
 
-  // ─── UPDATE USER (after profile edit) ────────────────
+  // ─── UPDATE USER ──────────────────────────────────────────
   void updateUser(UserModel updatedUser) {
+    if (!mounted) return;
     state = state.copyWith(user: updatedUser);
+  }
+
+  // ─── CONNECT SOCKET (private) ─────────────────────────────
+  void _connectSocket() {
+    try {
+      _ref.read(socketProvider.notifier).connect();
+    } catch (e) {
+      print('Socket connect error: $e');
+    }
+  }
+
+  // ─── DISCONNECT SOCKET (private) ──────────────────────────
+  void _disconnectSocket() {
+    try {
+      _ref.read(socketProvider.notifier).disconnect();
+    } catch (e) {
+      print('Socket disconnect error: $e');
+    }
   }
 }
 
 // ─── PROVIDERS ──────────────────────────────────────────────
-
-// Auth service provider
 final authServiceProvider = Provider<AuthService>((ref) {
   return AuthService();
 });
 
-// Auth state provider
-// This is what screens will watch
-final authProvider = NotifierProvider<AuthNotifier, AuthState>(
-  AuthNotifier.new,
-);
+final authProvider =
+    StateNotifierProvider<AuthNotifier, AuthState>((ref) {
+  final authService = ref.watch(authServiceProvider);
+  return AuthNotifier(authService, ref);
+});
 
-// Convenience providers
-// Use these in screens for cleaner code
-
-// Just the current user
 final currentUserProvider = Provider<UserModel?>((ref) {
   return ref.watch(authProvider).user;
 });
 
-// Just is authenticated bool
 final isAuthenticatedProvider = Provider<bool>((ref) {
   return ref.watch(authProvider).isAuthenticated;
 });
 
-// Just is loading bool
 final authLoadingProvider = Provider<bool>((ref) {
   return ref.watch(authProvider).isLoading;
 });

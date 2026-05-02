@@ -11,24 +11,20 @@ import '../../../../features/auth/presentation/providers/auth_provider.dart';
 import '../providers/message_provider.dart';
 import '../../data/models/conversation_model.dart';
 import '../../data/models/message_model.dart';
+import '../../../../core/socket/socket_provider.dart';
 
 class ChatPage extends ConsumerStatefulWidget {
   final String conversationId;
   final ConversationModel? conversation; // Passed from inbox
 
-  const ChatPage({
-    super.key,
-    required this.conversationId,
-    this.conversation,
-  });
+  const ChatPage({super.key, required this.conversationId, this.conversation});
 
   @override
   ConsumerState<ChatPage> createState() => _ChatPageState();
 }
 
 class _ChatPageState extends ConsumerState<ChatPage> {
-  final TextEditingController _messageController =
-      TextEditingController();
+  final TextEditingController _messageController = TextEditingController();
   final FocusNode _messageFocus = FocusNode();
   final ScrollController _scrollController = ScrollController();
 
@@ -36,7 +32,6 @@ class _ChatPageState extends ConsumerState<ChatPage> {
   void initState() {
     super.initState();
     _scrollController.addListener(_onScroll);
-    _messageController.addListener(_onTextChanged);
   }
 
   @override
@@ -52,13 +47,9 @@ class _ChatPageState extends ConsumerState<ChatPage> {
     // (list is reversed so bottom = older messages)
     if (_scrollController.position.pixels >=
         _scrollController.position.maxScrollExtent - 300) {
-      ref
-          .read(chatProvider(widget.conversationId).notifier)
-          .loadMore();
+      ref.read(chatProvider(widget.conversationId).notifier).loadMore();
     }
   }
-
-  void _onTextChanged() => setState(() {});
 
   // ─── SEND MESSAGE ──────────────────────────────────────────
   Future<void> _sendMessage() async {
@@ -68,6 +59,8 @@ class _ChatPageState extends ConsumerState<ChatPage> {
     _messageController.clear();
     _messageFocus.requestFocus();
 
+    ref.read(chatProvider(widget.conversationId).notifier).onTextChanged('');
+
     final success = await ref
         .read(chatProvider(widget.conversationId).notifier)
         .sendMessage(content);
@@ -76,10 +69,7 @@ class _ChatPageState extends ConsumerState<ChatPage> {
       // Update inbox last message
       ref
           .read(inboxProvider.notifier)
-          .updateConversationLastMessage(
-            widget.conversationId,
-            content,
-          );
+          .updateConversationLastMessage(widget.conversationId, content);
 
       // Scroll to top (newest message)
       if (_scrollController.hasClients) {
@@ -101,9 +91,7 @@ class _ChatPageState extends ConsumerState<ChatPage> {
     showModalBottomSheet(
       context: context,
       shape: const RoundedRectangleBorder(
-        borderRadius: BorderRadius.vertical(
-          top: Radius.circular(16),
-        ),
+        borderRadius: BorderRadius.vertical(top: Radius.circular(16)),
       ),
       builder: (ctx) => SafeArea(
         child: Column(
@@ -127,8 +115,7 @@ class _ChatPageState extends ConsumerState<ChatPage> {
               onTap: () {
                 Navigator.pop(ctx);
                 ref
-                    .read(chatProvider(widget.conversationId)
-                        .notifier)
+                    .read(chatProvider(widget.conversationId).notifier)
                     .setReplyingTo(message);
                 _messageFocus.requestFocus();
               },
@@ -141,9 +128,7 @@ class _ChatPageState extends ConsumerState<ChatPage> {
                 title: const Text('Copy'),
                 onTap: () {
                   Navigator.pop(ctx);
-                  Clipboard.setData(
-                    ClipboardData(text: message.content ?? ''),
-                  );
+                  Clipboard.setData(ClipboardData(text: message.content ?? ''));
                   ScaffoldMessenger.of(context).showSnackBar(
                     const SnackBar(
                       content: Text('Message copied'),
@@ -154,8 +139,7 @@ class _ChatPageState extends ConsumerState<ChatPage> {
               ),
 
             // Unsend (own messages only)
-            if (message.sender?.id == currentUserId &&
-                !message.isDeleted)
+            if (message.sender?.id == currentUserId && !message.isDeleted)
               ListTile(
                 leading: const Icon(
                   Icons.delete_outline,
@@ -168,8 +152,7 @@ class _ChatPageState extends ConsumerState<ChatPage> {
                 onTap: () async {
                   Navigator.pop(ctx);
                   await ref
-                      .read(chatProvider(widget.conversationId)
-                          .notifier)
+                      .read(chatProvider(widget.conversationId).notifier)
                       .unsendMessage(message.id);
                 },
               ),
@@ -183,16 +166,14 @@ class _ChatPageState extends ConsumerState<ChatPage> {
 
   @override
   Widget build(BuildContext context) {
-    final chatState =
-        ref.watch(chatProvider(widget.conversationId));
+    final chatState = ref.watch(chatProvider(widget.conversationId));
     final currentUser = ref.watch(currentUserProvider);
     final currentUserId = currentUser?.id ?? '';
 
     // Get conversation info (from extra or from state)
     final conv = widget.conversation;
-    final displayName = conv?.displayName ??
-        conv?.otherUser?.username ??
-        'Chat';
+    final displayName =
+        conv?.displayName ?? conv?.otherUser?.username ?? 'Chat';
     final displayAvatarUrl = conv?.displayAvatarUrl;
 
     return Scaffold(
@@ -206,10 +187,7 @@ class _ChatPageState extends ConsumerState<ChatPage> {
         titleSpacing: 0,
         leading: IconButton(
           onPressed: () => context.pop(),
-          icon: const Icon(
-            Icons.arrow_back,
-            color: AppColors.textPrimary,
-          ),
+          icon: const Icon(Icons.arrow_back, color: AppColors.textPrimary),
         ),
         title: GestureDetector(
           onTap: () {
@@ -220,41 +198,94 @@ class _ChatPageState extends ConsumerState<ChatPage> {
           },
           child: Row(
             children: [
-              // Avatar
-              Container(
-                width: 36,
-                height: 36,
-                decoration: const BoxDecoration(
-                  shape: BoxShape.circle,
-                  color: AppColors.border,
-                ),
-                child: ClipOval(
-                  child: displayAvatarUrl != null
-                      ? CachedNetworkImage(
-                          imageUrl: displayAvatarUrl,
-                          fit: BoxFit.cover,
-                          errorWidget: (_, __, ___) =>
-                              _defaultAvatar(displayName),
-                        )
-                      : _defaultAvatar(displayName),
-                ),
+              Stack(
+                children: [
+                  Container(
+                    width: 36,
+                    height: 36,
+                    decoration: const BoxDecoration(
+                      shape: BoxShape.circle,
+                      color: AppColors.border,
+                    ),
+                    child: ClipOval(
+                      child: displayAvatarUrl != null
+                          ? CachedNetworkImage(
+                              imageUrl: displayAvatarUrl,
+                              fit: BoxFit.cover,
+                              errorWidget: (_, _, _) =>
+                                  _defaultAvatar(displayName),
+                            )
+                          : _defaultAvatar(displayName),
+                    ),
+                  ),
+                  if (conv?.otherUser != null)
+                    Consumer(
+                      builder: (context, ref, _) {
+                        final isOnline = ref
+                            .watch(socketProvider)
+                            .isUserOnline(conv!.otherUser!.id);
+                        if (!isOnline) {
+                          return const SizedBox.shrink();
+                        }
+
+                        return Positioned(
+                          bottom: 0,
+                          right: 0,
+                          child: Container(
+                            width: 10,
+                            height: 10,
+                            decoration: BoxDecoration(
+                              color: Colors.green,
+                              shape: BoxShape.circle,
+                              border: Border.all(
+                                color: Colors.white,
+                                width: 1.5,
+                              ),
+                            ),
+                          ),
+                        );
+                      },
+                    ),
+                ],
               ),
 
               const SizedBox(width: 10),
 
-              // Name
-              Column(
-                crossAxisAlignment: CrossAxisAlignment.start,
-                children: [
-                  Text(
-                    displayName,
-                    style: const TextStyle(
-                      color: AppColors.textPrimary,
-                      fontWeight: FontWeight.bold,
-                      fontSize: 15,
-                    ),
-                  ),
-                ],
+              Flexible(
+                child: Consumer(
+                  builder: (context, ref, _) {
+                    final isOnline = conv?.otherUser != null
+                        ? ref
+                              .watch(socketProvider)
+                              .isUserOnline(conv!.otherUser!.id)
+                        : false;
+
+                    return Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      mainAxisSize: MainAxisSize.min,
+                      children: [
+                        Text(
+                          displayName,
+                          maxLines: 1,
+                          overflow: TextOverflow.ellipsis,
+                          style: const TextStyle(
+                            color: AppColors.textPrimary,
+                            fontWeight: FontWeight.bold,
+                            fontSize: 15,
+                          ),
+                        ),
+                        if (isOnline)
+                          const Text(
+                            'Active now',
+                            style: TextStyle(
+                              color: AppColors.textSecondary,
+                              fontSize: 12,
+                            ),
+                          ),
+                      ],
+                    );
+                  },
+                ),
               ),
             ],
           ),
@@ -284,18 +315,15 @@ class _ChatPageState extends ConsumerState<ChatPage> {
           Expanded(
             child: chatState.isLoading
                 ? const Center(
-                    child: CircularProgressIndicator(
-                      color: AppColors.primary,
-                    ),
+                    child: CircularProgressIndicator(color: AppColors.primary),
                   )
                 : chatState.messages.isEmpty
-                    ? const _EmptyChat()
-                    : _buildMessagesList(
-                        chatState,
-                        currentUserId,
-                        context,
-                      ),
+                ? const _EmptyChat()
+                : _buildMessagesList(chatState, currentUserId, context),
           ),
+
+          if (chatState.isOtherUserTyping)
+            _TypingIndicator(conversationId: widget.conversationId),
 
           // Reply indicator
           if (chatState.replyingTo != null)
@@ -317,12 +345,8 @@ class _ChatPageState extends ConsumerState<ChatPage> {
     return ListView.builder(
       controller: _scrollController,
       reverse: true, // Show newest at bottom
-      padding: const EdgeInsets.symmetric(
-        horizontal: 12,
-        vertical: 8,
-      ),
-      itemCount: chatState.messages.length +
-          (chatState.isLoadingMore ? 1 : 0),
+      padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
+      itemCount: chatState.messages.length + (chatState.isLoadingMore ? 1 : 0),
       itemBuilder: (context, index) {
         // Loading more indicator at bottom (older messages)
         if (index == chatState.messages.length) {
@@ -342,16 +366,17 @@ class _ChatPageState extends ConsumerState<ChatPage> {
         final nextMessage = index < chatState.messages.length - 1
             ? chatState.messages[index + 1]
             : null;
-        final prevMessage =
-            index > 0 ? chatState.messages[index - 1] : null;
+        final prevMessage = index > 0 ? chatState.messages[index - 1] : null;
 
         // Show avatar only for first message in a group
-        final showAvatar = !isOwnMessage &&
+        final showAvatar =
+            !isOwnMessage &&
             (prevMessage == null ||
                 prevMessage.sender?.id != message.sender?.id);
 
         // Show timestamp between messages if > 30 min apart
-        final showTimestamp = nextMessage == null ||
+        final showTimestamp =
+            nextMessage == null ||
             (message.createdAt != null &&
                 nextMessage.createdAt != null &&
                 message.createdAt!
@@ -369,15 +394,11 @@ class _ChatPageState extends ConsumerState<ChatPage> {
               message: message,
               isOwnMessage: isOwnMessage,
               showAvatar: showAvatar,
-              onLongPress: () => _showMessageOptions(
-                context,
-                message,
-                currentUserId,
-              ),
+              onLongPress: () =>
+                  _showMessageOptions(context, message, currentUserId),
               onReply: () {
                 ref
-                    .read(chatProvider(widget.conversationId)
-                        .notifier)
+                    .read(chatProvider(widget.conversationId).notifier)
                     .setReplyingTo(message);
                 _messageFocus.requestFocus();
               },
@@ -391,10 +412,7 @@ class _ChatPageState extends ConsumerState<ChatPage> {
   // ─── REPLY INDICATOR ─────────────────────────────────────
   Widget _buildReplyIndicator(MessageModel replyingTo) {
     return Container(
-      padding: const EdgeInsets.symmetric(
-        horizontal: 16,
-        vertical: 8,
-      ),
+      padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
       color: AppColors.background,
       child: Row(
         children: [
@@ -457,9 +475,7 @@ class _ChatPageState extends ConsumerState<ChatPage> {
       padding: const EdgeInsets.fromLTRB(8, 8, 8, 8),
       decoration: const BoxDecoration(
         color: AppColors.white,
-        border: Border(
-          top: BorderSide(color: AppColors.border, width: 0.5),
-        ),
+        border: Border(top: BorderSide(color: AppColors.border, width: 0.5)),
       ),
       child: SafeArea(
         child: Row(
@@ -487,8 +503,15 @@ class _ChatPageState extends ConsumerState<ChatPage> {
                         controller: _messageController,
                         focusNode: _messageFocus,
                         maxLines: null,
-                        textCapitalization:
-                            TextCapitalization.sentences,
+                        textCapitalization: TextCapitalization.sentences,
+                        onChanged: (text) {
+                          setState(() {});
+                          ref
+                              .read(
+                                chatProvider(widget.conversationId).notifier,
+                              )
+                              .onTextChanged(text);
+                        },
                         decoration: const InputDecoration(
                           hintText: 'Message...',
                           hintStyle: TextStyle(
@@ -526,14 +549,10 @@ class _ChatPageState extends ConsumerState<ChatPage> {
               GestureDetector(
                 onTap: () async {
                   await ref
-                      .read(chatProvider(widget.conversationId)
-                          .notifier)
+                      .read(chatProvider(widget.conversationId).notifier)
                       .sendMessage('❤️');
                 },
-                child: const Text(
-                  '❤️',
-                  style: TextStyle(fontSize: 28),
-                ),
+                child: const Text('❤️', style: TextStyle(fontSize: 28)),
               )
             else
               // Send button when has text
@@ -620,19 +639,16 @@ class _MessageBubble extends StatelessWidget {
                   ? ClipOval(
                       child: message.sender?.profilePicUrl != null
                           ? CachedNetworkImage(
-                              imageUrl:
-                                  message.sender!.profilePicUrl!,
+                              imageUrl: message.sender!.profilePicUrl!,
                               fit: BoxFit.cover,
                             )
                           : Container(
                               color: AppColors.border,
                               child: Center(
                                 child: Text(
-                                  message.sender?.username
-                                              .isNotEmpty ==
-                                          true
+                                  message.sender?.username.isNotEmpty == true
                                       ? message.sender!.username[0]
-                                          .toUpperCase()
+                                            .toUpperCase()
                                       : '?',
                                   style: const TextStyle(
                                     fontSize: 12,
@@ -666,8 +682,7 @@ class _MessageBubble extends StatelessWidget {
                 // Message bubble
                 Container(
                   constraints: BoxConstraints(
-                    maxWidth:
-                        MediaQuery.of(context).size.width * 0.65,
+                    maxWidth: MediaQuery.of(context).size.width * 0.65,
                   ),
                   padding: const EdgeInsets.symmetric(
                     horizontal: 14,
@@ -677,17 +692,13 @@ class _MessageBubble extends StatelessWidget {
                     color: message.isDeleted
                         ? AppColors.background
                         : isOwnMessage
-                            ? AppColors.primary
-                            : AppColors.background,
+                        ? AppColors.primary
+                        : AppColors.background,
                     borderRadius: BorderRadius.only(
                       topLeft: const Radius.circular(18),
                       topRight: const Radius.circular(18),
-                      bottomLeft: Radius.circular(
-                        isOwnMessage ? 18 : 4,
-                      ),
-                      bottomRight: Radius.circular(
-                        isOwnMessage ? 4 : 18,
-                      ),
+                      bottomLeft: Radius.circular(isOwnMessage ? 18 : 4),
+                      bottomRight: Radius.circular(isOwnMessage ? 4 : 18),
                     ),
                     border: message.isDeleted
                         ? Border.all(color: AppColors.border)
@@ -699,8 +710,8 @@ class _MessageBubble extends StatelessWidget {
                       color: message.isDeleted
                           ? AppColors.textSecondary
                           : isOwnMessage
-                              ? Colors.white
-                              : AppColors.textPrimary,
+                          ? Colors.white
+                          : AppColors.textPrimary,
                       fontSize: 14,
                       fontStyle: message.isDeleted
                           ? FontStyle.italic
@@ -726,23 +737,17 @@ class _ReplyPreview extends StatelessWidget {
   final RepliedToModel repliedTo;
   final bool isOwnMessage;
 
-  const _ReplyPreview({
-    required this.repliedTo,
-    required this.isOwnMessage,
-  });
+  const _ReplyPreview({required this.repliedTo, required this.isOwnMessage});
 
   @override
   Widget build(BuildContext context) {
     return Container(
       margin: const EdgeInsets.only(bottom: 4),
-      padding: const EdgeInsets.symmetric(
-        horizontal: 10,
-        vertical: 6,
-      ),
+      padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 6),
       decoration: BoxDecoration(
         color: isOwnMessage
-            ? Colors.white.withOpacity(0.2)
-            : AppColors.border.withOpacity(0.5),
+            ? Colors.white.withValues(alpha: 0.2)
+            : AppColors.border.withValues(alpha: 0.5),
         borderRadius: BorderRadius.circular(12),
         border: Border(
           left: BorderSide(
@@ -756,13 +761,9 @@ class _ReplyPreview extends StatelessWidget {
         maxLines: 2,
         overflow: TextOverflow.ellipsis,
         style: TextStyle(
-          color: isOwnMessage
-              ? Colors.white70
-              : AppColors.textSecondary,
+          color: isOwnMessage ? Colors.white70 : AppColors.textSecondary,
           fontSize: 12,
-          fontStyle: repliedTo.isDeleted
-              ? FontStyle.italic
-              : FontStyle.normal,
+          fontStyle: repliedTo.isDeleted ? FontStyle.italic : FontStyle.normal,
         ),
       ),
     );
@@ -782,10 +783,7 @@ class _TimestampDivider extends StatelessWidget {
       child: Center(
         child: Text(
           timeago.format(dateTime),
-          style: const TextStyle(
-            color: AppColors.textSecondary,
-            fontSize: 12,
-          ),
+          style: const TextStyle(color: AppColors.textSecondary, fontSize: 12),
         ),
       ),
     );
@@ -802,26 +800,126 @@ class _EmptyChat extends StatelessWidget {
       child: Column(
         mainAxisAlignment: MainAxisAlignment.center,
         children: [
-          Icon(
-            Icons.chat_bubble_outline,
-            size: 60,
-            color: AppColors.border,
-          ),
+          Icon(Icons.chat_bubble_outline, size: 60, color: AppColors.border),
           SizedBox(height: 16),
           Text(
             'No messages yet',
-            style: TextStyle(
-              fontSize: 18,
-              fontWeight: FontWeight.bold,
-            ),
+            style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold),
           ),
           SizedBox(height: 8),
-          Text(
-            'Say hi! 👋',
-            style: TextStyle(color: AppColors.textSecondary),
+          Text('Say hi! 👋', style: TextStyle(color: AppColors.textSecondary)),
+        ],
+      ),
+    );
+  }
+}
+
+// ─── TYPING INDICATOR WIDGET ─────────────────────────────────
+class _TypingIndicator extends ConsumerWidget {
+  final String conversationId;
+
+  const _TypingIndicator({required this.conversationId});
+
+  @override
+  Widget build(BuildContext context, WidgetRef ref) {
+    final chatState = ref.watch(chatProvider(conversationId));
+    if (!chatState.isOtherUserTyping) return const SizedBox.shrink();
+
+    return Container(
+      padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
+      alignment: Alignment.centerLeft,
+      child: Row(
+        children: [
+          Container(
+            padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 10),
+            decoration: BoxDecoration(
+              color: AppColors.background,
+              borderRadius: const BorderRadius.only(
+                topLeft: Radius.circular(18),
+                topRight: Radius.circular(18),
+                bottomLeft: Radius.circular(4),
+                bottomRight: Radius.circular(18),
+              ),
+              border: Border.all(color: AppColors.border),
+            ),
+            child: const _TypingDots(),
           ),
         ],
       ),
+    );
+  }
+}
+
+// ─── ANIMATED TYPING DOTS ────────────────────────────────────
+class _TypingDots extends StatefulWidget {
+  const _TypingDots();
+
+  @override
+  State<_TypingDots> createState() => _TypingDotsState();
+}
+
+class _TypingDotsState extends State<_TypingDots>
+    with TickerProviderStateMixin {
+  late List<AnimationController> _controllers;
+  late List<Animation<double>> _animations;
+
+  @override
+  void initState() {
+    super.initState();
+    _controllers = List.generate(
+      3,
+      (i) => AnimationController(
+        vsync: this,
+        duration: const Duration(milliseconds: 600),
+      ),
+    );
+
+    _animations = _controllers.map((c) {
+      return Tween<double>(
+        begin: 0,
+        end: -6,
+      ).animate(CurvedAnimation(parent: c, curve: Curves.easeInOut));
+    }).toList();
+
+    // Stagger the animations
+    for (int i = 0; i < 3; i++) {
+      Future.delayed(Duration(milliseconds: i * 200), () {
+        if (mounted) {
+          _controllers[i].repeat(reverse: true);
+        }
+      });
+    }
+  }
+
+  @override
+  void dispose() {
+    for (final c in _controllers) {
+      c.dispose();
+    }
+    super.dispose();
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    return Row(
+      mainAxisSize: MainAxisSize.min,
+      children: List.generate(3, (i) {
+        return AnimatedBuilder(
+          animation: _animations[i],
+          builder: (_, _) => Transform.translate(
+            offset: Offset(0, _animations[i].value),
+            child: Container(
+              width: 7,
+              height: 7,
+              margin: const EdgeInsets.symmetric(horizontal: 2),
+              decoration: const BoxDecoration(
+                color: AppColors.textSecondary,
+                shape: BoxShape.circle,
+              ),
+            ),
+          ),
+        );
+      }),
     );
   }
 }

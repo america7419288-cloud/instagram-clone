@@ -1,9 +1,11 @@
 // lib/features/messages/presentation/providers/message_provider.dart
+// COMPLETE UPDATED FILE with Socket.io integration
 
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import '../../data/models/conversation_model.dart';
 import '../../data/models/message_model.dart';
 import '../../data/repositories/message_service.dart';
+import '../../../../core/socket/socket_provider.dart';
 
 // ─── INBOX STATE ────────────────────────────────────────────
 class InboxState {
@@ -35,29 +37,55 @@ class InboxState {
 }
 
 // ─── INBOX NOTIFIER ─────────────────────────────────────────
-class InboxNotifier extends Notifier<InboxState> {
-  MessageService get _service => ref.read(messageServiceProvider);
+class InboxNotifier extends StateNotifier<InboxState> {
+  final MessageService _service;
+  final Ref _ref;
 
-  @override
-  InboxState build() {
-    // Start loading data immediately
-    Future.microtask(() {
-      loadInbox();
-      loadUnreadCount();
-    });
-    return const InboxState();
+  InboxNotifier(this._service, this._ref)
+      : super(const InboxState()) {
+    loadInbox();
+    loadUnreadCount();
+    _registerSocketHandlers();
+  }
+
+  // ─── REGISTER SOCKET HANDLERS ─────────────────────────────
+  void _registerSocketHandlers() {
+    // When a new message arrives (from socket), update inbox
+    _ref.read(socketProvider.notifier).registerInboxHandler(
+      'inbox',
+      (data) {
+        final conversationId =
+            data['conversation_id'] as String? ??
+            data['message']?['conversation_id'] as String? ??
+            '';
+
+        final lastMessage = data['last_message'] as String? ??
+            data['message']?['content'] as String? ??
+            '';
+
+        if (conversationId.isNotEmpty) {
+          updateConversationLastMessage(
+            conversationId,
+            lastMessage,
+          );
+        }
+      },
+    );
   }
 
   Future<void> loadInbox() async {
+    if (!mounted) return;
     state = state.copyWith(isLoading: true, errorMessage: null);
 
     try {
       final conversations = await _service.getInbox();
+      if (!mounted) return;
       state = state.copyWith(
         conversations: conversations,
         isLoading: false,
       );
     } catch (e) {
+      if (!mounted) return;
       state = state.copyWith(
         isLoading: false,
         errorMessage: e.toString().replaceAll('Exception: ', ''),
@@ -68,17 +96,19 @@ class InboxNotifier extends Notifier<InboxState> {
   Future<void> loadUnreadCount() async {
     try {
       final count = await _service.getUnreadCount();
-      state = state.copyWith(dmUnreadCount: count);
+      if (mounted) {
+        state = state.copyWith(dmUnreadCount: count);
+      }
     } catch (e) {
       // Silent fail
     }
   }
 
-  // Update last message preview in inbox after sending
   void updateConversationLastMessage(
     String conversationId,
     String lastMessage,
   ) {
+    if (!mounted) return;
     final updated = state.conversations.map((c) {
       if (c.id == conversationId) {
         return ConversationModel(
@@ -97,60 +127,62 @@ class InboxNotifier extends Notifier<InboxState> {
       return c;
     }).toList();
 
+    updated.sort((a, b) {
+      if (a.lastMessageAt == null) return 1;
+      if (b.lastMessageAt == null) return -1;
+      return b.lastMessageAt!.compareTo(a.lastMessageAt!);
+    });
+
     state = state.copyWith(conversations: updated);
   }
 
-  void addConversation(ConversationModel conv) {
-    // Check if already exists
-    final exists = state.conversations.any((c) => c.id == conv.id);
+  void addConversation(ConversationModel conversation) {
+    if (!mounted) return;
+    final exists =
+        state.conversations.any((c) => c.id == conversation.id);
     if (!exists) {
       state = state.copyWith(
-        conversations: [conv, ...state.conversations],
+        conversations: [conversation, ...state.conversations],
       );
     }
   }
 
-  Future<ConversationModel?> createConversation(String userId) async {
-    try {
-      final conversation = await _service.createOrGetConversation(userId);
-      addConversation(conversation);
-      return conversation;
-    } catch (e) {
-      state = state.copyWith(
-        errorMessage: e.toString().replaceAll('Exception: ', ''),
-      );
-      return null;
-    }
-  }
+  Future<void> refresh() => loadInbox();
 
-  Future<void> refresh() async {
-    await loadInbox();
-    await loadUnreadCount();
+  @override
+  void dispose() {
+    _ref
+        .read(socketProvider.notifier)
+        .unregisterInboxHandler('inbox');
+    super.dispose();
   }
 }
 
 // ─── CHAT STATE ─────────────────────────────────────────────
 class ChatState {
-  final String conversationId;
   final List<MessageModel> messages;
   final bool isLoading;
   final bool isLoadingMore;
   final bool isSending;
   final bool hasMore;
-  final int page;
+  final int currentPage;
   final String? errorMessage;
   final MessageModel? replyingTo;
+  // Typing indicator
+  final bool isOtherUserTyping;
+  final String? typingUserId;
 
   const ChatState({
-    required this.conversationId,
     this.messages = const [],
     this.isLoading = false,
     this.isLoadingMore = false,
     this.isSending = false,
     this.hasMore = true,
-    this.page = 1,
+    this.currentPage = 1,
     this.errorMessage,
     this.replyingTo,
+    this.isOtherUserTyping = false,
+    this.typingUserId,
   });
 
   ChatState copyWith({
@@ -159,51 +191,118 @@ class ChatState {
     bool? isLoadingMore,
     bool? isSending,
     bool? hasMore,
-    int? page,
+    int? currentPage,
     String? errorMessage,
     MessageModel? replyingTo,
     bool clearReplyingTo = false,
+    bool? isOtherUserTyping,
+    String? typingUserId,
   }) {
     return ChatState(
-      conversationId: conversationId,
       messages: messages ?? this.messages,
       isLoading: isLoading ?? this.isLoading,
       isLoadingMore: isLoadingMore ?? this.isLoadingMore,
       isSending: isSending ?? this.isSending,
       hasMore: hasMore ?? this.hasMore,
-      page: page ?? this.page,
+      currentPage: currentPage ?? this.currentPage,
       errorMessage: errorMessage,
-      replyingTo: clearReplyingTo ? null : (replyingTo ?? this.replyingTo),
+      replyingTo:
+          clearReplyingTo ? null : (replyingTo ?? this.replyingTo),
+      isOtherUserTyping:
+          isOtherUserTyping ?? this.isOtherUserTyping,
+      typingUserId: typingUserId ?? this.typingUserId,
     );
   }
 }
 
-// ─── CHAT NOTIFIER ──────────────────────────────────────────
-class ChatNotifier extends Notifier<ChatState> {
-  final String arg;
-  ChatNotifier(this.arg);
+// ─── CHAT NOTIFIER (per conversation) ───────────────────────
+class ChatNotifier extends StateNotifier<ChatState> {
+  final MessageService _service;
+  final String conversationId;
+  final Ref _ref;
 
-  MessageService get _service => ref.read(messageServiceProvider);
+  // Typing debounce
+  DateTime? _lastTypingEmit;
+  static const _typingDebounce = Duration(seconds: 2);
 
-  @override
-  ChatState build() {
-    Future.microtask(() => loadMessages());
-    return ChatState(conversationId: arg);
+  ChatNotifier(this._service, this.conversationId, this._ref)
+      : super(const ChatState()) {
+    loadMessages();
+    _joinSocketRoom();
+    _registerSocketHandlers();
+    _service.markAsRead(conversationId);
   }
 
+  // ─── JOIN SOCKET ROOM ─────────────────────────────────────
+  void _joinSocketRoom() {
+    _ref.read(socketProvider.notifier).joinRoom(conversationId);
+  }
+
+  // ─── LEAVE SOCKET ROOM ───────────────────────────────────
+  void _leaveSocketRoom() {
+    _ref.read(socketProvider.notifier).leaveRoom(conversationId);
+  }
+
+  // ─── REGISTER SOCKET HANDLERS ─────────────────────────────
+  void _registerSocketHandlers() {
+    // Handle new messages for THIS conversation
+    _ref
+        .read(socketProvider.notifier)
+        .registerMessageHandler(conversationId, (data) {
+      final msgData = data['message'] as Map<String, dynamic>?;
+      if (msgData == null) return;
+
+      final msgConvId = msgData['conversation_id'] as String? ?? '';
+      if (msgConvId != conversationId) return;
+
+      // Parse the message
+      final message = MessageModel.fromJson(msgData);
+
+      // Add to state (avoid duplicates)
+      addNewMessage(message);
+
+      // Mark as read since we're viewing this conversation
+      _ref
+          .read(socketProvider.notifier)
+          .emitMessageRead(conversationId);
+    });
+
+    // Watch for typing changes in this conversation
+    _ref.listen(socketProvider, (previous, next) {
+      if (!mounted) return;
+      final typingUserId = next.getTypingUser(conversationId);
+      final isTyping = typingUserId != null;
+
+      state = state.copyWith(
+        isOtherUserTyping: isTyping,
+        typingUserId: typingUserId,
+      );
+    });
+  }
+
+  // ─── LOAD MESSAGES ──────────────────────────────────────
   Future<void> loadMessages() async {
+    if (!mounted) return;
     state = state.copyWith(isLoading: true, errorMessage: null);
 
     try {
-      final result = await _service.getMessages(conversationId: arg);
-      final List<MessageModel> messages = (result['messages'] as List).cast<MessageModel>();
-      
+      final result = await _service.getMessages(
+        conversationId: conversationId,
+        page: 1,
+      );
+      if (!mounted) return;
+
+      final messages = result['messages'] as List<MessageModel>;
+      final pagination = result['pagination'];
+
       state = state.copyWith(
         messages: messages,
         isLoading: false,
-        hasMore: messages.length >= 30, 
+        hasMore: pagination?['hasNextPage'] ?? false,
+        currentPage: 1,
       );
     } catch (e) {
+      if (!mounted) return;
       state = state.copyWith(
         isLoading: false,
         errorMessage: e.toString().replaceAll('Exception: ', ''),
@@ -211,58 +310,63 @@ class ChatNotifier extends Notifier<ChatState> {
     }
   }
 
+  // ─── LOAD MORE ──────────────────────────────────────────
   Future<void> loadMore() async {
-    if (state.isLoadingMore || !state.hasMore) return;
+    if (!mounted || state.isLoadingMore || !state.hasMore) return;
 
     state = state.copyWith(isLoadingMore: true);
 
     try {
-      final nextPage = state.page + 1;
+      final nextPage = state.currentPage + 1;
       final result = await _service.getMessages(
-        conversationId: arg,
+        conversationId: conversationId,
         page: nextPage,
       );
-      final List<MessageModel> newMessages = (result['messages'] as List).cast<MessageModel>();
+      if (!mounted) return;
+
+      final newMessages = result['messages'] as List<MessageModel>;
+      final pagination = result['pagination'];
 
       state = state.copyWith(
         messages: [...state.messages, ...newMessages],
         isLoadingMore: false,
-        page: nextPage,
-        hasMore: newMessages.length >= 30,
+        hasMore: pagination?['hasNextPage'] ?? false,
+        currentPage: nextPage,
       );
     } catch (e) {
+      if (!mounted) return;
       state = state.copyWith(isLoadingMore: false);
     }
   }
 
-  Future<bool> sendMessage(String content, {String? messageType}) async {
-    state = state.copyWith(isSending: true, errorMessage: null);
+  // ─── SEND MESSAGE ────────────────────────────────────────
+  Future<bool> sendMessage(String content) async {
+    if (!mounted || content.trim().isEmpty) return false;
+
+    state = state.copyWith(isSending: true);
+
+    // Stop typing when sending
+    _ref
+        .read(socketProvider.notifier)
+        .emitStopTyping(conversationId);
 
     try {
-      final replyToId = state.replyingTo?.id;
-
       final message = await _service.sendMessage(
-        conversationId: arg,
-        content: content,
-        messageType: messageType ?? 'text',
-        replyToMessageId: replyToId,
+        conversationId: conversationId,
+        content: content.trim(),
+        replyToMessageId: state.replyingTo?.id,
       );
+      if (!mounted) return false;
 
       state = state.copyWith(
         messages: [message, ...state.messages],
         isSending: false,
-        replyingTo: null,
         clearReplyingTo: true,
       );
 
-      // Update inbox preview too
-      ref.read(inboxProvider.notifier).updateConversationLastMessage(
-            arg,
-            content.isNotEmpty ? content : 'Sent a ${messageType ?? 'message'}',
-          );
-
       return true;
     } catch (e) {
+      if (!mounted) return false;
       state = state.copyWith(
         isSending: false,
         errorMessage: e.toString().replaceAll('Exception: ', ''),
@@ -271,41 +375,72 @@ class ChatNotifier extends Notifier<ChatState> {
     }
   }
 
+  // ─── UNSEND MESSAGE ──────────────────────────────────────
   Future<void> unsendMessage(String messageId) async {
     try {
       await _service.deleteMessage(messageId);
-      // Update local state
-      final List<MessageModel> updated = state.messages.map((m) {
-        if (m.id == messageId) {
-          return m.copyWith(isDeleted: true);
-        }
+      if (!mounted) return;
+
+      final updated = state.messages.map((m) {
+        if (m.id == messageId) return m.copyWith(isDeleted: true);
         return m;
       }).toList();
+
       state = state.copyWith(messages: updated);
     } catch (e) {
-      // Silent fail
+      if (!mounted) return;
+      state = state.copyWith(
+        errorMessage: e.toString().replaceAll('Exception: ', ''),
+      );
     }
   }
 
-  Future<void> deleteMessage(String messageId) => unsendMessage(messageId);
+  // ─── EMIT TYPING (with debounce) ─────────────────────────
+  void onTextChanged(String text) {
+    if (text.isEmpty) {
+      _ref
+          .read(socketProvider.notifier)
+          .emitStopTyping(conversationId);
+      return;
+    }
 
-  // ─── SET REPLYING TO ─────────────────────────────────────
-  void setReplyingTo(MessageModel? message) {
-    state = state.copyWith(
-      replyingTo: message,
-      clearReplyingTo: message == null,
-    );
+    final now = DateTime.now();
+    if (_lastTypingEmit == null ||
+        now.difference(_lastTypingEmit!) > _typingDebounce) {
+      _lastTypingEmit = now;
+      _ref
+          .read(socketProvider.notifier)
+          .emitTyping(conversationId);
+    }
   }
 
-  // ─── ADD NEW MESSAGE (from socket) ──────────────
+  // ─── ADD NEW MESSAGE (from socket) ───────────────────────
   void addNewMessage(MessageModel message) {
-    // Check not duplicate
+    if (!mounted) return;
     final exists = state.messages.any((m) => m.id == message.id);
     if (!exists) {
       state = state.copyWith(
         messages: [message, ...state.messages],
       );
     }
+  }
+
+  // ─── SET REPLYING TO ─────────────────────────────────────
+  void setReplyingTo(MessageModel? message) {
+    if (!mounted) return;
+    state = state.copyWith(
+      replyingTo: message,
+      clearReplyingTo: message == null,
+    );
+  }
+
+  @override
+  void dispose() {
+    _leaveSocketRoom();
+    _ref
+        .read(socketProvider.notifier)
+        .unregisterMessageHandler(conversationId);
+    super.dispose();
   }
 }
 
@@ -314,18 +449,20 @@ final messageServiceProvider = Provider<MessageService>((ref) {
   return MessageService();
 });
 
-// Inbox provider
-final inboxProvider = NotifierProvider<InboxNotifier, InboxState>(
-  InboxNotifier.new,
-);
+final inboxProvider =
+    StateNotifierProvider<InboxNotifier, InboxState>((ref) {
+  return InboxNotifier(ref.watch(messageServiceProvider), ref);
+});
 
-// DM unread count provider
 final dmUnreadCountProvider = Provider<int>((ref) {
   return ref.watch(inboxProvider).dmUnreadCount;
 });
 
-// Per-conversation chat provider (family)
-final chatProvider =
-    NotifierProvider.family<ChatNotifier, ChatState, String>(
-  ChatNotifier.new,
+final chatProvider = StateNotifierProvider.family<
+    ChatNotifier, ChatState, String>(
+  (ref, conversationId) => ChatNotifier(
+    ref.watch(messageServiceProvider),
+    conversationId,
+    ref,
+  ),
 );
