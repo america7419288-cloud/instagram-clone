@@ -36,7 +36,9 @@ class MessageService {
         queryParameters: {'page': page, 'limit': limit},
       );
 
-      final data = response.data['data'] as List<dynamic>? ?? [];
+      // Backend returns: { success: true, message: '...', data: [...], pagination: {...} }
+      final List<dynamic> data = response.data['data'] as List<dynamic>? ?? [];
+      
       return data
           .map((c) => ConversationModel.fromJson(
                 c as Map<String, dynamic>,
@@ -59,8 +61,9 @@ class MessageService {
         queryParameters: {'page': page, 'limit': limit},
       );
 
-      final data = response.data['data'] as List<dynamic>? ?? [];
-      final messages = data
+      // Backend returns: { success: true, data: [...], pagination: {...} }
+      final List<dynamic> messagesData = response.data['data'] as List<dynamic>? ?? [];
+      final messages = messagesData
           .map((m) => MessageModel.fromJson(
                 m as Map<String, dynamic>,
               ))
@@ -115,7 +118,7 @@ class MessageService {
       await _dioClient.put(
         '/conversations/$conversationId/read',
       );
-    } on DioException catch (e) {
+    } on DioException catch (_) {
       // Silent fail - not critical
     }
   }
@@ -127,7 +130,7 @@ class MessageService {
         '/conversations/unread-count',
       );
       return response.data['data']['unread_count'] as int? ?? 0;
-    } on DioException catch (e) {
+    } on DioException catch (_) {
       return 0;
     }
   }

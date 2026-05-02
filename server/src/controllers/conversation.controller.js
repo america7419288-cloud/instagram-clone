@@ -14,6 +14,7 @@ const {
   errorResponse,
   paginatedResponse,
 } = require('../utils/response.utils');
+const { emitToUser } = require('../services/socket.service');
 const { Op } = require('sequelize');
 
 // ─── HELPER: Format conversation for inbox ─────────────────
@@ -111,6 +112,8 @@ const createOrGetConversation = async (req, res) => {
     const currentUserId = req.user.id;
     const { user_id: targetUserId } = req.body;
 
+    console.log(`💬 Create/Get DM: ${currentUserId} ↔ ${targetUserId}`);
+
     // 1. VALIDATE INPUT
     if (!targetUserId) {
       return errorResponse(res, 400, 'Target user ID is required.');
@@ -129,8 +132,8 @@ const createOrGetConversation = async (req, res) => {
       return errorResponse(res, 404, 'User not found.');
     }
 
-    // 3. CHECK IF DM ALREADY EXISTS BETWEEN THESE TWO USERS
-    // Find a non-group conversation where both users are participants
+    // 3. CHECK IF DM ALREADY EXISTS
+    // We look for a conversation that has exactly these two participants and is NOT a group
     const existingConversation = await Conversation.findOne({
       where: { is_group: false },
       include: [
@@ -138,44 +141,36 @@ const createOrGetConversation = async (req, res) => {
           model: ConversationParticipant,
           as: 'participantRecords',
           where: {
-            user_id: { [Op.in]: [currentUserId, targetUserId] },
+            user_id: { [Op.in]: [currentUserId, targetUserId] }
           },
-        },
+        }
       ],
-      having: sequelize.literal(
-        `COUNT(DISTINCT "participantRecords"."user_id") = 2`
+      group: ['Conversation.id'],
+      having: sequelize.where(
+        sequelize.fn('COUNT', sequelize.col('participantRecords.id')),
+        '=',
+        2
       ),
-      group: ['"Conversation"."id"'],
     });
 
     if (existingConversation) {
-      // Return existing conversation
-      const fullConv = await Conversation.findByPk(
-        existingConversation.id,
-        {
-          include: [
-            {
-              model: User,
-              as: 'participants',
-              attributes: [
-                'id', 'username', 'full_name',
-                'profile_pic_url', 'is_verified',
-              ],
-              through: { attributes: [] },
-            },
-          ],
-        }
-      );
+      console.log(`✅ Found existing DM: ${existingConversation.id}`);
+      
+      const fullConv = await Conversation.findByPk(existingConversation.id, {
+        include: [
+          {
+            model: User,
+            as: 'participants',
+            attributes: ['id', 'username', 'full_name', 'profile_pic_url', 'is_verified'],
+            through: { attributes: [] },
+          },
+        ],
+      });
 
-      return successResponse(
-        res,
-        200,
-        'Conversation already exists',
-        {
-          conversation: formatConversation(fullConv, currentUserId),
-          is_new: false,
-        }
-      );
+      return successResponse(res, 200, 'Conversation already exists', {
+        conversation: formatConversation(fullConv, currentUserId),
+        is_new: false,
+      });
     }
 
     // 4. CREATE NEW CONVERSATION
@@ -198,48 +193,28 @@ const createOrGetConversation = async (req, res) => {
       },
     ]);
 
-    // 6. GET FULL CONVERSATION WITH PARTICIPANTS
-    const fullConversation = await Conversation.findByPk(
-      conversation.id,
-      {
-        include: [
-          {
-            model: User,
-            as: 'participants',
-            attributes: [
-              'id', 'username', 'full_name',
-              'profile_pic_url', 'is_verified',
-            ],
-            through: { attributes: [] },
-          },
-        ],
-      }
-    );
+    // 6. GET FULL CONVERSATION
+    const fullConversation = await Conversation.findByPk(conversation.id, {
+      include: [
+        {
+          model: User,
+          as: 'participants',
+          attributes: ['id', 'username', 'full_name', 'profile_pic_url', 'is_verified'],
+          through: { attributes: [] },
+        },
+      ],
+    });
 
-    console.log(
-      `💬 New DM created: ${currentUserId} ↔ ${targetUserId}`
-    );
+    console.log(`✨ Created new DM: ${conversation.id}`);
 
-    return successResponse(
-      res,
-      201,
-      'Conversation created successfully',
-      {
-        conversation: formatConversation(
-          fullConversation,
-          currentUserId
-        ),
-        is_new: true,
-      }
-    );
+    return successResponse(res, 201, 'Conversation created successfully', {
+      conversation: formatConversation(fullConversation, currentUserId),
+      is_new: true,
+    });
 
   } catch (error) {
     console.error('❌ Create conversation error:', error);
-    return errorResponse(
-      res,
-      500,
-      'Failed to create conversation.'
-    );
+    return errorResponse(res, 500, 'Failed to create conversation.', error.message);
   }
 };
 
@@ -255,89 +230,84 @@ const getInbox = async (req, res) => {
     const limit = parseInt(req.query.limit) || 20;
     const offset = (page - 1) * limit;
 
-    // Get all conversations where current user is a participant
-    const { count, rows: conversations } =
-      await Conversation.findAndCountAll({
-        include: [
-          {
-            model: User,
-            as: 'participants',
-            attributes: [
-              'id', 'username', 'full_name',
-              'profile_pic_url', 'is_verified',
-            ],
-            through: {
-              attributes: [],
-              where: {
-                // Only conversations where user hasn't left
-                left_at: null,
-              },
-            },
-            required: false,
-          },
-          {
-            model: ConversationParticipant,
-            as: 'participantRecords',
-            where: {
-              user_id: currentUserId,
-              left_at: null,
-            },
-            attributes: ['last_read_at', 'is_muted'],
-            required: true, // INNER JOIN
-          },
-        ],
-        order: [
-          // Most recent message first
-          ['last_message_at', 'DESC NULLS LAST'],
-          ['created_at', 'DESC'],
-        ],
-        limit,
-        offset,
-        distinct: true,
-      });
+    console.log(`📬 Fetching inbox for user: ${currentUserId} (Page: ${page}, Limit: ${limit})`);
 
-    // Get unread count for each conversation
-    const conversationIds = conversations.map((c) => c.id);
-
-    // Get unread message counts
-    const unreadCounts = await Message.findAll({
+    // 1. Get all conversations where current user is a participant
+    // We use a two-step approach to avoid issues with findAndCountAll + include + limit
+    const participantRecords = await ConversationParticipant.findAll({
       where: {
-        conversation_id: { [Op.in]: conversationIds },
-        sender_id: { [Op.ne]: currentUserId },
-        is_deleted: false,
+        user_id: currentUserId,
+        left_at: null,
       },
-      attributes: [
-        'conversation_id',
-        [sequelize.fn('COUNT', sequelize.col('id')), 'count'],
-      ],
-      include: [
-        {
-          model: Conversation,
-          as: 'conversation',
-          include: [
-            {
-              model: ConversationParticipant,
-              as: 'participantRecords',
-              where: { user_id: currentUserId },
-              attributes: ['last_read_at'],
-            },
-          ],
-          required: true,
-        },
-      ],
-      group: ['Message.conversation_id', 'conversation.id',
-              'conversation->participantRecords.id'],
-      raw: false,
+      attributes: ['conversation_id'],
     });
 
-    // Format conversations with unread counts
+    const conversationIds = participantRecords.map(p => p.conversation_id);
+
+    if (conversationIds.length === 0) {
+      console.log('📭 User has no conversations.');
+      return paginatedResponse(res, 'Inbox is empty', [], {
+        page,
+        totalPages: 0,
+        totalItems: 0,
+        limit,
+      });
+    }
+
+    const { count, rows: conversations } = await Conversation.findAndCountAll({
+      where: {
+        id: { [Op.in]: conversationIds }
+      },
+      include: [
+        {
+          model: User,
+          as: 'participants',
+          attributes: ['id', 'username', 'full_name', 'profile_pic_url', 'is_verified'],
+          through: { attributes: [] },
+        },
+        {
+          model: ConversationParticipant,
+          as: 'participantRecords',
+          where: { user_id: currentUserId },
+          attributes: ['last_read_at', 'is_muted'],
+        },
+      ],
+      order: [
+        ['last_message_at', 'DESC'],
+        ['updated_at', 'DESC'],
+      ],
+      limit,
+      offset,
+      distinct: true,
+    });
+
+    console.log(`✅ Found ${conversations.length} conversations for the user.`);
+
+    const unreadCountEntries = await Promise.all(
+      conversations.map(async (conv) => {
+        const participant = conv.participantRecords?.[0];
+        const unreadWhere = {
+          conversation_id: conv.id,
+          sender_id: { [Op.ne]: currentUserId },
+          is_deleted: false,
+        };
+
+        if (participant?.last_read_at) {
+          unreadWhere.created_at = { [Op.gt]: participant.last_read_at };
+        }
+
+        const unreadCount = await Message.count({ where: unreadWhere });
+        return [conv.id, unreadCount];
+      })
+    );
+
+    const unreadCountByConversationId = new Map(unreadCountEntries);
+
+    // 3. Format conversations
     const formattedConversations = conversations.map((conv) => {
       const formatted = formatConversation(conv, currentUserId);
-
-      // Simple unread count: messages after last_read_at
-      // (simplified version)
-      formatted.unread_count = 0;
-
+      formatted.unread_count = unreadCountByConversationId.get(conv.id) || 0;
+      
       return formatted;
     });
 
@@ -355,7 +325,7 @@ const getInbox = async (req, res) => {
 
   } catch (error) {
     console.error('❌ Get inbox error:', error);
-    return errorResponse(res, 500, 'Failed to fetch inbox.');
+    return errorResponse(res, 500, 'Failed to fetch inbox.', error.message);
   }
 };
 
@@ -614,6 +584,36 @@ const sendMessage = async (req, res) => {
         },
       ],
     });
+
+    const io = req.app.get('io');
+    if (io) {
+      const roomName = `conversation:${conversationId}`;
+      const socketMessage = formatMessage(fullMessage);
+
+      io.to(roomName).emit('new-message', {
+        conversation_id: conversationId,
+        message: socketMessage,
+      });
+
+      const allParticipants = await ConversationParticipant.findAll({
+        where: {
+          conversation_id: conversationId,
+          user_id: { [Op.ne]: senderId },
+          left_at: null,
+        },
+        attributes: ['user_id'],
+        raw: true,
+      });
+
+      const lastMessageAt = new Date();
+      allParticipants.forEach((participant) => {
+        emitToUser(io, participant.user_id, 'inbox-update', {
+          conversation_id: conversationId,
+          last_message: preview,
+          last_message_at: lastMessageAt,
+        });
+      });
+    }
 
     console.log(
       `💬 Message sent in conversation ${conversationId}`

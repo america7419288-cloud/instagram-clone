@@ -1,8 +1,6 @@
 // lib/features/messages/presentation/providers/message_provider.dart
 
 import 'package:flutter_riverpod/flutter_riverpod.dart';
-import 'package:flutter_riverpod/legacy.dart';
-import 'package:state_notifier/state_notifier.dart';
 import '../../data/models/conversation_model.dart';
 import '../../data/models/message_model.dart';
 import '../../data/repositories/message_service.dart';
@@ -37,27 +35,29 @@ class InboxState {
 }
 
 // ─── INBOX NOTIFIER ─────────────────────────────────────────
-class InboxNotifier extends StateNotifier<InboxState> {
-  final MessageService _service;
+class InboxNotifier extends Notifier<InboxState> {
+  MessageService get _service => ref.read(messageServiceProvider);
 
-  InboxNotifier(this._service) : super(const InboxState()) {
-    loadInbox();
-    loadUnreadCount();
+  @override
+  InboxState build() {
+    // Start loading data immediately
+    Future.microtask(() {
+      loadInbox();
+      loadUnreadCount();
+    });
+    return const InboxState();
   }
 
   Future<void> loadInbox() async {
-    if (!mounted) return;
     state = state.copyWith(isLoading: true, errorMessage: null);
 
     try {
       final conversations = await _service.getInbox();
-      if (!mounted) return;
       state = state.copyWith(
         conversations: conversations,
         isLoading: false,
       );
     } catch (e) {
-      if (!mounted) return;
       state = state.copyWith(
         isLoading: false,
         errorMessage: e.toString().replaceAll('Exception: ', ''),
@@ -68,9 +68,7 @@ class InboxNotifier extends StateNotifier<InboxState> {
   Future<void> loadUnreadCount() async {
     try {
       final count = await _service.getUnreadCount();
-      if (mounted) {
-        state = state.copyWith(dmUnreadCount: count);
-      }
+      state = state.copyWith(dmUnreadCount: count);
     } catch (e) {
       // Silent fail
     }
@@ -81,7 +79,6 @@ class InboxNotifier extends StateNotifier<InboxState> {
     String conversationId,
     String lastMessage,
   ) {
-    if (!mounted) return;
     final updated = state.conversations.map((c) {
       if (c.id == conversationId) {
         return ConversationModel(
@@ -100,50 +97,58 @@ class InboxNotifier extends StateNotifier<InboxState> {
       return c;
     }).toList();
 
-    // Sort by last message time
-    updated.sort((a, b) {
-      if (a.lastMessageAt == null) return 1;
-      if (b.lastMessageAt == null) return -1;
-      return b.lastMessageAt!.compareTo(a.lastMessageAt!);
-    });
-
     state = state.copyWith(conversations: updated);
   }
 
-  // Add new conversation to top of inbox
-  void addConversation(ConversationModel conversation) {
-    if (!mounted) return;
-    final exists = state.conversations.any(
-      (c) => c.id == conversation.id,
-    );
+  void addConversation(ConversationModel conv) {
+    // Check if already exists
+    final exists = state.conversations.any((c) => c.id == conv.id);
     if (!exists) {
       state = state.copyWith(
-        conversations: [conversation, ...state.conversations],
+        conversations: [conv, ...state.conversations],
       );
     }
   }
 
-  Future<void> refresh() => loadInbox();
+  Future<ConversationModel?> createConversation(String userId) async {
+    try {
+      final conversation = await _service.createOrGetConversation(userId);
+      addConversation(conversation);
+      return conversation;
+    } catch (e) {
+      state = state.copyWith(
+        errorMessage: e.toString().replaceAll('Exception: ', ''),
+      );
+      return null;
+    }
+  }
+
+  Future<void> refresh() async {
+    await loadInbox();
+    await loadUnreadCount();
+  }
 }
 
 // ─── CHAT STATE ─────────────────────────────────────────────
 class ChatState {
+  final String conversationId;
   final List<MessageModel> messages;
   final bool isLoading;
   final bool isLoadingMore;
   final bool isSending;
   final bool hasMore;
-  final int currentPage;
+  final int page;
   final String? errorMessage;
-  final MessageModel? replyingTo; // Message being replied to
+  final MessageModel? replyingTo;
 
   const ChatState({
+    required this.conversationId,
     this.messages = const [],
     this.isLoading = false,
     this.isLoadingMore = false,
     this.isSending = false,
     this.hasMore = true,
-    this.currentPage = 1,
+    this.page = 1,
     this.errorMessage,
     this.replyingTo,
   });
@@ -154,60 +159,51 @@ class ChatState {
     bool? isLoadingMore,
     bool? isSending,
     bool? hasMore,
-    int? currentPage,
+    int? page,
     String? errorMessage,
     MessageModel? replyingTo,
     bool clearReplyingTo = false,
   }) {
     return ChatState(
+      conversationId: conversationId,
       messages: messages ?? this.messages,
       isLoading: isLoading ?? this.isLoading,
       isLoadingMore: isLoadingMore ?? this.isLoadingMore,
       isSending: isSending ?? this.isSending,
       hasMore: hasMore ?? this.hasMore,
-      currentPage: currentPage ?? this.currentPage,
+      page: page ?? this.page,
       errorMessage: errorMessage,
-      replyingTo:
-          clearReplyingTo ? null : (replyingTo ?? this.replyingTo),
+      replyingTo: clearReplyingTo ? null : (replyingTo ?? this.replyingTo),
     );
   }
 }
 
-// ─── CHAT NOTIFIER (per conversation) ───────────────────────
-class ChatNotifier extends StateNotifier<ChatState> {
-  final MessageService _service;
-  final String conversationId;
+// ─── CHAT NOTIFIER ──────────────────────────────────────────
+class ChatNotifier extends Notifier<ChatState> {
+  final String arg;
+  ChatNotifier(this.arg);
 
-  ChatNotifier(this._service, this.conversationId)
-      : super(const ChatState()) {
-    loadMessages();
-    // Mark as read when opening chat
-    _service.markAsRead(conversationId);
+  MessageService get _service => ref.read(messageServiceProvider);
+
+  @override
+  ChatState build() {
+    Future.microtask(() => loadMessages());
+    return ChatState(conversationId: arg);
   }
 
-  // ─── LOAD MESSAGES ──────────────────────────────────────
   Future<void> loadMessages() async {
-    if (!mounted) return;
     state = state.copyWith(isLoading: true, errorMessage: null);
 
     try {
-      final result = await _service.getMessages(
-        conversationId: conversationId,
-        page: 1,
-      );
-      if (!mounted) return;
-
-      final messages = result['messages'] as List<MessageModel>;
-      final pagination = result['pagination'];
-
+      final result = await _service.getMessages(conversationId: arg);
+      final List<MessageModel> messages = (result['messages'] as List).cast<MessageModel>();
+      
       state = state.copyWith(
         messages: messages,
         isLoading: false,
-        hasMore: pagination?['hasNextPage'] ?? false,
-        currentPage: 1,
+        hasMore: messages.length >= 30, 
       );
     } catch (e) {
-      if (!mounted) return;
       state = state.copyWith(
         isLoading: false,
         errorMessage: e.toString().replaceAll('Exception: ', ''),
@@ -215,60 +211,58 @@ class ChatNotifier extends StateNotifier<ChatState> {
     }
   }
 
-  // ─── LOAD MORE (older messages) ──────────────────────────
   Future<void> loadMore() async {
-    if (!mounted || state.isLoadingMore || !state.hasMore) return;
+    if (state.isLoadingMore || !state.hasMore) return;
 
     state = state.copyWith(isLoadingMore: true);
 
     try {
-      final nextPage = state.currentPage + 1;
+      final nextPage = state.page + 1;
       final result = await _service.getMessages(
-        conversationId: conversationId,
+        conversationId: arg,
         page: nextPage,
       );
-      if (!mounted) return;
+      final List<MessageModel> newMessages = (result['messages'] as List).cast<MessageModel>();
 
-      final newMessages = result['messages'] as List<MessageModel>;
-      final pagination = result['pagination'];
-
-      // Append older messages at the END (since list is newest first)
       state = state.copyWith(
         messages: [...state.messages, ...newMessages],
         isLoadingMore: false,
-        hasMore: pagination?['hasNextPage'] ?? false,
-        currentPage: nextPage,
+        page: nextPage,
+        hasMore: newMessages.length >= 30,
       );
     } catch (e) {
-      if (!mounted) return;
       state = state.copyWith(isLoadingMore: false);
     }
   }
 
-  // ─── SEND MESSAGE ────────────────────────────────────────
-  Future<bool> sendMessage(String content) async {
-    if (!mounted || content.trim().isEmpty) return false;
-
-    state = state.copyWith(isSending: true);
+  Future<bool> sendMessage(String content, {String? messageType}) async {
+    state = state.copyWith(isSending: true, errorMessage: null);
 
     try {
-      final message = await _service.sendMessage(
-        conversationId: conversationId,
-        content: content.trim(),
-        replyToMessageId: state.replyingTo?.id,
-      );
-      if (!mounted) return false;
+      final replyToId = state.replyingTo?.id;
 
-      // Add new message to TOP (newest first)
+      final message = await _service.sendMessage(
+        conversationId: arg,
+        content: content,
+        messageType: messageType ?? 'text',
+        replyToMessageId: replyToId,
+      );
+
       state = state.copyWith(
         messages: [message, ...state.messages],
         isSending: false,
+        replyingTo: null,
         clearReplyingTo: true,
       );
 
+      // Update inbox preview too
+      ref.read(inboxProvider.notifier).updateConversationLastMessage(
+            arg,
+            content.isNotEmpty ? content : 'Sent a ${messageType ?? 'message'}',
+          );
+
       return true;
     } catch (e) {
-      if (!mounted) return false;
       state = state.copyWith(
         isSending: false,
         errorMessage: e.toString().replaceAll('Exception: ', ''),
@@ -277,41 +271,34 @@ class ChatNotifier extends StateNotifier<ChatState> {
     }
   }
 
-  // ─── UNSEND MESSAGE ──────────────────────────────────────
   Future<void> unsendMessage(String messageId) async {
     try {
       await _service.deleteMessage(messageId);
-      if (!mounted) return;
-
-      // Mark as deleted locally
-      final updated = state.messages.map((m) {
+      // Update local state
+      final List<MessageModel> updated = state.messages.map((m) {
         if (m.id == messageId) {
           return m.copyWith(isDeleted: true);
         }
         return m;
       }).toList();
-
       state = state.copyWith(messages: updated);
     } catch (e) {
-      if (!mounted) return;
-      state = state.copyWith(
-        errorMessage: e.toString().replaceAll('Exception: ', ''),
-      );
+      // Silent fail
     }
   }
 
+  Future<void> deleteMessage(String messageId) => unsendMessage(messageId);
+
   // ─── SET REPLYING TO ─────────────────────────────────────
   void setReplyingTo(MessageModel? message) {
-    if (!mounted) return;
     state = state.copyWith(
       replyingTo: message,
       clearReplyingTo: message == null,
     );
   }
 
-  // ─── ADD NEW MESSAGE (from socket - Day 24) ──────────────
+  // ─── ADD NEW MESSAGE (from socket) ──────────────
   void addNewMessage(MessageModel message) {
-    if (!mounted) return;
     // Check not duplicate
     final exists = state.messages.any((m) => m.id == message.id);
     if (!exists) {
@@ -328,10 +315,9 @@ final messageServiceProvider = Provider<MessageService>((ref) {
 });
 
 // Inbox provider
-final inboxProvider =
-    StateNotifierProvider<InboxNotifier, InboxState>((ref) {
-  return InboxNotifier(ref.watch(messageServiceProvider));
-});
+final inboxProvider = NotifierProvider<InboxNotifier, InboxState>(
+  InboxNotifier.new,
+);
 
 // DM unread count provider
 final dmUnreadCountProvider = Provider<int>((ref) {
@@ -339,10 +325,7 @@ final dmUnreadCountProvider = Provider<int>((ref) {
 });
 
 // Per-conversation chat provider (family)
-final chatProvider = StateNotifierProvider.family<
-    ChatNotifier, ChatState, String>(
-  (ref, conversationId) => ChatNotifier(
-    ref.watch(messageServiceProvider),
-    conversationId,
-  ),
+final chatProvider =
+    NotifierProvider.family<ChatNotifier, ChatState, String>(
+  ChatNotifier.new,
 );

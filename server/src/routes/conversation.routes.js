@@ -9,7 +9,6 @@ const {
   getConversation,
   getMessages,
   sendMessage,
-  deleteMessage,
   markAsRead,
   getUnreadCount,
   leaveConversation,
@@ -43,9 +42,5 @@ router.post('/:id/messages', protect, sendMessage);
 
 // PUT mark as read
 router.put('/:id/read', protect, markAsRead);
-
-// ─── MESSAGE ROUTES ────────────────────────────────────────
-// DELETE unsend message (on main router)
-router.delete('/messages/:messageId', protect, deleteMessage);
 
 module.exports = router;

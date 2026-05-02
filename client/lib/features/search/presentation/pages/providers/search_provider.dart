@@ -1,7 +1,6 @@
 // lib/features/search/presentation/providers/search_provider.dart
 
 import 'package:flutter_riverpod/flutter_riverpod.dart';
-import 'package:flutter_riverpod/legacy.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 import '../../../data/repositories/search_service.dart';
 
@@ -64,15 +63,20 @@ class SearchState {
 }
 
 // ─── SEARCH NOTIFIER ────────────────────────────────────────
-class SearchNotifier extends StateNotifier<SearchState> {
-  final SearchService _service;
+class SearchNotifier extends Notifier<SearchState> {
+  SearchService get _service => ref.read(searchServiceProvider);
 
   // Debounce timer simulation
   DateTime? _lastSearchTime;
 
-  SearchNotifier(this._service) : super(const SearchState()) {
-    _loadRecentSearches();
-    loadExplorePosts();
+  @override
+  SearchState build() {
+    // Load initial data
+    Future.microtask(() {
+      _loadRecentSearches();
+      loadExplorePosts();
+    });
+    return const SearchState();
   }
 
   // ─── LOAD RECENT SEARCHES FROM LOCAL STORAGE ────────────
@@ -148,8 +152,6 @@ class SearchNotifier extends StateNotifier<SearchState> {
       );
       return;
     }
-
-    if (query.trim().length < 1) return;
 
     // Debounce: wait 300ms after user stops typing
     final searchTime = DateTime.now();
@@ -264,7 +266,6 @@ final searchServiceProvider = Provider<SearchService>((ref) {
   return SearchService();
 });
 
-final searchProvider =
-    StateNotifierProvider<SearchNotifier, SearchState>((ref) {
-  return SearchNotifier(ref.watch(searchServiceProvider));
-});
+final searchProvider = NotifierProvider<SearchNotifier, SearchState>(
+  SearchNotifier.new,
+);

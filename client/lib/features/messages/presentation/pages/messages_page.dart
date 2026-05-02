@@ -8,6 +8,7 @@ import 'package:timeago/timeago.dart' as timeago;
 import '../../../../core/theme/app_theme.dart';
 import '../../../../features/auth/presentation/providers/auth_provider.dart';
 import '../providers/message_provider.dart';
+import '../../../../core/router/app_router.dart';
 import '../../data/models/conversation_model.dart';
 
 class MessagesPage extends ConsumerWidget {
@@ -37,14 +38,7 @@ class MessagesPage extends ConsumerWidget {
         actions: [
           // New message button
           IconButton(
-            onPressed: () {
-              ScaffoldMessenger.of(context).showSnackBar(
-                const SnackBar(
-                  content: Text('New message - search coming soon!'),
-                  duration: Duration(seconds: 2),
-                ),
-              );
-            },
+            onPressed: () => context.push(AppRoutes.newMessage),
             icon: const Icon(
               Icons.edit_outlined,
               color: AppColors.textPrimary,

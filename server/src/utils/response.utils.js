@@ -19,16 +19,20 @@ const errorResponse = (res, statusCode = 500, message, errors = null) =>
 
 
 const paginatedResponse = (res, message, data, pagination) => {
+    const totalPages = pagination.totalPages || pagination.totalPage || 0;
+    const currentPage = pagination.page || 1;
+    
     return res.status(200).json({
         success: true,
         message,
         data,
         pagination: {
-            currentPage: pagination.page,
-            totalPage: pagination.totalPage,
-            totalItems: pagination.totalItems,
-            itemsPerPage: pagination.page < pagination.totalPage,
-            hasNextPage: pagination.page > 1,
+            currentPage: currentPage,
+            totalPages: totalPages,
+            totalItems: pagination.totalItems || 0,
+            itemsPerPage: pagination.limit || pagination.itemsPerPage || 20,
+            hasNextPage: currentPage < totalPages,
+            hasPreviousPage: currentPage > 1,
             nextCursor: pagination.nextCursor || null,
         },
         timestamp: new Date().toISOString(),

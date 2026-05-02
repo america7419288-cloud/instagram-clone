@@ -1,0 +1,106 @@
+﻿Resolving dependencies...
+Downloading packages...
+  _fe_analyzer_shared 92.0.0 (100.0.0 available)
+  analyzer 9.0.0 (13.0.0 available)
+  analyzer_buffer 0.3.0 (0.3.2 available)
+  dart_style 3.1.3 (3.1.9 available)
+  go_router 17.2.2 (17.2.3 available)
+  matcher 0.12.19 (0.12.20 available)
+  meta 1.17.0 (1.18.2 available)
+  mockito 5.6.4 (5.6.5 available)
+  native_toolchain_c 0.17.6 (0.18.0 available)
+  riverpod_analyzer_utils 1.0.0-dev.9 (1.0.0-dev.10 available)
+  share_plus 12.0.2 (13.1.0 available)
+  share_plus_platform_interface 6.1.0 (7.1.0 available)
+  test 1.30.0 (1.31.1 available)
+  test_api 0.7.10 (0.7.12 available)
+  test_core 0.6.16 (0.6.18 available)
+  vector_math 2.2.0 (2.3.0 available)
+  win32 5.15.0 (6.1.0 available)
+  xml 6.6.1 (7.0.1 available)
+Got dependencies!
+18 packages have newer versions incompatible with dependency constraints.
+Try `flutter pub outdated` for more information.
+Analyzing client...                                             
+
+   info - Unnecessary use of multiple underscores - lib\features\follow\data\repositories\presentation\pages\follow_requests_page.dart:154:42 - unnecessary_underscores
+   info - Unnecessary use of multiple underscores - lib\features\follow\data\repositories\presentation\pages\follow_requests_page.dart:154:46 - unnecessary_underscores
+   info - Unnecessary use of multiple underscores - lib\features\follow\data\repositories\presentation\pages\followers_page.dart:484:36 - unnecessary_underscores
+   info - Unnecessary use of multiple underscores - lib\features\follow\data\repositories\presentation\pages\followers_page.dart:484:40 - unnecessary_underscores
+   info - Unnecessary use of multiple underscores - lib\features\follow\data\repositories\presentation\pages\followers_page.dart:580:24 - unnecessary_underscores
+   info - 'withOpacity' is deprecated and shouldn't be used. Use .withValues() to avoid precision loss - lib\features\follow\data\repositories\presentation\pages\followers_page.dart:602:45 - deprecated_member_use
+   info - Use the null-aware marker '?' rather than a null check via an 'if' - lib\features\messages\data\repositories\message_service.dart:94:11 - use_null_aware_elements
+   info - Unnecessary use of multiple underscores - lib\features\messages\presentation\pages\chat_page.dart:236:44 - unnecessary_underscores
+   info - Unnecessary use of multiple underscores - lib\features\messages\presentation\pages\chat_page.dart:236:48 - unnecessary_underscores
+   info - 'withOpacity' is deprecated and shouldn't be used. Use .withValues() to avoid precision loss - lib\features\messages\presentation\pages\chat_page.dart:744:28 - deprecated_member_use
+   info - 'withOpacity' is deprecated and shouldn't be used. Use .withValues() to avoid precision loss - lib\features\messages\presentation\pages\chat_page.dart:745:32 - deprecated_member_use
+warning - Duplicate import - lib\features\messages\presentation\pages\messages_page.dart:12:8 - duplicate_import
+   info - Unnecessary use of multiple underscores - lib\features\messages\presentation\pages\messages_page.dart:247:34 - unnecessary_underscores
+   info - Unnecessary use of multiple underscores - lib\features\messages\presentation\pages\messages_page.dart:247:38 - unnecessary_underscores
+   info - Unnecessary use of multiple underscores - lib\features\messages\presentation\pages\messages_page.dart:279:24 - unnecessary_underscores
+   info - 'withOpacity' is deprecated and shouldn't be used. Use .withValues() to avoid precision loss - lib\features\messages\presentation\pages\messages_page.dart:308:45 - deprecated_member_use
+   info - Don't use 'BuildContext's across async gaps, guarded by an unrelated 'mounted' check - lib\features\messages\presentation\pages\new_message_page.dart:185:31 - use_build_context_synchronously
+   info - Don't use 'BuildContext's across async gaps, guarded by an unrelated 'mounted' check - lib\features\messages\presentation\pages\new_message_page.dart:187:17 - use_build_context_synchronously
+  error - The property 'id' can't be unconditionally accessed because the receiver can be 'null' - lib\features\messages\presentation\pages\new_message_page.dart:187:67 - unchecked_use_of_nullable_value
+   info - Don't use 'BuildContext's across async gaps, guarded by an unrelated 'mounted' check - lib\features\messages\presentation\pages\new_message_page.dart:192:31 - use_build_context_synchronously
+   info - Don't use 'BuildContext's across async gaps, guarded by an unrelated 'mounted' check - lib\features\messages\presentation\pages\new_message_page.dart:193:38 - use_build_context_synchronously
+   info - Use the null-aware marker '?' rather than a null check via an 'if' - lib\features\notifications\data\models\repositories\notification_service.dart:22:11 - use_null_aware_elements
+   info - 'withOpacity' is deprecated and shouldn't be used. Use .withValues() to avoid precision loss - lib\features\notifications\presentation\pages\notifications_page.dart:210:35 - deprecated_member_use
+   info - Unnecessary use of multiple underscores - lib\features\notifications\presentation\pages\notifications_page.dart:286:38 - unnecessary_underscores
+   info - Unnecessary use of multiple underscores - lib\features\notifications\presentation\pages\notifications_page.dart:286:42 - unnecessary_underscores
+   info - Unnecessary use of multiple underscores - lib\features\notifications\presentation\pages\notifications_page.dart:379:28 - unnecessary_underscores
+   info - Unnecessary use of multiple underscores - lib\features\notifications\presentation\pages\notifications_page.dart:379:32 - unnecessary_underscores
+   info - Unnecessary use of multiple underscores - lib\features\notifications\presentation\pages\notifications_page.dart:538:24 - unnecessary_underscores
+   info - 'withOpacity' is deprecated and shouldn't be used. Use .withValues() to avoid precision loss - lib\features\notifications\presentation\pages\notifications_page.dart:569:47 - deprecated_member_use
+   info - 'WillPopScope' is deprecated and shouldn't be used. Use PopScope instead. The Android predictive back feature will not work with WillPopScope. This feature was deprecated after v3.12.0-1.0.pre - lib\features\post\presentation\pages\create_post_page.dart:304:12 - deprecated_member_use
+   info - Don't use 'BuildContext's across async gaps, guarded by an unrelated 'mounted' check - lib\features\post\presentation\pages\create_post_page.dart:319:19 - use_build_context_synchronously
+   info - 'withOpacity' is deprecated and shouldn't be used. Use .withValues() to avoid precision loss - lib\features\post\presentation\pages\create_post_page.dart:411:41 - deprecated_member_use
+   info - 'withOpacity' is deprecated and shouldn't be used. Use .withValues() to avoid precision loss - lib\features\post\presentation\pages\create_post_page.dart:504:43 - deprecated_member_use
+   info - 'activeColor' is deprecated and shouldn't be used. Use activeThumbColor instead. This feature was deprecated after v3.31.0-2.0.pre - lib\features\post\presentation\pages\create_post_page.dart:688:11 - deprecated_member_use
+   info - 'withOpacity' is deprecated and shouldn't be used. Use .withValues() to avoid precision loss - lib\features\post\presentation\pages\create_post_page.dart:894:44 - deprecated_member_use
+   info - 'withOpacity' is deprecated and shouldn't be used. Use .withValues() to avoid precision loss - lib\features\post\presentation\pages\post_detail_page.dart:366:40 - deprecated_member_use
+   info - Unnecessary use of multiple underscores - lib\features\post\presentation\pages\post_detail_page.dart:381:24 - unnecessary_underscores
+   info - Unnecessary use of multiple underscores - lib\features\post\presentation\pages\post_detail_page.dart:382:24 - unnecessary_underscores
+   info - Unnecessary use of multiple underscores - lib\features\post\presentation\pages\post_detail_page.dart:382:28 - unnecessary_underscores
+   info - Unnecessary use of multiple underscores - lib\features\post\presentation\pages\post_detail_page.dart:704:34 - unnecessary_underscores
+   info - Unnecessary use of multiple underscores - lib\features\post\presentation\pages\post_detail_page.dart:704:38 - unnecessary_underscores
+   info - 'withOpacity' is deprecated and shouldn't be used. Use .withValues() to avoid precision loss - lib\features\post\presentation\pages\post_detail_page.dart:896:47 - deprecated_member_use
+   info - Unnecessary use of multiple underscores - lib\features\post\presentation\pages\post_likes_page.dart:132:36 - unnecessary_underscores
+   info - Unnecessary use of multiple underscores - lib\features\post\presentation\pages\post_likes_page.dart:132:40 - unnecessary_underscores
+   info - 'withOpacity' is deprecated and shouldn't be used. Use .withValues() to avoid precision loss - lib\features\profile\presentation\pages\edit_profile_page.dart:275:48 - deprecated_member_use
+   info - 'withOpacity' is deprecated and shouldn't be used. Use .withValues() to avoid precision loss - lib\features\profile\presentation\pages\edit_profile_page.dart:278:50 - deprecated_member_use
+   info - 'value' is deprecated and shouldn't be used. Use initialValue instead. This will set the initial value for the form field. This feature was deprecated after v3.33.0-1.0.pre - lib\features\profile\presentation\pages\edit_profile_page.dart:341:19 - deprecated_member_use
+   info - 'activeColor' is deprecated and shouldn't be used. Use activeThumbColor instead. This feature was deprecated after v3.31.0-2.0.pre - lib\features\profile\presentation\pages\edit_profile_page.dart:400:17 - deprecated_member_use
+   info - Unnecessary use of multiple underscores - lib\features\profile\presentation\pages\edit_profile_page.dart:446:42 - unnecessary_underscores
+   info - Unnecessary use of multiple underscores - lib\features\profile\presentation\pages\edit_profile_page.dart:446:46 - unnecessary_underscores
+   info - Unnecessary use of multiple underscores - lib\features\profile\presentation\pages\profile_page.dart:236:40 - unnecessary_underscores
+   info - Unnecessary use of multiple underscores - lib\features\profile\presentation\pages\profile_page.dart:238:40 - unnecessary_underscores
+   info - Unnecessary use of multiple underscores - lib\features\profile\presentation\pages\profile_page.dart:238:44 - unnecessary_underscores
+   info - Don't use 'BuildContext's across async gaps, guarded by an unrelated 'mounted' check - lib\features\profile\presentation\pages\profile_page.dart:434:19 - use_build_context_synchronously
+   info - Don't use 'BuildContext's across async gaps, guarded by an unrelated 'mounted' check - lib\features\profile\presentation\pages\profile_page.dart:441:40 - use_build_context_synchronously
+   info - 'withOpacity' is deprecated and shouldn't be used. Use .withValues() to avoid precision loss - lib\features\profile\presentation\pages\profile_page.dart:707:40 - deprecated_member_use
+   info - Unnecessary use of multiple underscores - lib\features\profile\presentation\pages\profile_page.dart:754:36 - unnecessary_underscores
+   info - Unnecessary use of multiple underscores - lib\features\profile\presentation\pages\profile_page.dart:755:36 - unnecessary_underscores
+   info - Unnecessary use of multiple underscores - lib\features\profile\presentation\pages\profile_page.dart:755:40 - unnecessary_underscores
+   info - 'withOpacity' is deprecated and shouldn't be used. Use .withValues() to avoid precision loss - lib\features\profile\presentation\pages\profile_page.dart:897:51 - deprecated_member_use
+   info - 'withOpacity' is deprecated and shouldn't be used. Use .withValues() to avoid precision loss - lib\features\profile\presentation\pages\profile_page.dart:912:37 - deprecated_member_use
+   info - Statements in an if should be enclosed in a block - lib\features\profile\presentation\providers\profile_provider.dart:123:7 - curly_braces_in_flow_control_structures
+   info - Unnecessary use of multiple underscores - lib\features\search\presentation\pages\hashtag_page.dart:160:52 - unnecessary_underscores
+   info - Unnecessary use of multiple underscores - lib\features\search\presentation\pages\hashtag_page.dart:160:56 - unnecessary_underscores
+   info - 'withOpacity' is deprecated and shouldn't be used. Use .withValues() to avoid precision loss - lib\features\search\presentation\pages\search_page.dart:258:41 - deprecated_member_use
+   info - Unnecessary use of multiple underscores - lib\features\search\presentation\pages\search_page.dart:328:42 - unnecessary_underscores
+   info - Unnecessary use of multiple underscores - lib\features\search\presentation\pages\search_page.dart:328:46 - unnecessary_underscores
+   info - Unnecessary use of multiple underscores - lib\features\search\presentation\pages\search_page.dart:468:36 - unnecessary_underscores
+   info - Unnecessary use of multiple underscores - lib\features\search\presentation\pages\search_page.dart:469:36 - unnecessary_underscores
+   info - Unnecessary use of multiple underscores - lib\features\search\presentation\pages\search_page.dart:469:40 - unnecessary_underscores
+   info - Don't invoke 'print' in production code - lib\features\story\data\repositories\story_service.dart:50:7 - avoid_print
+   info - Unnecessary use of multiple underscores - lib\features\story\presentation\widgets\stories_bar.dart:173:48 - unnecessary_underscores
+   info - Unnecessary use of multiple underscores - lib\features\story\presentation\widgets\stories_bar.dart:173:52 - unnecessary_underscores
+   info - Unnecessary use of multiple underscores - lib\features\story\presentation\widgets\stories_bar.dart:289:44 - unnecessary_underscores
+   info - Unnecessary use of multiple underscores - lib\features\story\presentation\widgets\stories_bar.dart:289:48 - unnecessary_underscores
+   info - Unnecessary use of multiple underscores - lib\features\story\presentation\widgets\stories_bar.dart:357:26 - unnecessary_underscores
+   info - Unnecessary use of multiple underscores - lib\features\story\presentation\widgets\story_viewer.dart:332:32 - unnecessary_underscores
+   info - Unnecessary use of multiple underscores - lib\features\story\presentation\widgets\story_viewer.dart:341:32 - unnecessary_underscores
+   info - Unnecessary use of multiple underscores - lib\features\story\presentation\widgets\story_viewer.dart:341:36 - unnecessary_underscores
+   info - Unnecessary use of multiple underscores - lib\features\story\presentation\widgets\story_viewer.dart:704:22 - unnecessary_underscores
+

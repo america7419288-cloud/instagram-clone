@@ -1,7 +1,6 @@
 // lib/features/story/presentation/providers/story_provider.dart
 
 import 'package:flutter_riverpod/flutter_riverpod.dart';
-import 'package:flutter_riverpod/legacy.dart';
 import '../../data/models/story_model.dart';
 import '../../data/repositories/story_service.dart';
 
@@ -33,11 +32,13 @@ class StoryFeedState {
 }
 
 // ─── STORY FEED NOTIFIER ────────────────────────────────────
-class StoryFeedNotifier extends StateNotifier<StoryFeedState> {
-  final StoryService _storyService;
+class StoryFeedNotifier extends Notifier<StoryFeedState> {
+  StoryService get _storyService => ref.read(storyServiceProvider);
 
-  StoryFeedNotifier(this._storyService) : super(const StoryFeedState()) {
-    loadStories();
+  @override
+  StoryFeedState build() {
+    Future.microtask(() => loadStories());
+    return const StoryFeedState();
   }
 
   // ─── LOAD STORY FEED ──────────────────────────────────────
@@ -135,7 +136,6 @@ final storyServiceProvider = Provider<StoryService>((ref) {
   return StoryService();
 });
 
-final storyFeedProvider =
-    StateNotifierProvider<StoryFeedNotifier, StoryFeedState>((ref) {
-      return StoryFeedNotifier(ref.watch(storyServiceProvider));
-    });
+final storyFeedProvider = NotifierProvider<StoryFeedNotifier, StoryFeedState>(
+  StoryFeedNotifier.new,
+);
