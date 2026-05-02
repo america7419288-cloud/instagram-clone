@@ -6,6 +6,12 @@ import 'package:flutter_riverpod/legacy.dart';
 import '../../../../shared/models/user_model.dart';
 import '../../data/repositories/auth_service.dart';
 import '../../../../core/socket/socket_provider.dart';
+import '../../../../core/router/main_shell.dart';
+import '../../../messages/presentation/providers/message_provider.dart';
+import '../../../notifications/presentation/pages/providers/notification_provider.dart';
+import '../../../post/presentation/providers/feed_provider.dart';
+import '../../../profile/presentation/providers/profile_provider.dart';
+import '../../../story/presentation/providers/story_provider.dart';
 
 class AuthState {
   final UserModel? user;
@@ -92,6 +98,9 @@ class AuthNotifier extends StateNotifier<AuthState> {
     state = state.copyWith(isLoading: true, errorMessage: null);
 
     try {
+      _disconnectSocket();
+      _clearUserScopedProviders();
+
       final authResponse = await _authService.register(
         fullName: fullName,
         email: email,
@@ -109,6 +118,7 @@ class AuthNotifier extends StateNotifier<AuthState> {
 
       // ⭐ Connect socket after register
       _connectSocket();
+      _refreshUserScopedProviders();
 
       return true;
     } catch (e) {
@@ -131,6 +141,9 @@ class AuthNotifier extends StateNotifier<AuthState> {
     state = state.copyWith(isLoading: true, errorMessage: null);
 
     try {
+      _disconnectSocket();
+      _clearUserScopedProviders();
+
       final authResponse = await _authService.login(
         identifier: identifier,
         password: password,
@@ -146,6 +159,7 @@ class AuthNotifier extends StateNotifier<AuthState> {
 
       // ⭐ Connect socket after login
       _connectSocket();
+      _refreshUserScopedProviders();
 
       return true;
     } catch (e) {
@@ -163,6 +177,8 @@ class AuthNotifier extends StateNotifier<AuthState> {
   Future<void> logout() async {
     // ⭐ Disconnect socket before logout
     _disconnectSocket();
+
+    _clearUserScopedProviders();
 
     await _authService.logout();
     if (!mounted) return;
@@ -197,6 +213,25 @@ class AuthNotifier extends StateNotifier<AuthState> {
     } catch (e) {
       print('Socket disconnect error: $e');
     }
+  }
+
+  void _clearUserScopedProviders() {
+    _ref.invalidate(feedProvider);
+    _ref.invalidate(storyFeedProvider);
+    _ref.invalidate(notificationProvider);
+    _ref.invalidate(inboxProvider);
+    _ref.invalidate(chatProvider);
+    _ref.invalidate(profileProvider);
+    _ref.invalidate(currentTabIndexProvider);
+  }
+
+  void _refreshUserScopedProviders() {
+    Future.microtask(() {
+      _ref.read(feedProvider.notifier).loadFeed();
+      _ref.read(storyFeedProvider.notifier).loadStories();
+      _ref.read(notificationProvider.notifier).refresh();
+      _ref.read(inboxProvider.notifier).loadUnreadCount();
+    });
   }
 }
 

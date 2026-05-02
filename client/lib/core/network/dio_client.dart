@@ -1,4 +1,3 @@
-
 import 'package:dio/dio.dart';
 import 'package:flutter_secure_storage/flutter_secure_storage.dart';
 import 'package:pretty_dio_logger/pretty_dio_logger.dart';
@@ -22,16 +21,12 @@ class DioClient {
       ),
     );
 
-    _dio.interceptors.addAll([
-      _authInterceptor(),   
-      _loggerInterceptor(), 
-    ]);
+    _dio.interceptors.addAll([_authInterceptor(), _loggerInterceptor()]);
   }
 
   Interceptor _authInterceptor() {
     return InterceptorsWrapper(
       onRequest: (options, handler) async {
-    
         final token = await _storage.read(key: AppConstants.tokenKey);
 
         if (token != null) {
@@ -43,7 +38,11 @@ class DioClient {
       onError: (DioException error, handler) async {
         if (error.response?.statusCode == 401) {
           await _storage.delete(key: AppConstants.tokenKey);
+          await _storage.delete(key: AppConstants.refreshTokenKey);
           await _storage.delete(key: AppConstants.userKey);
+          await _storage.delete(key: '${AppConstants.userKey}_id');
+          await _storage.delete(key: '${AppConstants.userKey}_username');
+          await _storage.delete(key: '${AppConstants.userKey}_email');
         }
         return handler.next(error);
       },
@@ -60,7 +59,6 @@ class DioClient {
       compact: true,
     );
   }
-
 
   Future<Response> get(
     String path, {
@@ -88,27 +86,15 @@ class DioClient {
     );
   }
 
-  Future<Response> put(
-    String path, {
-    dynamic data,
-    Options? options,
-  }) async {
+  Future<Response> put(String path, {dynamic data, Options? options}) async {
     return await _dio.put(path, data: data, options: options);
   }
 
-  Future<Response> delete(
-    String path, {
-    dynamic data,
-    Options? options,
-  }) async {
+  Future<Response> delete(String path, {dynamic data, Options? options}) async {
     return await _dio.delete(path, data: data, options: options);
   }
 
-  Future<Response> patch(
-    String path, {
-    dynamic data,
-    Options? options,
-  }) async {
+  Future<Response> patch(String path, {dynamic data, Options? options}) async {
     return await _dio.patch(path, data: data, options: options);
   }
 
@@ -121,9 +107,7 @@ class DioClient {
       path,
       data: formData,
       onSendProgress: onSendProgress,
-      options: Options(
-        headers: {'Content-Type': 'multipart/form-data'},
-      ),
+      options: Options(headers: {'Content-Type': 'multipart/form-data'}),
     );
   }
 }

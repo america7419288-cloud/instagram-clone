@@ -9,6 +9,7 @@ const {
   SavedPost,
   Comment,
   Follower,
+  Block,
   sequelize,
 } = require('../models');
 const { successResponse, errorResponse, paginatedResponse } =
@@ -265,35 +266,37 @@ const getFeed = async (req, res) => {
       raw: true,
     });
 
+    const blockedRelations = await Block.findAll({
+      where: {
+        [Op.or]: [
+          { blocker_id: currentUserId },
+          { blocked_id: currentUserId },
+        ],
+      },
+      attributes: ['blocker_id', 'blocked_id'],
+      raw: true,
+    });
+
+    const blockedUserIds = blockedRelations.map((block) =>
+      block.blocker_id === currentUserId ? block.blocked_id : block.blocker_id
+    );
+
     const followingIds = following.map((follow) => follow.following_id);
     const feedUserIds = [...followingIds, currentUserId];
-
-    if (followingIds.length === 0) {
-      return successResponse(
-        res,
-        200,
-        'Start following people to see their posts!',
-        {
-          posts: [],
-          pagination: {
-            currentPage: page,
-            totalPages: 0,
-            totalItems: 0,
-            itemsPerPage: limit,
-            hasNextPage: false,
-            hasPrevPage: false,
-          },
-          is_empty_feed: true,
-          message: 'Follow people to see posts in your feed.',
-        }
-      );
-    }
+    const hasFollowedFeed = followingIds.length > 0;
+    const whereClause = {
+      is_archived: false,
+      ...(hasFollowedFeed
+        ? { user_id: { [Op.in]: feedUserIds } }
+        : {
+            user_id: {
+              [Op.notIn]: [currentUserId, ...blockedUserIds],
+            },
+          }),
+    };
 
     const { count, rows: posts } = await Post.findAndCountAll({
-      where: {
-        user_id: { [Op.in]: feedUserIds },
-        is_archived: false,
-      },
+      where: whereClause,
       include: [
         {
           model: User,
@@ -302,6 +305,7 @@ const getFeed = async (req, res) => {
             'id', 'username', 'full_name',
             'profile_pic_url', 'is_verified',
           ],
+          ...(!hasFollowedFeed && { where: { is_private: false } }),
         },
         {
           model: PostMedia,

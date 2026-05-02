@@ -1,5 +1,7 @@
 // lib/features/notifications/presentation/providers/notification_provider.dart
 
+import 'dart:async';
+
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_riverpod/legacy.dart';
 import '../../../data/models/notification_model.dart';
@@ -72,24 +74,19 @@ class NotificationState {
     }).toList();
 
     if (thisWeek.isNotEmpty) {
-      groups.add(NotificationGroup(
-        title: 'This Week',
-        notifications: thisWeek,
-      ));
+      groups.add(
+        NotificationGroup(title: 'This Week', notifications: thisWeek),
+      );
     }
 
     if (thisMonth.isNotEmpty) {
-      groups.add(NotificationGroup(
-        title: 'This Month',
-        notifications: thisMonth,
-      ));
+      groups.add(
+        NotificationGroup(title: 'This Month', notifications: thisMonth),
+      );
     }
 
     if (earlier.isNotEmpty) {
-      groups.add(NotificationGroup(
-        title: 'Earlier',
-        notifications: earlier,
-      ));
+      groups.add(NotificationGroup(title: 'Earlier', notifications: earlier));
     }
 
     return groups;
@@ -99,25 +96,30 @@ class NotificationState {
 // ─── NOTIFICATION NOTIFIER ──────────────────────────────────
 class NotificationNotifier extends StateNotifier<NotificationState> {
   final NotificationService _service;
+  Timer? _unreadPollTimer;
 
-  NotificationNotifier(this._service)
-      : super(const NotificationState()) {
+  NotificationNotifier(this._service) : super(const NotificationState()) {
     loadNotifications();
     loadUnreadCount();
+    _unreadPollTimer = Timer.periodic(
+      const Duration(seconds: 30),
+      (_) => loadUnreadCount(),
+    );
+  }
+
+  @override
+  void dispose() {
+    _unreadPollTimer?.cancel();
+    super.dispose();
   }
 
   // ─── LOAD NOTIFICATIONS ─────────────────────────────────
   Future<void> loadNotifications() async {
-    state = state.copyWith(
-      isLoading: true,
-      errorMessage: null,
-      currentPage: 1,
-    );
+    state = state.copyWith(isLoading: true, errorMessage: null, currentPage: 1);
 
     try {
       final result = await _service.getNotifications(page: 1);
-      final notifications =
-          result['notifications'] as List<NotificationModel>;
+      final notifications = result['notifications'] as List<NotificationModel>;
       final pagination = result['pagination'];
 
       state = state.copyWith(
@@ -142,18 +144,13 @@ class NotificationNotifier extends StateNotifier<NotificationState> {
 
     try {
       final nextPage = state.currentPage + 1;
-      final result = await _service.getNotifications(
-        page: nextPage,
-      );
+      final result = await _service.getNotifications(page: nextPage);
       final newNotifications =
           result['notifications'] as List<NotificationModel>;
       final pagination = result['pagination'];
 
       state = state.copyWith(
-        notifications: [
-          ...state.notifications,
-          ...newNotifications,
-        ],
+        notifications: [...state.notifications, ...newNotifications],
         isLoadingMore: false,
         hasMore: pagination?['hasNextPage'] ?? false,
         currentPage: nextPage,
@@ -167,6 +164,7 @@ class NotificationNotifier extends StateNotifier<NotificationState> {
   Future<void> loadUnreadCount() async {
     try {
       final count = await _service.getUnreadCount();
+      if (!mounted) return;
       state = state.copyWith(unreadCount: count);
     } catch (e) {
       // Silent fail - badge just shows 0
@@ -183,15 +181,15 @@ class NotificationNotifier extends StateNotifier<NotificationState> {
       return n;
     }).toList();
 
-    final wasUnread = state.notifications
-        .any((n) => n.id == notificationId && !n.isRead);
+    final wasUnread = state.notifications.any(
+      (n) => n.id == notificationId && !n.isRead,
+    );
 
     state = state.copyWith(
       notifications: updated,
-      unreadCount:
-          wasUnread && state.unreadCount > 0
-              ? state.unreadCount - 1
-              : state.unreadCount,
+      unreadCount: wasUnread && state.unreadCount > 0
+          ? state.unreadCount - 1
+          : state.unreadCount,
     );
 
     // Then call API (silent)
@@ -205,13 +203,9 @@ class NotificationNotifier extends StateNotifier<NotificationState> {
   // ─── MARK ALL AS READ ───────────────────────────────────
   Future<void> markAllAsRead() async {
     // Mark all locally
-    final updated =
-        state.notifications.map((n) => n.markAsRead()).toList();
+    final updated = state.notifications.map((n) => n.markAsRead()).toList();
 
-    state = state.copyWith(
-      notifications: updated,
-      unreadCount: 0,
-    );
+    state = state.copyWith(notifications: updated, unreadCount: 0);
 
     try {
       await _service.markAllAsRead();
@@ -223,8 +217,9 @@ class NotificationNotifier extends StateNotifier<NotificationState> {
   // ─── DELETE NOTIFICATION ────────────────────────────────
   Future<void> deleteNotification(String notificationId) async {
     // Check if it was unread
-    final wasUnread = state.notifications
-        .any((n) => n.id == notificationId && !n.isRead);
+    final wasUnread = state.notifications.any(
+      (n) => n.id == notificationId && !n.isRead,
+    );
 
     // Remove from local list
     final updated = state.notifications
@@ -248,10 +243,7 @@ class NotificationNotifier extends StateNotifier<NotificationState> {
 
   // ─── DELETE ALL ─────────────────────────────────────────
   Future<void> deleteAllNotifications() async {
-    state = state.copyWith(
-      notifications: [],
-      unreadCount: 0,
-    );
+    state = state.copyWith(notifications: [], unreadCount: 0);
 
     try {
       await _service.deleteAllNotifications();
@@ -262,25 +254,19 @@ class NotificationNotifier extends StateNotifier<NotificationState> {
 
   // ─── REFRESH ────────────────────────────────────────────
   Future<void> refresh() async {
-    await Future.wait([
-      loadNotifications(),
-      loadUnreadCount(),
-    ]);
+    await Future.wait([loadNotifications(), loadUnreadCount()]);
   }
 }
 
 // ─── PROVIDERS ──────────────────────────────────────────────
-final notificationServiceProvider =
-    Provider<NotificationService>((ref) {
+final notificationServiceProvider = Provider<NotificationService>((ref) {
   return NotificationService();
 });
 
-final notificationProvider = StateNotifierProvider<
-    NotificationNotifier, NotificationState>((ref) {
-  return NotificationNotifier(
-    ref.watch(notificationServiceProvider),
-  );
-});
+final notificationProvider =
+    StateNotifierProvider<NotificationNotifier, NotificationState>((ref) {
+      return NotificationNotifier(ref.watch(notificationServiceProvider));
+    });
 
 // Convenience: just the unread count (for badge)
 final unreadCountProvider = Provider<int>((ref) {

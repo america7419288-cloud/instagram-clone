@@ -157,6 +157,7 @@ class AuthService {
     required String accessToken,
     required String refreshToken,
   }) async {
+    await _clearStorage();
     await _storage.write(key: AppConstants.tokenKey, value: accessToken);
     await _storage.write(
       key: AppConstants.refreshTokenKey,
@@ -180,6 +181,7 @@ class AuthService {
   Future<void> _clearStorage() async {
     await _storage.delete(key: AppConstants.tokenKey);
     await _storage.delete(key: AppConstants.refreshTokenKey);
+    await _storage.delete(key: AppConstants.userKey);
     await _storage.delete(key: '${AppConstants.userKey}_id');
     await _storage.delete(key: '${AppConstants.userKey}_username');
     await _storage.delete(key: '${AppConstants.userKey}_email');
@@ -229,4 +231,5 @@ class AuthService {
     return Exception('Network error: ${e.message}');
   }
 }
+
 // ─── CHANGE PASSWORD ─────────────────────────────────────

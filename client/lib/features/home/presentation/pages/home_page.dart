@@ -66,6 +66,7 @@ class _HomePageContentState extends ConsumerState<HomePageContent> {
           await Future.wait<void>([
             ref.read(feedProvider.notifier).refreshFeed(),
             ref.read(storyFeedProvider.notifier).loadStories(),
+            ref.read(notificationProvider.notifier).loadUnreadCount(),
           ]);
         },
         color: AppColors.primary,
