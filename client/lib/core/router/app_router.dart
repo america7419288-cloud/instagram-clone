@@ -20,11 +20,12 @@ import '../../features/profile/presentation/pages/edit_profile_page.dart';
 import '../../features/messages/presentation/pages/messages_page.dart';
 import '../../features/messages/presentation/pages/chat_page.dart';
 import '../../features/messages/presentation/pages/new_message_page.dart';
-import '../../features/messages/data/models/conversation_model.dart';
 import '../../features/story/presentation/pages/story_viewer_page.dart';
 import '../../features/follow/data/repositories/presentation/pages/followers_page.dart';
 import '../../features/follow/data/repositories/presentation/pages/follow_requests_page.dart';
 import 'main_shell.dart';
+import '../../features/settings/presentation/pages/settings_page.dart';
+
 
 // Auth provider
 import '../../features/auth/presentation/providers/auth_provider.dart';
@@ -46,8 +47,8 @@ class AppRoutes {
   static const String createPost = '/create';
   static const String notifications = '/notifications';
   static const String messages = '/messages';
-  static const String newMessage = '/messages/new';
-  static const String chat = '/messages/:conversationId';
+  static const String newMessage = '/new-message';
+  static const String chat = '/chat/:conversationId';
   static const String profile = '/profile/:username';
   static const String editProfile = '/profile/edit';
   static const String postDetail = '/post/:postId';
@@ -57,6 +58,8 @@ class AppRoutes {
   static const String followRequests = '/follow-requests';
   static const String postLikes = '/post/:postId/likes';
   static const String hashtag = '/hashtag/:tag';
+  static const String settings = '/settings';
+
 }
 
 // ─── ROUTER PROVIDER ────────────────────────────────────────
@@ -132,6 +135,12 @@ final routerProvider = Provider<GoRouter>((ref) {
         path: AppRoutes.login,
         name: 'login',
         builder: (context, state) => const LoginPage(),
+      ),
+
+      GoRoute(
+       path: '/settings',
+       name: 'settings',
+       builder: (context, state) => const SettingsPage(),
       ),
 
       GoRoute(
@@ -273,11 +282,8 @@ final routerProvider = Provider<GoRouter>((ref) {
         name: 'chat',
         builder: (context, state) {
           final conversationId = state.pathParameters['conversationId'] ?? '';
-          // Get conversation passed as extra (from inbox tap)
-          final conversation = state.extra as ConversationModel?;
           return ChatPage(
             conversationId: conversationId,
-            conversation: conversation,
           );
         },
       ),

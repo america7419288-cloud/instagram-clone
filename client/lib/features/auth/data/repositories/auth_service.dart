@@ -186,6 +186,23 @@ class AuthService {
   }
 
   // ─── HANDLE DIO ERRORS ─────────────────────────────────
+  Future<void> changePassword({
+    required String currentPassword,
+    required String newPassword,
+  }) async {
+    try {
+      await _dioClient.post(
+        '/auth/change-password',
+        data: {
+          'current_password': currentPassword,
+          'new_password': newPassword,
+        },
+      );
+    } on DioException catch (e) {
+      throw _handleDioError(e);
+    }
+  }
+
   Exception _handleDioError(DioException e) {
     if (e.response != null) {
       // Server responded with error
@@ -212,3 +229,4 @@ class AuthService {
     return Exception('Network error: ${e.message}');
   }
 }
+// ─── CHANGE PASSWORD ─────────────────────────────────────

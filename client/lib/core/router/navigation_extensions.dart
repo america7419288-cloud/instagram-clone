@@ -18,7 +18,6 @@ extension SafeGoRouterNavigation on BuildContext {
         location == '/search' ||
         location == '/notifications' ||
         location == '/messages' ||
-        location.startsWith('/messages/') ||
         location.startsWith('/profile/');
   }
 }

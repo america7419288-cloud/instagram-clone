@@ -14,7 +14,6 @@ import '../../data/models/profile_model.dart';
 import '../../../messages/data/repositories/message_service.dart';
 import '../../../messages/presentation/providers/message_provider.dart';
 
-
 class ProfilePage extends ConsumerStatefulWidget {
   final String username;
 
@@ -425,22 +424,17 @@ class _ProfilePageState extends ConsumerState<ProfilePage>
               // Create or get DM conversation
               try {
                 final service = MessageService();
-                final conv = await service.createOrGetConversation(
-                  profile.id,
-                );
+                final conv = await service.createOrGetConversation(profile.id);
                 // Add to inbox
                 ref.read(inboxProvider.notifier).addConversation(conv);
                 if (context.mounted) {
-                  context.push(
-                    '/messages/${conv.id}',
-                    extra: conv,
-                  );
+                  context.push('/chat/${conv.id}');
                 }
               } catch (e) {
                 if (context.mounted) {
-                  ScaffoldMessenger.of(context).showSnackBar(
-                    SnackBar(content: Text('Error: $e')),
-                  );
+                  ScaffoldMessenger.of(
+                    context,
+                  ).showSnackBar(SnackBar(content: Text('Error: $e')));
                 }
               }
             },
@@ -555,49 +549,60 @@ class _ProfilePageState extends ConsumerState<ProfilePage>
 
   // ─── MENUS ───────────────────────────────────────────────────
   void _showProfileMenu(BuildContext context) {
-    showModalBottomSheet(
-      context: context,
-      shape: const RoundedRectangleBorder(
-        borderRadius: BorderRadius.vertical(top: Radius.circular(16)),
+  showModalBottomSheet(
+    context: context,
+    shape: const RoundedRectangleBorder(
+      borderRadius: BorderRadius.vertical(
+        top: Radius.circular(16),
       ),
-      builder: (ctx) => Column(
-        mainAxisSize: MainAxisSize.min,
-        children: [
-          const SizedBox(height: 8),
-          Container(
-            width: 40,
-            height: 4,
-            decoration: BoxDecoration(
-              color: AppColors.border,
-              borderRadius: BorderRadius.circular(2),
-            ),
+    ),
+    builder: (ctx) => Column(
+      mainAxisSize: MainAxisSize.min,
+      children: [
+        const SizedBox(height: 8),
+        Container(
+          width: 40,
+          height: 4,
+          decoration: BoxDecoration(
+            color: AppColors.border,
+            borderRadius: BorderRadius.circular(2),
           ),
-          const SizedBox(height: 8),
-          _MenuTile(
-            icon: Icons.settings_outlined,
-            label: 'Settings',
-            onTap: () => Navigator.pop(ctx),
-          ),
-          _MenuTile(
-            icon: Icons.archive_outlined,
-            label: 'Archive',
-            onTap: () => Navigator.pop(ctx),
-          ),
-          _MenuTile(
-            icon: Icons.bar_chart_outlined,
-            label: 'Insights',
-            onTap: () => Navigator.pop(ctx),
-          ),
-          _MenuTile(
-            icon: Icons.qr_code,
-            label: 'QR Code',
-            onTap: () => Navigator.pop(ctx),
-          ),
-          const SizedBox(height: 8),
-        ],
-      ),
-    );
-  }
+        ),
+        const SizedBox(height: 8),
+
+        // ⭐ Settings - navigates to settings page
+        _MenuTile(
+          icon: Icons.settings_outlined,
+          label: 'Settings',
+          onTap: () {
+            Navigator.pop(ctx);
+            context.push('/settings'); // ⭐ Navigate to settings
+          },
+        ),
+
+        _MenuTile(
+          icon: Icons.archive_outlined,
+          label: 'Archive',
+          onTap: () => Navigator.pop(ctx),
+        ),
+
+        _MenuTile(
+          icon: Icons.bar_chart_outlined,
+          label: 'Insights',
+          onTap: () => Navigator.pop(ctx),
+        ),
+
+        _MenuTile(
+          icon: Icons.qr_code,
+          label: 'QR Code',
+          onTap: () => Navigator.pop(ctx),
+        ),
+
+        const SizedBox(height: 8),
+      ],
+    ),
+  );
+}
 
   void _showMoreOptions(BuildContext context) {
     showModalBottomSheet(

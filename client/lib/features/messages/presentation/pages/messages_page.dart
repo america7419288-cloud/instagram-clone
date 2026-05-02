@@ -55,20 +55,19 @@ class MessagesPage extends ConsumerWidget {
         child: inboxState.isLoading
             ? const _InboxSkeleton()
             : inboxState.errorMessage != null &&
-                    inboxState.conversations.isEmpty
-                ? _ErrorState(
-                    message: inboxState.errorMessage!,
-                    onRetry: () =>
-                        ref.read(inboxProvider.notifier).loadInbox(),
-                  )
-                : inboxState.conversations.isEmpty
-                    ? const _EmptyInbox()
-                    : _buildConversationList(
-                        context,
-                        ref,
-                        inboxState.conversations,
-                        currentUser?.id ?? '',
-                      ),
+                  inboxState.conversations.isEmpty
+            ? _ErrorState(
+                message: inboxState.errorMessage!,
+                onRetry: () => ref.read(inboxProvider.notifier).loadInbox(),
+              )
+            : inboxState.conversations.isEmpty
+            ? const _EmptyInbox()
+            : _buildConversationList(
+                context,
+                ref,
+                inboxState.conversations,
+                currentUser?.id ?? '',
+              ),
       ),
     );
   }
@@ -87,7 +86,7 @@ class MessagesPage extends ConsumerWidget {
           currentUserId: currentUserId,
           onTap: () {
             final conv = conversations[index];
-            context.push('/messages/${conv.id}', extra: conv);
+            context.push('/chat/${conv.id}');
           },
         );
       },
@@ -110,10 +109,7 @@ class _ConversationTile extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final timeText = conversation.lastMessageAt != null
-        ? timeago.format(
-            conversation.lastMessageAt!,
-            locale: 'en_short',
-          )
+        ? timeago.format(conversation.lastMessageAt!, locale: 'en_short')
         : '';
 
     final hasUnread = conversation.unreadCount > 0;
@@ -121,10 +117,7 @@ class _ConversationTile extends StatelessWidget {
     return InkWell(
       onTap: onTap,
       child: Padding(
-        padding: const EdgeInsets.symmetric(
-          horizontal: 16,
-          vertical: 10,
-        ),
+        padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 10),
         child: Row(
           children: [
             // ─── AVATAR ─────────────────────────────────
@@ -177,8 +170,7 @@ class _ConversationTile extends StatelessWidget {
                     children: [
                       Expanded(
                         child: Text(
-                          conversation.lastMessage ??
-                              'Start a conversation',
+                          conversation.lastMessage ?? 'Start a conversation',
                           style: TextStyle(
                             fontSize: 13,
                             color: hasUnread
@@ -243,7 +235,7 @@ class _ConversationTile extends StatelessWidget {
             ? CachedNetworkImage(
                 imageUrl: avatarUrl,
                 fit: BoxFit.cover,
-                errorWidget: (_, __, ___) => _defaultAvatar(name),
+                errorWidget: (_, _, _) => _defaultAvatar(name),
               )
             : _defaultAvatar(name),
       ),
@@ -275,11 +267,8 @@ class _InboxSkeleton extends StatelessWidget {
   Widget build(BuildContext context) {
     return ListView.builder(
       itemCount: 8,
-      itemBuilder: (_, __) => Padding(
-        padding: const EdgeInsets.symmetric(
-          horizontal: 16,
-          vertical: 10,
-        ),
+      itemBuilder: (_, _) => Padding(
+        padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 10),
         child: Row(
           children: [
             Container(
@@ -295,16 +284,12 @@ class _InboxSkeleton extends StatelessWidget {
               child: Column(
                 crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
-                  Container(
-                    height: 14,
-                    width: 120,
-                    color: AppColors.border,
-                  ),
+                  Container(height: 14, width: 120, color: AppColors.border),
                   const SizedBox(height: 6),
                   Container(
                     height: 12,
                     width: 200,
-                    color: AppColors.border.withOpacity(0.5),
+                    color: AppColors.border.withValues(alpha: 0.5),
                   ),
                 ],
               ),
@@ -333,10 +318,7 @@ class _EmptyInbox extends StatelessWidget {
               height: 80,
               decoration: BoxDecoration(
                 shape: BoxShape.circle,
-                border: Border.all(
-                  color: AppColors.textPrimary,
-                  width: 2,
-                ),
+                border: Border.all(color: AppColors.textPrimary, width: 2),
               ),
               child: const Icon(
                 Icons.send_outlined,
@@ -347,10 +329,7 @@ class _EmptyInbox extends StatelessWidget {
             const SizedBox(height: 20),
             const Text(
               'Your Messages',
-              style: TextStyle(
-                fontSize: 22,
-                fontWeight: FontWeight.bold,
-              ),
+              style: TextStyle(fontSize: 22, fontWeight: FontWeight.bold),
             ),
             const SizedBox(height: 8),
             const Text(
@@ -401,10 +380,7 @@ class _ErrorState extends StatelessWidget {
       child: Column(
         mainAxisAlignment: MainAxisAlignment.center,
         children: [
-          Text(
-            message,
-            style: const TextStyle(color: AppColors.textSecondary),
-          ),
+          Text(message, style: const TextStyle(color: AppColors.textSecondary)),
           const SizedBox(height: 16),
           ElevatedButton(
             onPressed: onRetry,

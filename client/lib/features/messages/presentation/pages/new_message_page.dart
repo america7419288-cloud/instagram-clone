@@ -70,10 +70,7 @@ class _NewMessagePageState extends ConsumerState<NewMessagePage> {
               children: [
                 const Text(
                   'To: ',
-                  style: TextStyle(
-                    fontWeight: FontWeight.w600,
-                    fontSize: 16,
-                  ),
+                  style: TextStyle(fontWeight: FontWeight.w600, fontSize: 16),
                 ),
                 Expanded(
                   child: TextField(
@@ -93,9 +90,7 @@ class _NewMessagePageState extends ConsumerState<NewMessagePage> {
           const Divider(height: 1),
 
           // ─── RESULTS ──────────────────────────────────────────
-          Expanded(
-            child: _buildBody(searchState),
-          ),
+          Expanded(child: _buildBody(searchState)),
         ],
       ),
     );
@@ -131,10 +126,7 @@ class _NewMessagePageState extends ConsumerState<NewMessagePage> {
         padding: EdgeInsets.all(16.0),
         child: Text(
           'Suggested',
-          style: TextStyle(
-            fontWeight: FontWeight.bold,
-            fontSize: 16,
-          ),
+          style: TextStyle(fontWeight: FontWeight.bold, fontSize: 16),
         ),
       );
     }
@@ -186,8 +178,7 @@ class _NewMessagePageState extends ConsumerState<NewMessagePage> {
                 // Pop loading
                 Navigator.pop(context);
                 // Navigate to chat
-                context.pushReplacement('/messages/${conversation.id}',
-                    extra: conversation);
+                context.pushReplacement('/chat/${conversation.id}');
               } else {
                 Navigator.pop(context); // Pop loading
                 // Handle null case if needed, but error is usually in catch
@@ -195,9 +186,9 @@ class _NewMessagePageState extends ConsumerState<NewMessagePage> {
             } catch (e) {
               if (!context.mounted) return;
               Navigator.pop(context); // Pop loading
-              ScaffoldMessenger.of(context).showSnackBar(
-                SnackBar(content: Text('Error: $e')),
-              );
+              ScaffoldMessenger.of(
+                context,
+              ).showSnackBar(SnackBar(content: Text('Error: $e')));
             }
           },
         );

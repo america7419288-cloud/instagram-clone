@@ -51,6 +51,16 @@ class _ChatPageState extends ConsumerState<ChatPage> {
     }
   }
 
+  ConversationModel? _conversationFromInbox(String conversationId) {
+    final conversations = ref.watch(inboxProvider).conversations;
+    for (final conversation in conversations) {
+      if (conversation.id == conversationId) {
+        return conversation;
+      }
+    }
+    return null;
+  }
+
   // ─── SEND MESSAGE ──────────────────────────────────────────
   Future<void> _sendMessage() async {
     final content = _messageController.text.trim();
@@ -171,7 +181,8 @@ class _ChatPageState extends ConsumerState<ChatPage> {
     final currentUserId = currentUser?.id ?? '';
 
     // Get conversation info (from extra or from state)
-    final conv = widget.conversation;
+    final conv =
+        widget.conversation ?? _conversationFromInbox(widget.conversationId);
     final displayName =
         conv?.displayName ?? conv?.otherUser?.username ?? 'Chat';
     final displayAvatarUrl = conv?.displayAvatarUrl;
@@ -193,7 +204,7 @@ class _ChatPageState extends ConsumerState<ChatPage> {
           onTap: () {
             // Navigate to profile
             if (conv?.otherUser != null) {
-              context.push('/profile/${conv!.otherUser!.username}');
+              context.go('/profile/${conv!.otherUser!.username}');
             }
           },
           child: Row(
