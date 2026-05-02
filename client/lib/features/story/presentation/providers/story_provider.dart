@@ -136,6 +136,7 @@ final storyServiceProvider = Provider<StoryService>((ref) {
   return StoryService();
 });
 
-final storyFeedProvider = NotifierProvider<StoryFeedNotifier, StoryFeedState>(
+final storyFeedProvider =
+    NotifierProvider<StoryFeedNotifier, StoryFeedState>(
   StoryFeedNotifier.new,
 );

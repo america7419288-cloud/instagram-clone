@@ -3,6 +3,7 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:cached_network_image/cached_network_image.dart';
+import 'package:go_router/go_router.dart';
 import '../../../../core/theme/app_theme.dart';
 import '../../../../features/auth/presentation/providers/auth_provider.dart';
 import '../../data/models/story_model.dart';
@@ -39,24 +40,29 @@ class StoriesBar extends ConsumerWidget {
           // ─── YOUR STORY ─────────────────────────────────
           if (currentUser != null)
             _YourStoryItem(
-              profilePicUrl: currentUser.profilePicUrl,
-              username: currentUser.username,
-              hasStory: storyState.userGroups.any((g) => g.isOwn),
-              onTap: () {
-                final ownGroup = storyState.userGroups
-                    .where((g) => g.isOwn)
-                    .firstOrNull;
+  profilePicUrl: currentUser.profilePicUrl,
+  username: currentUser.username,
+  hasStory: storyState.userGroups.any((g) => g.isOwn),
+  onTap: () {
+    final ownGroup = storyState.userGroups
+        .where((g) => g.isOwn)
+        .firstOrNull;
 
-                if (ownGroup != null && ownGroup.stories.isNotEmpty) {
-                  // View own stories
-                  _openStoryViewer(context, ref, storyState.userGroups,
-                      storyState.userGroups.indexOf(ownGroup));
-                } else {
-                  // No stories yet → prompt to create
-                  _showCreateStoryPrompt(context);
-                }
-              },
-            ),
+    if (ownGroup != null && ownGroup.stories.isNotEmpty) {
+      // View own stories
+      _openStoryViewer(
+        context,
+        ref,
+        storyState.userGroups,
+        storyState.userGroups.indexOf(ownGroup),
+      );
+    } else {
+      // ⭐ Open story creator instead of snackbar
+      context.push('/story-create');
+    }
+  },
+),
+
 
           // ─── OTHER USERS' STORIES ────────────────────────
           ...storyState.userGroups

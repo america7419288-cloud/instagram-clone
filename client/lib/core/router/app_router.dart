@@ -10,6 +10,7 @@ import '../../features/auth/presentation/pages/login_page.dart';
 import '../../features/auth/presentation/pages/register_page.dart';
 import '../../features/home/presentation/pages/home_page.dart';
 import '../../features/search/presentation/pages/search_page.dart';
+import '../../features/story/presentation/pages/story_create_page.dart';
 import '../../features/post/presentation/pages/create_post_page.dart';
 import '../../features/post/presentation/pages/post_detail_page.dart';
 import '../../features/search/presentation/pages/hashtag_page.dart';
@@ -59,7 +60,7 @@ class AppRoutes {
   static const String postLikes = '/post/:postId/likes';
   static const String hashtag = '/hashtag/:tag';
   static const String settings = '/settings';
-
+  static const String storyCreate = '/story-create';
 }
 
 // ─── ROUTER PROVIDER ────────────────────────────────────────
@@ -142,6 +143,27 @@ final routerProvider = Provider<GoRouter>((ref) {
        name: 'settings',
        builder: (context, state) => const SettingsPage(),
       ),
+
+      GoRoute(
+  path: '/story-create',
+  name: 'storyCreate',
+  pageBuilder: (context, state) => CustomTransitionPage(
+    key: state.pageKey,
+    child: const StoryCreatePage(),
+    transitionsBuilder: (context, animation, secondary, child) {
+      return SlideTransition(
+        position: Tween<Offset>(
+          begin: const Offset(0, 1), // Slides up from bottom
+          end: Offset.zero,
+        ).animate(CurvedAnimation(
+          parent: animation,
+          curve: Curves.easeInOut,
+        )),
+        child: child,
+      );
+    },
+  ),
+),
 
       GoRoute(
         path: AppRoutes.register,
