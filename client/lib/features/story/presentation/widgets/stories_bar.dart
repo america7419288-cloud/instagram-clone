@@ -29,53 +29,54 @@ class StoriesBar extends ConsumerWidget {
     }
 
     return SizedBox(
-      height: 100,
+      height: 108,
       child: ListView(
         scrollDirection: Axis.horizontal,
-        padding: const EdgeInsets.symmetric(
-          horizontal: 8,
-          vertical: 8,
-        ),
+        padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 8),
         children: [
           // ─── YOUR STORY ─────────────────────────────────
           if (currentUser != null)
             _YourStoryItem(
-  profilePicUrl: currentUser.profilePicUrl,
-  username: currentUser.username,
-  hasStory: storyState.userGroups.any((g) => g.isOwn),
-  onTap: () {
-    final ownGroup = storyState.userGroups
-        .where((g) => g.isOwn)
-        .firstOrNull;
+              profilePicUrl: currentUser.profilePicUrl,
+              username: currentUser.username,
+              hasStory: storyState.userGroups.any((g) => g.isOwn),
+              onTap: () {
+                final ownGroup = storyState.userGroups
+                    .where((g) => g.isOwn)
+                    .firstOrNull;
 
-    if (ownGroup != null && ownGroup.stories.isNotEmpty) {
-      // View own stories
-      _openStoryViewer(
-        context,
-        ref,
-        storyState.userGroups,
-        storyState.userGroups.indexOf(ownGroup),
-      );
-    } else {
-      // ⭐ Open story creator instead of snackbar
-      context.push('/story-create');
-    }
-  },
-),
-
+                if (ownGroup != null && ownGroup.stories.isNotEmpty) {
+                  // View own stories
+                  _openStoryViewer(
+                    context,
+                    ref,
+                    storyState.userGroups,
+                    storyState.userGroups.indexOf(ownGroup),
+                  );
+                } else {
+                  // ⭐ Open story creator instead of snackbar
+                  context.push('/story-create');
+                }
+              },
+            ),
 
           // ─── OTHER USERS' STORIES ────────────────────────
           ...storyState.userGroups
               .where((g) => !g.isOwn)
-              .map((group) => _StoryItem(
-                    group: group,
-                    onTap: () {
-                      final index =
-                          storyState.userGroups.indexOf(group);
-                      _openStoryViewer(
-                          context, ref, storyState.userGroups, index);
-                    },
-                  )),
+              .map(
+                (group) => _StoryItem(
+                  group: group,
+                  onTap: () {
+                    final index = storyState.userGroups.indexOf(group);
+                    _openStoryViewer(
+                      context,
+                      ref,
+                      storyState.userGroups,
+                      index,
+                    );
+                  },
+                ),
+              ),
         ],
       ),
     );
@@ -89,8 +90,7 @@ class StoriesBar extends ConsumerWidget {
     int initialGroupIndex,
   ) {
     // Filter out empty groups and own group (show own at front)
-    final nonEmptyGroups =
-        groups.where((g) => g.stories.isNotEmpty).toList();
+    final nonEmptyGroups = groups.where((g) => g.stories.isNotEmpty).toList();
 
     if (nonEmptyGroups.isEmpty) return;
 
@@ -99,15 +99,14 @@ class StoriesBar extends ConsumerWidget {
         pageBuilder: (context, animation, secondaryAnimation) {
           return StoryViewer(
             groups: nonEmptyGroups,
-            initialGroupIndex: initialGroupIndex
-                .clamp(0, nonEmptyGroups.length - 1),
+            initialGroupIndex: initialGroupIndex.clamp(
+              0,
+              nonEmptyGroups.length - 1,
+            ),
           );
         },
         transitionsBuilder: (context, animation, secondary, child) {
-          return FadeTransition(
-            opacity: animation,
-            child: child,
-          );
+          return FadeTransition(opacity: animation, child: child);
         },
         transitionDuration: const Duration(milliseconds: 200),
       ),
@@ -117,9 +116,7 @@ class StoriesBar extends ConsumerWidget {
   void _showCreateStoryPrompt(BuildContext context) {
     ScaffoldMessenger.of(context).showSnackBar(
       const SnackBar(
-        content: Text(
-          '📖 Story creation coming soon!',
-        ),
+        content: Text('📖 Story creation coming soon!'),
         duration: Duration(seconds: 2),
       ),
     );
@@ -158,12 +155,8 @@ class _YourStoryItem extends StatelessWidget {
                   padding: const EdgeInsets.all(2),
                   decoration: BoxDecoration(
                     shape: BoxShape.circle,
-                    gradient: hasStory
-                        ? AppColors.storyRingGradient
-                        : null,
-                    color: hasStory
-                        ? null
-                        : AppColors.border,
+                    gradient: hasStory ? AppColors.storyRingGradient : null,
+                    color: hasStory ? null : AppColors.border,
                   ),
                   child: Container(
                     padding: const EdgeInsets.all(2),
@@ -195,10 +188,7 @@ class _YourStoryItem extends StatelessWidget {
                       decoration: BoxDecoration(
                         color: AppColors.primary,
                         shape: BoxShape.circle,
-                        border: Border.all(
-                          color: Colors.white,
-                          width: 2,
-                        ),
+                        border: Border.all(color: Colors.white, width: 2),
                       ),
                       child: const Icon(
                         Icons.add,
@@ -253,10 +243,7 @@ class _StoryItem extends StatelessWidget {
   final StoryUserGroup group;
   final VoidCallback onTap;
 
-  const _StoryItem({
-    required this.group,
-    required this.onTap,
-  });
+  const _StoryItem({required this.group, required this.onTap});
 
   @override
   Widget build(BuildContext context) {
@@ -274,12 +261,8 @@ class _StoryItem extends StatelessWidget {
               padding: const EdgeInsets.all(2),
               decoration: BoxDecoration(
                 shape: BoxShape.circle,
-                gradient: group.hasUnseen
-                    ? AppColors.storyRingGradient
-                    : null,
-                color: group.hasUnseen
-                    ? null
-                    : AppColors.border,
+                gradient: group.hasUnseen ? AppColors.storyRingGradient : null,
+                color: group.hasUnseen ? null : AppColors.border,
               ),
               child: Container(
                 padding: const EdgeInsets.all(2),
@@ -292,8 +275,7 @@ class _StoryItem extends StatelessWidget {
                       ? CachedNetworkImage(
                           imageUrl: group.user.profilePicUrl!,
                           fit: BoxFit.cover,
-                          errorWidget: (_, __, ___) =>
-                              _defaultAvatar(),
+                          errorWidget: (_, __, ___) => _defaultAvatar(),
                         )
                       : _defaultAvatar(),
                 ),
@@ -352,13 +334,10 @@ class _StoriesBarSkeleton extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     return SizedBox(
-      height: 100,
+      height: 108,
       child: ListView.builder(
         scrollDirection: Axis.horizontal,
-        padding: const EdgeInsets.symmetric(
-          horizontal: 12,
-          vertical: 8,
-        ),
+        padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
         itemCount: 6,
         itemBuilder: (_, __) => Padding(
           padding: const EdgeInsets.only(right: 12),

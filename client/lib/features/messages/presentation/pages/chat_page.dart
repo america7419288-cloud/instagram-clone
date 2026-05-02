@@ -7,6 +7,7 @@ import 'package:cached_network_image/cached_network_image.dart';
 import 'package:go_router/go_router.dart';
 import 'package:timeago/timeago.dart' as timeago;
 import '../../../../core/theme/app_theme.dart';
+import '../../../../shared/widgets/app_snackbar.dart';
 import '../../../../features/auth/presentation/providers/auth_provider.dart';
 import '../providers/message_provider.dart';
 import '../../data/models/conversation_model.dart';
@@ -63,6 +64,9 @@ class _ChatPageState extends ConsumerState<ChatPage> {
 
   // ─── SEND MESSAGE ──────────────────────────────────────────
   Future<void> _sendMessage() async {
+    final chatState = ref.read(chatProvider(widget.conversationId));
+    if (chatState.isSending) return;
+
     final content = _messageController.text.trim();
     if (content.isEmpty) return;
 
@@ -139,12 +143,7 @@ class _ChatPageState extends ConsumerState<ChatPage> {
                 onTap: () {
                   Navigator.pop(ctx);
                   Clipboard.setData(ClipboardData(text: message.content ?? ''));
-                  ScaffoldMessenger.of(context).showSnackBar(
-                    const SnackBar(
-                      content: Text('Message copied'),
-                      duration: Duration(seconds: 1),
-                    ),
-                  );
+                  AppSnackbar.info(context, 'Message copied');
                 },
               ),
 
@@ -189,6 +188,7 @@ class _ChatPageState extends ConsumerState<ChatPage> {
 
     return Scaffold(
       backgroundColor: AppColors.white,
+      resizeToAvoidBottomInset: true,
 
       // ─── APP BAR ────────────────────────────────────────
       appBar: AppBar(
@@ -341,7 +341,7 @@ class _ChatPageState extends ConsumerState<ChatPage> {
             _buildReplyIndicator(chatState.replyingTo!),
 
           // Message input
-          _buildMessageInput(chatState),
+          _buildMessageInput(chatState, context),
         ],
       ),
     );
@@ -481,16 +481,20 @@ class _ChatPageState extends ConsumerState<ChatPage> {
   }
 
   // ─── MESSAGE INPUT ────────────────────────────────────────
-  Widget _buildMessageInput(ChatState chatState) {
+  Widget _buildMessageInput(ChatState chatState, BuildContext context) {
     return Container(
-      padding: const EdgeInsets.fromLTRB(8, 8, 8, 8),
+      padding: EdgeInsets.only(
+        left: 8,
+        right: 8,
+        top: 8,
+        bottom: MediaQuery.of(context).padding.bottom,
+      ),
       decoration: const BoxDecoration(
         color: AppColors.white,
         border: Border(top: BorderSide(color: AppColors.border, width: 0.5)),
       ),
-      child: SafeArea(
-        child: Row(
-          children: [
+      child: Row(
+        children: [
             // Camera icon
             IconButton(
               onPressed: () {},
@@ -587,8 +591,7 @@ class _ChatPageState extends ConsumerState<ChatPage> {
                         ),
                       ),
               ),
-          ],
-        ),
+        ],
       ),
     );
   }

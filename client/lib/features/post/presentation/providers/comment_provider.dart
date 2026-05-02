@@ -4,6 +4,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_riverpod/legacy.dart';
 import '../../data/models/comment_model.dart';
 import '../../data/repositories/comment_service.dart';
+import 'feed_provider.dart';
 
 // ─── COMMENT STATE ──────────────────────────────────────────
 class CommentState {
@@ -65,8 +66,9 @@ class CommentState {
 class CommentNotifier extends StateNotifier<CommentState> {
   final CommentService _commentService;
   final String postId;
+  final Ref _ref;
 
-  CommentNotifier(this._commentService, this.postId)
+  CommentNotifier(this._commentService, this.postId, this._ref)
     : super(const CommentState()) {
     loadComments();
   }
@@ -150,6 +152,7 @@ class CommentNotifier extends StateNotifier<CommentState> {
         isSubmitting: false,
         clearReplyingTo: true,
       );
+      _ref.read(feedProvider.notifier).incrementCommentCount(postId);
 
       return true;
     } catch (e) {
@@ -195,6 +198,7 @@ class CommentNotifier extends StateNotifier<CommentState> {
         isSubmitting: false,
         clearReplyingTo: true,
       );
+      _ref.read(feedProvider.notifier).incrementCommentCount(postId);
 
       return true;
     } catch (e) {
@@ -330,17 +334,102 @@ class CommentNotifier extends StateNotifier<CommentState> {
 
   // ─── DELETE COMMENT ──────────────────────────────────────
   Future<void> deleteComment(String commentId) async {
-    try {
-      await _commentService.deleteComment(commentId);
-
-      // Remove from list
+    final topLevelIndex = state.comments.indexWhere((c) => c.id == commentId);
+    if (topLevelIndex != -1) {
+      final removedComment = state.comments[topLevelIndex];
+      final removedReplies = state.replies[commentId];
       final updatedComments = state.comments
           .where((c) => c.id != commentId)
           .toList();
+      final updatedReplies = Map<String, List<CommentModel>>.from(state.replies);
+      updatedReplies.remove(commentId);
 
-      state = state.copyWith(comments: updatedComments);
-    } catch (e) {
       state = state.copyWith(
+        comments: updatedComments,
+        replies: updatedReplies,
+        errorMessage: null,
+      );
+
+      try {
+        await _commentService.deleteComment(commentId);
+        _ref.read(feedProvider.notifier).decrementCommentCount(postId);
+      } catch (e) {
+        final restoredComments = List<CommentModel>.from(state.comments);
+        restoredComments.insert(topLevelIndex, removedComment);
+        final restoredReplies = Map<String, List<CommentModel>>.from(
+          state.replies,
+        );
+        if (removedReplies != null) {
+          restoredReplies[commentId] = removedReplies;
+        }
+
+        state = state.copyWith(
+          comments: restoredComments,
+          replies: restoredReplies,
+          errorMessage: e.toString().replaceAll('Exception: ', ''),
+        );
+      }
+      return;
+    }
+
+    String? parentCommentId;
+    CommentModel? removedReply;
+    int removedReplyIndex = -1;
+    final updatedReplies = Map<String, List<CommentModel>>.from(state.replies);
+
+    for (final entry in state.replies.entries) {
+      final replyIndex = entry.value.indexWhere((reply) => reply.id == commentId);
+      if (replyIndex != -1) {
+        parentCommentId = entry.key;
+        removedReplyIndex = replyIndex;
+        removedReply = entry.value[replyIndex];
+        final newReplies = List<CommentModel>.from(entry.value)
+          ..removeAt(replyIndex);
+        updatedReplies[entry.key] = newReplies;
+        break;
+      }
+    }
+
+    if (parentCommentId == null || removedReply == null) {
+      return;
+    }
+
+    final updatedComments = state.comments.map((comment) {
+      if (comment.id == parentCommentId) {
+        return comment.copyWith(
+          replyCount: (comment.replyCount - 1).clamp(0, 1 << 31),
+        );
+      }
+      return comment;
+    }).toList();
+
+    state = state.copyWith(
+      comments: updatedComments,
+      replies: updatedReplies,
+      errorMessage: null,
+    );
+
+    try {
+      await _commentService.deleteComment(commentId);
+      _ref.read(feedProvider.notifier).decrementCommentCount(postId);
+    } catch (e) {
+      final restoredReplies = Map<String, List<CommentModel>>.from(state.replies);
+      final parentReplies = List<CommentModel>.from(
+        restoredReplies[parentCommentId] ?? const [],
+      );
+      parentReplies.insert(removedReplyIndex, removedReply);
+      restoredReplies[parentCommentId] = parentReplies;
+
+      final restoredComments = state.comments.map((comment) {
+        if (comment.id == parentCommentId) {
+          return comment.copyWith(replyCount: comment.replyCount + 1);
+        }
+        return comment;
+      }).toList();
+
+      state = state.copyWith(
+        comments: restoredComments,
+        replies: restoredReplies,
         errorMessage: e.toString().replaceAll('Exception: ', ''),
       );
     }
@@ -366,5 +455,5 @@ final commentProvider =
       ref,
       postId,
     ) {
-      return CommentNotifier(ref.watch(commentServiceProvider), postId);
+      return CommentNotifier(ref.watch(commentServiceProvider), postId, ref);
     });

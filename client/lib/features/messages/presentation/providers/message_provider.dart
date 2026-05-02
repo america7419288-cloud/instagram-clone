@@ -343,7 +343,7 @@ class ChatNotifier extends StateNotifier<ChatState> {
 
   // ─── SEND MESSAGE ────────────────────────────────────────
   Future<bool> sendMessage(String content) async {
-    if (!mounted || content.trim().isEmpty) return false;
+    if (!mounted || state.isSending || content.trim().isEmpty) return false;
 
     state = state.copyWith(isSending: true);
 
@@ -358,11 +358,8 @@ class ChatNotifier extends StateNotifier<ChatState> {
       );
       if (!mounted) return false;
 
-      state = state.copyWith(
-        messages: [message, ...state.messages],
-        isSending: false,
-        clearReplyingTo: true,
-      );
+      addNewMessage(message);
+      state = state.copyWith(isSending: false, clearReplyingTo: true);
 
       return true;
     } catch (e) {

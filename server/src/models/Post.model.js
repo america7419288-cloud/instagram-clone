@@ -10,67 +10,49 @@ const Post = sequelize.define(
       type: DataTypes.UUID,
       defaultValue: DataTypes.UUIDV4,
       primaryKey: true,
-      allowNull: false,
     },
 
-    // Who created this post
-    user_id: {
+    userId: {
       type: DataTypes.UUID,
       allowNull: false,
       references: {
         model: 'users',
         key: 'id',
       },
-      onDelete: 'CASCADE', // If user deleted → delete their posts
+      onDelete: 'CASCADE',
     },
 
-    // Post text content
     caption: {
       type: DataTypes.TEXT,
       allowNull: true,
-      validate: {
-        len: {
-          args: [0, 2200],
-          msg: 'Caption cannot exceed 2200 characters',
-        },
-      },
     },
 
-    // Where the photo was taken
     location: {
-      type: DataTypes.STRING(255),
+      type: DataTypes.STRING(100),
       allowNull: true,
     },
 
-    // Archived posts hidden from profile
-    // but not deleted
-    is_archived: {
-      type: DataTypes.BOOLEAN,
-      defaultValue: false,
+    // ─── Denormalized counts (fast reads) ─────────────
+    // Updated via increment/decrement in controllers
+    likesCount: {
+      type: DataTypes.INTEGER,
       allowNull: false,
+      defaultValue: 0,
     },
 
-    // Comments disabled for this post
-    comments_disabled: {
-      type: DataTypes.BOOLEAN,
-      defaultValue: false,
+    commentsCount: {
+      type: DataTypes.INTEGER,
       allowNull: false,
-    },
-
-    // Accessibility alt text for images
-    alt_text: {
-      type: DataTypes.TEXT,
-      allowNull: true,
+      defaultValue: 0,
     },
   },
   {
     tableName: 'posts',
-    timestamps: true,
     underscored: true,
+    timestamps: true,
     indexes: [
       { fields: ['user_id'] },
       { fields: ['created_at'] },
-      { fields: ['is_archived'] },
     ],
   }
 );

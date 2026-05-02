@@ -1,52 +1,52 @@
 import 'package:dio/dio.dart';
 import 'package:flutter_secure_storage/flutter_secure_storage.dart';
 import 'package:pretty_dio_logger/pretty_dio_logger.dart';
+
 import '../constants/app_constants.dart';
 
 class DioClient {
-  late Dio _dio;
-  final FlutterSecureStorage _storage = const FlutterSecureStorage();
+  factory DioClient() => _instance;
 
-  DioClient() {
-    _dio = Dio(
-      BaseOptions(
-        baseUrl: AppConstants.baseUrl,
-        connectTimeout: const Duration(seconds: 30),
-        receiveTimeout: const Duration(seconds: 30),
-        sendTimeout: const Duration(seconds: 30),
-        headers: {
-          'Content-Type': 'application/json',
-          'Accept': 'application/json',
-        },
+  DioClient._internal() {
+    _dio = Dio(_buildOptions());
+    _refreshDio = Dio(_buildOptions());
+
+    _dio.interceptors.addAll([
+      _AuthInterceptor(
+        storage: _storage,
+        refreshDio: _refreshDio,
+        onRefreshStateChanged: _setRefreshing,
+        isRefreshing: () => _isRefreshing,
       ),
-    );
+      _loggerInterceptor(),
+    ]);
 
-    _dio.interceptors.addAll([_authInterceptor(), _loggerInterceptor()]);
+    _refreshDio.interceptors.add(_loggerInterceptor());
   }
 
-  Interceptor _authInterceptor() {
-    return InterceptorsWrapper(
-      onRequest: (options, handler) async {
-        final token = await _storage.read(key: AppConstants.tokenKey);
+  static final DioClient _instance = DioClient._internal();
 
-        if (token != null) {
-          options.headers['Authorization'] = 'Bearer $token';
-        }
+  late final Dio _dio;
+  late final Dio _refreshDio;
+  final FlutterSecureStorage _storage = const FlutterSecureStorage();
 
-        return handler.next(options);
-      },
-      onError: (DioException error, handler) async {
-        if (error.response?.statusCode == 401) {
-          await _storage.delete(key: AppConstants.tokenKey);
-          await _storage.delete(key: AppConstants.refreshTokenKey);
-          await _storage.delete(key: AppConstants.userKey);
-          await _storage.delete(key: '${AppConstants.userKey}_id');
-          await _storage.delete(key: '${AppConstants.userKey}_username');
-          await _storage.delete(key: '${AppConstants.userKey}_email');
-        }
-        return handler.next(error);
+  bool _isRefreshing = false;
+
+  BaseOptions _buildOptions() {
+    return BaseOptions(
+      baseUrl: AppConstants.baseUrl,
+      connectTimeout: const Duration(seconds: 30),
+      receiveTimeout: const Duration(seconds: 30),
+      sendTimeout: const Duration(seconds: 30),
+      headers: {
+        'Content-Type': 'application/json',
+        'Accept': 'application/json',
       },
     );
+  }
+
+  void _setRefreshing(bool value) {
+    _isRefreshing = value;
   }
 
   Interceptor _loggerInterceptor() {
@@ -60,25 +60,27 @@ class DioClient {
     );
   }
 
-  Future<Response> get(
+  Dio get dio => _dio;
+
+  Future<Response<dynamic>> get(
     String path, {
     Map<String, dynamic>? queryParameters,
     Options? options,
   }) async {
-    return await _dio.get(
+    return _dio.get(
       path,
       queryParameters: queryParameters,
       options: options,
     );
   }
 
-  Future<Response> post(
+  Future<Response<dynamic>> post(
     String path, {
     dynamic data,
     Map<String, dynamic>? queryParameters,
     Options? options,
   }) async {
-    return await _dio.post(
+    return _dio.post(
       path,
       data: data,
       queryParameters: queryParameters,
@@ -86,28 +88,203 @@ class DioClient {
     );
   }
 
-  Future<Response> put(String path, {dynamic data, Options? options}) async {
-    return await _dio.put(path, data: data, options: options);
+  Future<Response<dynamic>> put(
+    String path, {
+    dynamic data,
+    Options? options,
+  }) async {
+    return _dio.put(path, data: data, options: options);
   }
 
-  Future<Response> delete(String path, {dynamic data, Options? options}) async {
-    return await _dio.delete(path, data: data, options: options);
+  Future<Response<dynamic>> delete(
+    String path, {
+    dynamic data,
+    Options? options,
+  }) async {
+    return _dio.delete(path, data: data, options: options);
   }
 
-  Future<Response> patch(String path, {dynamic data, Options? options}) async {
-    return await _dio.patch(path, data: data, options: options);
+  Future<Response<dynamic>> patch(
+    String path, {
+    dynamic data,
+    Options? options,
+  }) async {
+    return _dio.patch(path, data: data, options: options);
   }
 
-  Future<Response> uploadFile(
+  Future<Response<dynamic>> uploadFile(
     String path,
     FormData formData, {
     Function(int, int)? onSendProgress,
   }) async {
-    return await _dio.post(
+    return _dio.post(
       path,
       data: formData,
       onSendProgress: onSendProgress,
-      options: Options(headers: {'Content-Type': 'multipart/form-data'}),
+      options: Options(
+        headers: const {'Content-Type': 'multipart/form-data'},
+      ),
     );
+  }
+}
+
+class _AuthInterceptor extends Interceptor {
+  _AuthInterceptor({
+    required FlutterSecureStorage storage,
+    required Dio refreshDio,
+    required void Function(bool value) onRefreshStateChanged,
+    required bool Function() isRefreshing,
+  }) : _storage = storage,
+       _refreshDio = refreshDio,
+       _onRefreshStateChanged = onRefreshStateChanged,
+       _isRefreshing = isRefreshing;
+
+  final FlutterSecureStorage _storage;
+  final Dio _refreshDio;
+  final void Function(bool value) _onRefreshStateChanged;
+  final bool Function() _isRefreshing;
+
+  static const _skipInterceptorKey = 'skipAuthInterceptor';
+  static const _retryKey = 'authRetryAttempted';
+
+  bool _shouldSkip(RequestOptions options) {
+    final extra = options.extra[_skipInterceptorKey];
+    if (extra == true) {
+      return true;
+    }
+
+    const skipPaths = <String>[
+      AppConstants.loginEndpoint,
+      AppConstants.registerEndpoint,
+      AppConstants.logoutEndpoint,
+      '/auth/refresh-token',
+      '/auth/check-username',
+      '/auth/check-email',
+    ];
+
+    return skipPaths.any(options.path.contains);
+  }
+
+  @override
+  Future<void> onRequest(
+    RequestOptions options,
+    RequestInterceptorHandler handler,
+  ) async {
+    if (_shouldSkip(options)) {
+      handler.next(options);
+      return;
+    }
+
+    final token = await _storage.read(key: AppConstants.tokenKey);
+    if (token != null && token.isNotEmpty) {
+      options.headers['Authorization'] = 'Bearer $token';
+    }
+
+    handler.next(options);
+  }
+
+  @override
+  Future<void> onError(
+    DioException err,
+    ErrorInterceptorHandler handler,
+  ) async {
+    final statusCode = err.response?.statusCode;
+    final requestOptions = err.requestOptions;
+
+    if (statusCode != 401 || _shouldSkip(requestOptions)) {
+      handler.next(err);
+      return;
+    }
+
+    if (requestOptions.extra[_retryKey] == true || _isRefreshing()) {
+      await _clearSession();
+      handler.next(err);
+      return;
+    }
+
+    _onRefreshStateChanged(true);
+
+    try {
+      final newAccessToken = await _refreshAccessToken();
+      if (newAccessToken == null) {
+        await _clearSession();
+        handler.next(err);
+        return;
+      }
+
+      requestOptions.headers['Authorization'] = 'Bearer $newAccessToken';
+      requestOptions.extra[_retryKey] = true;
+
+      final response = await _refreshDio.fetch<dynamic>(requestOptions);
+      handler.resolve(response);
+    } catch (_) {
+      await _clearSession();
+      handler.next(err);
+    } finally {
+      _onRefreshStateChanged(false);
+    }
+  }
+
+  Future<String?> _refreshAccessToken() async {
+    final refreshToken = await _storage.read(
+      key: AppConstants.refreshTokenKey,
+    );
+
+    if (refreshToken == null || refreshToken.isEmpty) {
+      return null;
+    }
+
+    try {
+      final response = await _refreshDio.post<dynamic>(
+        '/auth/refresh-token',
+        data: {'refreshToken': refreshToken},
+        options: Options(
+          extra: const {_skipInterceptorKey: true},
+          headers: {'Authorization': null},
+        ),
+      );
+
+      final data = response.data;
+      Map<String, dynamic>? tokens;
+      if (data is Map<String, dynamic>) {
+        final responseData = data['data'];
+        if (responseData is Map<String, dynamic>) {
+          final tokenData = responseData['tokens'];
+          if (tokenData is Map<String, dynamic>) {
+            tokens = tokenData;
+          }
+        }
+      }
+
+      final accessToken = tokens?['accessToken']?.toString();
+      final newRefreshToken = tokens?['refreshToken']?.toString();
+
+      if (response.statusCode != 200 ||
+          accessToken == null ||
+          accessToken.isEmpty) {
+        return null;
+      }
+
+      await _storage.write(key: AppConstants.tokenKey, value: accessToken);
+      if (newRefreshToken != null && newRefreshToken.isNotEmpty) {
+        await _storage.write(
+          key: AppConstants.refreshTokenKey,
+          value: newRefreshToken,
+        );
+      }
+
+      return accessToken;
+    } on DioException {
+      return null;
+    }
+  }
+
+  Future<void> _clearSession() async {
+    await _storage.delete(key: AppConstants.tokenKey);
+    await _storage.delete(key: AppConstants.refreshTokenKey);
+    await _storage.delete(key: AppConstants.userKey);
+    await _storage.delete(key: '${AppConstants.userKey}_id');
+    await _storage.delete(key: '${AppConstants.userKey}_username');
+    await _storage.delete(key: '${AppConstants.userKey}_email');
   }
 }

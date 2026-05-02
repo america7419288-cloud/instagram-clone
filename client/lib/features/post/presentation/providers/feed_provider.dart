@@ -35,13 +35,14 @@ class FeedState {
     bool? hasMore,
     int? currentPage,
     bool? isEmptyFeed,
+    bool clearError = false,
   }) {
     return FeedState(
       posts: posts ?? this.posts,
       isLoading: isLoading ?? this.isLoading,
       isLoadingMore: isLoadingMore ?? this.isLoadingMore,
       isRefreshing: isRefreshing ?? this.isRefreshing,
-      errorMessage: errorMessage,
+      errorMessage: clearError ? null : (errorMessage ?? this.errorMessage),
       hasMore: hasMore ?? this.hasMore,
       currentPage: currentPage ?? this.currentPage,
       isEmptyFeed: isEmptyFeed ?? this.isEmptyFeed,
@@ -61,9 +62,13 @@ class FeedNotifier extends Notifier<FeedState> {
 
   // ─── LOAD INITIAL FEED ──────────────────────────────────
   Future<void> loadFeed() async {
-    if (state.isLoading) return;
+    if (state.isLoading || state.isRefreshing) return;
 
-    state = state.copyWith(isLoading: true, errorMessage: null, currentPage: 1);
+    state = state.copyWith(
+      isLoading: true,
+      currentPage: 1,
+      clearError: true,
+    );
 
     try {
       final result = await _postService.getFeed(page: 1);
@@ -79,6 +84,7 @@ class FeedNotifier extends Notifier<FeedState> {
             : false,
         currentPage: 1,
         isEmptyFeed: isEmptyFeed,
+        clearError: true,
       );
     } catch (e) {
       state = state.copyWith(
@@ -91,11 +97,14 @@ class FeedNotifier extends Notifier<FeedState> {
   // ─── LOAD MORE (INFINITE SCROLL) ────────────────────────
   Future<void> loadMore() async {
     // Don't load if already loading or no more pages
-    if (state.isLoadingMore || !state.hasMore || state.isLoading) {
+    if (state.isLoadingMore ||
+        !state.hasMore ||
+        state.isLoading ||
+        state.isRefreshing) {
       return;
     }
 
-    state = state.copyWith(isLoadingMore: true);
+    state = state.copyWith(isLoadingMore: true, clearError: true);
 
     try {
       final nextPage = state.currentPage + 1;
@@ -110,6 +119,7 @@ class FeedNotifier extends Notifier<FeedState> {
             ? (pagination['hasNextPage'] ?? false)
             : false,
         currentPage: nextPage,
+        clearError: true,
       );
     } catch (e) {
       state = state.copyWith(
@@ -121,7 +131,9 @@ class FeedNotifier extends Notifier<FeedState> {
 
   // ─── REFRESH FEED ────────────────────────────────────────
   Future<void> refreshFeed() async {
-    state = state.copyWith(isRefreshing: true, errorMessage: null);
+    if (state.isRefreshing || state.isLoading) return;
+
+    state = state.copyWith(isRefreshing: true, clearError: true);
 
     try {
       final result = await _postService.getFeed(page: 1);
@@ -137,6 +149,7 @@ class FeedNotifier extends Notifier<FeedState> {
             : false,
         currentPage: 1,
         isEmptyFeed: isEmptyFeed,
+        clearError: true,
       );
     } catch (e) {
       state = state.copyWith(
@@ -207,7 +220,32 @@ class FeedNotifier extends Notifier<FeedState> {
       state = state.copyWith(posts: revertedPosts);
     }
   }
-   void addNewPost(PostModel post) {
+
+  void incrementCommentCount(String postId) {
+    state = state.copyWith(
+      posts: state.posts.map((post) {
+        if (post.id == postId) {
+          return post.copyWith(commentCount: post.commentCount + 1);
+        }
+        return post;
+      }).toList(),
+    );
+  }
+
+  void decrementCommentCount(String postId) {
+    state = state.copyWith(
+      posts: state.posts.map((post) {
+        if (post.id == postId) {
+          return post.copyWith(
+            commentCount: (post.commentCount - 1).clamp(0, 1 << 31),
+          );
+        }
+        return post;
+      }).toList(),
+    );
+  }
+
+  void addNewPost(PostModel post) {
     state = state.copyWith(
       posts: [post, ...state.posts],
       isEmptyFeed: false,

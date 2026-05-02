@@ -3,6 +3,7 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
+import '../../core/services/connectivity_service.dart';
 import '../../core/theme/app_theme.dart';
 import '../../features/auth/presentation/providers/auth_provider.dart';
 import 'app_router.dart';
@@ -35,7 +36,15 @@ class MainShell extends ConsumerWidget {
     final currentIndex = ref.watch(currentTabIndexProvider);
 
     return Scaffold(
-      body: child, // Show current page
+      body: Stack(
+        children: [
+          child,
+          const Align(
+            alignment: Alignment.topCenter,
+            child: OfflineBanner(),
+          ),
+        ],
+      ),
       // ─── BOTTOM NAVIGATION BAR ──────────────────────
       bottomNavigationBar: Container(
         decoration: const BoxDecoration(

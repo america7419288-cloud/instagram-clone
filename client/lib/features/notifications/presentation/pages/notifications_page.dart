@@ -1,11 +1,15 @@
 // lib/features/notifications/presentation/pages/notifications_page.dart
 
-import 'package:flutter/material.dart';
-import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:cached_network_image/cached_network_image.dart';
+import 'package:flutter/material.dart';
+import 'package:flutter/services.dart';
+import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:timeago/timeago.dart' as timeago;
+
 import '../../../../core/router/navigation_extensions.dart';
 import '../../../../core/theme/app_theme.dart';
+import '../../../../shared/widgets/empty_state.dart';
+import '../../../../shared/widgets/error_view.dart';
 import '../../data/models/notification_model.dart';
 import 'providers/notification_provider.dart';
 
@@ -45,8 +49,6 @@ class _NotificationsPageState extends ConsumerState<NotificationsPage> {
 
     return Scaffold(
       backgroundColor: AppColors.white,
-
-      // ─── APP BAR ──────────────────────────────────────────
       appBar: AppBar(
         backgroundColor: AppColors.white,
         elevation: 0,
@@ -60,7 +62,6 @@ class _NotificationsPageState extends ConsumerState<NotificationsPage> {
           ),
         ),
         actions: [
-          // Mark all read button
           if (state.unreadCount > 0)
             TextButton(
               onPressed: () =>
@@ -76,43 +77,53 @@ class _NotificationsPageState extends ConsumerState<NotificationsPage> {
             ),
         ],
       ),
-
-      // ─── BODY ─────────────────────────────────────────────
       body: RefreshIndicator(
-        onRefresh: () => ref.read(notificationProvider.notifier).refresh(),
+        onRefresh: () async {
+          HapticFeedback.lightImpact();
+          await ref.read(notificationProvider.notifier).refresh();
+        },
         color: AppColors.primary,
+        displacement: 60,
+        strokeWidth: 2.5,
         child: _buildBody(state),
       ),
     );
   }
 
   Widget _buildBody(NotificationState state) {
-    // Loading
     if (state.isLoading) {
       return const _NotificationsSkeleton();
     }
 
-    // Error
     if (state.errorMessage != null && state.notifications.isEmpty) {
-      return _ErrorState(
-        message: state.errorMessage!,
-        onRetry: () => ref.read(notificationProvider.notifier).refresh(),
+      return ListView(
+        physics: const AlwaysScrollableScrollPhysics(),
+        children: [
+          ErrorView(
+            message: state.errorMessage!,
+            onRetry: () => ref.read(notificationProvider.notifier).refresh(),
+          ),
+        ],
       );
     }
 
-    // Empty
     if (state.notifications.isEmpty) {
-      return const _EmptyNotifications();
+      return ListView(
+        physics: const AlwaysScrollableScrollPhysics(),
+        children: const [
+          SizedBox(height: 40),
+          EmptyState.notifications(),
+        ],
+      );
     }
 
-    // Grouped list
     final groups = state.groupedNotifications;
 
     return ListView.builder(
       controller: _scrollController,
+      physics: const AlwaysScrollableScrollPhysics(),
       itemCount: groups.length + (state.isLoadingMore ? 1 : 0),
       itemBuilder: (context, index) {
-        // Loading more indicator
         if (index == groups.length) {
           return const Padding(
             padding: EdgeInsets.all(16),
@@ -130,7 +141,6 @@ class _NotificationsPageState extends ConsumerState<NotificationsPage> {
         return Column(
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
-            // Group title
             Padding(
               padding: const EdgeInsets.fromLTRB(16, 16, 16, 8),
               child: Text(
@@ -142,8 +152,6 @@ class _NotificationsPageState extends ConsumerState<NotificationsPage> {
                 ),
               ),
             ),
-
-            // Notifications in group
             ...group.notifications.map(
               (notification) => _NotificationItem(
                 notification: notification,
@@ -159,14 +167,11 @@ class _NotificationsPageState extends ConsumerState<NotificationsPage> {
     );
   }
 
-  // ─── HANDLE TAP ───────────────────────────────────────────
   void _handleNotificationTap(NotificationModel notification) {
-    // Mark as read
     if (!notification.isRead) {
       ref.read(notificationProvider.notifier).markAsRead(notification.id);
     }
 
-    // Navigate based on notification type
     if (notification.referencePostId != null) {
       context.pushIfNotCurrent('/post/${notification.referencePostId}');
     } else if (notification.sender != null &&
@@ -178,17 +183,16 @@ class _NotificationsPageState extends ConsumerState<NotificationsPage> {
   }
 }
 
-// ─── NOTIFICATION ITEM ──────────────────────────────────────
 class _NotificationItem extends StatelessWidget {
-  final NotificationModel notification;
-  final VoidCallback onTap;
-  final VoidCallback onDelete;
-
   const _NotificationItem({
     required this.notification,
     required this.onTap,
     required this.onDelete,
   });
+
+  final NotificationModel notification;
+  final VoidCallback onTap;
+  final VoidCallback onDelete;
 
   @override
   Widget build(BuildContext context) {
@@ -212,7 +216,6 @@ class _NotificationItem extends StatelessWidget {
           child: Row(
             crossAxisAlignment: CrossAxisAlignment.center,
             children: [
-              // ─── UNREAD INDICATOR ──────────────────────
               Container(
                 width: 8,
                 height: 8,
@@ -224,23 +227,14 @@ class _NotificationItem extends StatelessWidget {
                       : AppColors.primary,
                 ),
               ),
-
-              // ─── SENDER AVATAR ─────────────────────────
               _buildAvatar(),
-
               const SizedBox(width: 12),
-
-              // ─── MESSAGE + TIME ────────────────────────
               Expanded(
                 child: Column(
                   crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
-                    // Message with bold username
                     _buildMessage(),
-
                     const SizedBox(height: 4),
-
-                    // Time ago
                     Text(
                       notification.createdAt != null
                           ? timeago.format(notification.createdAt!)
@@ -253,10 +247,7 @@ class _NotificationItem extends StatelessWidget {
                   ],
                 ),
               ),
-
               const SizedBox(width: 12),
-
-              // ─── RIGHT SIDE ────────────────────────────
               _buildRightSide(context),
             ],
           ),
@@ -265,7 +256,6 @@ class _NotificationItem extends StatelessWidget {
     );
   }
 
-  // ─── AVATAR ───────────────────────────────────────────────
   Widget _buildAvatar() {
     final sender = notification.sender;
 
@@ -274,7 +264,7 @@ class _NotificationItem extends StatelessWidget {
         Container(
           width: 44,
           height: 44,
-          decoration: BoxDecoration(
+          decoration: const BoxDecoration(
             shape: BoxShape.circle,
             color: AppColors.border,
           ),
@@ -289,8 +279,6 @@ class _NotificationItem extends StatelessWidget {
                 : _defaultAvatar(sender?.username ?? '?'),
           ),
         ),
-
-        // Notification type icon (bottom right of avatar)
         Positioned(
           bottom: 0,
           right: 0,
@@ -325,12 +313,9 @@ class _NotificationItem extends StatelessWidget {
     );
   }
 
-  // ─── MESSAGE TEXT ─────────────────────────────────────────
   Widget _buildMessage() {
     final username = notification.sender?.username ?? '';
 
-    // Split message: "username action text"
-    // Make username bold, rest normal
     if (notification.message.startsWith(username)) {
       final rest = notification.message.substring(username.length);
       return RichText(
@@ -365,9 +350,7 @@ class _NotificationItem extends StatelessWidget {
     );
   }
 
-  // ─── RIGHT SIDE ───────────────────────────────────────────
   Widget _buildRightSide(BuildContext context) {
-    // Post thumbnail
     if (notification.postThumbnail != null) {
       return ClipRRect(
         borderRadius: BorderRadius.circular(4),
@@ -389,7 +372,6 @@ class _NotificationItem extends StatelessWidget {
       );
     }
 
-    // Follow button (for follow/follow_request types)
     if (notification.showFollowButton) {
       return _FollowButton(
         notificationId: notification.id,
@@ -400,7 +382,6 @@ class _NotificationItem extends StatelessWidget {
     return const SizedBox.shrink();
   }
 
-  // ─── TYPE ICON ────────────────────────────────────────────
   IconData _typeIcon() {
     switch (notification.type) {
       case 'like':
@@ -443,15 +424,14 @@ class _NotificationItem extends StatelessWidget {
   }
 }
 
-// ─── FOLLOW BUTTON ──────────────────────────────────────────
 class _FollowButton extends ConsumerStatefulWidget {
-  final String notificationId;
-  final bool isFollowRequest;
-
   const _FollowButton({
     required this.notificationId,
     required this.isFollowRequest,
   });
+
+  final String notificationId;
+  final bool isFollowRequest;
 
   @override
   ConsumerState<_FollowButton> createState() => _FollowButtonState();
@@ -513,9 +493,6 @@ class _FollowButtonState extends ConsumerState<_FollowButton> {
 
   Future<void> _handleFollow() async {
     setState(() => _isLoading = true);
-
-    // TODO: Call follow API
-    // For now simulate success
     await Future.delayed(const Duration(milliseconds: 500));
 
     if (mounted) {
@@ -527,13 +504,13 @@ class _FollowButtonState extends ConsumerState<_FollowButton> {
   }
 }
 
-// ─── SKELETON LOADING ───────────────────────────────────────
 class _NotificationsSkeleton extends StatelessWidget {
   const _NotificationsSkeleton();
 
   @override
   Widget build(BuildContext context) {
     return ListView.builder(
+      physics: const AlwaysScrollableScrollPhysics(),
       itemCount: 8,
       itemBuilder: (_, __) => Padding(
         padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 10),
@@ -581,95 +558,6 @@ class _NotificationsSkeleton extends StatelessWidget {
                 color: AppColors.border,
                 borderRadius: BorderRadius.circular(4),
               ),
-            ),
-          ],
-        ),
-      ),
-    );
-  }
-}
-
-// ─── EMPTY STATE ────────────────────────────────────────────
-class _EmptyNotifications extends StatelessWidget {
-  const _EmptyNotifications();
-
-  @override
-  Widget build(BuildContext context) {
-    return Center(
-      child: Padding(
-        padding: const EdgeInsets.all(40),
-        child: Column(
-          mainAxisAlignment: MainAxisAlignment.center,
-          children: [
-            Container(
-              width: 80,
-              height: 80,
-              decoration: BoxDecoration(
-                shape: BoxShape.circle,
-                border: Border.all(color: AppColors.textPrimary, width: 2),
-              ),
-              child: const Icon(
-                Icons.favorite_border,
-                size: 40,
-                color: AppColors.textPrimary,
-              ),
-            ),
-            const SizedBox(height: 20),
-            const Text(
-              'Activity On Your Posts',
-              style: TextStyle(fontSize: 20, fontWeight: FontWeight.bold),
-            ),
-            const SizedBox(height: 12),
-            const Text(
-              'When someone likes or comments on one of your posts, you\'ll see it here.',
-              textAlign: TextAlign.center,
-              style: TextStyle(
-                color: AppColors.textSecondary,
-                fontSize: 14,
-                height: 1.5,
-              ),
-            ),
-          ],
-        ),
-      ),
-    );
-  }
-}
-
-// ─── ERROR STATE ────────────────────────────────────────────
-class _ErrorState extends StatelessWidget {
-  final String message;
-  final VoidCallback onRetry;
-
-  const _ErrorState({required this.message, required this.onRetry});
-
-  @override
-  Widget build(BuildContext context) {
-    return Center(
-      child: Padding(
-        padding: const EdgeInsets.all(32),
-        child: Column(
-          mainAxisAlignment: MainAxisAlignment.center,
-          children: [
-            const Icon(
-              Icons.error_outline,
-              size: 60,
-              color: AppColors.textSecondary,
-            ),
-            const SizedBox(height: 16),
-            Text(
-              message,
-              textAlign: TextAlign.center,
-              style: const TextStyle(color: AppColors.textSecondary),
-            ),
-            const SizedBox(height: 24),
-            ElevatedButton(
-              onPressed: onRetry,
-              style: ElevatedButton.styleFrom(
-                backgroundColor: AppColors.primary,
-                foregroundColor: Colors.white,
-              ),
-              child: const Text('Retry'),
             ),
           ],
         ),

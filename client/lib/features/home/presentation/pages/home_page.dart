@@ -1,18 +1,21 @@
 // lib/features/home/presentation/pages/home_page.dart
-// COMPLETE UPDATED FILE
 
 import 'package:flutter/material.dart';
+import 'package:flutter/services.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
-import '../../../../core/theme/app_theme.dart';
+
 import '../../../../core/router/app_router.dart';
+import '../../../../core/theme/app_theme.dart';
+import '../../../../shared/widgets/empty_state.dart';
+import '../../../../shared/widgets/error_view.dart';
+import '../../../../shared/widgets/shimmer_widget.dart';
+import '../../../messages/presentation/providers/message_provider.dart';
+import '../../../notifications/presentation/pages/providers/notification_provider.dart';
 import '../../../post/presentation/providers/feed_provider.dart';
 import '../../../post/presentation/widgets/post_card.dart';
-import '../../../story/presentation/widgets/stories_bar.dart';
 import '../../../story/presentation/providers/story_provider.dart';
-import '../../../notifications/presentation/pages/providers/notification_provider.dart';
-import '../../../messages/presentation/providers/message_provider.dart';
-import '../../../../shared/widgets/shimmer_widget.dart';
+import '../../../story/presentation/widgets/stories_bar.dart';
 
 class HomePage extends ConsumerWidget {
   const HomePage({super.key});
@@ -48,7 +51,7 @@ class _HomePageContentState extends ConsumerState<HomePageContent> {
 
   void _onScroll() {
     if (_scrollController.position.pixels >=
-        _scrollController.position.maxScrollExtent - 200) {
+        _scrollController.position.maxScrollExtent - 500) {
       ref.read(feedProvider.notifier).loadMore();
     }
   }
@@ -62,7 +65,7 @@ class _HomePageContentState extends ConsumerState<HomePageContent> {
       appBar: _buildAppBar(context),
       body: RefreshIndicator(
         onRefresh: () async {
-          // Refresh both feed and stories
+          HapticFeedback.lightImpact();
           await Future.wait<void>([
             ref.read(feedProvider.notifier).refreshFeed(),
             ref.read(storyFeedProvider.notifier).loadStories(),
@@ -70,6 +73,8 @@ class _HomePageContentState extends ConsumerState<HomePageContent> {
           ]);
         },
         color: AppColors.primary,
+        displacement: 60,
+        strokeWidth: 2.5,
         child: _buildBody(feedState),
       ),
     );
@@ -143,11 +148,13 @@ class _HomePageContentState extends ConsumerState<HomePageContent> {
                 size: 26,
               ),
             ),
-            // DM unread badge
             Consumer(
               builder: (context, ref, _) {
                 final dmCount = ref.watch(dmUnreadCountProvider);
-                if (dmCount == 0) return const SizedBox.shrink();
+                if (dmCount == 0) {
+                  return const SizedBox.shrink();
+                }
+
                 return Positioned(
                   top: 6,
                   right: 6,
@@ -180,19 +187,31 @@ class _HomePageContentState extends ConsumerState<HomePageContent> {
   }
 
   Widget _buildBody(FeedState feedState) {
-    if (feedState.isLoading) {
-      return const _LoadingFeed();
-    }
-
     if (feedState.errorMessage != null && feedState.posts.isEmpty) {
-      return _ErrorState(
-        message: feedState.errorMessage!,
-        onRetry: () => ref.read(feedProvider.notifier).loadFeed(),
+      return ListView(
+        physics: const AlwaysScrollableScrollPhysics(),
+        children: [
+          ErrorView(
+            message: feedState.errorMessage!,
+            onRetry: () => ref.read(feedProvider.notifier).loadFeed(),
+          ),
+        ],
       );
     }
 
+    if (feedState.isLoading && feedState.posts.isEmpty) {
+      return const _LoadingFeed();
+    }
+
     if (feedState.isEmptyFeed || feedState.posts.isEmpty) {
-      return _EmptyFeedState();
+      return ListView(
+        physics: const AlwaysScrollableScrollPhysics(),
+        children: const [
+          StoriesBar(),
+          SizedBox(height: 60),
+          EmptyState.feed(),
+        ],
+      );
     }
 
     return _buildFeedList(feedState);
@@ -202,17 +221,14 @@ class _HomePageContentState extends ConsumerState<HomePageContent> {
     return CustomScrollView(
       controller: _scrollController,
       slivers: [
-        // Stories bar (REAL data now)
         const SliverToBoxAdapter(
           child: Column(
             children: [
-              StoriesBar(), // ⭐ Real stories
+              StoriesBar(),
               Divider(height: 1, color: AppColors.border),
             ],
           ),
         ),
-
-        // Posts
         SliverList(
           delegate: SliverChildBuilderDelegate((context, index) {
             if (index == feedState.posts.length) {
@@ -242,21 +258,19 @@ class _HomePageContentState extends ConsumerState<HomePageContent> {
             );
           }, childCount: feedState.posts.length + 1),
         ),
-
         const SliverToBoxAdapter(child: SizedBox(height: 20)),
       ],
     );
   }
 }
 
-// ─── LOADING STATE ────────────────────────────────────────────
 class _LoadingFeed extends StatelessWidget {
   const _LoadingFeed();
 
   @override
   Widget build(BuildContext context) {
     return const SingleChildScrollView(
-      physics: NeverScrollableScrollPhysics(),
+      physics: AlwaysScrollableScrollPhysics(),
       child: Column(
         children: [
           StoryBarSkeleton(),
@@ -268,125 +282,6 @@ class _LoadingFeed extends StatelessWidget {
   }
 }
 
-// ─── ERROR STATE ──────────────────────────────────────────────
-class _ErrorState extends StatelessWidget {
-  final String message;
-  final VoidCallback onRetry;
-
-  const _ErrorState({required this.message, required this.onRetry});
-
-  @override
-  Widget build(BuildContext context) {
-    return Center(
-      child: Padding(
-        padding: const EdgeInsets.all(32),
-        child: Column(
-          mainAxisAlignment: MainAxisAlignment.center,
-          children: [
-            const Icon(
-              Icons.wifi_off_outlined,
-              size: 60,
-              color: AppColors.textSecondary,
-            ),
-            const SizedBox(height: 16),
-            const Text(
-              'Could not load feed',
-              style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold),
-            ),
-            const SizedBox(height: 8),
-            Text(
-              message,
-              textAlign: TextAlign.center,
-              style: const TextStyle(
-                color: AppColors.textSecondary,
-                fontSize: 14,
-              ),
-            ),
-            const SizedBox(height: 24),
-            ElevatedButton(
-              onPressed: onRetry,
-              style: ElevatedButton.styleFrom(
-                backgroundColor: AppColors.primary,
-                foregroundColor: Colors.white,
-              ),
-              child: const Text('Try Again'),
-            ),
-          ],
-        ),
-      ),
-    );
-  }
-}
-
-// ─── EMPTY FEED ───────────────────────────────────────────────
-class _EmptyFeedState extends ConsumerWidget {
-  @override
-  Widget build(BuildContext context, WidgetRef ref) {
-    return SingleChildScrollView(
-      physics: const AlwaysScrollableScrollPhysics(),
-      child: SizedBox(
-        height: MediaQuery.of(context).size.height - 200,
-        child: Column(
-          mainAxisAlignment: MainAxisAlignment.center,
-          children: [
-            Container(
-              width: 100,
-              height: 100,
-              decoration: BoxDecoration(
-                shape: BoxShape.circle,
-                border: Border.all(color: AppColors.textPrimary, width: 2),
-              ),
-              child: const Icon(
-                Icons.camera_alt_outlined,
-                size: 50,
-                color: AppColors.textPrimary,
-              ),
-            ),
-            const SizedBox(height: 24),
-            const Text(
-              'Welcome to Instagram',
-              style: TextStyle(fontSize: 22, fontWeight: FontWeight.bold),
-            ),
-            const SizedBox(height: 8),
-            const Padding(
-              padding: EdgeInsets.symmetric(horizontal: 40),
-              child: Text(
-                'Follow people to see their photos and videos here.',
-                textAlign: TextAlign.center,
-                style: TextStyle(
-                  color: AppColors.textSecondary,
-                  fontSize: 14,
-                  height: 1.5,
-                ),
-              ),
-            ),
-            const SizedBox(height: 32),
-            Padding(
-              padding: const EdgeInsets.symmetric(horizontal: 60),
-              child: ElevatedButton(
-                onPressed: () => context.go(AppRoutes.search),
-                style: ElevatedButton.styleFrom(
-                  backgroundColor: AppColors.primary,
-                  foregroundColor: Colors.white,
-                  minimumSize: const Size(double.infinity, 44),
-                  shape: RoundedRectangleBorder(
-                    borderRadius: BorderRadius.circular(8),
-                  ),
-                ),
-                child: const Text(
-                  'Find People to Follow',
-                  style: TextStyle(fontWeight: FontWeight.w600),
-                ),
-              ),
-            ),
-          ],
-        ),
-      ),
-    );
-  }
-}
-
-// ─── END OF FEED ──────────────────────────────────────────────
 class _EndOfFeedMessage extends StatelessWidget {
   const _EndOfFeedMessage();
 

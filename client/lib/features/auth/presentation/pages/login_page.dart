@@ -7,6 +7,7 @@ import 'package:go_router/go_router.dart';
 import '../../../../core/router/app_router.dart';
 import '../../../../core/router/navigation_extensions.dart';
 import '../../../../core/theme/app_theme.dart';
+import '../../../../shared/widgets/app_snackbar.dart';
 import '../../../../shared/widgets/custom_button.dart';
 import '../../../../shared/widgets/custom_text_field.dart';
 import '../providers/auth_provider.dart';
@@ -270,13 +271,7 @@ class _LoginPageState extends ConsumerState<LoginPage> {
   Widget _buildFacebookButton() {
     return GestureDetector(
       onTap: () {
-        // Facebook login - will implement later
-        ScaffoldMessenger.of(context).showSnackBar(
-          const SnackBar(
-            content: Text('Facebook login coming soon!'),
-            duration: Duration(seconds: 2),
-          ),
-        );
+        AppSnackbar.info(context, 'Facebook login coming soon!');
       },
       child: const Row(
         mainAxisAlignment: MainAxisAlignment.center,
@@ -469,12 +464,9 @@ class _LoginPageState extends ConsumerState<LoginPage> {
                 onPressed: () {
                   // Will implement forgot password API later
                   Navigator.pop(context);
-                  ScaffoldMessenger.of(context).showSnackBar(
-                    const SnackBar(
-                      content: Text(
-                        'Password reset link sent! Check your email.',
-                      ),
-                    ),
+                  AppSnackbar.success(
+                    this.context,
+                    'Password reset link sent! Check your email.',
                   );
                 },
               ),

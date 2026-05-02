@@ -19,62 +19,70 @@ const {
   getSavedPosts,
   getPostsByHashtag,
 } = require('../controllers/post.controller');
-const { addComment, getComments } = require('../controllers/comment.controller');
 
-const { protect } = require('../middleware/auth.middleware');
-const { uploadMultipleMedia } = require('../services/upload.service');
+const { protect, optionalAuth } = require('../middleware/auth.middleware');
+const { uploadPostMedia } = require('../services/upload.service');
 
-// ─── MULTER ERROR HANDLER ──────────────────────────────────
-const handleUpload = (req, res, next) => {
-  uploadMultipleMedia(req, res, (err) => {
-    if (err) {
+// ─── Multer error handler ─────────────────────────────
+const handleMulterError = (err, req, res, next) => {
+  if (err) {
+    if (err.code === 'LIMIT_FILE_SIZE') {
       return res.status(400).json({
         success: false,
-        message: err.message || 'File upload error',
+        message: 'File too large. Maximum size is 100MB for videos and 10MB for images.',
         timestamp: new Date().toISOString(),
       });
     }
-    next();
-  });
+    if (err.code === 'LIMIT_FILE_COUNT') {
+      return res.status(400).json({
+        success: false,
+        message: 'Too many files. Maximum 10 files per post.',
+        timestamp: new Date().toISOString(),
+      });
+    }
+    return res.status(400).json({
+      success: false,
+      message: err.message || 'File upload error',
+      timestamp: new Date().toISOString(),
+    });
+  }
+  next();
 };
 
-// ─── ROUTES ────────────────────────────────────────────────
-// ⚠️ SPECIFIC ROUTES BEFORE PARAM ROUTES
+// ─── Routes ───────────────────────────────────────────
 
-// Feed
+// Feed + Explore (specific routes BEFORE parameterized routes)
 router.get('/feed', protect, getFeed);
-
-// Explore
 router.get('/explore', protect, getExplorePosts);
-
-// Posts by hashtag
-router.get('/hashtag/:tag', protect, getPostsByHashtag);
-
-// Saved posts (must be before /:id)
 router.get('/saved', protect, getSavedPosts);
+router.get('/hashtag/:tag', optionalAuth, getPostsByHashtag);
+router.get('/user/:username', optionalAuth, getUserPosts);
 
-// User posts
-router.get('/user/:userId', protect, getUserPosts);
-
-// Create post (multipart upload)
-router.post('/', protect, handleUpload, createPost);
+// Create post with media upload
+// Field name: 'media' (array, up to 10 files)
+router.post(
+  '/',
+  protect,
+  (req, res, next) => {
+    uploadPostMedia.array('media', 10)(req, res, (err) => {
+      handleMulterError(err, req, res, next);
+    });
+  },
+  createPost
+);
 
 // Single post CRUD
-router.get('/:id', protect, getPost);
-router.put('/:id', protect, updatePost);
-router.delete('/:id', protect, deletePost);
+router.get('/:postId', optionalAuth, getPost);
+router.put('/:postId', protect, updatePost);
+router.delete('/:postId', protect, deletePost);
 
-// Like/Unlike
-router.post('/:id/like', protect, likePost);
-router.delete('/:id/like', protect, unlikePost);
-router.get('/:id/likes', protect, getPostLikers);
+// Like endpoints
+router.post('/:postId/like', protect, likePost);
+router.delete('/:postId/like', protect, unlikePost);
+router.get('/:postId/likes', optionalAuth, getPostLikers);
 
-// Save/Unsave
-router.post('/:id/save', protect, savePost);
-router.delete('/:id/save', protect, unsavePost);
-
-// Comments (Nested)
-router.post('/:id/comments', protect, addComment);
-router.get('/:id/comments', protect, getComments);
+// Save endpoints
+router.post('/:postId/save', protect, savePost);
+router.delete('/:postId/save', protect, unsavePost);
 
 module.exports = router;

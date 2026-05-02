@@ -32,27 +32,30 @@ User.hasMany(Post, {
 });
 Post.belongsTo(User, { foreignKey: 'user_id', as: 'user' });
 
-// POST → MEDIA
+// ─── Post → PostMedia ─────────────────────────────────
 Post.hasMany(PostMedia, {
-  foreignKey: 'post_id',
-  as: 'media',
+  foreignKey: 'postId',
+  as: 'mediaFiles',
   onDelete: 'CASCADE',
 });
-PostMedia.belongsTo(Post, { foreignKey: 'post_id', as: 'post' });
+PostMedia.belongsTo(Post, {
+  foreignKey: 'postId',
+  as: 'post',
+});
 
-// LIKES
+// ─── Post → Like ──────────────────────────────────────
 Post.hasMany(Like, {
-  foreignKey: 'post_id',
+  foreignKey: 'postId',
   as: 'likes',
   onDelete: 'CASCADE',
 });
-Like.belongsTo(Post, { foreignKey: 'post_id', as: 'post' });
+Like.belongsTo(Post, { foreignKey: 'postId' });
 User.hasMany(Like, {
-  foreignKey: 'user_id',
+  foreignKey: 'userId',
   as: 'likes',
   onDelete: 'CASCADE',
 });
-Like.belongsTo(User, { foreignKey: 'user_id', as: 'user' });
+Like.belongsTo(User, { foreignKey: 'userId', as: 'user' });
 
 // POST ↔ HASHTAGS
 Post.belongsToMany(Hashtag, {
@@ -68,19 +71,19 @@ Hashtag.belongsToMany(Post, {
   as: 'posts',
 });
 
-// SAVED POSTS
+// ─── Post → SavedPost ─────────────────────────────────
 Post.hasMany(SavedPost, {
-  foreignKey: 'post_id',
+  foreignKey: 'postId',
   as: 'saves',
   onDelete: 'CASCADE',
 });
-SavedPost.belongsTo(Post, { foreignKey: 'post_id', as: 'post' });
+SavedPost.belongsTo(Post, { foreignKey: 'postId', as: 'post' });
 User.hasMany(SavedPost, {
-  foreignKey: 'user_id',
+  foreignKey: 'userId',
   as: 'savedPosts',
   onDelete: 'CASCADE',
 });
-SavedPost.belongsTo(User, { foreignKey: 'user_id', as: 'user' });
+SavedPost.belongsTo(User, { foreignKey: 'userId', as: 'user' });
 
 // COMMENTS
 Post.hasMany(Comment, {
@@ -295,7 +298,20 @@ Conversation.belongsTo(User, {
 // ─── SYNC DATABASE ─────────────────────────────────────────
 const syncDatabase = async () => {
   try {
-    await sequelize.sync({ alter: true });
+    const isProduction = process.env.NODE_ENV === 'production';
+
+    if (isProduction) {
+      // Production: only sync if table doesn't exist
+      // Never alter existing tables automatically
+      await sequelize.sync({ force: false, alter: false });
+      console.log('✅ Database synced (production mode)');
+    } else {
+      // Development: auto-alter tables to add new columns
+      // This adds thumbnailUrl, mediaType, duration to post_media
+      await sequelize.sync({ alter: true });
+      console.log('✅ Database synced (development mode - alter: true)');
+    }
+    
     console.log('✅ Database tables synced!');
     console.log('   → users, posts, post_media');
     console.log('   → likes, hashtags, post_hashtags');
