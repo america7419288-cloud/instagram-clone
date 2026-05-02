@@ -49,9 +49,9 @@ class _CreatePostPageState extends ConsumerState<CreatePostPage> {
   Future<void> _pickFromGallery() async {
     try {
       final List<XFile> pickedFiles = await _imagePicker.pickMultiImage(
-        maxWidth: 1080,
-        maxHeight: 1080,
-        imageQuality: 90,
+        maxWidth: 4096,
+        maxHeight: 4096,
+        imageQuality: 100,
       );
 
       if (pickedFiles.isEmpty) return;
@@ -79,9 +79,9 @@ class _CreatePostPageState extends ConsumerState<CreatePostPage> {
     try {
       final XFile? photo = await _imagePicker.pickImage(
         source: ImageSource.camera,
-        maxWidth: 1080,
-        maxHeight: 1080,
-        imageQuality: 90,
+        maxWidth: 4096,
+        maxHeight: 4096,
+        imageQuality: 100,
       );
 
       if (photo == null) return;
@@ -105,6 +105,9 @@ class _CreatePostPageState extends ConsumerState<CreatePostPage> {
 
       final croppedFile = await ImageCropper().cropImage(
         sourcePath: file.path,
+        maxWidth: 4096,
+        maxHeight: 4096,
+        compressQuality: 100,
         uiSettings: [
           AndroidUiSettings(
             toolbarTitle: 'Crop Image',

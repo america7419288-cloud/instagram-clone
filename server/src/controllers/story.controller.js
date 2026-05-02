@@ -92,9 +92,20 @@ const createStory = async (req, res) => {
       {
         resource_type: isVideo ? 'video' : 'image',
         public_id: `story_${userId}_${Date.now()}`,
-        // Stories are 9:16 aspect ratio (vertical)
-        quality: 'auto',
+        // Stories are 9:16. Keep a vertical 4K rendition.
+        quality: '100',
         fetch_format: 'auto',
+        ...(!isVideo && {
+          eager: [
+            {
+              width: 2160,
+              height: 3840,
+              crop: 'limit',
+              quality: '100',
+            },
+          ],
+          eager_async: false,
+        }),
         ...(isVideo && {
           eager: [
             // Generate thumbnail for video stories
@@ -111,7 +122,9 @@ const createStory = async (req, res) => {
     // 4. CREATE STORY IN DATABASE
     const story = await Story.create({
       user_id: userId,
-      media_url: uploadResult.secure_url,
+      media_url: isVideo
+        ? uploadResult.secure_url
+        : uploadResult.eager?.[0]?.secure_url || uploadResult.secure_url,
       thumbnail_url: isVideo
         ? uploadResult.eager?.[0]?.secure_url
         : null,

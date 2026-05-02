@@ -288,11 +288,9 @@ const getFeed = async (req, res) => {
       is_archived: false,
       ...(hasFollowedFeed
         ? { user_id: { [Op.in]: feedUserIds } }
-        : {
-            user_id: {
-              [Op.notIn]: [currentUserId, ...blockedUserIds],
-            },
-          }),
+        : blockedUserIds.length
+        ? { user_id: { [Op.notIn]: blockedUserIds } }
+        : {}),
     };
 
     const { count, rows: posts } = await Post.findAndCountAll({
@@ -305,7 +303,11 @@ const getFeed = async (req, res) => {
             'id', 'username', 'full_name',
             'profile_pic_url', 'is_verified',
           ],
-          ...(!hasFollowedFeed && { where: { is_private: false } }),
+          ...(!hasFollowedFeed && {
+            where: {
+              [Op.or]: [{ is_private: false }, { id: currentUserId }],
+            },
+          }),
         },
         {
           model: PostMedia,

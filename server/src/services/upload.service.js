@@ -59,7 +59,7 @@ const uploadSingleImage = multer({
   storage,
   fileFilter: imageFilter,
   limits: {
-    fileSize: 5 * 1024 * 1024, // 5MB max
+    fileSize: 40 * 1024 * 1024, // 40MB max for high-resolution stories
   },
 }).single('image'); // 'image' = field name in form
 
@@ -68,7 +68,7 @@ const uploadMultipleMedia = multer({
   storage,
   fileFilter: mediaFilter,
   limits: {
-    fileSize: 50 * 1024 * 1024, // 50MB per file
+    fileSize: 100 * 1024 * 1024, // 100MB per file for 4K uploads
     files: 10,                   // Max 10 files
   },
 }).array('media', 10); // 'media' = field name, 10 = max count
@@ -85,8 +85,8 @@ const uploadImageToCloudinary = (
     const uploadOptions = {
       folder: `instagram-clone/${folder}`,
       resource_type: 'image',
-      // Auto-optimize quality
-      quality: 'auto',
+      // Preserve detail for high-resolution uploads.
+      quality: '100',
       // Auto-choose best format (WebP when possible)
       fetch_format: 'auto',
       ...options,
@@ -166,9 +166,9 @@ const uploadPostMedia = async (fileBuffer, mimeType, userId, index) => {
         ...(!isVideo && {
           eager: [
             // Thumbnail: for grid view
-            { width: 300, height: 300, crop: 'fill' },
-            // Medium: for feed
-            { width: 600, height: 600, crop: 'limit' },
+            { width: 600, height: 600, crop: 'fill', quality: 'auto:best' },
+            // 4K: for feed/detail display
+            { width: 4096, height: 4096, crop: 'limit', quality: '100' },
           ],
           eager_async: false,
         }),

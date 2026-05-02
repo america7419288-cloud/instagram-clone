@@ -13,8 +13,7 @@ class StoryCreatePage extends ConsumerStatefulWidget {
   const StoryCreatePage({super.key});
 
   @override
-  ConsumerState<StoryCreatePage> createState() =>
-      _StoryCreatePageState();
+  ConsumerState<StoryCreatePage> createState() => _StoryCreatePageState();
 }
 
 class _StoryCreatePageState extends ConsumerState<StoryCreatePage>
@@ -51,20 +50,19 @@ class _StoryCreatePageState extends ConsumerState<StoryCreatePage>
     try {
       final XFile? picked = await _imagePicker.pickImage(
         source: ImageSource.gallery,
-        maxWidth: 1080,
-        imageQuality: 90,
+        maxWidth: 2160,
+        maxHeight: 3840,
+        imageQuality: 100,
       );
 
       if (picked != null && mounted) {
-        ref
-            .read(storyCreateProvider.notifier)
-            .setImage(File(picked.path));
+        ref.read(storyCreateProvider.notifier).setImage(File(picked.path));
       }
     } catch (e) {
       if (mounted) {
-        ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(content: Text('Error: $e')),
-        );
+        ScaffoldMessenger.of(
+          context,
+        ).showSnackBar(SnackBar(content: Text('Error: $e')));
       }
     }
   }
@@ -74,20 +72,19 @@ class _StoryCreatePageState extends ConsumerState<StoryCreatePage>
     try {
       final XFile? picked = await _imagePicker.pickImage(
         source: ImageSource.camera,
-        maxWidth: 1080,
-        imageQuality: 90,
+        maxWidth: 2160,
+        maxHeight: 3840,
+        imageQuality: 100,
       );
 
       if (picked != null && mounted) {
-        ref
-            .read(storyCreateProvider.notifier)
-            .setImage(File(picked.path));
+        ref.read(storyCreateProvider.notifier).setImage(File(picked.path));
       }
     } catch (e) {
       if (mounted) {
-        ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(content: Text('Error: $e')),
-        );
+        ScaffoldMessenger.of(
+          context,
+        ).showSnackBar(SnackBar(content: Text('Error: $e')));
       }
     }
   }
@@ -98,9 +95,7 @@ class _StoryCreatePageState extends ConsumerState<StoryCreatePage>
       context: context,
       backgroundColor: Colors.grey[900],
       shape: const RoundedRectangleBorder(
-        borderRadius: BorderRadius.vertical(
-          top: Radius.circular(20),
-        ),
+        borderRadius: BorderRadius.vertical(top: Radius.circular(20)),
       ),
       builder: (ctx) => SafeArea(
         child: Column(
@@ -128,10 +123,7 @@ class _StoryCreatePageState extends ConsumerState<StoryCreatePage>
             ListTile(
               leading: const CircleAvatar(
                 backgroundColor: Colors.white10,
-                child: Icon(
-                  Icons.photo_library_outlined,
-                  color: Colors.white,
-                ),
+                child: Icon(Icons.photo_library_outlined, color: Colors.white),
               ),
               title: const Text(
                 'Choose from Gallery',
@@ -145,10 +137,7 @@ class _StoryCreatePageState extends ConsumerState<StoryCreatePage>
             ListTile(
               leading: const CircleAvatar(
                 backgroundColor: Colors.white10,
-                child: Icon(
-                  Icons.camera_alt_outlined,
-                  color: Colors.white,
-                ),
+                child: Icon(Icons.camera_alt_outlined, color: Colors.white),
               ),
               title: const Text(
                 'Take a Photo',
@@ -209,9 +198,7 @@ class _StoryCreatePageState extends ConsumerState<StoryCreatePage>
 
                 // Text input
                 Container(
-                  margin: const EdgeInsets.symmetric(
-                    horizontal: 8,
-                  ),
+                  margin: const EdgeInsets.symmetric(horizontal: 8),
                   decoration: BoxDecoration(
                     color: Colors.white,
                     borderRadius: BorderRadius.circular(12),
@@ -237,14 +224,11 @@ class _StoryCreatePageState extends ConsumerState<StoryCreatePage>
                   height: 44,
                   child: ListView.builder(
                     scrollDirection: Axis.horizontal,
-                    padding: const EdgeInsets.symmetric(
-                      horizontal: 8,
-                    ),
+                    padding: const EdgeInsets.symmetric(horizontal: 8),
                     itemCount: _textColors.length,
                     itemBuilder: (_, i) {
                       final color = _textColors[i];
-                      final isSelected =
-                          color == _selectedTextColor;
+                      final isSelected = color == _selectedTextColor;
 
                       return GestureDetector(
                         onTap: () {
@@ -258,9 +242,7 @@ class _StoryCreatePageState extends ConsumerState<StoryCreatePage>
                         child: Container(
                           width: 36,
                           height: 36,
-                          margin: const EdgeInsets.symmetric(
-                            horizontal: 4,
-                          ),
+                          margin: const EdgeInsets.symmetric(horizontal: 4),
                           decoration: BoxDecoration(
                             color: color,
                             shape: BoxShape.circle,
@@ -281,17 +263,12 @@ class _StoryCreatePageState extends ConsumerState<StoryCreatePage>
 
                 // Font size slider
                 Padding(
-                  padding: const EdgeInsets.symmetric(
-                    horizontal: 8,
-                  ),
+                  padding: const EdgeInsets.symmetric(horizontal: 8),
                   child: Row(
                     children: [
                       const Text(
                         'A',
-                        style: TextStyle(
-                          color: Colors.white,
-                          fontSize: 14,
-                        ),
+                        style: TextStyle(color: Colors.white, fontSize: 14),
                       ),
                       Expanded(
                         child: Slider(
@@ -311,10 +288,7 @@ class _StoryCreatePageState extends ConsumerState<StoryCreatePage>
                       ),
                       const Text(
                         'A',
-                        style: TextStyle(
-                          color: Colors.white,
-                          fontSize: 24,
-                        ),
+                        style: TextStyle(color: Colors.white, fontSize: 24),
                       ),
                     ],
                   ),
@@ -382,9 +356,7 @@ class _StoryCreatePageState extends ConsumerState<StoryCreatePage>
 
   // ─── UPLOAD STORY ─────────────────────────────────────────
   Future<void> _uploadStory() async {
-    final success = await ref
-        .read(storyCreateProvider.notifier)
-        .uploadStory();
+    final success = await ref.read(storyCreateProvider.notifier).uploadStory();
 
     if (success && mounted) {
       ScaffoldMessenger.of(context).showSnackBar(
@@ -419,8 +391,8 @@ class _StoryCreatePageState extends ConsumerState<StoryCreatePage>
       body: createState.isUploading
           ? _buildUploadingState(createState)
           : createState.hasImage
-              ? _buildImageEditor(createState)
-              : _buildImagePicker(),
+          ? _buildImageEditor(createState)
+          : _buildImagePicker(),
     );
   }
 
@@ -443,11 +415,7 @@ class _StoryCreatePageState extends ConsumerState<StoryCreatePage>
               padding: const EdgeInsets.all(8),
               child: IconButton(
                 onPressed: () => context.pop(),
-                icon: const Icon(
-                  Icons.close,
-                  color: Colors.white,
-                  size: 28,
-                ),
+                icon: const Icon(Icons.close, color: Colors.white, size: 28),
               ),
             ),
           ),
@@ -464,10 +432,7 @@ class _StoryCreatePageState extends ConsumerState<StoryCreatePage>
                 height: 100,
                 decoration: BoxDecoration(
                   shape: BoxShape.circle,
-                  border: Border.all(
-                    color: Colors.white30,
-                    width: 2,
-                  ),
+                  border: Border.all(color: Colors.white30, width: 2),
                 ),
                 child: const Icon(
                   Icons.add_a_photo_outlined,
@@ -491,10 +456,7 @@ class _StoryCreatePageState extends ConsumerState<StoryCreatePage>
 
               const Text(
                 'Share a photo or video with your followers',
-                style: TextStyle(
-                  color: Colors.white60,
-                  fontSize: 14,
-                ),
+                style: TextStyle(color: Colors.white60, fontSize: 14),
                 textAlign: TextAlign.center,
               ),
 
@@ -517,10 +479,7 @@ class _StoryCreatePageState extends ConsumerState<StoryCreatePage>
                 icon: const Icon(Icons.photo_library, size: 20),
                 label: const Text(
                   'Choose from Gallery',
-                  style: TextStyle(
-                    fontWeight: FontWeight.w600,
-                    fontSize: 15,
-                  ),
+                  style: TextStyle(fontWeight: FontWeight.w600, fontSize: 15),
                 ),
               ),
 
@@ -530,10 +489,7 @@ class _StoryCreatePageState extends ConsumerState<StoryCreatePage>
               OutlinedButton.icon(
                 onPressed: _pickFromCamera,
                 style: OutlinedButton.styleFrom(
-                  side: const BorderSide(
-                    color: Colors.white,
-                    width: 1.5,
-                  ),
+                  side: const BorderSide(color: Colors.white, width: 1.5),
                   foregroundColor: Colors.white,
                   padding: const EdgeInsets.symmetric(
                     horizontal: 32,
@@ -546,10 +502,7 @@ class _StoryCreatePageState extends ConsumerState<StoryCreatePage>
                 icon: const Icon(Icons.camera_alt_outlined, size: 20),
                 label: const Text(
                   'Take a Photo',
-                  style: TextStyle(
-                    fontWeight: FontWeight.w600,
-                    fontSize: 15,
-                  ),
+                  style: TextStyle(fontWeight: FontWeight.w600, fontSize: 15),
                 ),
               ),
             ],
@@ -585,10 +538,7 @@ class _StoryCreatePageState extends ConsumerState<StoryCreatePage>
           child: Column(
             children: [
               Padding(
-                padding: const EdgeInsets.symmetric(
-                  horizontal: 8,
-                  vertical: 4,
-                ),
+                padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
                 child: Row(
                   children: [
                     // Close button
@@ -649,22 +599,16 @@ class _StoryCreatePageState extends ConsumerState<StoryCreatePage>
                         child: OutlinedButton(
                           onPressed: () => _confirmClose(context),
                           style: OutlinedButton.styleFrom(
-                            side: const BorderSide(
-                              color: Colors.white54,
-                            ),
+                            side: const BorderSide(color: Colors.white54),
                             foregroundColor: Colors.white,
-                            padding: const EdgeInsets.symmetric(
-                              vertical: 14,
-                            ),
+                            padding: const EdgeInsets.symmetric(vertical: 14),
                             shape: RoundedRectangleBorder(
                               borderRadius: BorderRadius.circular(30),
                             ),
                           ),
                           child: const Text(
                             'Discard',
-                            style: TextStyle(
-                              fontWeight: FontWeight.w600,
-                            ),
+                            style: TextStyle(fontWeight: FontWeight.w600),
                           ),
                         ),
                       ),
@@ -677,22 +621,15 @@ class _StoryCreatePageState extends ConsumerState<StoryCreatePage>
                         child: GestureDetector(
                           onTap: _uploadStory,
                           child: Container(
-                            padding: const EdgeInsets.symmetric(
-                              vertical: 14,
-                            ),
+                            padding: const EdgeInsets.symmetric(vertical: 14),
                             decoration: BoxDecoration(
                               gradient: AppColors.instagramGradient,
                               borderRadius: BorderRadius.circular(30),
                             ),
                             child: const Row(
-                              mainAxisAlignment:
-                                  MainAxisAlignment.center,
+                              mainAxisAlignment: MainAxisAlignment.center,
                               children: [
-                                Icon(
-                                  Icons.send,
-                                  color: Colors.white,
-                                  size: 18,
-                                ),
+                                Icon(Icons.send, color: Colors.white, size: 18),
                                 SizedBox(width: 8),
                                 Text(
                                   'Share to Story',
@@ -729,10 +666,7 @@ class _StoryCreatePageState extends ConsumerState<StoryCreatePage>
               ),
               child: Text(
                 createState.errorMessage!,
-                style: const TextStyle(
-                  color: Colors.white,
-                  fontSize: 14,
-                ),
+                style: const TextStyle(color: Colors.white, fontSize: 14),
                 textAlign: TextAlign.center,
               ),
             ),
@@ -793,21 +727,18 @@ class _StoryCreatePageState extends ConsumerState<StoryCreatePage>
             onPanUpdate: (details) {
               final newX =
                   (overlay.position.dx * constraints.maxWidth +
-                          details.delta.dx) /
-                      constraints.maxWidth;
+                      details.delta.dx) /
+                  constraints.maxWidth;
               final newY =
                   (overlay.position.dy * constraints.maxHeight +
-                          details.delta.dy) /
-                      constraints.maxHeight;
+                      details.delta.dy) /
+                  constraints.maxHeight;
 
               ref
                   .read(storyCreateProvider.notifier)
                   .updateTextPosition(
                     overlay.id,
-                    Offset(
-                      newX.clamp(0.0, 1.0),
-                      newY.clamp(0.0, 1.0),
-                    ),
+                    Offset(newX.clamp(0.0, 1.0), newY.clamp(0.0, 1.0)),
                   );
             },
             child: SizedBox(
@@ -838,10 +769,7 @@ class _StoryCreatePageState extends ConsumerState<StoryCreatePage>
   // ─── AUDIENCE SELECTOR ───────────────────────────────────
   Widget _buildAudienceSelector(StoryCreateState createState) {
     return Container(
-      padding: const EdgeInsets.symmetric(
-        horizontal: 16,
-        vertical: 10,
-      ),
+      padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 10),
       decoration: BoxDecoration(
         color: Colors.black38,
         borderRadius: BorderRadius.circular(30),
@@ -850,19 +778,13 @@ class _StoryCreatePageState extends ConsumerState<StoryCreatePage>
         mainAxisSize: MainAxisSize.min,
         children: [
           Icon(
-            createState.isCloseFriends
-                ? Icons.star
-                : Icons.public,
-            color: createState.isCloseFriends
-                ? Colors.green
-                : Colors.white,
+            createState.isCloseFriends ? Icons.star : Icons.public,
+            color: createState.isCloseFriends ? Colors.green : Colors.white,
             size: 18,
           ),
           const SizedBox(width: 8),
           Text(
-            createState.isCloseFriends
-                ? 'Close Friends'
-                : 'Your Followers',
+            createState.isCloseFriends ? 'Close Friends' : 'Your Followers',
             style: const TextStyle(
               color: Colors.white,
               fontSize: 13,
@@ -871,14 +793,10 @@ class _StoryCreatePageState extends ConsumerState<StoryCreatePage>
           ),
           const SizedBox(width: 8),
           GestureDetector(
-            onTap: () => ref
-                .read(storyCreateProvider.notifier)
-                .toggleAudience(),
+            onTap: () =>
+                ref.read(storyCreateProvider.notifier).toggleAudience(),
             child: Container(
-              padding: const EdgeInsets.symmetric(
-                horizontal: 12,
-                vertical: 4,
-              ),
+              padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 4),
               decoration: BoxDecoration(
                 color: createState.isCloseFriends
                     ? Colors.green
@@ -962,10 +880,7 @@ class _StoryCreatePageState extends ConsumerState<StoryCreatePage>
 
             const Text(
               "Don't close the app",
-              style: TextStyle(
-                color: Colors.white54,
-                fontSize: 13,
-              ),
+              style: TextStyle(color: Colors.white54, fontSize: 13),
             ),
           ],
         ),
@@ -987,9 +902,7 @@ class _StoryCreatePageState extends ConsumerState<StoryCreatePage>
       context: context,
       builder: (ctx) => AlertDialog(
         backgroundColor: Colors.grey[900],
-        shape: RoundedRectangleBorder(
-          borderRadius: BorderRadius.circular(16),
-        ),
+        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
         title: const Text(
           'Discard Story?',
           style: TextStyle(color: Colors.white),
@@ -1008,10 +921,7 @@ class _StoryCreatePageState extends ConsumerState<StoryCreatePage>
           ),
           TextButton(
             onPressed: () => Navigator.pop(ctx, true),
-            child: const Text(
-              'Discard',
-              style: TextStyle(color: Colors.red),
-            ),
+            child: const Text('Discard', style: TextStyle(color: Colors.red)),
           ),
         ],
       ),
@@ -1055,10 +965,7 @@ class _TopToolButton extends StatelessWidget {
           const SizedBox(height: 4),
           Text(
             label,
-            style: const TextStyle(
-              color: Colors.white,
-              fontSize: 11,
-            ),
+            style: const TextStyle(color: Colors.white, fontSize: 11),
           ),
         ],
       ),
