@@ -3,6 +3,7 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import '../../../../../../../core/theme/app_theme.dart';
+import '../../../../../../../shared/widgets/app_snackbar.dart';
 import '../follow_provider.dart';
 
 // ─── FOLLOW BUTTON ──────────────────────────────────────────
@@ -163,14 +164,9 @@ class FollowButton extends ConsumerWidget {
           .toggleFollow();
     } catch (e) {
       if (context.mounted) {
-        ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(
-            content: Text(
-              e.toString().replaceAll('Exception: ', ''),
-            ),
-            backgroundColor: AppColors.secondary,
-            duration: const Duration(seconds: 2),
-          ),
+        AppSnackbar.error(
+          context,
+          e.toString().replaceAll('Exception: ', ''),
         );
       }
     }

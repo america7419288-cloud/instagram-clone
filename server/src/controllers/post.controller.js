@@ -40,11 +40,11 @@ const createPost = async (req, res) => {
 
     // ─── Validate files ────────────────────────────────
     if (!files || files.length === 0) {
-      return errorResponse(res, 'Please select at least one photo or video', 400);
+      return errorResponse(res, 400, 'Please select at least one photo or video');
     }
 
     if (files.length > 10) {
-      return errorResponse(res, 'Maximum 10 files per post', 400);
+      return errorResponse(res, 400, 'Maximum 10 files per post');
     }
 
     // ─── Upload all media to Cloudinary ────────────────
@@ -74,8 +74,8 @@ const createPost = async (req, res) => {
           await deleteFromCloudinary(uploadResult.publicId, 'video');
           return errorResponse(
             res,
-            `Video duration ${uploadResult.duration}s exceeds the ${MAX_POST_VIDEO_DURATION}s limit`,
-            400
+            400,
+            `Video duration ${uploadResult.duration}s exceeds the ${MAX_POST_VIDEO_DURATION}s limit`
           );
         }
       } else {
@@ -135,13 +135,13 @@ const createPost = async (req, res) => {
 
     return successResponse(
       res,
+      201,
       'Post created successfully',
-      completePost,
-      201
+      completePost
     );
   } catch (error) {
     console.error('❌ createPost error:', error);
-    return errorResponse(res, error.message || 'Failed to create post', 500);
+    return errorResponse(res, 500, error.message || 'Failed to create post');
   }
 };
 
@@ -159,20 +159,20 @@ const getFeed = async (req, res) => {
     // ─── Get users that current user follows ──────────
     const following = await Follower.findAll({
       where: {
-        followerId: userId,
+        follower_id: userId,
         status: 'accepted',
       },
-      attributes: ['followingId'],
+      attributes: ['following_id'],
     });
 
-    const followingIds = following.map((f) => f.followingId);
+    const followingIds = following.map((f) => f.following_id);
 
     // ─── Include own posts in feed ────────────────────
     const feedUserIds = [userId, ...followingIds];
 
     if (feedUserIds.length === 1) {
       // Only self → return empty (no following yet)
-      return successResponse(res, 'Feed loaded', []);
+      return successResponse(res, 200, 'Feed loaded', []);
     }
 
     // ─── Fetch posts ──────────────────────────────────
@@ -188,10 +188,10 @@ const getFeed = async (req, res) => {
 
     const formatted = posts.map((p) => _formatPost(p, userId));
 
-    return successResponse(res, 'Feed loaded', formatted);
+    return successResponse(res, 200, 'Feed loaded', formatted);
   } catch (error) {
     console.error('❌ getFeed error:', error);
-    return errorResponse(res, 'Failed to load feed', 500);
+    return errorResponse(res, 500, 'Failed to load feed');
   }
 };
 
@@ -208,12 +208,12 @@ const getExplorePosts = async (req, res) => {
 
     // ─── Get who the user follows (exclude from explore) ─
     const following = await Follower.findAll({
-      where: { followerId: userId, status: 'accepted' },
-      attributes: ['followingId'],
+      where: { follower_id: userId, status: 'accepted' },
+      attributes: ['following_id'],
     });
     const followingIds = [
       userId,
-      ...following.map((f) => f.followingId),
+      ...following.map((f) => f.following_id),
     ];
 
     // ─── Get posts NOT from followed users ────────────
@@ -230,10 +230,10 @@ const getExplorePosts = async (req, res) => {
 
     const formatted = posts.map((p) => _formatPost(p, userId));
 
-    return successResponse(res, 'Explore posts loaded', formatted);
+    return successResponse(res, 200, 'Explore posts loaded', formatted);
   } catch (error) {
     console.error('❌ getExplorePosts error:', error);
-    return errorResponse(res, 'Failed to load explore posts', 500);
+    return errorResponse(res, 500, 'Failed to load explore posts');
   }
 };
 
@@ -249,13 +249,13 @@ const getPost = async (req, res) => {
     const post = await _fetchPostById(postId, userId);
 
     if (!post) {
-      return errorResponse(res, 'Post not found', 404);
+      return errorResponse(res, 404, 'Post not found');
     }
 
-    return successResponse(res, 'Post loaded', post);
+    return successResponse(res, 200, 'Post loaded', post);
   } catch (error) {
     console.error('❌ getPost error:', error);
-    return errorResponse(res, 'Failed to load post', 500);
+    return errorResponse(res, 500, 'Failed to load post');
   }
 };
 
@@ -278,7 +278,7 @@ const getUserPosts = async (req, res) => {
     });
 
     if (!user) {
-      return errorResponse(res, 'User not found', 404);
+      return errorResponse(res, 404, 'User not found');
     }
 
     const posts = await Post.findAll({
@@ -291,10 +291,10 @@ const getUserPosts = async (req, res) => {
 
     const formatted = posts.map((p) => _formatPost(p, currentUserId));
 
-    return successResponse(res, 'User posts loaded', formatted);
+    return successResponse(res, 200, 'User posts loaded', formatted);
   } catch (error) {
     console.error('❌ getUserPosts error:', error);
-    return errorResponse(res, 'Failed to load user posts', 500);
+    return errorResponse(res, 500, 'Failed to load user posts');
   }
 };
 
@@ -313,7 +313,7 @@ const updatePost = async (req, res) => {
     });
 
     if (!post) {
-      return errorResponse(res, 'Post not found or not yours', 404);
+      return errorResponse(res, 404, 'Post not found or not yours');
     }
 
     await post.update({
@@ -331,10 +331,10 @@ const updatePost = async (req, res) => {
     }
 
     const updated = await _fetchPostById(postId, userId);
-    return successResponse(res, 'Post updated', updated);
+    return successResponse(res, 200, 'Post updated', updated);
   } catch (error) {
     console.error('❌ updatePost error:', error);
-    return errorResponse(res, 'Failed to update post', 500);
+    return errorResponse(res, 500, 'Failed to update post');
   }
 };
 
@@ -353,7 +353,7 @@ const deletePost = async (req, res) => {
     });
 
     if (!post) {
-      return errorResponse(res, 'Post not found or not yours', 404);
+      return errorResponse(res, 404, 'Post not found or not yours');
     }
 
     // ─── Delete media from Cloudinary ─────────────────
@@ -367,10 +367,10 @@ const deletePost = async (req, res) => {
     // ─── Delete post (cascade deletes media, likes, comments) ─
     await post.destroy();
 
-    return successResponse(res, 'Post deleted successfully');
+    return successResponse(res, 200, 'Post deleted successfully');
   } catch (error) {
     console.error('❌ deletePost error:', error);
-    return errorResponse(res, 'Failed to delete post', 500);
+    return errorResponse(res, 500, 'Failed to delete post');
   }
 };
 
@@ -388,7 +388,7 @@ const likePost = async (req, res) => {
     });
 
     if (!post) {
-      return errorResponse(res, 'Post not found', 404);
+      return errorResponse(res, 404, 'Post not found');
     }
 
     // ─── Check already liked ──────────────────────────
@@ -397,7 +397,7 @@ const likePost = async (req, res) => {
     });
 
     if (existing) {
-      return errorResponse(res, 'Post already liked', 400);
+      return errorResponse(res, 400, 'Post already liked');
     }
 
     await Like.create({
@@ -424,10 +424,10 @@ const likePost = async (req, res) => {
       }
     }
 
-    return successResponse(res, 'Post liked');
+    return successResponse(res, 200, 'Post liked');
   } catch (error) {
     console.error('❌ likePost error:', error);
-    return errorResponse(res, 'Failed to like post', 500);
+    return errorResponse(res, 500, 'Failed to like post');
   }
 };
 
@@ -443,7 +443,7 @@ const unlikePost = async (req, res) => {
     const like = await Like.findOne({ where: { userId, postId } });
 
     if (!like) {
-      return errorResponse(res, 'Post not liked', 400);
+      return errorResponse(res, 400, 'Post not liked');
     }
 
     await like.destroy();
@@ -453,10 +453,10 @@ const unlikePost = async (req, res) => {
       await post.decrement('likesCount');
     }
 
-    return successResponse(res, 'Post unliked');
+    return successResponse(res, 200, 'Post unliked');
   } catch (error) {
     console.error('❌ unlikePost error:', error);
-    return errorResponse(res, 'Failed to unlike post', 500);
+    return errorResponse(res, 500, 'Failed to unlike post');
   }
 };
 
@@ -487,10 +487,10 @@ const getPostLikers = async (req, res) => {
     });
 
     const users = likes.map((l) => l.user);
-    return successResponse(res, 'Post likers loaded', users);
+    return successResponse(res, 200, 'Post likers loaded', users);
   } catch (error) {
     console.error('❌ getPostLikers error:', error);
-    return errorResponse(res, 'Failed to get post likers', 500);
+    return errorResponse(res, 500, 'Failed to get post likers');
   }
 };
 
@@ -504,16 +504,16 @@ const savePost = async (req, res) => {
     const userId = req.user.id;
 
     const post = await Post.findByPk(postId, { attributes: ['id'] });
-    if (!post) return errorResponse(res, 'Post not found', 404);
+    if (!post) return errorResponse(res, 404, 'Post not found');
 
     const existing = await SavedPost.findOne({ where: { userId, postId } });
-    if (existing) return errorResponse(res, 'Post already saved', 400);
+    if (existing) return errorResponse(res, 400, 'Post already saved');
 
     await SavedPost.create({ id: uuidv4(), userId, postId });
-    return successResponse(res, 'Post saved');
+    return successResponse(res, 200, 'Post saved');
   } catch (error) {
     console.error('❌ savePost error:', error);
-    return errorResponse(res, 'Failed to save post', 500);
+    return errorResponse(res, 500, 'Failed to save post');
   }
 };
 
@@ -527,13 +527,13 @@ const unsavePost = async (req, res) => {
     const userId = req.user.id;
 
     const saved = await SavedPost.findOne({ where: { userId, postId } });
-    if (!saved) return errorResponse(res, 'Post not saved', 400);
+    if (!saved) return errorResponse(res, 400, 'Post not saved');
 
     await saved.destroy();
-    return successResponse(res, 'Post unsaved');
+    return successResponse(res, 200, 'Post unsaved');
   } catch (error) {
     console.error('❌ unsavePost error:', error);
-    return errorResponse(res, 'Failed to unsave post', 500);
+    return errorResponse(res, 500, 'Failed to unsave post');
   }
 };
 
@@ -566,10 +566,10 @@ const getSavedPosts = async (req, res) => {
       .filter((s) => s.post)
       .map((s) => _formatPost(s.post, userId));
 
-    return successResponse(res, 'Saved posts loaded', formatted);
+    return successResponse(res, 200, 'Saved posts loaded', formatted);
   } catch (error) {
     console.error('❌ getSavedPosts error:', error);
-    return errorResponse(res, 'Failed to get saved posts', 500);
+    return errorResponse(res, 500, 'Failed to get saved posts');
   }
 };
 
@@ -590,7 +590,7 @@ const getPostsByHashtag = async (req, res) => {
     });
 
     if (!hashtag) {
-      return successResponse(res, 'Hashtag posts loaded', []);
+      return successResponse(res, 200, 'Hashtag posts loaded', []);
     }
 
     const posts = await Post.findAll({
@@ -609,10 +609,10 @@ const getPostsByHashtag = async (req, res) => {
     });
 
     const formatted = posts.map((p) => _formatPost(p, userId));
-    return successResponse(res, 'Hashtag posts loaded', formatted);
+    return successResponse(res, 200, 'Hashtag posts loaded', formatted);
   } catch (error) {
     console.error('❌ getPostsByHashtag error:', error);
-    return errorResponse(res, 'Failed to load hashtag posts', 500);
+    return errorResponse(res, 500, 'Failed to load hashtag posts');
   }
 };
 

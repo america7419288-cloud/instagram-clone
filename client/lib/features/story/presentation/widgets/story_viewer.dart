@@ -1,11 +1,13 @@
 // lib/features/story/presentation/widgets/story_viewer.dart
 
+import 'package:cached_network_image/cached_network_image.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
-import 'package:cached_network_image/cached_network_image.dart';
 import 'package:timeago/timeago.dart' as timeago;
+
 import '../../../../core/theme/app_theme.dart';
+import '../../../../shared/widgets/app_snackbar.dart';
 import '../../../../features/auth/presentation/providers/auth_provider.dart';
 import '../../data/models/story_model.dart';
 import '../providers/story_provider.dart';
@@ -26,23 +28,15 @@ class StoryViewer extends ConsumerStatefulWidget {
 
 class _StoryViewerState extends ConsumerState<StoryViewer>
     with TickerProviderStateMixin {
-  // Current group (user) index
   late int _currentGroupIndex;
-
-  // Current story index within group
   int _currentStoryIndex = 0;
-
-  // Progress bar animation controller
   late AnimationController _progressController;
 
-  // Story display duration
   static const Duration _storyDuration = Duration(seconds: 5);
 
-  // Reply text controller
   final TextEditingController _replyController = TextEditingController();
   final FocusNode _replyFocus = FocusNode();
 
-  // Pause when holding
   bool _isPaused = false;
   bool _isTyping = false;
 
@@ -50,15 +44,11 @@ class _StoryViewerState extends ConsumerState<StoryViewer>
   void initState() {
     super.initState();
     _currentGroupIndex = widget.initialGroupIndex;
-
-    // Start at first unseen story
-    final group = _currentGroup;
-    _currentStoryIndex = group.firstUnseenIndex;
+    _currentStoryIndex = _currentGroup.firstUnseenIndex;
 
     _initProgressController();
     _startProgress();
 
-    // Hide status bar for immersive experience
     SystemChrome.setEnabledSystemUIMode(SystemUiMode.immersive);
   }
 
@@ -67,25 +57,19 @@ class _StoryViewerState extends ConsumerState<StoryViewer>
     _progressController.dispose();
     _replyController.dispose();
     _replyFocus.dispose();
-    // Restore status bar
     SystemChrome.setEnabledSystemUIMode(SystemUiMode.edgeToEdge);
     super.dispose();
   }
 
-  // ─── GETTERS ──────────────────────────────────────────────
-  StoryUserGroup get _currentGroup =>
-      widget.groups[_currentGroupIndex];
+  StoryUserGroup get _currentGroup => widget.groups[_currentGroupIndex];
 
-  StoryModel get _currentStory =>
-      _currentGroup.stories[_currentStoryIndex];
+  StoryModel get _currentStory => _currentGroup.stories[_currentStoryIndex];
 
   bool get _isLastStoryInGroup =>
       _currentStoryIndex >= _currentGroup.stories.length - 1;
 
-  bool get _isLastGroup =>
-      _currentGroupIndex >= widget.groups.length - 1;
+  bool get _isLastGroup => _currentGroupIndex >= widget.groups.length - 1;
 
-  // ─── PROGRESS CONTROLLER ──────────────────────────────────
   void _initProgressController() {
     _progressController = AnimationController(
       vsync: this,
@@ -99,105 +83,88 @@ class _StoryViewerState extends ConsumerState<StoryViewer>
     });
   }
 
-  // ─── START PROGRESS ───────────────────────────────────────
   void _startProgress() {
-    _progressController.reset();
-    _progressController.forward();
-
-    // Mark story as viewed
+    _progressController
+      ..reset()
+      ..forward();
     _markCurrentStoryViewed();
   }
 
-  // ─── MARK VIEWED ──────────────────────────────────────────
   void _markCurrentStoryViewed() {
-    final story = _currentStory;
-    final userId = _currentGroup.user.id;
-
     ref.read(storyFeedProvider.notifier).markStoryViewed(
-          userId,
-          story.id,
+          _currentGroup.user.id,
+          _currentStory.id,
         );
   }
 
-  // ─── NEXT STORY ───────────────────────────────────────────
   void _goToNextStory() {
     if (_isLastStoryInGroup) {
-      // Move to next user's stories
       _goToNextGroup();
-    } else {
-      setState(() {
-        _currentStoryIndex++;
-      });
-      _startProgress();
+      return;
     }
+
+    setState(() {
+      _currentStoryIndex++;
+    });
+    _startProgress();
   }
 
-  // ─── PREVIOUS STORY ───────────────────────────────────────
   void _goToPreviousStory() {
     if (_currentStoryIndex > 0) {
       setState(() {
         _currentStoryIndex--;
       });
       _startProgress();
-    } else {
-      // Move to previous user's stories
-      _goToPreviousGroup();
+      return;
     }
+
+    _goToPreviousGroup();
   }
 
-  // ─── NEXT GROUP ───────────────────────────────────────────
   void _goToNextGroup() {
     if (_isLastGroup) {
-      // All stories done → close viewer
       Navigator.of(context).pop();
-    } else {
-      setState(() {
-        _currentGroupIndex++;
-        _currentStoryIndex = _currentGroup.firstUnseenIndex;
-      });
-      _startProgress();
+      return;
     }
+
+    setState(() {
+      _currentGroupIndex++;
+      _currentStoryIndex = _currentGroup.firstUnseenIndex;
+    });
+    _startProgress();
   }
 
-  // ─── PREVIOUS GROUP ───────────────────────────────────────
   void _goToPreviousGroup() {
-    if (_currentGroupIndex > 0) {
-      setState(() {
-        _currentGroupIndex--;
-        _currentStoryIndex = 0;
-      });
-      _startProgress();
-    }
+    if (_currentGroupIndex <= 0) return;
+
+    setState(() {
+      _currentGroupIndex--;
+      _currentStoryIndex = 0;
+    });
+    _startProgress();
   }
 
-  // ─── PAUSE / RESUME ───────────────────────────────────────
   void _pauseStory() {
-    if (!_isPaused) {
-      _progressController.stop();
-      setState(() => _isPaused = true);
-    }
+    if (_isPaused) return;
+    _progressController.stop();
+    setState(() => _isPaused = true);
   }
 
   void _resumeStory() {
-    if (_isPaused && !_isTyping) {
-      _progressController.forward();
-      setState(() => _isPaused = false);
-    }
+    if (!_isPaused || _isTyping) return;
+    _progressController.forward();
+    setState(() => _isPaused = false);
   }
 
-  // ─── HANDLE TAP ───────────────────────────────────────────
   void _handleTapDown(TapDownDetails details) {
     final screenWidth = MediaQuery.of(context).size.width;
     final tapX = details.globalPosition.dx;
 
     if (tapX < screenWidth / 3) {
-      // Tap left third → previous
       _goToPreviousStory();
     } else if (tapX > screenWidth * 2 / 3) {
-      // Tap right third → next
       _goToNextStory();
     }
-    // Tap middle → do nothing (or show info)
   }
 
   @override
@@ -210,43 +177,28 @@ class _StoryViewerState extends ConsumerState<StoryViewer>
     return Scaffold(
       backgroundColor: Colors.black,
       body: GestureDetector(
-        // Tap to navigate
         onTapDown: _isTyping ? null : _handleTapDown,
-
-        // Hold to pause
         onLongPressStart: (_) => _pauseStory(),
         onLongPressEnd: (_) => _resumeStory(),
-
-        // Swipe down to close
         onVerticalDragEnd: (details) {
           if (details.primaryVelocity != null &&
               details.primaryVelocity! > 300) {
             Navigator.of(context).pop();
           }
         },
-
         child: Stack(
           children: [
-            // ─── STORY MEDIA ────────────────────────────────
             _buildStoryMedia(story),
-
-            // ─── GRADIENT OVERLAYS ───────────────────────────
-            // Top gradient (for progress bars + user info)
             Container(
               height: 150,
               decoration: const BoxDecoration(
                 gradient: LinearGradient(
                   begin: Alignment.topCenter,
                   end: Alignment.bottomCenter,
-                  colors: [
-                    Colors.black54,
-                    Colors.transparent,
-                  ],
+                  colors: [Colors.black54, Colors.transparent],
                 ),
               ),
             ),
-
-            // Bottom gradient (for reply input)
             Positioned(
               bottom: 0,
               left: 0,
@@ -257,31 +209,21 @@ class _StoryViewerState extends ConsumerState<StoryViewer>
                   gradient: LinearGradient(
                     begin: Alignment.bottomCenter,
                     end: Alignment.topCenter,
-                    colors: [
-                      Colors.black54,
-                      Colors.transparent,
-                    ],
+                    colors: [Colors.black54, Colors.transparent],
                   ),
                 ),
               ),
             ),
-
-            // ─── TOP: PROGRESS BARS + USER INFO ─────────────
             SafeArea(
               child: Column(
                 crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
-                  // Progress bars
                   _buildProgressBars(),
                   const SizedBox(height: 8),
-
-                  // User info row
                   _buildUserInfo(group, story, isOwnStory),
                 ],
               ),
             ),
-
-            // ─── BOTTOM: CAPTION + REPLY INPUT ──────────────
             Positioned(
               bottom: 0,
               left: 0,
@@ -290,18 +232,10 @@ class _StoryViewerState extends ConsumerState<StoryViewer>
                 child: Column(
                   mainAxisSize: MainAxisSize.min,
                   children: [
-                    // Caption
-                    if (story.caption != null &&
-                        story.caption!.isNotEmpty)
+                    if (story.caption != null && story.caption!.isNotEmpty)
                       _buildCaption(story.caption!),
-
                     const SizedBox(height: 8),
-
-                    // Reply input or view count
-                    isOwnStory
-                        ? _buildViewCount(story)
-                        : _buildReplyInput(),
-
+                    isOwnStory ? _buildViewCount(story) : _buildReplyInput(),
                     const SizedBox(height: 16),
                   ],
                 ),
@@ -313,17 +247,13 @@ class _StoryViewerState extends ConsumerState<StoryViewer>
     );
   }
 
-  // ─── STORY MEDIA ──────────────────────────────────────────
   Widget _buildStoryMedia(StoryModel story) {
     return SizedBox.expand(
       child: story.isVideo
-          ? Center(
+          ? const Center(
               child: Text(
-                '🎬 Video stories coming soon',
-                style: const TextStyle(
-                  color: Colors.white,
-                  fontSize: 18,
-                ),
+                'Video stories coming soon',
+                style: TextStyle(color: Colors.white, fontSize: 18),
               ),
             )
           : CachedNetworkImage(
@@ -352,50 +282,40 @@ class _StoryViewerState extends ConsumerState<StoryViewer>
     );
   }
 
-  // ─── PROGRESS BARS ────────────────────────────────────────
   Widget _buildProgressBars() {
     return Padding(
       padding: const EdgeInsets.symmetric(horizontal: 8),
       child: Row(
-        children: List.generate(
-          _currentGroup.stories.length,
-          (index) {
-            return Expanded(
-              child: Padding(
-                padding: const EdgeInsets.symmetric(horizontal: 2),
-                child: _StoryProgressBar(
-                  // Past stories → full
-                  // Current story → animated
-                  // Future stories → empty
-                  progress: index < _currentStoryIndex
-                      ? 1.0
-                      : index == _currentStoryIndex
-                          ? _progressController
-                          : 0.0,
-                ),
+        children: List.generate(_currentGroup.stories.length, (index) {
+          return Expanded(
+            child: Padding(
+              padding: const EdgeInsets.symmetric(horizontal: 2),
+              child: _StoryProgressBar(
+                progress: index < _currentStoryIndex
+                    ? 1.0
+                    : index == _currentStoryIndex
+                    ? _progressController
+                    : 0.0,
               ),
-            );
-          },
-        ),
+            ),
+          );
+        }),
       ),
     );
   }
 
-  // ─── USER INFO ────────────────────────────────────────────
   Widget _buildUserInfo(
     StoryUserGroup group,
     StoryModel story,
     bool isOwnStory,
   ) {
-    final timeText = story.createdAt != null
-        ? timeago.format(story.createdAt!)
-        : '';
+    final timeText =
+        story.createdAt != null ? timeago.format(story.createdAt!) : '';
 
     return Padding(
       padding: const EdgeInsets.symmetric(horizontal: 12),
       child: Row(
         children: [
-          // Avatar
           Container(
             width: 36,
             height: 36,
@@ -423,10 +343,7 @@ class _StoryViewerState extends ConsumerState<StoryViewer>
                     ),
             ),
           ),
-
           const SizedBox(width: 10),
-
-          // Username + time
           Expanded(
             child: Column(
               crossAxisAlignment: CrossAxisAlignment.start,
@@ -453,49 +370,30 @@ class _StoryViewerState extends ConsumerState<StoryViewer>
                 ),
                 Text(
                   timeText,
-                  style: const TextStyle(
-                    color: Colors.white70,
-                    fontSize: 12,
-                  ),
+                  style: const TextStyle(color: Colors.white70, fontSize: 12),
                 ),
               ],
             ),
           ),
-
-          // Close button
           IconButton(
             onPressed: () => Navigator.of(context).pop(),
-            icon: const Icon(
-              Icons.close,
-              color: Colors.white,
-              size: 26,
-            ),
+            icon: const Icon(Icons.close, color: Colors.white, size: 26),
           ),
-
-          // More options
           if (isOwnStory)
             IconButton(
-              onPressed: () => _showStoryOptions(),
-              icon: const Icon(
-                Icons.more_vert,
-                color: Colors.white,
-                size: 22,
-              ),
+              onPressed: _showStoryOptions,
+              icon: const Icon(Icons.more_vert, color: Colors.white, size: 22),
             ),
         ],
       ),
     );
   }
 
-  // ─── CAPTION ─────────────────────────────────────────────
   Widget _buildCaption(String caption) {
     return Padding(
       padding: const EdgeInsets.symmetric(horizontal: 16),
       child: Container(
-        padding: const EdgeInsets.symmetric(
-          horizontal: 12,
-          vertical: 8,
-        ),
+        padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
         decoration: BoxDecoration(
           color: Colors.black38,
           borderRadius: BorderRadius.circular(8),
@@ -513,7 +411,6 @@ class _StoryViewerState extends ConsumerState<StoryViewer>
     );
   }
 
-  // ─── VIEW COUNT (own stories) ─────────────────────────────
   Widget _buildViewCount(StoryModel story) {
     return Padding(
       padding: const EdgeInsets.symmetric(horizontal: 16),
@@ -539,7 +436,6 @@ class _StoryViewerState extends ConsumerState<StoryViewer>
     );
   }
 
-  // ─── REPLY INPUT ──────────────────────────────────────────
   Widget _buildReplyInput() {
     return Padding(
       padding: const EdgeInsets.symmetric(horizontal: 12),
@@ -554,13 +450,9 @@ class _StoryViewerState extends ConsumerState<StoryViewer>
               child: TextField(
                 controller: _replyController,
                 focusNode: _replyFocus,
-                style: const TextStyle(
-                  color: Colors.white,
-                  fontSize: 14,
-                ),
+                style: const TextStyle(color: Colors.white, fontSize: 14),
                 decoration: InputDecoration(
-                  hintText:
-                      'Reply to ${_currentGroup.user.username}...',
+                  hintText: 'Reply to ${_currentGroup.user.username}...',
                   hintStyle: const TextStyle(
                     color: Colors.white60,
                     fontSize: 14,
@@ -584,29 +476,16 @@ class _StoryViewerState extends ConsumerState<StoryViewer>
               ),
             ),
           ),
-
           const SizedBox(width: 12),
-
-          // Send heart reaction
           GestureDetector(
-            onTap: () {
-              ScaffoldMessenger.of(context).showSnackBar(
-                const SnackBar(
-                  content: Text('❤️ Reaction sent!'),
-                  duration: Duration(seconds: 1),
-                  backgroundColor: Colors.transparent,
-                  elevation: 0,
-                ),
-              );
-            },
-            child: const Text('❤️', style: TextStyle(fontSize: 28)),
+            onTap: () => AppSnackbar.success(context, 'Reaction sent!'),
+            child: const Text('❤', style: TextStyle(fontSize: 28)),
           ),
         ],
       ),
     );
   }
 
-  // ─── STORY OPTIONS (own stories) ─────────────────────────
   void _showStoryOptions() {
     _pauseStory();
 
@@ -614,9 +493,7 @@ class _StoryViewerState extends ConsumerState<StoryViewer>
       context: context,
       backgroundColor: Colors.grey[900],
       shape: const RoundedRectangleBorder(
-        borderRadius: BorderRadius.vertical(
-          top: Radius.circular(16),
-        ),
+        borderRadius: BorderRadius.vertical(top: Radius.circular(16)),
       ),
       builder: (ctx) => Column(
         mainAxisSize: MainAxisSize.min,
@@ -631,12 +508,8 @@ class _StoryViewerState extends ConsumerState<StoryViewer>
             ),
           ),
           const SizedBox(height: 16),
-
           ListTile(
-            leading: const Icon(
-              Icons.delete_outline,
-              color: Colors.red,
-            ),
+            leading: const Icon(Icons.delete_outline, color: Colors.red),
             title: const Text(
               'Delete Story',
               style: TextStyle(color: Colors.white),
@@ -646,27 +519,20 @@ class _StoryViewerState extends ConsumerState<StoryViewer>
               await _deleteCurrentStory();
             },
           ),
-
           ListTile(
-            leading:
-                const Icon(Icons.close, color: Colors.white),
-            title: const Text(
-              'Cancel',
-              style: TextStyle(color: Colors.white),
-            ),
+            leading: const Icon(Icons.close, color: Colors.white),
+            title: const Text('Cancel', style: TextStyle(color: Colors.white)),
             onTap: () {
               Navigator.pop(ctx);
               _resumeStory();
             },
           ),
-
           const SizedBox(height: 16),
         ],
       ),
-    ).whenComplete(() => _resumeStory());
+    ).whenComplete(_resumeStory);
   }
 
-  // ─── DELETE STORY ─────────────────────────────────────────
   Future<void> _deleteCurrentStory() async {
     try {
       final storyId = _currentStory.id;
@@ -674,23 +540,21 @@ class _StoryViewerState extends ConsumerState<StoryViewer>
       ref.read(storyFeedProvider.notifier).removeStory(storyId);
 
       if (_isLastStoryInGroup && _isLastGroup) {
-        if (mounted) Navigator.of(context).pop();
+        if (mounted) {
+          Navigator.of(context).pop();
+        }
       } else {
         _goToNextStory();
       }
     } catch (e) {
       if (mounted) {
-        ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(content: Text('Failed to delete: $e')),
-        );
+        AppSnackbar.error(context, 'Failed to delete: $e');
       }
     }
   }
 }
 
-// ─── STORY PROGRESS BAR ─────────────────────────────────────
 class _StoryProgressBar extends StatelessWidget {
-  // Can be double (0.0 or 1.0) or AnimationController
   final dynamic progress;
 
   const _StoryProgressBar({required this.progress});
@@ -698,18 +562,14 @@ class _StoryProgressBar extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     if (progress is AnimationController) {
-      // Animated progress bar
       return AnimatedBuilder(
         animation: progress as AnimationController,
         builder: (_, __) {
-          return _buildBar(
-            (progress as AnimationController).value,
-          );
+          return _buildBar((progress as AnimationController).value);
         },
       );
     }
 
-    // Static bar (full or empty)
     return _buildBar(progress as double);
   }
 
@@ -719,9 +579,7 @@ class _StoryProgressBar extends StatelessWidget {
       child: LinearProgressIndicator(
         value: value,
         backgroundColor: Colors.white30,
-        valueColor: const AlwaysStoppedAnimation<Color>(
-          Colors.white,
-        ),
+        valueColor: const AlwaysStoppedAnimation<Color>(Colors.white),
         minHeight: 3,
       ),
     );

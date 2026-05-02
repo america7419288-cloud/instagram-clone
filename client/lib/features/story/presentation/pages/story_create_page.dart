@@ -7,6 +7,7 @@ import 'package:go_router/go_router.dart';
 import 'package:image_picker/image_picker.dart';
 import '../../../../core/theme/app_theme.dart';
 import '../../../../core/router/app_router.dart';
+import '../../../../shared/widgets/app_snackbar.dart';
 import '../providers/story_create_provider.dart';
 
 class StoryCreatePage extends ConsumerStatefulWidget {
@@ -60,9 +61,7 @@ class _StoryCreatePageState extends ConsumerState<StoryCreatePage>
       }
     } catch (e) {
       if (mounted) {
-        ScaffoldMessenger.of(
-          context,
-        ).showSnackBar(SnackBar(content: Text('Error: $e')));
+        AppSnackbar.error(context, 'Error: $e');
       }
     }
   }
@@ -82,9 +81,7 @@ class _StoryCreatePageState extends ConsumerState<StoryCreatePage>
       }
     } catch (e) {
       if (mounted) {
-        ScaffoldMessenger.of(
-          context,
-        ).showSnackBar(SnackBar(content: Text('Error: $e')));
+        AppSnackbar.error(context, 'Error: $e');
       }
     }
   }
@@ -359,19 +356,7 @@ class _StoryCreatePageState extends ConsumerState<StoryCreatePage>
     final success = await ref.read(storyCreateProvider.notifier).uploadStory();
 
     if (success && mounted) {
-      ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(
-          content: Row(
-            children: [
-              Icon(Icons.check_circle, color: Colors.white),
-              SizedBox(width: 8),
-              Text('Story posted! 📖'),
-            ],
-          ),
-          backgroundColor: Colors.green,
-          duration: Duration(seconds: 2),
-        ),
-      );
+      AppSnackbar.success(context, 'Story posted!');
 
       // Reset state
       ref.read(storyCreateProvider.notifier).reset();

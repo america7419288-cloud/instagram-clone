@@ -6,6 +6,7 @@ import 'package:cached_network_image/cached_network_image.dart';
 import 'package:go_router/go_router.dart';
 import '../../../../../../core/router/navigation_extensions.dart';
 import '../../../../../../core/theme/app_theme.dart';
+import '../../../../../../shared/widgets/app_snackbar.dart';
 import '../providers/follow_provider.dart';
 
 class FollowRequestsPage extends ConsumerWidget {
@@ -80,13 +81,9 @@ class FollowRequestsPage extends ConsumerWidget {
                         .read(followRequestsProvider.notifier)
                         .acceptRequest(requester['id'] ?? '');
                     if (context.mounted) {
-                      ScaffoldMessenger.of(context).showSnackBar(
-                        SnackBar(
-                          content: Text(
-                            'You accepted @${requester['username']}\'s request.',
-                          ),
-                          duration: const Duration(seconds: 2),
-                        ),
+                      AppSnackbar.success(
+                        context,
+                        'You accepted @${requester['username']}\'s request.',
                       );
                     }
                   },

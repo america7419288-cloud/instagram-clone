@@ -5,6 +5,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:cached_network_image/cached_network_image.dart';
 import 'package:go_router/go_router.dart';
 import '../../../../core/theme/app_theme.dart';
+import '../../../../shared/widgets/app_snackbar.dart';
 import '../providers/message_search_provider.dart';
 import '../providers/message_provider.dart';
 
@@ -186,9 +187,7 @@ class _NewMessagePageState extends ConsumerState<NewMessagePage> {
             } catch (e) {
               if (!context.mounted) return;
               Navigator.pop(context); // Pop loading
-              ScaffoldMessenger.of(
-                context,
-              ).showSnackBar(SnackBar(content: Text('Error: $e')));
+              AppSnackbar.error(context, 'Error: $e');
             }
           },
         );

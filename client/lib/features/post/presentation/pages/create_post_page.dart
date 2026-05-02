@@ -8,6 +8,7 @@ import 'package:image_picker/image_picker.dart';
 import 'package:image_cropper/image_cropper.dart';
 import '../../../../core/theme/app_theme.dart';
 import '../../../../core/router/app_router.dart';
+import '../../../../shared/widgets/app_snackbar.dart';
 import '../providers/create_post_provider.dart';
 
 class CreatePostPage extends ConsumerStatefulWidget {
@@ -224,19 +225,7 @@ class _CreatePostPageState extends ConsumerState<CreatePostPage> {
 
     if (success && mounted) {
       // Show success message
-      ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(
-          content: Row(
-            children: [
-              Icon(Icons.check_circle, color: Colors.white),
-              SizedBox(width: 8),
-              Text('Post shared successfully! 🎉'),
-            ],
-          ),
-          backgroundColor: Colors.green,
-          duration: Duration(seconds: 3),
-        ),
-      );
+      AppSnackbar.success(context, 'Post shared successfully!');
 
       // Reset create post state
       ref.read(createPostProvider.notifier).reset();
@@ -281,23 +270,11 @@ class _CreatePostPageState extends ConsumerState<CreatePostPage> {
   }
 
   void _showMaxImagesSnackbar() {
-    ScaffoldMessenger.of(context).showSnackBar(
-      const SnackBar(
-        content: Text('Maximum 10 images per post'),
-        backgroundColor: Colors.orange,
-        duration: Duration(seconds: 2),
-      ),
-    );
+    AppSnackbar.warning(context, 'Maximum 10 images per post');
   }
 
   void _showErrorSnackbar(String message) {
-    ScaffoldMessenger.of(context).showSnackBar(
-      SnackBar(
-        content: Text(message),
-        backgroundColor: AppColors.secondary,
-        duration: const Duration(seconds: 3),
-      ),
-    );
+    AppSnackbar.error(context, message);
   }
 
   @override

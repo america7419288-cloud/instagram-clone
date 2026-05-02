@@ -7,6 +7,7 @@ import 'package:go_router/go_router.dart';
 import 'package:url_launcher/url_launcher.dart';
 import '../../../../core/theme/app_theme.dart';
 import '../../../../core/router/app_router.dart';
+import '../../../../shared/widgets/app_snackbar.dart';
 import '../../../../features/auth/presentation/providers/auth_provider.dart';
 import '../../../follow/data/repositories/presentation/providers/widgets/follow_button.dart';
 import '../providers/profile_provider.dart';
@@ -387,11 +388,8 @@ class _ProfilePageState extends ConsumerState<ProfilePage>
         ),
         const SizedBox(width: 8),
         OutlinedButton(
-          onPressed: () {
-            ScaffoldMessenger.of(context).showSnackBar(
-              const SnackBar(content: Text('Share profile coming soon!')),
-            );
-          },
+          onPressed: () =>
+              AppSnackbar.info(context, 'Share profile coming soon!'),
           style: OutlinedButton.styleFrom(
             side: const BorderSide(color: AppColors.border),
             shape: RoundedRectangleBorder(
@@ -432,9 +430,7 @@ class _ProfilePageState extends ConsumerState<ProfilePage>
                 }
               } catch (e) {
                 if (context.mounted) {
-                  ScaffoldMessenger.of(
-                    context,
-                  ).showSnackBar(SnackBar(content: Text('Error: $e')));
+                  AppSnackbar.error(context, 'Error: $e');
                 }
               }
             },
@@ -488,11 +484,8 @@ class _ProfilePageState extends ConsumerState<ProfilePage>
             _HighlightItem(
               label: 'New',
               isNew: true,
-              onTap: () {
-                ScaffoldMessenger.of(context).showSnackBar(
-                  const SnackBar(content: Text('Highlights coming Day 33!')),
-                );
-              },
+              onTap: () =>
+                  AppSnackbar.info(context, 'Highlights coming soon!'),
             ),
 
           // Placeholder highlights

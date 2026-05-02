@@ -6,6 +6,7 @@ import 'package:go_router/go_router.dart';
 import '../../../../core/theme/app_theme.dart';
 import '../../../../core/router/app_router.dart';
 import '../../../../core/providers/theme_provider.dart';
+import '../../../../shared/widgets/app_snackbar.dart';
 import '../../../../features/auth/presentation/providers/auth_provider.dart';
 import 'change_password_page.dart';
 
@@ -51,28 +52,14 @@ class SettingsPage extends ConsumerWidget {
           _SettingsTile(
             icon: Icons.bookmark_outline,
             title: 'Saved Posts',
-            onTap: () {
-              ScaffoldMessenger.of(context).showSnackBar(
-                const SnackBar(
-                  content: Text('Saved posts coming soon!'),
-                  duration: Duration(seconds: 2),
-                ),
-              );
-            },
+            onTap: () => AppSnackbar.info(context, 'Saved posts coming soon!'),
           ),
 
           _SettingsTile(
             icon: Icons.archive_outlined,
             title: 'Archive',
             subtitle: 'Stories, posts you\'ve archived',
-            onTap: () {
-              ScaffoldMessenger.of(context).showSnackBar(
-                const SnackBar(
-                  content: Text('Archive coming soon!'),
-                  duration: Duration(seconds: 2),
-                ),
-              );
-            },
+            onTap: () => AppSnackbar.info(context, 'Archive coming soon!'),
           ),
 
           const _SectionDivider(),
@@ -100,18 +87,10 @@ class SettingsPage extends ConsumerWidget {
             title: 'Push Notifications',
             subtitle: 'Receive push notifications',
             value: true, // Will connect to real settings later
-            onChanged: (value) {
-              ScaffoldMessenger.of(context).showSnackBar(
-                SnackBar(
-                  content: Text(
-                    value
-                        ? 'Notifications enabled'
-                        : 'Notifications disabled',
-                  ),
-                  duration: const Duration(seconds: 2),
-                ),
-              );
-            },
+            onChanged: (value) => AppSnackbar.info(
+              context,
+              value ? 'Notifications enabled' : 'Notifications disabled',
+            ),
           ),
 
           _SettingsSwitchTile(
@@ -135,15 +114,9 @@ class SettingsPage extends ConsumerWidget {
                 : 'Anyone can see your posts',
             value: currentUser?.isPrivate ?? false,
             onChanged: (value) {
-              ScaffoldMessenger.of(context).showSnackBar(
-                SnackBar(
-                  content: Text(
-                    value
-                        ? 'Account set to private'
-                        : 'Account set to public',
-                  ),
-                  duration: const Duration(seconds: 2),
-                ),
+              AppSnackbar.info(
+                context,
+                value ? 'Account set to private' : 'Account set to public',
               );
               // TODO: Call update profile API
             },
@@ -152,13 +125,8 @@ class SettingsPage extends ConsumerWidget {
           _SettingsTile(
             icon: Icons.block_outlined,
             title: 'Blocked Accounts',
-            onTap: () {
-              ScaffoldMessenger.of(context).showSnackBar(
-                const SnackBar(
-                  content: Text('Blocked accounts coming soon!'),
-                ),
-              );
-            },
+            onTap: () =>
+                AppSnackbar.info(context, 'Blocked accounts coming soon!'),
           ),
 
           _SettingsTile(
@@ -176,25 +144,14 @@ class SettingsPage extends ConsumerWidget {
           _SettingsTile(
             icon: Icons.security_outlined,
             title: 'Two-Factor Authentication',
-            onTap: () {
-              ScaffoldMessenger.of(context).showSnackBar(
-                const SnackBar(
-                  content: Text('2FA coming soon!'),
-                ),
-              );
-            },
+            onTap: () => AppSnackbar.info(context, '2FA coming soon!'),
           ),
 
           _SettingsTile(
             icon: Icons.devices_outlined,
             title: 'Login Activity',
-            onTap: () {
-              ScaffoldMessenger.of(context).showSnackBar(
-                const SnackBar(
-                  content: Text('Login activity coming soon!'),
-                ),
-              );
-            },
+            onTap: () =>
+                AppSnackbar.info(context, 'Login activity coming soon!'),
           ),
 
           const _SectionDivider(),
