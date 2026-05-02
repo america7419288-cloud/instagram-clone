@@ -19,6 +19,8 @@ import '../../features/profile/presentation/pages/profile_page.dart';
 import '../../features/profile/presentation/pages/edit_profile_page.dart';
 import '../../features/messages/presentation/pages/messages_page.dart';
 import '../../features/messages/presentation/pages/chat_page.dart';
+import '../../features/messages/presentation/pages/new_message_page.dart';
+import '../../features/messages/data/models/conversation_model.dart';
 import '../../features/story/presentation/pages/story_viewer_page.dart';
 import '../../features/follow/data/repositories/presentation/pages/followers_page.dart';
 import '../../features/follow/data/repositories/presentation/pages/follow_requests_page.dart';
@@ -44,6 +46,7 @@ class AppRoutes {
   static const String createPost = '/create';
   static const String notifications = '/notifications';
   static const String messages = '/messages';
+  static const String newMessage = '/messages/new';
   static const String chat = '/messages/:conversationId';
   static const String profile = '/profile/:username';
   static const String editProfile = '/profile/edit';
@@ -259,16 +262,23 @@ final routerProvider = Provider<GoRouter>((ref) {
       // Chat / Conversation
       GoRoute(
         parentNavigatorKey: _rootNavigatorKey,
+        path: AppRoutes.newMessage,
+        name: 'newMessage',
+        builder: (context, state) => const NewMessagePage(),
+      ),
+
+      GoRoute(
+        parentNavigatorKey: _rootNavigatorKey,
         path: AppRoutes.chat,
         name: 'chat',
         builder: (context, state) {
-          final conversationId =
-        state.pathParameters['conversationId'] ?? '';
-    // Get conversation passed as extra (from inbox tap)
-    final conversation = state.extra as ConversationModel?;
-    return ChatPage(
-      conversationId: conversationId,
-      conversation: conversation,
+          final conversationId = state.pathParameters['conversationId'] ?? '';
+          // Get conversation passed as extra (from inbox tap)
+          final conversation = state.extra as ConversationModel?;
+          return ChatPage(
+            conversationId: conversationId,
+            conversation: conversation,
+          );
         },
       ),
 

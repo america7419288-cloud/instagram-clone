@@ -133,25 +133,44 @@ const createOrGetConversation = async (req, res) => {
     }
 
     // 3. CHECK IF DM ALREADY EXISTS
-    // We look for a conversation that has exactly these two participants and is NOT a group
-    const existingConversation = await Conversation.findOne({
-      where: { is_group: false },
-      include: [
-        {
-          model: ConversationParticipant,
-          as: 'participantRecords',
-          where: {
-            user_id: { [Op.in]: [currentUserId, targetUserId] }
-          },
-        }
-      ],
-      group: ['Conversation.id'],
-      having: sequelize.where(
-        sequelize.fn('COUNT', sequelize.col('participantRecords.id')),
-        '=',
-        2
-      ),
+    // Avoid grouped include aliases here; Postgres can generate fragile aliases
+    // for HAVING clauses when Sequelize joins participantRecords.
+    const participantMatches = await ConversationParticipant.findAll({
+      where: {
+        user_id: { [Op.in]: [currentUserId, targetUserId] },
+        left_at: null,
+      },
+      attributes: ['conversation_id', 'user_id'],
+      raw: true,
     });
+
+    const participantUserIdsByConversation = new Map();
+    participantMatches.forEach((participant) => {
+      const conversationUserIds =
+        participantUserIdsByConversation.get(participant.conversation_id) ||
+        new Set();
+      conversationUserIds.add(participant.user_id);
+      participantUserIdsByConversation.set(
+        participant.conversation_id,
+        conversationUserIds
+      );
+    });
+
+    const existingConversationIds = Array.from(
+      participantUserIdsByConversation.entries()
+    )
+      .filter(([, userIds]) => userIds.size === 2)
+      .map(([conversationId]) => conversationId);
+
+    const existingConversation =
+      existingConversationIds.length > 0
+        ? await Conversation.findOne({
+            where: {
+              id: { [Op.in]: existingConversationIds },
+              is_group: false,
+            },
+          })
+        : null;
 
     if (existingConversation) {
       console.log(`✅ Found existing DM: ${existingConversation.id}`);

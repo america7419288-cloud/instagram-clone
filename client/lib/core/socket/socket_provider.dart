@@ -1,6 +1,7 @@
 // lib/core/socket/socket_provider.dart
 
 import 'package:flutter_riverpod/flutter_riverpod.dart';
+import 'package:flutter_riverpod/legacy.dart';
 import 'socket_service.dart';
 
 // ─── SOCKET STATE ────────────────────────────────────────────
@@ -28,11 +29,9 @@ class SocketState {
     );
   }
 
-  bool isUserOnline(String userId) =>
-      onlineUserIds.contains(userId);
+  bool isUserOnline(String userId) => onlineUserIds.contains(userId);
 
-  String? getTypingUser(String conversationId) =>
-      typingUsers[conversationId];
+  String? getTypingUser(String conversationId) => typingUsers[conversationId];
 }
 
 // ─── SOCKET NOTIFIER ─────────────────────────────────────────
@@ -41,10 +40,8 @@ class SocketNotifier extends StateNotifier<SocketState> {
 
   // Callbacks for other providers to register
   // When new message arrives, ChatNotifier handles it
-  final Map<String, Function(Map<String, dynamic>)>
-      _messageHandlers = {};
-  final Map<String, Function(Map<String, dynamic>)>
-      _inboxHandlers = {};
+  final Map<String, Function(Map<String, dynamic>)> _messageHandlers = {};
+  final Map<String, Function(Map<String, dynamic>)> _inboxHandlers = {};
 
   SocketNotifier(this._socketService) : super(const SocketState()) {
     _setupCallbacks();
@@ -54,8 +51,7 @@ class SocketNotifier extends StateNotifier<SocketState> {
   void _setupCallbacks() {
     // New message received
     _socketService.onNewMessage = (data) {
-      final conversationId =
-          data['conversation_id'] as String? ?? '';
+      final conversationId = data['conversation_id'] as String? ?? '';
 
       // Notify registered message handler for this conversation
       if (_messageHandlers.containsKey(conversationId)) {
@@ -67,11 +63,9 @@ class SocketNotifier extends StateNotifier<SocketState> {
     };
 
     // User typing
-    _socketService.onUserTyping =
-        (conversationId, userId, isTyping) {
+    _socketService.onUserTyping = (conversationId, userId, isTyping) {
       if (!mounted) return;
-      final updatedTyping =
-          Map<String, String?>.from(state.typingUsers);
+      final updatedTyping = Map<String, String?>.from(state.typingUsers);
 
       if (isTyping) {
         updatedTyping[conversationId] = userId;
@@ -117,9 +111,7 @@ class SocketNotifier extends StateNotifier<SocketState> {
   Future<void> connect() async {
     await _socketService.connect();
     if (mounted) {
-      state = state.copyWith(
-        isConnected: _socketService.isConnected,
-      );
+      state = state.copyWith(isConnected: _socketService.isConnected);
     }
   }
 
@@ -141,8 +133,7 @@ class SocketNotifier extends StateNotifier<SocketState> {
     _socketService.leaveRoom(conversationId);
     // Clear typing indicator when leaving
     if (mounted) {
-      final updated =
-          Map<String, String?>.from(state.typingUsers);
+      final updated = Map<String, String?>.from(state.typingUsers);
       updated.remove(conversationId);
       state = state.copyWith(typingUsers: updated);
     }
@@ -196,8 +187,7 @@ class SocketNotifier extends StateNotifier<SocketState> {
   }
 
   // ─── IS USER ONLINE ───────────────────────────────────────
-  bool isUserOnline(String userId) =>
-      state.isUserOnline(userId);
+  bool isUserOnline(String userId) => state.isUserOnline(userId);
 
   @override
   void dispose() {
@@ -211,8 +201,9 @@ final socketServiceProvider = Provider<SocketService>((ref) {
   return SocketService();
 });
 
-final socketProvider =
-    StateNotifierProvider<SocketNotifier, SocketState>((ref) {
+final socketProvider = StateNotifierProvider<SocketNotifier, SocketState>((
+  ref,
+) {
   return SocketNotifier(ref.watch(socketServiceProvider));
 });
 

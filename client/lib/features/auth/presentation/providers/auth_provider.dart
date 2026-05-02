@@ -2,6 +2,7 @@
 // COMPLETE UPDATED FILE
 
 import 'package:flutter_riverpod/flutter_riverpod.dart';
+import 'package:flutter_riverpod/legacy.dart';
 import '../../../../shared/models/user_model.dart';
 import '../../data/repositories/auth_service.dart';
 import '../../../../core/socket/socket_provider.dart';
@@ -33,18 +34,14 @@ class AuthState {
     );
   }
 
-  static const initial = AuthState(
-    isLoading: false,
-    isAuthenticated: false,
-  );
+  static const initial = AuthState(isLoading: false, isAuthenticated: false);
 }
 
 class AuthNotifier extends StateNotifier<AuthState> {
   final AuthService _authService;
   final Ref _ref;
 
-  AuthNotifier(this._authService, this._ref)
-      : super(AuthState.initial) {
+  AuthNotifier(this._authService, this._ref) : super(AuthState.initial) {
     _checkAuthStatus();
   }
 
@@ -72,24 +69,15 @@ class AuthNotifier extends StateNotifier<AuthState> {
         } else {
           await _authService.logout();
           if (!mounted) return;
-          state = state.copyWith(
-            isAuthenticated: false,
-            isLoading: false,
-          );
+          state = state.copyWith(isAuthenticated: false, isLoading: false);
         }
       } else {
         if (!mounted) return;
-        state = state.copyWith(
-          isAuthenticated: false,
-          isLoading: false,
-        );
+        state = state.copyWith(isAuthenticated: false, isLoading: false);
       }
     } catch (e) {
       if (!mounted) return;
-      state = state.copyWith(
-        isAuthenticated: false,
-        isLoading: false,
-      );
+      state = state.copyWith(isAuthenticated: false, isLoading: false);
     }
   }
 
@@ -217,8 +205,7 @@ final authServiceProvider = Provider<AuthService>((ref) {
   return AuthService();
 });
 
-final authProvider =
-    StateNotifierProvider<AuthNotifier, AuthState>((ref) {
+final authProvider = StateNotifierProvider<AuthNotifier, AuthState>((ref) {
   final authService = ref.watch(authServiceProvider);
   return AuthNotifier(authService, ref);
 });

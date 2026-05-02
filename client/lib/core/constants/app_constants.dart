@@ -1,5 +1,4 @@
 class AppConstants {
- 
   AppConstants._();
 
   static const String appName = 'Instagram';
@@ -10,7 +9,11 @@ class AppConstants {
     defaultValue: 'http://10.126.0.227:5000/api/v1',
   );
 
-  
+  static const String socketUrl = String.fromEnvironment(
+    'SOCKET_URL',
+    defaultValue: 'http://10.126.0.227:5000',
+  );
+
   static const String loginEndpoint = '/auth/login';
   static const String registerEndpoint = '/auth/register';
   static const String logoutEndpoint = '/auth/logout';
@@ -25,22 +28,19 @@ class AppConstants {
   static const String suggestionsEndpoint = '/users/suggestions';
   static const String exploreEndpoint = '/posts/explore';
 
- 
   static const String tokenKey = 'auth_token';
   static const String refreshTokenKey = 'refresh_token';
   static const String userKey = 'current_user';
   static const String themeKey = 'app_theme';
 
- 
-  static const int maxPostImages = 10;       // Max images per post
-  static const int maxBioLength = 150;       // Bio character limit
-  static const int maxCaptionLength = 2200;  // Caption character limit
-  static const int maxUsernameLength = 30;   // Username character limit
-  static const int postPageSize = 12;        // Posts per page
-  static const int commentsPageSize = 20;    // Comments per page
-  static const int storyDuration = 5;        // Story display seconds
+  static const int maxPostImages = 10; // Max images per post
+  static const int maxBioLength = 150; // Bio character limit
+  static const int maxCaptionLength = 2200; // Caption character limit
+  static const int maxUsernameLength = 30; // Username character limit
+  static const int postPageSize = 12; // Posts per page
+  static const int commentsPageSize = 20; // Comments per page
+  static const int storyDuration = 5; // Story display seconds
 
- 
   static const double profilePicSize = 40.0;
   static const double profilePicSizeLarge = 86.0;
   static const double storyCircleSize = 64.0;
