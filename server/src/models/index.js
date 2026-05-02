@@ -300,17 +300,9 @@ const syncDatabase = async () => {
   try {
     const isProduction = process.env.NODE_ENV === 'production';
 
-    if (isProduction) {
-      // Production: only sync if table doesn't exist
-      // Never alter existing tables automatically
-      await sequelize.sync({ force: false, alter: false });
-      console.log('✅ Database synced (production mode)');
-    } else {
-      // Development: auto-alter tables to add new columns
-      // This adds thumbnailUrl, mediaType, duration to post_media
-      await sequelize.sync({ alter: true });
-      console.log('✅ Database synced (development mode - alter: true)');
-    }
+    // Temporarily force alter: true in production so Render creates the new columns
+    await sequelize.sync({ alter: true });
+    console.log(`✅ Database synced (alter: true) in ${isProduction ? 'production' : 'development'} mode`);
     
     console.log('✅ Database tables synced!');
     console.log('   → users, posts, post_media');

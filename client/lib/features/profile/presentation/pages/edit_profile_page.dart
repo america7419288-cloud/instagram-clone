@@ -1,14 +1,17 @@
 // lib/features/profile/presentation/pages/edit_profile_page.dart
 
 import 'dart:io';
+
+import 'package:cached_network_image/cached_network_image.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
-import 'package:cached_network_image/cached_network_image.dart';
 import 'package:go_router/go_router.dart';
 import 'package:image_picker/image_picker.dart';
+
 import '../../../../core/theme/app_theme.dart';
-import '../../../../shared/widgets/custom_text_field.dart';
+import '../../../../shared/widgets/app_snackbar.dart';
 import '../../../../shared/widgets/custom_button.dart';
+import '../../../../shared/widgets/custom_text_field.dart';
 import '../../../../features/auth/presentation/providers/auth_provider.dart';
 import '../providers/profile_provider.dart';
 
@@ -16,12 +19,10 @@ class EditProfilePage extends ConsumerStatefulWidget {
   const EditProfilePage({super.key});
 
   @override
-  ConsumerState<EditProfilePage> createState() =>
-      _EditProfilePageState();
+  ConsumerState<EditProfilePage> createState() => _EditProfilePageState();
 }
 
-class _EditProfilePageState
-    extends ConsumerState<EditProfilePage> {
+class _EditProfilePageState extends ConsumerState<EditProfilePage> {
   final _formKey = GlobalKey<FormState>();
   late TextEditingController _nameController;
   late TextEditingController _usernameController;
@@ -59,7 +60,6 @@ class _EditProfilePageState
     super.dispose();
   }
 
-  // Initialize from current user data
   void _initializeFromUser(dynamic user) {
     if (_initialized || user == null) return;
     _initialized = true;
@@ -72,7 +72,6 @@ class _EditProfilePageState
     _isPrivate = user.isPrivate;
   }
 
-  // Pick image from gallery or camera
   Future<void> _pickImage(ImageSource source) async {
     try {
       final picker = ImagePicker();
@@ -88,9 +87,7 @@ class _EditProfilePageState
       }
     } catch (e) {
       if (mounted) {
-        ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(content: Text('Error: $e')),
-        );
+        AppSnackbar.error(context, 'Error: $e');
       }
     }
   }
@@ -99,9 +96,7 @@ class _EditProfilePageState
     showModalBottomSheet(
       context: context,
       shape: const RoundedRectangleBorder(
-        borderRadius: BorderRadius.vertical(
-          top: Radius.circular(16),
-        ),
+        borderRadius: BorderRadius.vertical(top: Radius.circular(16)),
       ),
       builder: (ctx) => SafeArea(
         child: Column(
@@ -150,15 +145,10 @@ class _EditProfilePageState
     final currentUser = ref.read(currentUserProvider);
     if (currentUser == null) return;
 
-    final notifier = ref.read(
-      profileProvider(currentUser.username).notifier,
-    );
+    final notifier = ref.read(profileProvider(currentUser.username).notifier);
 
-    // Upload new profile picture first if selected
     if (_selectedImageFile != null) {
-      final picSuccess = await notifier.updateProfilePicture(
-        _selectedImageFile!,
-      );
+      final picSuccess = await notifier.updateProfilePicture(_selectedImageFile!);
       if (!picSuccess && mounted) {
         setState(() {
           _errorMessage =
@@ -168,7 +158,6 @@ class _EditProfilePageState
       }
     }
 
-    // Update profile details
     final success = await notifier.updateProfile(
       fullName: _nameController.text.trim(),
       bio: _bioController.text.trim(),
@@ -178,19 +167,12 @@ class _EditProfilePageState
     );
 
     if (success && mounted) {
-      ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(
-          content: Text('Profile updated successfully! ✅'),
-          backgroundColor: Colors.green,
-          duration: Duration(seconds: 2),
-        ),
-      );
+      AppSnackbar.success(context, 'Profile updated successfully!');
       context.pop();
     } else if (mounted) {
       setState(() {
-        _errorMessage = ref
-            .read(profileProvider(currentUser.username))
-            .errorMessage;
+        _errorMessage =
+            ref.read(profileProvider(currentUser.username)).errorMessage;
       });
     }
   }
@@ -205,18 +187,13 @@ class _EditProfilePageState
       );
     }
 
-    // Initialize form with current user data
     _initializeFromUser(currentUser);
 
-    final profileState = ref.watch(
-      profileProvider(currentUser.username),
-    );
+    final profileState = ref.watch(profileProvider(currentUser.username));
     final isSaving = profileState.isSaving;
 
     return Scaffold(
       backgroundColor: AppColors.white,
-
-      // ─── APP BAR ──────────────────────────────────────
       appBar: AppBar(
         backgroundColor: AppColors.white,
         elevation: 0,
@@ -230,10 +207,7 @@ class _EditProfilePageState
         ),
         leading: IconButton(
           onPressed: () => context.pop(),
-          icon: const Icon(
-            Icons.close,
-            color: AppColors.textPrimary,
-          ),
+          icon: const Icon(Icons.close, color: AppColors.textPrimary),
         ),
         actions: [
           TextButton(
@@ -241,9 +215,7 @@ class _EditProfilePageState
             child: Text(
               'Done',
               style: TextStyle(
-                color: isSaving
-                    ? AppColors.border
-                    : AppColors.primary,
+                color: isSaving ? AppColors.border : AppColors.primary,
                 fontWeight: FontWeight.bold,
                 fontSize: 16,
               ),
@@ -251,8 +223,6 @@ class _EditProfilePageState
           ),
         ],
       ),
-
-      // ─── BODY ─────────────────────────────────────────
       body: SingleChildScrollView(
         padding: const EdgeInsets.all(24),
         child: Form(
@@ -260,12 +230,8 @@ class _EditProfilePageState
           child: Column(
             crossAxisAlignment: CrossAxisAlignment.center,
             children: [
-              // ─── PROFILE PICTURE ──────────────────────
               _buildProfilePicture(currentUser),
-
               const SizedBox(height: 24),
-
-              // ─── ERROR MESSAGE ────────────────────────
               if (_errorMessage != null)
                 Container(
                   width: double.infinity,
@@ -286,19 +252,14 @@ class _EditProfilePageState
                     ),
                   ),
                 ),
-
-              // ─── FORM FIELDS ──────────────────────────
               _buildFormField(
                 label: 'Name',
                 child: CustomTextField(
                   hint: 'Full name',
                   controller: _nameController,
-                  validator: (v) => v?.isEmpty == true
-                      ? 'Name is required'
-                      : null,
+                  validator: (v) => v?.isEmpty == true ? 'Name is required' : null,
                 ),
               ),
-
               _buildFormField(
                 label: 'Username',
                 child: CustomTextField(
@@ -314,7 +275,6 @@ class _EditProfilePageState
                   },
                 ),
               ),
-
               _buildFormField(
                 label: 'Bio',
                 child: CustomTextField(
@@ -324,7 +284,6 @@ class _EditProfilePageState
                   maxLength: 150,
                 ),
               ),
-
               _buildFormField(
                 label: 'Website',
                 child: CustomTextField(
@@ -333,30 +292,24 @@ class _EditProfilePageState
                   keyboardType: TextInputType.url,
                 ),
               ),
-
-              // ─── GENDER ───────────────────────────────
               _buildFormField(
                 label: 'Gender',
                 child: DropdownButtonFormField<String>(
                   value: _selectedGender,
                   hint: const Text(
                     'Select gender',
-                    style: TextStyle(
-                      color: AppColors.textSecondary,
-                    ),
+                    style: TextStyle(color: AppColors.textSecondary),
                   ),
                   decoration: InputDecoration(
                     filled: true,
                     fillColor: const Color(0xFFFAFAFA),
                     border: OutlineInputBorder(
                       borderRadius: BorderRadius.circular(5),
-                      borderSide:
-                          const BorderSide(color: AppColors.border),
+                      borderSide: const BorderSide(color: AppColors.border),
                     ),
                     enabledBorder: OutlineInputBorder(
                       borderRadius: BorderRadius.circular(5),
-                      borderSide:
-                          const BorderSide(color: AppColors.border),
+                      borderSide: const BorderSide(color: AppColors.border),
                     ),
                     contentPadding: const EdgeInsets.symmetric(
                       horizontal: 12,
@@ -364,31 +317,26 @@ class _EditProfilePageState
                     ),
                   ),
                   items: _genderOptions
-                      .map((g) => DropdownMenuItem(
-                            value: g,
-                            child: Text(
-                              _formatGender(g),
-                              style: const TextStyle(fontSize: 14),
-                            ),
-                          ))
+                      .map(
+                        (g) => DropdownMenuItem(
+                          value: g,
+                          child: Text(
+                            _formatGender(g),
+                            style: const TextStyle(fontSize: 14),
+                          ),
+                        ),
+                      )
                       .toList(),
-                  onChanged: (value) =>
-                      setState(() => _selectedGender = value),
+                  onChanged: (value) => setState(() => _selectedGender = value),
                 ),
               ),
-
-              // ─── PRIVATE TOGGLE ───────────────────────
               const Divider(height: 1, color: AppColors.border),
               SwitchListTile(
                 value: _isPrivate,
-                onChanged: (value) =>
-                    setState(() => _isPrivate = value),
+                onChanged: (value) => setState(() => _isPrivate = value),
                 title: const Text(
                   'Private Account',
-                  style: TextStyle(
-                    fontSize: 15,
-                    fontWeight: FontWeight.w500,
-                  ),
+                  style: TextStyle(fontSize: 15, fontWeight: FontWeight.w500),
                 ),
                 subtitle: const Text(
                   'Only approved followers can see your posts',
@@ -401,16 +349,12 @@ class _EditProfilePageState
                 contentPadding: EdgeInsets.zero,
               ),
               const Divider(height: 1, color: AppColors.border),
-
               const SizedBox(height: 24),
-
-              // ─── SAVE BUTTON ──────────────────────────
               CustomButton(
                 text: 'Save Changes',
                 isLoading: isSaving,
                 onPressed: isSaving ? null : _saveProfile,
               ),
-
               const SizedBox(height: 40),
             ],
           ),
@@ -420,9 +364,8 @@ class _EditProfilePageState
   }
 
   Widget _buildProfilePicture(dynamic currentUser) {
-    final profilePicUrl = _selectedImageFile != null
-        ? null
-        : currentUser.profilePicUrl as String?;
+    final profilePicUrl =
+        _selectedImageFile != null ? null : currentUser.profilePicUrl as String?;
 
     return Column(
       children: [
@@ -435,27 +378,18 @@ class _EditProfilePageState
           ),
           child: ClipOval(
             child: _selectedImageFile != null
-                ? Image.file(
-                    _selectedImageFile!,
-                    fit: BoxFit.cover,
-                  )
+                ? Image.file(_selectedImageFile!, fit: BoxFit.cover)
                 : profilePicUrl != null
-                    ? CachedNetworkImage(
-                        imageUrl: profilePicUrl,
-                        fit: BoxFit.cover,
-                        errorWidget: (_, __, ___) =>
-                            _defaultAvatar(
-                          currentUser.username ?? '?',
-                        ),
-                      )
-                    : _defaultAvatar(
-                        currentUser.username ?? '?',
-                      ),
+                ? CachedNetworkImage(
+                    imageUrl: profilePicUrl,
+                    fit: BoxFit.cover,
+                    errorWidget: (_, __, ___) =>
+                        _defaultAvatar(currentUser.username ?? '?'),
+                  )
+                : _defaultAvatar(currentUser.username ?? '?'),
           ),
         ),
-
         const SizedBox(height: 12),
-
         GestureDetector(
           onTap: _showImagePicker,
           child: const Text(

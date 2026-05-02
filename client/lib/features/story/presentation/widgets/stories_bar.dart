@@ -1,10 +1,12 @@
 // lib/features/story/presentation/widgets/stories_bar.dart
 
+import 'package:cached_network_image/cached_network_image.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
-import 'package:cached_network_image/cached_network_image.dart';
 import 'package:go_router/go_router.dart';
+
 import '../../../../core/theme/app_theme.dart';
+import '../../../../shared/widgets/app_snackbar.dart';
 import '../../../../features/auth/presentation/providers/auth_provider.dart';
 import '../../data/models/story_model.dart';
 import '../providers/story_provider.dart';
@@ -18,12 +20,10 @@ class StoriesBar extends ConsumerWidget {
     final storyState = ref.watch(storyFeedProvider);
     final currentUser = ref.watch(currentUserProvider);
 
-    // Still loading
     if (storyState.isLoading) {
       return const _StoriesBarSkeleton();
     }
 
-    // No stories at all
     if (storyState.isEmpty && currentUser == null) {
       return const SizedBox.shrink();
     }
@@ -34,19 +34,16 @@ class StoriesBar extends ConsumerWidget {
         scrollDirection: Axis.horizontal,
         padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 8),
         children: [
-          // ─── YOUR STORY ─────────────────────────────────
           if (currentUser != null)
             _YourStoryItem(
               profilePicUrl: currentUser.profilePicUrl,
               username: currentUser.username,
               hasStory: storyState.userGroups.any((g) => g.isOwn),
               onTap: () {
-                final ownGroup = storyState.userGroups
-                    .where((g) => g.isOwn)
-                    .firstOrNull;
+                final ownGroup =
+                    storyState.userGroups.where((g) => g.isOwn).firstOrNull;
 
                 if (ownGroup != null && ownGroup.stories.isNotEmpty) {
-                  // View own stories
                   _openStoryViewer(
                     context,
                     ref,
@@ -54,16 +51,11 @@ class StoriesBar extends ConsumerWidget {
                     storyState.userGroups.indexOf(ownGroup),
                   );
                 } else {
-                  // ⭐ Open story creator instead of snackbar
                   context.push('/story-create');
                 }
               },
             ),
-
-          // ─── OTHER USERS' STORIES ────────────────────────
-          ...storyState.userGroups
-              .where((g) => !g.isOwn)
-              .map(
+          ...storyState.userGroups.where((g) => !g.isOwn).map(
                 (group) => _StoryItem(
                   group: group,
                   onTap: () {
@@ -82,16 +74,13 @@ class StoriesBar extends ConsumerWidget {
     );
   }
 
-  // Open full-screen story viewer
   void _openStoryViewer(
     BuildContext context,
     WidgetRef ref,
     List<StoryUserGroup> groups,
     int initialGroupIndex,
   ) {
-    // Filter out empty groups and own group (show own at front)
     final nonEmptyGroups = groups.where((g) => g.stories.isNotEmpty).toList();
-
     if (nonEmptyGroups.isEmpty) return;
 
     Navigator.of(context).push(
@@ -114,16 +103,10 @@ class StoriesBar extends ConsumerWidget {
   }
 
   void _showCreateStoryPrompt(BuildContext context) {
-    ScaffoldMessenger.of(context).showSnackBar(
-      const SnackBar(
-        content: Text('📖 Story creation coming soon!'),
-        duration: Duration(seconds: 2),
-      ),
-    );
+    AppSnackbar.info(context, 'Story creation coming soon!');
   }
 }
 
-// ─── YOUR STORY ITEM ────────────────────────────────────────
 class _YourStoryItem extends StatelessWidget {
   final String? profilePicUrl;
   final String username;
@@ -146,7 +129,6 @@ class _YourStoryItem extends StatelessWidget {
         child: Column(
           mainAxisSize: MainAxisSize.min,
           children: [
-            // Avatar with gradient ring (if has story) or + button
             Stack(
               children: [
                 Container(
@@ -176,8 +158,6 @@ class _YourStoryItem extends StatelessWidget {
                     ),
                   ),
                 ),
-
-                // + button (bottom right)
                 if (!hasStory)
                   Positioned(
                     bottom: 0,
@@ -190,29 +170,20 @@ class _YourStoryItem extends StatelessWidget {
                         shape: BoxShape.circle,
                         border: Border.all(color: Colors.white, width: 2),
                       ),
-                      child: const Icon(
-                        Icons.add,
-                        color: Colors.white,
-                        size: 14,
-                      ),
+                      child: const Icon(Icons.add, color: Colors.white, size: 14),
                     ),
                   ),
               ],
             ),
-
             const SizedBox(height: 4),
-
-            SizedBox(
+            const SizedBox(
               width: 64,
               child: Text(
                 'Your story',
                 textAlign: TextAlign.center,
                 maxLines: 1,
                 overflow: TextOverflow.ellipsis,
-                style: const TextStyle(
-                  fontSize: 12,
-                  color: AppColors.textPrimary,
-                ),
+                style: TextStyle(fontSize: 12, color: AppColors.textPrimary),
               ),
             ),
           ],
@@ -238,7 +209,6 @@ class _YourStoryItem extends StatelessWidget {
   }
 }
 
-// ─── OTHER USER STORY ITEM ──────────────────────────────────
 class _StoryItem extends StatelessWidget {
   final StoryUserGroup group;
   final VoidCallback onTap;
@@ -254,7 +224,6 @@ class _StoryItem extends StatelessWidget {
         child: Column(
           mainAxisSize: MainAxisSize.min,
           children: [
-            // Avatar with gradient or gray ring
             Container(
               width: 68,
               height: 68,
@@ -281,10 +250,7 @@ class _StoryItem extends StatelessWidget {
                 ),
               ),
             ),
-
             const SizedBox(height: 4),
-
-            // Username
             SizedBox(
               width: 64,
               child: Text(
@@ -294,9 +260,8 @@ class _StoryItem extends StatelessWidget {
                 overflow: TextOverflow.ellipsis,
                 style: TextStyle(
                   fontSize: 12,
-                  fontWeight: group.hasUnseen
-                      ? FontWeight.w600
-                      : FontWeight.normal,
+                  fontWeight:
+                      group.hasUnseen ? FontWeight.w600 : FontWeight.normal,
                   color: group.hasUnseen
                       ? AppColors.textPrimary
                       : AppColors.textSecondary,
@@ -327,7 +292,6 @@ class _StoryItem extends StatelessWidget {
   }
 }
 
-// ─── SKELETON LOADING ───────────────────────────────────────
 class _StoriesBarSkeleton extends StatelessWidget {
   const _StoriesBarSkeleton();
 
