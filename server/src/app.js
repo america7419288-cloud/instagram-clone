@@ -7,17 +7,35 @@ require('dotenv').config();
 const app = express();
 app.use(helmet());
 
-app.use(cors({
-    origin: '*',
+const allowedOrigins = [
+    process.env.CLIENT_URL,
+    process.env.CORS_ORIGIN,
+    process.env.CORS_ORIGINS
+]
+    .filter(Boolean)
+    .flatMap((origin) => origin.split(','))
+    .map((origin) => origin.trim())
+    .filter(Boolean);
 
-    method: ['GET', 'POST', 'PUT', 'DELETE', 'PATCH'],
-    allowedHeaders: ['Content-Type', 'Authorization']
+const isProduction = process.env.NODE_ENV === 'production' || process.env.MODE_ENV === 'production';
+
+app.use(cors({
+    origin: (origin, callback) => {
+        if (!origin || !isProduction || allowedOrigins.includes(origin)) {
+            return callback(null, true);
+        }
+
+        return callback(new Error('Not allowed by CORS'));
+    },
+    methods: ['GET', 'POST', 'PUT', 'DELETE', 'PATCH', 'OPTIONS'],
+    allowedHeaders: ['Content-Type', 'Authorization'],
+    credentials: true
 }));
 
 app.use(express.json({limit: '10mb'}));
 app.use(express.urlencoded({extended: true, limit: '10mb'}));
 
-if (process.env.MODE_ENV === 'development'){
+if (process.env.MODE_ENV === 'production'){
     app.use(morgan('dev'))
 }
 app.get('/', (req, res) => {

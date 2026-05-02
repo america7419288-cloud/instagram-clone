@@ -6,6 +6,28 @@ const { verifyAccessToken } = require('../utils/jwt.utils');
 const { User, ConversationParticipant, Message, Conversation } =
   require('../models');
 
+const allowedOrigins = [
+  process.env.CLIENT_URL,
+  process.env.CORS_ORIGIN,
+  process.env.CORS_ORIGINS,
+]
+  .filter(Boolean)
+  .flatMap((origin) => origin.split(','))
+  .map((origin) => origin.trim())
+  .filter(Boolean);
+
+const isProduction =
+  process.env.NODE_ENV === 'production' ||
+  process.env.MODE_ENV === 'production';
+
+const validateSocketOrigin = (origin, callback) => {
+  if (!origin || !isProduction || allowedOrigins.includes(origin)) {
+    return callback(null, true);
+  }
+
+  return callback(new Error('Not allowed by Socket.io CORS'));
+};
+
 // ─── TRACK ONLINE USERS ────────────────────────────────────
 // Map: userId → Set of socketIds (user can have multiple tabs)
 const onlineUsers = new Map();
@@ -65,7 +87,7 @@ const emitToUser = (io, userId, event, data) => {
 const setupSocketServer = (httpServer) => {
   const io = new Server(httpServer, {
     cors: {
-      origin: '*',
+      origin: validateSocketOrigin,
       methods: ['GET', 'POST'],
       credentials: true,
     },
