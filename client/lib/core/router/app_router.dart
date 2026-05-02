@@ -19,6 +19,7 @@ import '../../features/profile/presentation/pages/profile_page.dart';
 import '../../features/profile/presentation/pages/edit_profile_page.dart';
 import '../../features/messages/presentation/pages/messages_page.dart';
 import '../../features/messages/presentation/pages/chat_page.dart';
+import '../../features/messages/data/models/conversation_model.dart';
 import '../../features/story/presentation/pages/story_viewer_page.dart';
 import '../../features/follow/data/repositories/presentation/pages/followers_page.dart';
 import '../../features/follow/data/repositories/presentation/pages/follow_requests_page.dart';
@@ -203,7 +204,7 @@ final routerProvider = Provider<GoRouter>((ref) {
           GoRoute(
             path: AppRoutes.messages,
             name: 'messages',
-            builder: (context, state) => const MessagesPage(),
+            builder: (context, state) => const MessagesPage(), // ⭐ Real page
           ),
         ],
       ),
@@ -263,7 +264,12 @@ final routerProvider = Provider<GoRouter>((ref) {
         name: 'chat',
         builder: (context, state) {
           final conversationId = state.pathParameters['conversationId'] ?? '';
-          return ChatPage(conversationId: conversationId);
+          // Get conversation passed as extra (from inbox tap)
+          final conversation = state.extra as ConversationModel?;
+          return ChatPage(
+            conversationId: conversationId,
+            conversation: conversation,
+          );
         },
       ),
 

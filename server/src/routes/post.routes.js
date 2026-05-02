@@ -19,6 +19,7 @@ const {
   getSavedPosts,
   getPostsByHashtag,
 } = require('../controllers/post.controller');
+const { addComment, getComments } = require('../controllers/comment.controller');
 
 const { protect } = require('../middleware/auth.middleware');
 const { uploadMultipleMedia } = require('../services/upload.service');
@@ -71,5 +72,9 @@ router.get('/:id/likes', protect, getPostLikers);
 // Save/Unsave
 router.post('/:id/save', protect, savePost);
 router.delete('/:id/save', protect, unsavePost);
+
+// Comments (Nested)
+router.post('/:id/comments', protect, addComment);
+router.get('/:id/comments', protect, getComments);
 
 module.exports = router;

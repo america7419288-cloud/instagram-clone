@@ -11,6 +11,7 @@ import '../../../post/presentation/widgets/post_card.dart';
 import '../../../story/presentation/widgets/stories_bar.dart';
 import '../../../story/presentation/providers/story_provider.dart';
 import '../../../notifications/presentation/pages/providers/notification_provider.dart';
+import '../../../messages/presentation/providers/message_provider.dart';
 import '../../../../shared/widgets/shimmer_widget.dart';
 
 class HomePage extends ConsumerWidget {
@@ -130,13 +131,47 @@ class _HomePageContentState extends ConsumerState<HomePageContent> {
               ),
           ],
         ),
-        IconButton(
-          onPressed: () => context.go(AppRoutes.messages),
-          icon: const Icon(
-            Icons.send_outlined,
-            color: AppColors.textPrimary,
-            size: 26,
-          ),
+        Stack(
+          clipBehavior: Clip.none,
+          children: [
+            IconButton(
+              onPressed: () => context.go(AppRoutes.messages),
+              icon: const Icon(
+                Icons.send_outlined,
+                color: AppColors.textPrimary,
+                size: 26,
+              ),
+            ),
+            // DM unread badge
+            Consumer(
+              builder: (context, ref, _) {
+                final dmCount = ref.watch(dmUnreadCountProvider);
+                if (dmCount == 0) return const SizedBox.shrink();
+                return Positioned(
+                  top: 6,
+                  right: 6,
+                  child: Container(
+                    width: 18,
+                    height: 18,
+                    decoration: const BoxDecoration(
+                      color: AppColors.secondary,
+                      shape: BoxShape.circle,
+                    ),
+                    child: Center(
+                      child: Text(
+                        dmCount > 9 ? '9+' : '$dmCount',
+                        style: const TextStyle(
+                          color: Colors.white,
+                          fontSize: 10,
+                          fontWeight: FontWeight.bold,
+                        ),
+                      ),
+                    ),
+                  ),
+                );
+              },
+            ),
+          ],
         ),
         const SizedBox(width: 4),
       ],

@@ -11,6 +11,9 @@ import '../../../../features/auth/presentation/providers/auth_provider.dart';
 import '../../../follow/data/repositories/presentation/providers/widgets/follow_button.dart';
 import '../providers/profile_provider.dart';
 import '../../data/models/profile_model.dart';
+import '../../../messages/data/repositories/message_service.dart';
+import '../../../messages/presentation/providers/message_provider.dart';
+
 
 class ProfilePage extends ConsumerStatefulWidget {
   final String username;
@@ -415,14 +418,31 @@ class _ProfilePageState extends ConsumerState<ProfilePage>
 
         const SizedBox(width: 8),
 
-        // Message button
         Expanded(
           flex: 2,
           child: OutlinedButton(
-            onPressed: () {
-              ScaffoldMessenger.of(context).showSnackBar(
-                const SnackBar(content: Text('Messages coming Day 22!')),
-              );
+            onPressed: () async {
+              // Create or get DM conversation
+              try {
+                final service = MessageService();
+                final conv = await service.createOrGetConversation(
+                  profile.id,
+                );
+                // Add to inbox
+                ref.read(inboxProvider.notifier).addConversation(conv);
+                if (context.mounted) {
+                  context.push(
+                    '/messages/${conv.id}',
+                    extra: conv,
+                  );
+                }
+              } catch (e) {
+                if (context.mounted) {
+                  ScaffoldMessenger.of(context).showSnackBar(
+                    SnackBar(content: Text('Error: $e')),
+                  );
+                }
+              }
             },
             style: OutlinedButton.styleFrom(
               side: const BorderSide(color: AppColors.border),
@@ -431,14 +451,7 @@ class _ProfilePageState extends ConsumerState<ProfilePage>
               ),
               padding: const EdgeInsets.symmetric(vertical: 8),
             ),
-            child: const Text(
-              'Message',
-              style: TextStyle(
-                color: AppColors.textPrimary,
-                fontSize: 14,
-                fontWeight: FontWeight.w600,
-              ),
-            ),
+            child: const Text('Message'),
           ),
         ),
 
