@@ -292,7 +292,7 @@ class _StoryCreatorPageState extends ConsumerState<StoryCreatorPage>
             caption:      _textOverlay.isNotEmpty ? _textOverlay : null,
             audience:     _audience == StoryAudience.closeFriends
                 ? 'close_friends'
-                : 'all',
+                : 'followers',
             pollData:     pollData,
             questionData: questionData,
             onProgress:   (p) => setState(() => _uploadProgress = p),

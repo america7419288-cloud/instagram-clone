@@ -6,6 +6,8 @@ const {
   User,
   Follower,
   Block,
+  StoryPoll,
+  StoryQuestion,
   sequelize,
 } = require('../models');
 const {
@@ -52,6 +54,10 @@ const formatStory = (story, viewerId = null) => {
     view_count: s.view_count || 0,
     is_viewed: s.is_viewed || false,
     is_own_story: viewerId ? s.user_id === viewerId : false,
+
+    // Stickers
+    poll: s.poll || null,
+    question: s.question || null,
   };
 };
 
@@ -63,7 +69,18 @@ const formatStory = (story, viewerId = null) => {
 const createStory = async (req, res) => {
   try {
     const userId = req.user.id;
-    const { caption, link, audience = 'followers' } = req.body;
+    const {
+      caption,
+      link,
+      audience: rawAudience = 'followers',
+      pollQuestion,
+      optionA,
+      optionB,
+      questionText,
+    } = req.body;
+
+    // Normalize audience: 'all' -> 'followers'
+    const audience = rawAudience === 'all' ? 'followers' : rawAudience;
 
     // 1. CHECK FILE UPLOADED
     if (!req.file) {
@@ -105,6 +122,23 @@ const createStory = async (req, res) => {
       expires_at:           new Date(Date.now() + 24 * 60 * 60 * 1000),
     });
 
+    // 4.1 CREATE STICKERS IF PROVIDED
+    if (pollQuestion) {
+      await StoryPoll.create({
+        storyId:  story.id,
+        question: pollQuestion,
+        optionA:  optionA || 'Yes',
+        optionB:  optionB || 'No',
+      });
+    }
+
+    if (questionText) {
+      await StoryQuestion.create({
+        storyId:  story.id,
+        question: questionText,
+      });
+    }
+
     // 5. GET STORY WITH USER DATA
     const fullStory = await Story.findByPk(story.id, {
       include: [
@@ -116,6 +150,8 @@ const createStory = async (req, res) => {
             'profile_pic_url', 'is_verified',
           ],
         },
+        { model: StoryPoll, as: 'poll' },
+        { model: StoryQuestion, as: 'question' },
       ],
     });
 
