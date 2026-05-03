@@ -416,8 +416,8 @@ const getReelLikers = async (req, res) => {
                         'id',
                         'username',
                         'fullName',
-                        'profilePicture',
-                        'isVerified',
+                        'profile_pic_url',
+                        'is_verified',
                     ],
                 },
             ],
@@ -458,8 +458,8 @@ const getReelComments = async (req, res) => {
                     attributes: [
                         'id',
                         'username',
-                        'profilePicture',
-                        'isVerified',
+                        'profile_pic_url',
+                        'is_verified',
                     ],
                 },
                 {
@@ -483,8 +483,8 @@ const getReelComments = async (req, res) => {
             reelId: c.reelId,
             userId: c.userId,
             username: c.user?.username,
-            userAvatar: c.user?.profilePicture,
-            isVerified: c.user?.isVerified || false,
+            userAvatar: c.user?.profile_pic_url,
+            isVerified: c.user?.is_verified || false,
             content: c.content,
             likesCount: c.likesCount,
             repliesCount: c.repliesCount,
@@ -551,7 +551,7 @@ const addReelComment = async (req, res) => {
 
         // ─── Fetch with user data ─────────────────────────
         const user = await User.findByPk(userId, {
-            attributes: ['id', 'username', 'profilePicture', 'isVerified'],
+            attributes: ['id', 'username', 'profile_pic_url', 'is_verified'],
         });
 
         return successResponse(
@@ -563,8 +563,8 @@ const addReelComment = async (req, res) => {
                 reelId: comment.reelId,
                 userId: comment.userId,
                 username: user?.username,
-                userAvatar: user?.profilePicture,
-                isVerified: user?.isVerified || false,
+                userAvatar: user?.profile_pic_url,
+                isVerified: user?.is_verified || false,
                 content: comment.content,
                 likesCount: 0,
                 repliesCount: 0,
@@ -629,9 +629,9 @@ const _reelIncludes = (userId) => [
             'id',
             'username',
             'fullName',
-            'profilePicture',
-            'isVerified',
-            'isPrivate',
+            'profile_pic_url',
+            'is_verified',
+            'is_private',
         ],
     },
     {
@@ -661,8 +661,8 @@ const _formatReel = (reel, userId) => {
         userId: reel.userId,
         username: reel.user?.username,
         fullName: reel.user?.fullName,
-        userAvatar: reel.user?.profilePicture,
-        isVerified: reel.user?.isVerified || false,
+        userAvatar: reel.user?.profile_pic_url,
+        isVerified: reel.user?.is_verified || false,
         videoUrl: reel.videoUrl,
         thumbnailUrl: reel.thumbnailUrl,
         duration: reel.duration,
