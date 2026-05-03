@@ -9,6 +9,8 @@ class UserModel {
   final String? website;
   final String? profilePicUrl;
   final String? gender;
+
+  String? get profilePicture => profilePicUrl;
   final bool isPrivate;
   final bool isVerified;
   final bool isActive;

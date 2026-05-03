@@ -11,7 +11,7 @@ import '../../../../shared/widgets/empty_state.dart';
 import '../../../../shared/widgets/error_view.dart';
 import '../../../../shared/widgets/shimmer_widget.dart';
 import '../../../messages/presentation/providers/message_provider.dart';
-import '../../../notifications/presentation/pages/providers/notification_provider.dart';
+import '../../../notifications/presentation/providers/notification_provider.dart';
 import '../../../post/presentation/providers/feed_provider.dart';
 import '../../../post/presentation/widgets/post_card.dart';
 import '../../../story/presentation/providers/story_provider.dart';
@@ -81,7 +81,8 @@ class _HomePageContentState extends ConsumerState<HomePageContent> {
   }
 
   PreferredSizeWidget _buildAppBar(BuildContext context) {
-    final unreadCount = ref.watch(unreadCountProvider);
+    final unreadCount =
+        ref.watch(unreadNotificationsCountProvider).asData?.value ?? 0;
 
     return AppBar(
       backgroundColor: AppColors.white,

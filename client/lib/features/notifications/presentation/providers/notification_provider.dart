@@ -1,11 +1,10 @@
 // lib/features/notifications/presentation/providers/notification_provider.dart
 
 import 'dart:async';
-
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_riverpod/legacy.dart';
-import '../../../data/models/notification_model.dart';
-import '../../../data/models/repositories/notification_service.dart';
+import '../../data/models/notification_model.dart';
+import '../../data/models/repositories/notification_service.dart';
 
 // ─── NOTIFICATION STATE ─────────────────────────────────────
 class NotificationState {
@@ -47,50 +46,51 @@ class NotificationState {
     );
   }
 
-  // Group notifications by time period
+  // ─── GROUPED NOTIFICATIONS ────────────────────────────────
   List<NotificationGroup> get groupedNotifications {
     if (notifications.isEmpty) return [];
 
     final now = DateTime.now();
     final groups = <NotificationGroup>[];
 
-    // This Week (last 7 days)
+    // This Week
     final thisWeek = notifications.where((n) {
       if (n.createdAt == null) return false;
       return now.difference(n.createdAt!).inDays < 7;
     }).toList();
 
-    // This Month (7-30 days)
+    // This Month
     final thisMonth = notifications.where((n) {
       if (n.createdAt == null) return false;
       final diff = now.difference(n.createdAt!).inDays;
       return diff >= 7 && diff < 30;
     }).toList();
 
-    // Earlier (30+ days)
+    // Earlier
     final earlier = notifications.where((n) {
       if (n.createdAt == null) return false;
       return now.difference(n.createdAt!).inDays >= 30;
     }).toList();
 
     if (thisWeek.isNotEmpty) {
-      groups.add(
-        NotificationGroup(title: 'This Week', notifications: thisWeek),
-      );
+      groups.add(NotificationGroup(title: 'This Week', notifications: thisWeek));
     }
-
     if (thisMonth.isNotEmpty) {
-      groups.add(
-        NotificationGroup(title: 'This Month', notifications: thisMonth),
-      );
+      groups.add(NotificationGroup(title: 'This Month', notifications: thisMonth));
     }
-
     if (earlier.isNotEmpty) {
       groups.add(NotificationGroup(title: 'Earlier', notifications: earlier));
     }
 
     return groups;
   }
+}
+
+class NotificationGroup {
+  final String title;
+  final List<NotificationModel> notifications;
+
+  NotificationGroup({required this.title, required this.notifications});
 }
 
 // ─── NOTIFICATION NOTIFIER ──────────────────────────────────
@@ -113,10 +113,8 @@ class NotificationNotifier extends StateNotifier<NotificationState> {
     super.dispose();
   }
 
-  // ─── LOAD NOTIFICATIONS ─────────────────────────────────
   Future<void> loadNotifications() async {
     state = state.copyWith(isLoading: true, errorMessage: null, currentPage: 1);
-
     try {
       final result = await _service.getNotifications(page: 1);
       final notifications = result['notifications'] as List<NotificationModel>;
@@ -136,17 +134,13 @@ class NotificationNotifier extends StateNotifier<NotificationState> {
     }
   }
 
-  // ─── LOAD MORE ──────────────────────────────────────────
   Future<void> loadMore() async {
     if (state.isLoadingMore || !state.hasMore) return;
-
     state = state.copyWith(isLoadingMore: true);
-
     try {
       final nextPage = state.currentPage + 1;
       final result = await _service.getNotifications(page: nextPage);
-      final newNotifications =
-          result['notifications'] as List<NotificationModel>;
+      final newNotifications = result['notifications'] as List<NotificationModel>;
       final pagination = result['pagination'];
 
       state = state.copyWith(
@@ -160,99 +154,55 @@ class NotificationNotifier extends StateNotifier<NotificationState> {
     }
   }
 
-  // ─── LOAD UNREAD COUNT ──────────────────────────────────
   Future<void> loadUnreadCount() async {
     try {
       final count = await _service.getUnreadCount();
       if (!mounted) return;
       state = state.copyWith(unreadCount: count);
     } catch (e) {
-      // Silent fail - badge just shows 0
+      // Silent fail
     }
   }
 
-  // ─── MARK ONE AS READ ───────────────────────────────────
   Future<void> markAsRead(String notificationId) async {
-    // Update locally first
+    final wasUnread = state.notifications.any((n) => n.id == notificationId && !n.isRead);
     final updated = state.notifications.map((n) {
-      if (n.id == notificationId && !n.isRead) {
-        return n.markAsRead();
-      }
+      if (n.id == notificationId && !n.isRead) return n.markAsRead();
       return n;
     }).toList();
 
-    final wasUnread = state.notifications.any(
-      (n) => n.id == notificationId && !n.isRead,
-    );
-
     state = state.copyWith(
       notifications: updated,
-      unreadCount: wasUnread && state.unreadCount > 0
-          ? state.unreadCount - 1
-          : state.unreadCount,
+      unreadCount: wasUnread && state.unreadCount > 0 ? state.unreadCount - 1 : state.unreadCount,
     );
 
-    // Then call API (silent)
     try {
       await _service.markAsRead(notificationId);
-    } catch (e) {
-      // Ignore error for marking as read
-    }
+    } catch (e) {}
   }
 
-  // ─── MARK ALL AS READ ───────────────────────────────────
   Future<void> markAllAsRead() async {
-    // Mark all locally
     final updated = state.notifications.map((n) => n.markAsRead()).toList();
-
     state = state.copyWith(notifications: updated, unreadCount: 0);
-
     try {
       await _service.markAllAsRead();
-    } catch (e) {
-      // Silent - user sees it worked
-    }
+    } catch (e) {}
   }
 
-  // ─── DELETE NOTIFICATION ────────────────────────────────
   Future<void> deleteNotification(String notificationId) async {
-    // Check if it was unread
-    final wasUnread = state.notifications.any(
-      (n) => n.id == notificationId && !n.isRead,
-    );
-
-    // Remove from local list
-    final updated = state.notifications
-        .where((n) => n.id != notificationId)
-        .toList();
-
+    final wasUnread = state.notifications.any((n) => n.id == notificationId && !n.isRead);
+    final updated = state.notifications.where((n) => n.id != notificationId).toList();
     state = state.copyWith(
       notifications: updated,
-      unreadCount: wasUnread && state.unreadCount > 0
-          ? state.unreadCount - 1
-          : state.unreadCount,
+      unreadCount: wasUnread && state.unreadCount > 0 ? state.unreadCount - 1 : state.unreadCount,
     );
-
     try {
       await _service.deleteNotification(notificationId);
     } catch (e) {
-      // Re-add on failure
       await loadNotifications();
     }
   }
 
-  // ─── DELETE ALL ─────────────────────────────────────────
-  Future<void> deleteAllNotifications() async {
-    state = state.copyWith(notifications: [], unreadCount: 0);
-
-    try {
-      await _service.deleteAllNotifications();
-    } catch (e) {
-      await loadNotifications();
-    }
-  }
-
-  // ─── REFRESH ────────────────────────────────────────────
   Future<void> refresh() async {
     await Future.wait([loadNotifications(), loadUnreadCount()]);
   }
@@ -265,10 +215,11 @@ final notificationServiceProvider = Provider<NotificationService>((ref) {
 
 final notificationProvider =
     StateNotifierProvider<NotificationNotifier, NotificationState>((ref) {
-      return NotificationNotifier(ref.watch(notificationServiceProvider));
-    });
+  return NotificationNotifier(ref.watch(notificationServiceProvider));
+});
 
-// Convenience: just the unread count (for badge)
-final unreadCountProvider = Provider<int>((ref) {
-  return ref.watch(notificationProvider).unreadCount;
+// Used in MainShell for badge count
+final unreadNotificationsCountProvider = FutureProvider<int>((ref) async {
+  final service = ref.watch(notificationServiceProvider);
+  return await service.getUnreadCount();
 });

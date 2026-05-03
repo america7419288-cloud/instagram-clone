@@ -8,7 +8,7 @@ import '../../data/repositories/auth_service.dart';
 import '../../../../core/socket/socket_provider.dart';
 import '../../../../core/router/main_shell.dart';
 import '../../../messages/presentation/providers/message_provider.dart';
-import '../../../notifications/presentation/pages/providers/notification_provider.dart';
+import '../../../notifications/presentation/providers/notification_provider.dart';
 import '../../../post/presentation/providers/feed_provider.dart';
 import '../../../profile/presentation/providers/profile_provider.dart';
 import '../../../story/presentation/providers/story_provider.dart';

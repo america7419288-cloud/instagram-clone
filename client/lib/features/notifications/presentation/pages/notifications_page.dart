@@ -11,7 +11,7 @@ import '../../../../core/theme/app_theme.dart';
 import '../../../../shared/widgets/empty_state.dart';
 import '../../../../shared/widgets/error_view.dart';
 import '../../data/models/notification_model.dart';
-import 'providers/notification_provider.dart';
+import '../providers/notification_provider.dart';
 
 class NotificationsPage extends ConsumerStatefulWidget {
   const NotificationsPage({super.key});

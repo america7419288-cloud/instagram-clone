@@ -1,5 +1,8 @@
 // lib/features/reels/data/repositories/reel_service.dart
 
+import 'dart:io';
+
+import 'package:dio/dio.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import '../../../../core/constants/app_constants.dart';
@@ -60,24 +63,98 @@ class ReelService {
     );
   }
 
+  // ─── Create reel ──────────────────────────────────────
+  Future<ReelModel> createReel({
+    required File videoFile,
+    required String caption,
+    required String audioName,
+    void Function(double progress)? onProgress,
+  }) async {
+    final fileName = videoFile.path.split('/').last;
+    final ext = fileName.toLowerCase().split('.').last;
+
+    // ─── Detect mime type ──────────────────────────────
+    String mimeType;
+    switch (ext) {
+      case 'mp4':
+        mimeType = 'video/mp4';
+        break;
+      case 'mov':
+        mimeType = 'video/quicktime';
+        break;
+      case 'avi':
+        mimeType = 'video/x-msvideo';
+        break;
+      case 'webm':
+        mimeType = 'video/webm';
+        break;
+      case '3gp':
+        mimeType = 'video/3gpp';
+        break;
+      default:
+        mimeType = 'video/mp4';
+    }
+
+    final fileBytes = await videoFile.readAsBytes();
+
+    final formData = FormData();
+
+    // ─── Video file ────────────────────────────────────
+    formData.files.add(
+      MapEntry(
+        'video',
+        MultipartFile.fromBytes(
+          fileBytes,
+          filename: fileName,
+          contentType: DioMediaType.parse(mimeType),
+        ),
+      ),
+    );
+
+    // ─── Text fields ───────────────────────────────────
+    if (caption.isNotEmpty) {
+      formData.fields.add(MapEntry('caption', caption));
+    }
+    if (audioName.isNotEmpty) {
+      formData.fields.add(MapEntry('audioName', audioName));
+    }
+
+    final response = await _client.dio.post(
+      AppConstants.reelsUrl,
+      data: formData,
+      options: Options(
+        sendTimeout: const Duration(minutes: 5),
+        receiveTimeout: const Duration(minutes: 5),
+      ),
+      onSendProgress: (sent, total) {
+        if (total > 0 && onProgress != null) {
+          onProgress(sent / total);
+        }
+      },
+    );
+
+    if (response.data['success'] == true) {
+      return ReelModel.fromJson(
+        response.data['data'] as Map<String, dynamic>,
+      );
+    }
+    throw Exception(
+      response.data['message'] ?? 'Failed to create reel',
+    );
+  }
+
   // ─── Like reel ────────────────────────────────────────
   Future<void> likeReel(String reelId) async {
-    await _client.post(
-      '${AppConstants.reelsUrl}/$reelId/like',
-    );
+    await _client.post('${AppConstants.reelsUrl}/$reelId/like');
   }
 
   // ─── Unlike reel ──────────────────────────────────────
   Future<void> unlikeReel(String reelId) async {
-    await _client.delete(
-      '${AppConstants.reelsUrl}/$reelId/like',
-    );
+    await _client.delete('${AppConstants.reelsUrl}/$reelId/like');
   }
 
   // ─── Delete reel ──────────────────────────────────────
   Future<void> deleteReel(String reelId) async {
-    await _client.delete(
-      '${AppConstants.reelsUrl}/$reelId',
-    );
+    await _client.delete('${AppConstants.reelsUrl}/$reelId');
   }
 }

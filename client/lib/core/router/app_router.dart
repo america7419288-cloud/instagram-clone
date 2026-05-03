@@ -21,6 +21,7 @@ import '../../features/profile/presentation/pages/edit_profile_page.dart';
 import '../../features/messages/presentation/pages/messages_page.dart';
 import '../../features/reels/presentation/pages/reels_page.dart';
 import '../../features/messages/presentation/pages/chat_page.dart';
+import '../../features/reels/presentation/pages/create_reel_page.dart';
 import '../../features/messages/presentation/pages/new_message_page.dart';
 import '../../features/story/presentation/pages/story_viewer_page.dart';
 import '../../features/follow/data/repositories/presentation/pages/followers_page.dart';
@@ -48,6 +49,7 @@ class AppRoutes {
   static const String search = '/search';
   static const String reels = '/reels';
   static const String createPost = '/create';
+  static const String createReel = '/create-reel';
   static const String notifications = '/notifications';
   static const String messages = '/messages';
   static const String newMessage = '/new-message';
@@ -256,26 +258,21 @@ final routerProvider = Provider<GoRouter>((ref) {
       // ── FULL SCREEN ROUTES ──────────────────────────
       // These don't show bottom nav
 
+      // Create Reel (full screen)
+      GoRoute(
+        path: AppRoutes.createReel,
+        pageBuilder: (context, state) => _buildPage(
+          state: state,
+          child: const CreateReelPage(),
+        ),
+      ),
+
       // Create Post (full screen)
       GoRoute(
-        parentNavigatorKey: _rootNavigatorKey,
         path: AppRoutes.createPost,
-        name: 'createPost',
-        pageBuilder: (context, state) => CustomTransitionPage(
-          key: state.pageKey,
+        pageBuilder: (context, state) => _buildPage(
+          state: state,
           child: const CreatePostPage(),
-          transitionsBuilder: (context, animation, secondary, child) {
-            return SlideTransition(
-              position:
-                  Tween<Offset>(
-                    begin: const Offset(0, 1), // From bottom
-                    end: Offset.zero,
-                  ).animate(
-                    CurvedAnimation(parent: animation, curve: Curves.easeInOut),
-                  ),
-              child: child,
-            );
-          },
         ),
       ),
 
