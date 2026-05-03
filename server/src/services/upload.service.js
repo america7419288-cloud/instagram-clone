@@ -1,7 +1,7 @@
 // server/src/services/upload.service.js
 
 const multer = require('multer');
-const cloudinary = require('../config/cloudinary');
+const { cloudinary } = require('../config/cloudinary');
 
 // ─────────────────────────────────────────────────────
 // MULTER CONFIGURATION
@@ -204,98 +204,108 @@ const uploadVideoToCloudinary = (
 };
 
 // ─── Upload profile picture ────────────────────────────
-const uploadProfilePictureToCloudinary = async (buffer, mimetype) => {
-  try {
-    const dataURI = bufferToDataURI(buffer, mimetype);
-
-    const result = await cloudinary.uploader.upload(dataURI, {
-      folder: 'instagram-clone/profiles',
-      resource_type: 'image',
-      transformation: [
-        {
-          width: 300,
-          height: 300,
-          crop: 'fill',
-          gravity: 'face', // Smart face detection for profile pics
-          quality: 'auto',
-          fetch_format: 'auto',
-        },
-      ],
-    });
-
-    return {
-      url: result.secure_url,
-      publicId: result.public_id,
-    };
-  } catch (error) {
-    console.error('❌ Profile picture upload error:', error.message);
-    throw new Error('Failed to upload profile picture. Please try again.');
-  }
-};
-
-// ─── Upload story media ────────────────────────────────
-const uploadStoryToCloudinary = async (buffer, mimetype) => {
-  const isVideo = mimetype.startsWith('video/');
-
-  try {
-    const dataURI = bufferToDataURI(buffer, mimetype);
-
-    if (isVideo) {
-      const result = await cloudinary.uploader.upload(dataURI, {
-        folder: 'instagram-clone/stories/videos',
-        resource_type: 'video',
-        eager: [
-          {
-            width: 1080,
-            height: 1920,
-            crop: 'fill',
-            start_offset: '0',
-            format: 'jpg',
-          },
-        ],
-        eager_async: false,
-      });
-
-      const thumbnailUrl =
-        result.eager?.[0]?.secure_url ||
-        result.secure_url
-          .replace('/video/upload/', '/video/upload/f_jpg/')
-          .replace(/\.(mp4|mov|webm)$/i, '.jpg');
-
-      return {
-        url: result.secure_url,
-        publicId: result.public_id,
-        mediaType: 'video',
-        thumbnailUrl,
-        duration: result.duration ? Math.round(result.duration) : null,
-      };
-    } else {
-      const result = await cloudinary.uploader.upload(dataURI, {
-        folder: 'instagram-clone/stories',
+const uploadProfilePictureToCloudinary = (buffer, mimetype) => {
+  return new Promise((resolve, reject) => {
+    const uploadStream = cloudinary.uploader.upload_stream(
+      {
+        folder: 'instagram-clone/profiles',
         resource_type: 'image',
         transformation: [
           {
-            width: 1080,
-            height: 1920,
-            crop: 'limit',
+            width: 300,
+            height: 300,
+            crop: 'fill',
+            gravity: 'face',
             quality: 'auto',
             fetch_format: 'auto',
           },
         ],
-      });
+      },
+      (error, result) => {
+        if (error) {
+          console.error('❌ Profile picture upload error:', error.message);
+          return reject(new Error('Failed to upload profile picture. Please try again.'));
+        }
+        resolve({
+          url: result.secure_url,
+          publicId: result.public_id,
+        });
+      }
+    );
 
-      return {
-        url: result.secure_url,
-        publicId: result.public_id,
-        mediaType: 'image',
-        thumbnailUrl: null,
-        duration: null,
-      };
+    uploadStream.end(buffer);
+  });
+};
+
+// ─── Upload story media ────────────────────────────────
+const uploadStoryToCloudinary = (buffer, mimetype) => {
+  const isVideo = mimetype.startsWith('video/');
+
+  return new Promise((resolve, reject) => {
+    const options = {
+      folder: isVideo ? 'instagram-clone/stories/videos' : 'instagram-clone/stories',
+      resource_type: isVideo ? 'video' : 'image',
+    };
+
+    if (isVideo) {
+      options.eager = [
+        {
+          width: 1080,
+          height: 1920,
+          crop: 'fill',
+          start_offset: '0',
+          format: 'jpg',
+        },
+      ];
+      options.eager_async = false;
+    } else {
+      options.transformation = [
+        {
+          width: 1080,
+          height: 1920,
+          crop: 'limit',
+          quality: 'auto',
+          fetch_format: 'auto',
+        },
+      ];
     }
-  } catch (error) {
-    console.error('❌ Story upload error:', error.message);
-    throw new Error('Failed to upload story media. Please try again.');
-  }
+
+    const uploadStream = cloudinary.uploader.upload_stream(
+      options,
+      (error, result) => {
+        if (error) {
+          console.error('❌ Story upload error:', error.message);
+          return reject(new Error('Failed to upload story media. Please try again.'));
+        }
+
+        if (isVideo) {
+          const thumbnailUrl =
+            result.eager?.[0]?.secure_url ||
+            result.secure_url
+              .replace('/video/upload/', '/video/upload/f_jpg/')
+              .replace(/\.(mp4|mov|webm)$/i, '.jpg');
+
+          resolve({
+            url: result.secure_url,
+            publicId: result.public_id,
+            mediaType: 'video',
+            thumbnailUrl,
+            duration: result.duration ? Math.round(result.duration) : null,
+          });
+        } else {
+          resolve({
+            url: result.secure_url,
+            publicId: result.public_id,
+            mediaType: 'image',
+            thumbnailUrl: null,
+            duration: null,
+          });
+        }
+      }
+    );
+
+    uploadStream.end(buffer);
+  });
 };
 
 // ─── Delete from Cloudinary ────────────────────────────
