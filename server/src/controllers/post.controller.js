@@ -683,37 +683,40 @@ const _formatPost = (post, userId) => {
     .sort((a, b) => a.order - b.order)
     .map((m) => ({
       id: m.id,
-      url: m.url,
-      thumbnailUrl: m.thumbnailUrl,
-      mediaType: m.mediaType,  // 'image' | 'video'
+      media_url: m.url,
+      thumbnail_url: m.thumbnailUrl,
+      small_url: m.thumbnailUrl,
+      medium_url: m.url,
+      media_type: m.mediaType,
       duration: m.duration,
       width: m.width,
       height: m.height,
-      order: m.order,
+      display_order: m.order,
     }));
 
   return {
     id: post.id,
-    userId: post.userId,
-    username: post.user?.username,
-    fullName: post.user?.fullName,
-    userAvatar: post.user?.profile_pic_url,
-    isVerified: post.user?.is_verified || false,
     caption: post.caption,
     location: post.location,
-    mediaFiles,
+    media: mediaFiles,
+    user: post.user ? {
+      id: post.user.id,
+      username: post.user.username,
+      full_name: post.user.fullName,
+      profile_pic_url: post.user.profile_pic_url,
+      is_verified: post.user.is_verified || false,
+    } : null,
     // ─── Counts ──────────────────────────────────────
-    likesCount: post.likesCount || 0,
-    commentsCount: post.commentsCount || 0,
+    like_count: post.likesCount || 0,
+    comment_count: post.commentsCount || 0,
+    save_count: 0,
     // ─── Current user state ───────────────────────────
-    isLiked: userId ? (post.likes?.length > 0) : false,
-    isSaved: userId ? (post.saves?.length > 0) : false,
+    is_liked: userId ? (post.likes?.length > 0) : false,
+    is_saved: userId ? (post.saves?.length > 0) : false,
+    is_own_post: userId === post.userId,
+    comments_disabled: false,
     // ─── Timestamps ──────────────────────────────────
-    createdAt: post.createdAt,
-    updatedAt: post.updatedAt,
-    // ─── Flags ────────────────────────────────────────
-    hasVideo: mediaFiles.some((m) => m.mediaType === 'video'),
-    hasMultiple: mediaFiles.length > 1,
+    created_at: post.createdAt,
   };
 };
 

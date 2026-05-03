@@ -45,6 +45,13 @@ const Post = sequelize.define(
       allowNull: false,
       defaultValue: 0,
     },
+
+    isArchived: {
+      type: DataTypes.BOOLEAN,
+      allowNull: false,
+      defaultValue: false,
+      field: 'is_archived',
+    },
   },
   {
     tableName: 'posts',
