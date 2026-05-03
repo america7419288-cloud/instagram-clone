@@ -16,6 +16,7 @@ const {
 const {
   successResponse,
   errorResponse,
+  paginatedResponse,
 } = require('../utils/response.utils');
 const {
   uploadImageToCloudinary,
@@ -282,17 +283,23 @@ const getUserPosts = async (req, res) => {
       return errorResponse(res, 404, 'User not found');
     }
 
-    const posts = await Post.findAll({
-      where: { userId: user.id },
+    const { count, rows: posts } = await Post.findAndCountAll({
+      where: { userId: user.id, isArchived: false },
       include: _postIncludes(currentUserId),
       order: [['createdAt', 'DESC']],
       limit,
       offset,
+      distinct: true,
     });
 
     const formatted = posts.map((p) => _formatPost(p, currentUserId));
 
-    return successResponse(res, 200, 'User posts loaded', formatted);
+    return paginatedResponse(res, 'User posts loaded', formatted, {
+      page,
+      totalPages: Math.ceil(count / limit),
+      totalItems: count,
+      limit,
+    });
   } catch (error) {
     console.error('❌ getUserPosts error:', error);
     return errorResponse(res, 500, 'Failed to load user posts');
@@ -649,7 +656,6 @@ const _postIncludes = (userId) => [
       'height',
       'order',
     ],
-    order: [['order', 'ASC']],
   },
   {
     model: Like,
@@ -680,7 +686,6 @@ const _fetchPostById = async (postId, userId) => {
 
 // ─── Format post for response ─────────────────────────
 const _formatPost = (post, userId) => {
-  console.log(`[DEBUG] Formatting post ${post.id}. Raw mediaFiles:`, JSON.stringify(post.mediaFiles));
 
   const mediaFiles = (post.mediaFiles || [])
     .sort((a, b) => a.order - b.order)
