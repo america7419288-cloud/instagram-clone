@@ -244,6 +244,8 @@ const getStoryFeed = async (req, res) => {
             'profile_pic_url', 'is_verified',
           ],
         },
+        { model: StoryPoll, as: 'poll' },
+        { model: StoryQuestion, as: 'question' },
       ],
       order: [['created_at', 'ASC']],
     });
@@ -298,17 +300,7 @@ const getStoryFeed = async (req, res) => {
       }
 
       userStoriesMap[userId].stories.push({
-        id: story.id,
-        media_url: story.media_url,
-        thumbnail_url: story.thumbnail_url,
-        media_type: story.media_type,
-        caption: story.caption,
-        link: story.link,
-        width: story.width,
-        height: story.height,
-        duration: story.duration,
-        expires_at: story.expires_at,
-        created_at: story.createdAt,
+        ...formatStory(story, currentUserId),
         is_viewed: isViewed,
       });
 
@@ -373,22 +365,15 @@ const getMyStories = async (req, res) => {
           as: 'views',
           attributes: ['id'],
         },
+        { model: StoryPoll, as: 'poll' },
+        { model: StoryQuestion, as: 'question' },
       ],
       order: [['created_at', 'DESC']],
     });
 
     const formattedStories = stories.map((story) => ({
-      id: story.id,
-      media_url: story.media_url,
-      thumbnail_url: story.thumbnail_url,
-      media_type: story.media_type,
-      caption: story.caption,
-      audience: story.audience,
-      view_count: story.views?.length || 0,
-      expires_at: story.expires_at,
+      ...formatStory(story, userId),
       is_expired: story.expires_at < now,
-      created_at: story.createdAt,
-      is_own_story: true,
     }));
 
     return successResponse(res, 200, 'Your stories fetched', {
@@ -451,6 +436,8 @@ const getUserStories = async (req, res) => {
             'profile_pic_url', 'is_verified',
           ],
         },
+        { model: StoryPoll, as: 'poll' },
+        { model: StoryQuestion, as: 'question' },
       ],
       order: [['created_at', 'ASC']],
     });
