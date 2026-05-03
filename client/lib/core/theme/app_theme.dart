@@ -39,6 +39,8 @@ class AppColors {
   static const Color darkTextSecondary = Color(0xFFA8A8A8);
   static const Color darkTextTertiary = Color(0xFF737373);
   static const Color darkIconPrimary = Color(0xFFF5F5F5);
+  static const Color iconSecondary = Color(0xFF8E8E8E);
+  static const Color darkIconSecondary = Color(0xFFA8A8A8);
   static const Color darkShimmerBase = Color(0xFF1C1C1E);
 
   // ─── GRADIENTS ─────────────────────────────────────────

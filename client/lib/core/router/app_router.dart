@@ -19,6 +19,7 @@ import '../../features/notifications/presentation/pages/notifications_page.dart'
 import '../../features/profile/presentation/pages/profile_page.dart';
 import '../../features/profile/presentation/pages/edit_profile_page.dart';
 import '../../features/messages/presentation/pages/messages_page.dart';
+import '../../features/reels/presentation/pages/reels_page.dart';
 import '../../features/messages/presentation/pages/chat_page.dart';
 import '../../features/messages/presentation/pages/new_message_page.dart';
 import '../../features/story/presentation/pages/story_viewer_page.dart';
@@ -45,6 +46,7 @@ class AppRoutes {
   static const String register = '/register';
   static const String home = '/home';
   static const String search = '/search';
+  static const String reels = '/reels';
   static const String createPost = '/create';
   static const String notifications = '/notifications';
   static const String messages = '/messages';
@@ -139,9 +141,9 @@ final routerProvider = Provider<GoRouter>((ref) {
       ),
 
       GoRoute(
-       path: '/settings',
-       name: 'settings',
-       builder: (context, state) => const SettingsPage(),
+        path: '/settings',
+        name: 'settings',
+        builder: (context, state) => const SettingsPage(),
       ),
 
       GoRoute(
@@ -213,6 +215,15 @@ final routerProvider = Provider<GoRouter>((ref) {
             path: AppRoutes.search,
             name: 'search',
             builder: (context, state) => const SearchPage(),
+          ),
+
+          // Reels
+          GoRoute(
+            path: AppRoutes.reels,
+            pageBuilder: (context, state) => _buildPage(
+              state: state,
+              child: const ReelsPage(),
+            ),
           ),
 
           // Notifications
@@ -382,3 +393,17 @@ final routerProvider = Provider<GoRouter>((ref) {
     ),
   );
 });
+
+// ─── HELPERS ────────────────────────────────────────────────
+Page<dynamic> _buildPage({
+  required GoRouterState state,
+  required Widget child,
+}) {
+  return CustomTransitionPage(
+    key: state.pageKey,
+    child: child,
+    transitionsBuilder: (context, animation, secondaryAnimation, child) {
+      return FadeTransition(opacity: animation, child: child);
+    },
+  );
+}

@@ -31,8 +31,8 @@ class AppConstants {
   static const String uploadProfilePicEndpoint = '/users/profile-pic';
 
   static const String reelsUrl      = '/reels';
-static const String reelsFeedUrl  = '/reels/feed';
-static const String reelsExplore  = '/reels/explore';
+  static const String reelsFeedUrl  = '/reels/feed';
+  static const String reelsExplore  = '/reels/explore';
 
 
   static const String tokenKey = 'auth_token';
@@ -45,6 +45,7 @@ static const String reelsExplore  = '/reels/explore';
   static const int maxCaptionLength = 2200; // Caption character limit
   static const int maxUsernameLength = 30; // Username character limit
   static const int postPageSize = 12; // Posts per page
+  static const int reelsPageSize = 10; // Reels per page
   static const int commentsPageSize = 20; // Comments per page
   static const int storyDuration = 5; // Story display seconds
 

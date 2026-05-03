@@ -108,12 +108,14 @@ class _VideoPlayerWidgetState extends State<VideoPlayerWidget>
   // ─── Playback controls ────────────────────────────────
   void _play() {
     if (!_isInitialized || _controller == null) return;
+    if (!mounted) return;
     _controller!.play();
     setState(() => _isPlaying = true);
   }
 
   void _pause() {
     if (!_isInitialized || _controller == null) return;
+    if (!mounted) return;
     _controller!.pause();
     setState(() => _isPlaying = false);
   }
@@ -125,6 +127,7 @@ class _VideoPlayerWidgetState extends State<VideoPlayerWidget>
       _play();
     }
     // Show brief icon
+    if (!mounted) return;
     setState(() => _showPlayIcon = true);
     _iconAnimController.forward(from: 0).then((_) {
       if (mounted) setState(() => _showPlayIcon = false);
@@ -133,6 +136,7 @@ class _VideoPlayerWidgetState extends State<VideoPlayerWidget>
 
   void _toggleMute() {
     if (_controller == null) return;
+    if (!mounted) return;
     setState(() => _isMuted = !_isMuted);
     _controller!.setVolume(_isMuted ? 0.0 : 1.0);
   }

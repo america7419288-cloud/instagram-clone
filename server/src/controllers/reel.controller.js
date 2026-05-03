@@ -198,9 +198,9 @@ const getExploreReels = async (req, res) => {
             where: { isPublic: true },
             include: _reelIncludes(userId),
             order: [
-                ['plays_count', 'DESC'],
-                ['likes_count', 'DESC'],
-                ['created_at', 'DESC'],
+                ['playsCount', 'DESC'],
+                ['likesCount', 'DESC'],
+                ['createdAt', 'DESC'],
             ],
             limit,
             offset,

@@ -78,7 +78,7 @@ app.use('/api/v1/stories', require('./routes/story.routes'));
 app.use('/api/v1/notifications', require('./routes/notification.routes'));
 app.use('/api/v1/conversations', require('./routes/conversation.routes'));
 app.use('/api/v1/messages', require('./routes/message.routes'));
-app.use('/api/reels', reelRoutes);
+app.use('/api/v1/reels', reelRoutes);
 
 
 app.get('/api/v1/test', (req, res) => {

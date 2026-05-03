@@ -222,7 +222,6 @@ class AuthNotifier extends StateNotifier<AuthState> {
     _ref.invalidate(inboxProvider);
     _ref.invalidate(chatProvider);
     _ref.invalidate(profileProvider);
-    _ref.invalidate(currentTabIndexProvider);
   }
 
   void _refreshUserScopedProviders() {
