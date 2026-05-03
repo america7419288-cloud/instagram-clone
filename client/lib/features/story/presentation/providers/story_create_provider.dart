@@ -11,13 +11,12 @@ import '../../data/repositories/story_service.dart';
 import '../providers/story_provider.dart';
 
 // ─── TEXT OVERLAY MODEL ─────────────────────────────────────
-// Represents a text overlay on the story image
 class StoryTextOverlay {
   final String id;
   final String text;
   final Color color;
   final double fontSize;
-  final Offset position; // 0.0 to 1.0 relative position
+  final Offset position;
 
   const StoryTextOverlay({
     required this.id,
@@ -47,7 +46,7 @@ class StoryTextOverlay {
 class StoryCreateState {
   final File? selectedImage;
   final List<StoryTextOverlay> textOverlays;
-  final String audience; // 'followers' or 'close_friends'
+  final String audience;
   final bool isUploading;
   final double uploadProgress;
   final String? errorMessage;
@@ -96,16 +95,11 @@ class StoryCreateNotifier extends StateNotifier<StoryCreateState> {
   StoryCreateNotifier(this._storyService, this._ref)
       : super(const StoryCreateState());
 
-  // ─── SET IMAGE ────────────────────────────────────────────
   void setImage(File image) {
     if (!mounted) return;
-    state = state.copyWith(
-      selectedImage: image,
-      errorMessage: null,
-    );
+    state = state.copyWith(selectedImage: image, errorMessage: null);
   }
 
-  // ─── ADD TEXT OVERLAY ─────────────────────────────────────
   void addTextOverlay({
     required String text,
     required Color color,
@@ -113,7 +107,6 @@ class StoryCreateNotifier extends StateNotifier<StoryCreateState> {
     required Offset position,
   }) {
     if (!mounted || text.trim().isEmpty) return;
-
     final overlay = StoryTextOverlay(
       id: DateTime.now().millisecondsSinceEpoch.toString(),
       text: text.trim(),
@@ -121,23 +114,16 @@ class StoryCreateNotifier extends StateNotifier<StoryCreateState> {
       fontSize: fontSize,
       position: position,
     );
-
-    state = state.copyWith(
-      textOverlays: [...state.textOverlays, overlay],
-    );
+    state = state.copyWith(textOverlays: [...state.textOverlays, overlay]);
   }
 
-  // ─── REMOVE TEXT OVERLAY ──────────────────────────────────
   void removeTextOverlay(String id) {
     if (!mounted) return;
     state = state.copyWith(
-      textOverlays: state.textOverlays
-          .where((t) => t.id != id)
-          .toList(),
+      textOverlays: state.textOverlays.where((t) => t.id != id).toList(),
     );
   }
 
-  // ─── UPDATE TEXT OVERLAY POSITION ────────────────────────
   void updateTextPosition(String id, Offset newPosition) {
     if (!mounted) return;
     state = state.copyWith(
@@ -148,7 +134,6 @@ class StoryCreateNotifier extends StateNotifier<StoryCreateState> {
     );
   }
 
-  // ─── TOGGLE AUDIENCE ──────────────────────────────────────
   void toggleAudience() {
     if (!mounted) return;
     state = state.copyWith(
@@ -156,7 +141,6 @@ class StoryCreateNotifier extends StateNotifier<StoryCreateState> {
     );
   }
 
-  // ─── UPLOAD STORY ─────────────────────────────────────────
   Future<bool> uploadStory({String? caption}) async {
     if (!mounted || state.selectedImage == null) return false;
 
@@ -167,45 +151,29 @@ class StoryCreateNotifier extends StateNotifier<StoryCreateState> {
     );
 
     try {
-      // Build caption from text overlays if no explicit caption
       final storyCaption = caption?.isNotEmpty == true
           ? caption
           : state.textOverlays.isNotEmpty
               ? state.textOverlays.map((t) => t.text).join(' • ')
               : null;
 
-      // Simulate progress (real progress from Cloudinary)
-      for (int i = 1; i <= 10; i++) {
-        await Future.delayed(const Duration(milliseconds: 150));
-        if (!mounted) return false;
-        state = state.copyWith(
-          uploadProgress: i / 10 * 0.7, // Up to 70% for upload
-        );
-      }
-
-      // Upload to backend
-      final story = await _storyService.createStory(
-        imageFile: state.selectedImage!,
+      // Real upload to backend
+      await _storyService.createStory(
+        mediaFile: state.selectedImage!,
+        mediaType: 'image',
         caption: storyCaption,
         audience: state.audience,
+        onProgress: (p) {
+          if (mounted) state = state.copyWith(uploadProgress: p);
+        },
       );
 
       if (!mounted) return false;
 
-      // Complete progress
-      state = state.copyWith(uploadProgress: 1.0);
+      state = state.copyWith(uploadProgress: 1.0, isUploading: false, isSuccess: true);
 
-      await Future.delayed(const Duration(milliseconds: 300));
-
-      if (!mounted) return false;
-
-      // Update story feed provider
-      _ref.read(storyFeedProvider.notifier).addStoryToMyGroup(story);
-
-      state = state.copyWith(
-        isUploading: false,
-        isSuccess: true,
-      );
+      // Refresh story feed
+      _ref.invalidate(storyFeedProvider);
 
       return true;
     } catch (e) {
@@ -218,7 +186,6 @@ class StoryCreateNotifier extends StateNotifier<StoryCreateState> {
     }
   }
 
-  // ─── RESET ────────────────────────────────────────────────
   void reset() {
     if (!mounted) return;
     state = const StoryCreateState();
@@ -226,11 +193,6 @@ class StoryCreateNotifier extends StateNotifier<StoryCreateState> {
 }
 
 // ─── PROVIDERS ──────────────────────────────────────────────
-final storyCreateProvider = StateNotifierProvider<
-    StoryCreateNotifier, StoryCreateState>((ref) {
-  return StoryCreateNotifier(
-    ref.watch(storyServiceProvider),
-    ref,
-  );
+final storyCreateProvider = StateNotifierProvider<StoryCreateNotifier, StoryCreateState>((ref) {
+  return StoryCreateNotifier(ref.watch(storyServiceProvider), ref);
 });
-

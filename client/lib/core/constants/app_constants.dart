@@ -34,6 +34,11 @@ class AppConstants {
   static const String reelsFeedUrl  = '/reels/feed';
   static const String reelsExplore  = '/reels/explore';
 
+  static const String storiesUrl    = '/stories';
+  static const String storyFeedUrl  = '/stories/feed';
+  static const String highlightsUrl = '/highlights';
+  static const String usersUrl      = '/users';
+
 
   static const String tokenKey = 'auth_token';
   static const String refreshTokenKey = 'refresh_token';

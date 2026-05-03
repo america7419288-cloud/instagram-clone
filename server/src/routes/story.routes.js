@@ -15,11 +15,11 @@ const {
 } = require('../controllers/story.controller');
 
 const { protect } = require('../middleware/auth.middleware');
-const { uploadSingleImage } = require('../services/upload.service');
+const { uploadStoryMedia } = require('../services/upload.service');
 
 // ─── MULTER ERROR HANDLER ──────────────────────────────────
 const handleUpload = (req, res, next) => {
-  uploadSingleImage(req, res, (err) => {
+  uploadStoryMedia.single('media')(req, res, (err) => {
     if (err) {
       return res.status(400).json({
         success: false,

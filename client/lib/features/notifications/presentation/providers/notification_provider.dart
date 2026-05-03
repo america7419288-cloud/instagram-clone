@@ -219,7 +219,6 @@ final notificationProvider =
 });
 
 // Used in MainShell for badge count
-final unreadNotificationsCountProvider = FutureProvider<int>((ref) async {
-  final service = ref.watch(notificationServiceProvider);
-  return await service.getUnreadCount();
+final unreadNotificationsCountProvider = Provider<int>((ref) {
+  return ref.watch(notificationProvider.select((s) => s.unreadCount));
 });

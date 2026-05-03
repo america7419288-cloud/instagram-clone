@@ -6,7 +6,7 @@ import '../../data/repositories/story_service.dart';
 
 // ─── STORY FEED STATE ───────────────────────────────────────
 class StoryFeedState {
-  final List<StoryUserGroup> userGroups;
+  final List<StoryFeedModel> userGroups;
   final bool isLoading;
   final String? errorMessage;
 
@@ -17,7 +17,7 @@ class StoryFeedState {
   });
 
   StoryFeedState copyWith({
-    List<StoryUserGroup>? userGroups,
+    List<StoryFeedModel>? userGroups,
     bool? isLoading,
     String? errorMessage,
   }) {
@@ -71,7 +71,7 @@ class StoryFeedNotifier extends Notifier<StoryFeedState> {
       // Check if any unseen stories remain
       final stillHasUnseen = updatedStories.any((s) => !s.isViewed);
 
-      return StoryUserGroup(
+      return StoryFeedModel(
         user: group.user,
         stories: updatedStories,
         hasUnseen: stillHasUnseen,
@@ -88,7 +88,7 @@ class StoryFeedNotifier extends Notifier<StoryFeedState> {
 
   // ─── ADD NEW STORY (after creating) ───────────────────────
   void addStoryToMyGroup(StoryModel newStory) {
-    final groups = List<StoryUserGroup>.from(state.userGroups);
+    final groups = List<StoryFeedModel>.from(state.userGroups);
 
     // Find own group
     final ownIndex = groups.indexWhere((g) => g.isOwn);
@@ -96,7 +96,7 @@ class StoryFeedNotifier extends Notifier<StoryFeedState> {
     if (ownIndex != -1) {
       // Add to existing own group
       final ownGroup = groups[ownIndex];
-      final updatedGroup = StoryUserGroup(
+      final updatedGroup = StoryFeedModel(
         user: ownGroup.user,
         stories: [newStory, ...ownGroup.stories],
         hasUnseen: true,
@@ -118,7 +118,7 @@ class StoryFeedNotifier extends Notifier<StoryFeedState> {
           .where((s) => s.id != storyId)
           .toList();
 
-      return StoryUserGroup(
+      return StoryFeedModel(
         user: group.user,
         stories: updatedStories,
         hasUnseen: group.hasUnseen,
@@ -132,10 +132,6 @@ class StoryFeedNotifier extends Notifier<StoryFeedState> {
 }
 
 // ─── PROVIDERS ──────────────────────────────────────────────
-final storyServiceProvider = Provider<StoryService>((ref) {
-  return StoryService();
-});
-
 final storyFeedProvider =
     NotifierProvider<StoryFeedNotifier, StoryFeedState>(
   StoryFeedNotifier.new,

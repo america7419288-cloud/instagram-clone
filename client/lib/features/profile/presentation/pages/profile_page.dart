@@ -1,6 +1,9 @@
 // lib/features/profile/presentation/pages/profile_page.dart
 
 import 'package:flutter/material.dart';
+import '../../../story/presentation/widgets/highlights_bar.dart';
+import '../../../story/data/repositories/story_service.dart';
+import '../../../story/data/models/story_advanced_model.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:cached_network_image/cached_network_image.dart';
 import 'package:go_router/go_router.dart';
@@ -130,7 +133,7 @@ class _ProfilePageState extends ConsumerState<ProfilePage>
                 _buildActionButtons(profile),
 
                 // ─── HIGHLIGHTS ──────────────────────────
-                _buildHighlights(),
+                _buildHighlights(profile),
 
                 // Divider
                 const Divider(height: 1, color: AppColors.border),
@@ -468,30 +471,71 @@ class _ProfilePageState extends ConsumerState<ProfilePage>
   }
 
   // ─── HIGHLIGHTS ──────────────────────────────────────────────
-  Widget _buildHighlights() {
-    return SizedBox(
-      height: 90,
-      child: ListView(
-        scrollDirection: Axis.horizontal,
-        padding: const EdgeInsets.symmetric(horizontal: 12),
-        children: [
-          // New highlight (own profile only)
-          if (ref
-                  .read(profileProvider(widget.username))
-                  .profile
-                  ?.isOwnProfile ==
-              true)
-            _HighlightItem(
-              label: 'New',
-              isNew: true,
-              onTap: () =>
-                  AppSnackbar.info(context, 'Highlights coming soon!'),
-            ),
+  Widget _buildHighlights(ProfileModel profile) {
+    final isMyProfile = profile.isOwnProfile;
 
-          // Placeholder highlights
-          _HighlightItem(label: 'Travel', isNew: false),
-          _HighlightItem(label: 'Food', isNew: false),
-          _HighlightItem(label: 'Life', isNew: false),
+    return HighlightsBar(
+      username: profile.username,
+      isMyProfile: isMyProfile,
+      onAddHighlight: isMyProfile
+          ? () => _showCreateHighlightDialog(context, ref, profile.username)
+          : null,
+    );
+  }
+
+  void _showCreateHighlightDialog(
+    BuildContext context,
+    WidgetRef ref,
+    String username,
+  ) {
+    final ctrl = TextEditingController();
+    showDialog(
+      context: context,
+      builder: (_) => AlertDialog(
+        title: const Text('New Highlight'),
+        content: TextField(
+          controller: ctrl,
+          autofocus: true,
+          maxLength: 50,
+          decoration: const InputDecoration(
+            hintText: 'Highlight name (e.g. Travel)',
+          ),
+        ),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.pop(context),
+            child: const Text('Cancel'),
+          ),
+          ElevatedButton(
+            onPressed: () async {
+              if (ctrl.text.trim().isEmpty) return;
+              Navigator.pop(context);
+              try {
+                await ref.read(storyServiceProvider).createHighlight(
+                      title: ctrl.text.trim(),
+                    );
+                ref.invalidate(highlightsProvider(username));
+                if (context.mounted) {
+                  ScaffoldMessenger.of(context).showSnackBar(
+                    const SnackBar(
+                      content: Text('Highlight created!'),
+                      behavior: SnackBarBehavior.floating,
+                    ),
+                  );
+                }
+              } catch (e) {
+                if (context.mounted) {
+                  ScaffoldMessenger.of(context).showSnackBar(
+                    SnackBar(
+                      content: Text('Failed: $e'),
+                      behavior: SnackBarBehavior.floating,
+                    ),
+                  );
+                }
+              }
+            },
+            child: const Text('Create'),
+          ),
         ],
       ),
     );

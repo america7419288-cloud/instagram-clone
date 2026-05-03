@@ -29,7 +29,7 @@ const {
 
 // Middleware
 const { protect, optionalAuth } = require('../middleware/auth.middleware');
-const { uploadSingleImage } = require('../services/upload.service');
+const { uploadProfilePicture } = require('../services/upload.service');
 
 // Validators
 const {
@@ -40,7 +40,7 @@ const {
 
 // ─── MULTER HANDLER ────────────────────────────────────────
 const handleUpload = (req, res, next) => {
-  uploadSingleImage(req, res, (err) => {
+  uploadProfilePicture.single('image')(req, res, (err) => {
     if (err) {
       return res.status(400).json({
         success: false,

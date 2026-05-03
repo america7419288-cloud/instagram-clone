@@ -1,5 +1,6 @@
 // lib/features/profile/presentation/providers/profile_provider.dart
 
+import 'dart:async';
 import 'dart:io';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_riverpod/legacy.dart';
@@ -59,9 +60,24 @@ class ProfileState {
 class ProfileNotifier extends StateNotifier<ProfileState> {
   final ProfileService _service;
   final String username;
+  Timer? _refreshTimer;
 
   ProfileNotifier(this._service, this.username) : super(const ProfileState()) {
     loadProfile();
+    
+    // ─── PERIODIC REFRESH ─────────────────────────────────────
+    // Refresh profile every 60 seconds to keep stats updated
+    _refreshTimer = Timer.periodic(const Duration(seconds: 20), (_) {
+      if (mounted && !state.isLoading) {
+        refresh();
+      }
+    });
+  }
+
+  @override
+  void dispose() {
+    _refreshTimer?.cancel();
+    super.dispose();
   }
 
   // ─── LOAD PROFILE ────────────────────────────────────────

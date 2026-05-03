@@ -24,6 +24,7 @@ import '../../features/messages/presentation/pages/chat_page.dart';
 import '../../features/reels/presentation/pages/create_reel_page.dart';
 import '../../features/messages/presentation/pages/new_message_page.dart';
 import '../../features/story/presentation/pages/story_viewer_page.dart';
+import '../../features/story/presentation/pages/story_creator_page.dart';
 import '../../features/follow/data/repositories/presentation/pages/followers_page.dart';
 import '../../features/follow/data/repositories/presentation/pages/follow_requests_page.dart';
 import 'main_shell.dart';
@@ -65,6 +66,8 @@ class AppRoutes {
   static const String hashtag = '/hashtag/:tag';
   static const String settings = '/settings';
   static const String storyCreate = '/story-create';
+  static const String createStory = '/create-story';
+  static const String myProfile = '/my-profile';
 }
 
 // ─── ROUTER PROVIDER ────────────────────────────────────────
@@ -252,6 +255,16 @@ final routerProvider = Provider<GoRouter>((ref) {
             name: 'messages',
             builder: (context, state) => const MessagesPage(),
           ),
+
+          // My Profile (redirect helper)
+          GoRoute(
+            path: AppRoutes.myProfile,
+            name: 'myProfile',
+            builder: (context, state) {
+              final user = ref.read(authProvider).user;
+              return ProfilePage(username: user?.username ?? '');
+            },
+          ),
         ],
       ),
 
@@ -273,6 +286,15 @@ final routerProvider = Provider<GoRouter>((ref) {
         pageBuilder: (context, state) => _buildPage(
           state: state,
           child: const CreatePostPage(),
+        ),
+      ),
+
+      // Create Story (full screen)
+      GoRoute(
+        path: AppRoutes.createStory,
+        pageBuilder: (context, state) => _buildPage(
+          state: state,
+          child: const StoryCreatorPage(),
         ),
       ),
 

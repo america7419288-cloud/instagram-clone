@@ -112,8 +112,7 @@ class _MainShellState extends ConsumerState<MainShell>
   Widget build(BuildContext context) {
     final isDark = Theme.of(context).brightness == Brightness.dark;
     final user = ref.watch(authProvider).user;
-    final unreadNotifications =
-        ref.watch(unreadNotificationsCountProvider).asData?.value ?? 0;
+    final unreadCount = ref.watch(unreadNotificationsCountProvider);
 
     // ─── Reels tab index = 3 ──────────────────────────
     final isReelsTab = _currentIndex == 3;
@@ -207,7 +206,7 @@ class _MainShellState extends ConsumerState<MainShell>
                   activeColor: activeColor,
                   inactiveColor: inactiveColor,
                   onTap: _onTap,
-                  badgeCount: unreadNotifications,
+                  badgeCount: unreadCount,
                 ),
 
                 // ─── Profile ──────────────────────────

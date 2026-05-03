@@ -10,10 +10,11 @@ import '../../../../core/theme/app_theme.dart';
 import '../../../../shared/widgets/app_snackbar.dart';
 import '../../../../features/auth/presentation/providers/auth_provider.dart';
 import '../../data/models/story_model.dart';
+import '../../data/repositories/story_service.dart';
 import '../providers/story_provider.dart';
 
 class StoryViewer extends ConsumerStatefulWidget {
-  final List<StoryUserGroup> groups;
+  final List<StoryFeedModel> groups;
   final int initialGroupIndex;
 
   const StoryViewer({
@@ -61,7 +62,7 @@ class _StoryViewerState extends ConsumerState<StoryViewer>
     super.dispose();
   }
 
-  StoryUserGroup get _currentGroup => widget.groups[_currentGroupIndex];
+  StoryFeedModel get _currentGroup => widget.groups[_currentGroupIndex];
 
   StoryModel get _currentStory => _currentGroup.stories[_currentStoryIndex];
 
@@ -305,7 +306,7 @@ class _StoryViewerState extends ConsumerState<StoryViewer>
   }
 
   Widget _buildUserInfo(
-    StoryUserGroup group,
+    StoryFeedModel group,
     StoryModel story,
     bool isOwnStory,
   ) {

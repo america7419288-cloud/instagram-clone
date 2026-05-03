@@ -14,7 +14,7 @@ const {
   paginatedResponse,
 } = require('../utils/response.utils');
 const {
-  uploadImageToCloudinary,
+  uploadStoryToCloudinary,
   deleteFromCloudinary,
 } = require('../services/upload.service');
 const { Op } = require('sequelize');
@@ -83,61 +83,26 @@ const createStory = async (req, res) => {
     console.log(`📖 Creating story for user: ${userId}`);
 
     // 3. UPLOAD TO CLOUDINARY
-    const isVideo = req.file.mimetype.startsWith('video/');
-    const folder = isVideo ? 'story-videos' : 'story-images';
-
-    const uploadResult = await uploadImageToCloudinary(
+    const uploadResult = await uploadStoryToCloudinary(
       req.file.buffer,
-      folder,
-      {
-        resource_type: isVideo ? 'video' : 'image',
-        public_id: `story_${userId}_${Date.now()}`,
-        // Stories are 9:16. Keep a vertical 4K rendition.
-        quality: '100',
-        fetch_format: 'auto',
-        ...(!isVideo && {
-          eager: [
-            {
-              width: 2160,
-              height: 3840,
-              crop: 'limit',
-              quality: '100',
-            },
-          ],
-          eager_async: false,
-        }),
-        ...(isVideo && {
-          eager: [
-            // Generate thumbnail for video stories
-            {
-              format: 'jpg',
-              transformation: [{ start_offset: '0' }],
-            },
-          ],
-          eager_async: false,
-        }),
-      }
+      req.file.mimetype
     );
 
     // 4. CREATE STORY IN DATABASE
     const story = await Story.create({
       user_id: userId,
-      media_url: isVideo
-        ? uploadResult.secure_url
-        : uploadResult.eager?.[0]?.secure_url || uploadResult.secure_url,
-      thumbnail_url: isVideo
-        ? uploadResult.eager?.[0]?.secure_url
-        : null,
-      media_type: isVideo ? 'video' : 'image',
-      cloudinary_public_id: uploadResult.public_id,
-      caption: caption || null,
-      link: link || null,
+      media_url:            uploadResult.url,
+      thumbnail_url:        uploadResult.thumbnailUrl,
+      media_type:           uploadResult.mediaType,
+      cloudinary_public_id: uploadResult.publicId,
+      caption:              caption || null,
+      link:                 link || null,
       audience,
-      width: uploadResult.width,
-      height: uploadResult.height,
-      duration: uploadResult.duration || null,
+      width:                uploadResult.width || 1080,
+      height:               uploadResult.height || 1920,
+      duration:             uploadResult.duration || null,
       // Auto-set expiry 24 hours from now
-      expires_at: new Date(Date.now() + 24 * 60 * 60 * 1000),
+      expires_at:           new Date(Date.now() + 24 * 60 * 60 * 1000),
     });
 
     // 5. GET STORY WITH USER DATA

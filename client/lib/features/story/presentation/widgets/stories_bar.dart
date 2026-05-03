@@ -50,7 +50,7 @@ class StoriesBar extends ConsumerWidget {
                     storyState.userGroups.indexOf(ownGroup),
                   );
                 } else {
-                  context.push('/story-create');
+                  context.push('/create-story');
                 }
               },
             ),
@@ -76,7 +76,7 @@ class StoriesBar extends ConsumerWidget {
   void _openStoryViewer(
     BuildContext context,
     WidgetRef ref,
-    List<StoryUserGroup> groups,
+    List<StoryFeedModel> groups,
     int initialGroupIndex,
   ) {
     final nonEmptyGroups = groups.where((g) => g.stories.isNotEmpty).toList();
@@ -205,7 +205,7 @@ class _YourStoryItem extends StatelessWidget {
 }
 
 class _StoryItem extends StatelessWidget {
-  final StoryUserGroup group;
+  final StoryFeedModel group;
   final VoidCallback onTap;
 
   const _StoryItem({required this.group, required this.onTap});

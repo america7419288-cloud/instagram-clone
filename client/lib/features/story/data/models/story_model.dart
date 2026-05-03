@@ -1,4 +1,4 @@
-// lib/features/story/data/models/story_model.dart
+import 'story_advanced_model.dart';
 
 // ─── SINGLE STORY ──────────────────────────────────────────
 class StoryModel {
@@ -19,6 +19,10 @@ class StoryModel {
   final int viewCount;
   final StoryUserModel? user;
 
+  // Interactive features
+  final StoryPollModel? poll;
+  final StoryQuestionModel? question;
+
   const StoryModel({
     required this.id,
     required this.mediaUrl,
@@ -36,11 +40,13 @@ class StoryModel {
     required this.isOwnStory,
     required this.viewCount,
     this.user,
+    this.poll,
+    this.question,
   });
 
   factory StoryModel.fromJson(Map<String, dynamic> json) {
     return StoryModel(
-      id: json['id'] ?? '',
+      id: json['id']?.toString() ?? '',
       mediaUrl: json['media_url'] ?? '',
       thumbnailUrl: json['thumbnail_url'],
       mediaType: json['media_type'] ?? 'image',
@@ -61,6 +67,10 @@ class StoryModel {
       viewCount: json['view_count'] ?? 0,
       user: json['user'] != null
           ? StoryUserModel.fromJson(json['user'])
+          : null,
+      poll: json['poll'] != null ? StoryPollModel.fromJson(json['poll']) : null,
+      question: json['question'] != null
+          ? StoryQuestionModel.fromJson(json['question'])
           : null,
     );
   }
@@ -84,6 +94,8 @@ class StoryModel {
       isOwnStory: isOwnStory,
       viewCount: viewCount,
       user: user,
+      poll: poll,
+      question: question,
     );
   }
 
@@ -121,14 +133,14 @@ class StoryUserModel {
 // ─── STORY USER GROUP ──────────────────────────────────────
 // Groups one user's stories together
 // This is what the StoriesBar shows
-class StoryUserGroup {
+class StoryFeedModel {
   final StoryUserModel user;
   final List<StoryModel> stories;
   final bool hasUnseen;    // Does this user have unseen stories?
   final bool isOwn;        // Is this the current user's stories?
   final DateTime? latestStoryAt;
 
-  const StoryUserGroup({
+  const StoryFeedModel({
     required this.user,
     required this.stories,
     required this.hasUnseen,
@@ -136,14 +148,14 @@ class StoryUserGroup {
     this.latestStoryAt,
   });
 
-  factory StoryUserGroup.fromJson(Map<String, dynamic> json) {
+  factory StoryFeedModel.fromJson(Map<String, dynamic> json) {
     final user = StoryUserModel.fromJson(json['user'] ?? {});
     final storiesJson = json['stories'] as List<dynamic>? ?? [];
     final stories = storiesJson
         .map((s) => StoryModel.fromJson(s as Map<String, dynamic>))
         .toList();
 
-    return StoryUserGroup(
+    return StoryFeedModel(
       user: user,
       stories: stories,
       hasUnseen: json['has_unseen'] ?? false,

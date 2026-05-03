@@ -1,6 +1,7 @@
 // lib/features/messages/presentation/providers/message_provider.dart
 // COMPLETE UPDATED FILE with Socket.io integration
 
+import 'dart:async';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_riverpod/legacy.dart';
 import '../../data/models/conversation_model.dart';
@@ -42,16 +43,27 @@ class InboxNotifier extends StateNotifier<InboxState> {
   final MessageService _service;
   final Ref _ref;
 
+  Timer? _pollingTimer;
+
   InboxNotifier(this._service, this._ref) : super(const InboxState()) {
     loadInbox();
     loadUnreadCount();
     _registerSocketHandlers();
+    
+    // ─── POLLING FALLBACK ─────────────────────────────────────
+    _pollingTimer = Timer.periodic(const Duration(seconds: 30), (_) {
+      loadUnreadCount();
+    });
   }
 
   // ─── REGISTER SOCKET HANDLERS ─────────────────────────────
   void _registerSocketHandlers() {
     // When a new message arrives (from socket), update inbox
     _ref.read(socketProvider.notifier).registerInboxHandler('inbox', (data) {
+      // 1. Update unread count
+      loadUnreadCount();
+
+      // 2. Update specific conversation
       final conversationId =
           data['conversation_id'] as String? ??
           data['message']?['conversation_id'] as String? ??
@@ -64,6 +76,9 @@ class InboxNotifier extends StateNotifier<InboxState> {
 
       if (conversationId.isNotEmpty) {
         updateConversationLastMessage(conversationId, lastMessage);
+      } else {
+        // Full refresh if no ID
+        loadInbox();
       }
     });
   }
@@ -159,6 +174,7 @@ class InboxNotifier extends StateNotifier<InboxState> {
 
   @override
   void dispose() {
+    _pollingTimer?.cancel();
     _ref.read(socketProvider.notifier).unregisterInboxHandler('inbox');
     super.dispose();
   }

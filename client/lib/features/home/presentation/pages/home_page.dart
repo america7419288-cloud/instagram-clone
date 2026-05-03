@@ -81,8 +81,7 @@ class _HomePageContentState extends ConsumerState<HomePageContent> {
   }
 
   PreferredSizeWidget _buildAppBar(BuildContext context) {
-    final unreadCount =
-        ref.watch(unreadNotificationsCountProvider).asData?.value ?? 0;
+    final unreadCount = ref.watch(unreadNotificationsCountProvider);
 
     return AppBar(
       backgroundColor: AppColors.white,
