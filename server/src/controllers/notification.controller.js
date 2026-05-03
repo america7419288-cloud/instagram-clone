@@ -15,13 +15,13 @@ const formatNotification = async (notification) => {
 
   // Get post thumbnail if needed
   let postThumbnail = null;
-  if (n.reference_post_id) {
+  if (notification.reference_post_id) {
     const media = await PostMedia.findOne({
-      where: { post_id: n.reference_post_id },
-      order: [['display_order', 'ASC']],
-      attributes: ['small_url', 'media_url'],
+      where: { postId: notification.reference_post_id },
+      order: [['order', 'ASC']],
+      attributes: ['thumbnailUrl', 'url'],
     });
-    postThumbnail = media?.small_url || media?.media_url;
+    postThumbnail = media?.thumbnailUrl || media?.url;
   }
 
   // Build human-readable message based on type

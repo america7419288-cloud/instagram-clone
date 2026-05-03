@@ -336,8 +336,6 @@ const updateProfilePicture = async (req, res) => {
       'Profile picture updated successfully! 📸',
       {
         profile_pic_url: uploadResult.url,
-        small_url: uploadResult.small_url,
-        medium_url: uploadResult.medium_url,
       }
     );
 

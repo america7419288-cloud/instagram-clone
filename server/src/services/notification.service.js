@@ -7,11 +7,11 @@ const getPostThumbnail = async (postId) => {
   if (!postId) return null;
   try {
     const media = await PostMedia.findOne({
-      where: { post_id: postId },
-      order: [['display_order', 'ASC']],
-      attributes: ['small_url', 'media_url'],
+      where: { postId },
+      order: [['order', 'ASC']],
+      attributes: ['thumbnailUrl', 'url'],
     });
-    return media?.small_url || media?.media_url || null;
+    return media?.thumbnailUrl || media?.url || null;
   } catch (e) {
     return null;
   }

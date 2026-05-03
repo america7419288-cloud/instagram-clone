@@ -680,6 +680,8 @@ const _fetchPostById = async (postId, userId) => {
 
 // ─── Format post for response ─────────────────────────
 const _formatPost = (post, userId) => {
+  console.log(`[DEBUG] Formatting post ${post.id}. Raw mediaFiles:`, JSON.stringify(post.mediaFiles));
+
   const mediaFiles = (post.mediaFiles || [])
     .sort((a, b) => a.order - b.order)
     .map((m) => ({
@@ -700,6 +702,11 @@ const _formatPost = (post, userId) => {
     caption: post.caption,
     location: post.location,
     media: mediaFiles,
+    // ─── Profile grid fields ─────────────────────────
+    thumbnail_url: mediaFiles.length > 0 ? (mediaFiles[0].small_url || mediaFiles[0].thumbnail_url || mediaFiles[0].media_url) : null,
+    media_type: mediaFiles.length > 0 ? mediaFiles[0].media_type : 'image',
+    is_carousel: mediaFiles.length > 1,
+    // ─── User ────────────────────────────────────────
     user: post.user ? {
       id: post.user.id,
       username: post.user.username,

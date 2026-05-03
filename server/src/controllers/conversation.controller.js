@@ -96,7 +96,7 @@ const formatMessage = (message) => {
     shared_post: m.sharedPost
       ? {
           id: m.sharedPost.id,
-          thumbnail: m.sharedPost.media?.[0]?.small_url,
+          thumbnail: m.sharedPost.media?.[0]?.thumbnailUrl,
         }
       : null,
   };
