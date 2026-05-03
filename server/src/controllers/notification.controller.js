@@ -15,9 +15,9 @@ const formatNotification = async (notification) => {
 
   // Get post thumbnail if needed
   let postThumbnail = null;
-  if (notification.reference_post_id) {
+  if (notification.postId) {
     const media = await PostMedia.findOne({
-      where: { postId: notification.reference_post_id },
+      where: { postId: notification.postId },
       order: [['order', 'ASC']],
       attributes: ['thumbnailUrl', 'url'],
     });
@@ -37,13 +37,15 @@ const formatNotification = async (notification) => {
     mention_comment: `${senderUsername} mentioned you in a comment.`,
     comment_like: `${senderUsername} liked your comment.`,
     story_view: `${senderUsername} viewed your story.`,
+    reel_like: `${senderUsername} liked your reel.`,
+    reel_comment: `${senderUsername} commented on your reel.`,
     system: n.message || 'System notification.',
   };
 
   return {
     id: n.id,
     type: n.type,
-    is_read: n.is_read,
+    is_read: n.isRead,
     message: messageMap[n.type] || n.message,
     created_at: n.created_at || n.createdAt,
 
@@ -59,9 +61,10 @@ const formatNotification = async (notification) => {
       : null,
 
     // References (for deep linking)
-    reference_post_id: n.reference_post_id,
-    reference_comment_id: n.reference_comment_id,
-    reference_story_id: n.reference_story_id,
+    reference_post_id: n.postId,
+    reference_comment_id: n.commentId,
+    reference_story_id: n.storyId,
+    reference_reel_id: n.reelId,
     post_thumbnail: postThumbnail,
   };
 };
@@ -80,7 +83,7 @@ const getNotifications = async (req, res) => {
     const type = req.query.type || null; // Filter by type
 
     const whereClause = {
-      recipient_id: userId,
+      recipientId: userId,
       ...(type && { type }),
     };
 
@@ -136,8 +139,8 @@ const getUnreadCount = async (req, res) => {
 
     const count = await Notification.count({
       where: {
-        recipient_id: userId,
-        is_read: false,
+        recipientId: userId,
+        isRead: false,
       },
     });
 
@@ -164,11 +167,11 @@ const markAllAsRead = async (req, res) => {
     const userId = req.user.id;
 
     const [updatedCount] = await Notification.update(
-      { is_read: true },
+      { isRead: true },
       {
         where: {
-          recipient_id: userId,
-          is_read: false,
+          recipientId: userId,
+          isRead: false,
         },
       }
     );
@@ -199,7 +202,7 @@ const markAsRead = async (req, res) => {
     const notification = await Notification.findOne({
       where: {
         id,
-        recipient_id: userId, // Security: only own notifications
+        recipientId: userId, // Security: only own notifications
       },
     });
 
@@ -207,13 +210,13 @@ const markAsRead = async (req, res) => {
       return errorResponse(res, 404, 'Notification not found.');
     }
 
-    await notification.update({ is_read: true });
+    await notification.update({ isRead: true });
 
     return successResponse(
       res,
       200,
       'Notification marked as read.',
-      { id, is_read: true }
+      { id, isRead: true }
     );
 
   } catch (error) {
@@ -235,7 +238,7 @@ const deleteNotification = async (req, res) => {
     const deleted = await Notification.destroy({
       where: {
         id,
-        recipient_id: userId,
+        recipientId: userId,
       },
     });
 
@@ -266,7 +269,7 @@ const deleteAllNotifications = async (req, res) => {
     const userId = req.user.id;
 
     const deletedCount = await Notification.destroy({
-      where: { recipient_id: userId },
+      where: { recipientId: userId },
     });
 
     return successResponse(

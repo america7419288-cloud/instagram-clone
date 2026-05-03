@@ -94,7 +94,9 @@ class PostService {
         onSendProgress: onSendProgress,
       );
 
-      return PostModel.fromJson(response.data['data']['post']);
+      final data = response.data['data'];
+      final postMap = (data is Map && data.containsKey('post')) ? data['post'] : data;
+      return PostModel.fromJson(postMap);
     } on DioException catch (e) {
       throw _handleError(e);
     }
@@ -152,7 +154,9 @@ class PostService {
       final response = await _dioClient.get(
         '${AppConstants.postsEndpoint}/$postId',
       );
-      return PostModel.fromJson(response.data['data']['post']);
+      final data = response.data['data'];
+      final postMap = (data is Map && data.containsKey('post')) ? data['post'] : data;
+      return PostModel.fromJson(postMap);
     } on DioException catch (e) {
       throw _handleError(e);
     }

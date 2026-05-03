@@ -13,6 +13,7 @@ import '../../data/models/comment_model.dart';
 import '../../data/repositories/post_service.dart';
 import '../providers/feed_provider.dart';
 import '../providers/comment_provider.dart';
+import '../widgets/video_player_widget.dart';
 
 class PostDetailPage extends ConsumerStatefulWidget {
   final String postId;
@@ -374,6 +375,18 @@ class _PostDetailPageState extends ConsumerState<PostDetailPage> {
   }
 
   Widget _buildMediaItem(PostMediaModel media) {
+    if (media.isVideo) {
+      return VideoPlayerWidget(
+        videoUrl: media.url,
+        thumbnailUrl: media.thumbnailUrl,
+        duration: media.duration,
+        autoPlay: true,
+        showControls: true,
+        looping: true,
+        fit: BoxFit.cover,
+      );
+    }
+
     return CachedNetworkImage(
       imageUrl: media.feedUrl,
       fit: BoxFit.cover,

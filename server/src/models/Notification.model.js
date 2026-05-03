@@ -14,7 +14,7 @@ const Notification = sequelize.define(
     },
 
     // Who receives this notification
-    recipient_id: {
+    recipientId: {
       type: DataTypes.UUID,
       allowNull: false,
       references: {
@@ -26,7 +26,7 @@ const Notification = sequelize.define(
 
     // Who triggered this notification
     // NULL for system notifications
-    sender_id: {
+    senderId: {
       type: DataTypes.UUID,
       allowNull: true,
       references: {
@@ -49,6 +49,8 @@ const Notification = sequelize.define(
         'mention_comment', // Mentioned you in comment
         'comment_like',    // Liked your comment
         'story_view',      // Viewed your story
+        'reel_like',       // Liked your reel
+        'reel_comment',    // Commented on your reel
         'system'           // System message
       ),
       allowNull: false,
@@ -56,7 +58,7 @@ const Notification = sequelize.define(
 
     // Reference to what triggered the notification
     // All optional - depends on type
-    reference_post_id: {
+    postId: {
       type: DataTypes.UUID,
       allowNull: true,
       references: {
@@ -66,7 +68,7 @@ const Notification = sequelize.define(
       onDelete: 'CASCADE',
     },
 
-    reference_comment_id: {
+    commentId: {
       type: DataTypes.UUID,
       allowNull: true,
       references: {
@@ -76,11 +78,21 @@ const Notification = sequelize.define(
       onDelete: 'CASCADE',
     },
 
-    reference_story_id: {
+    storyId: {
       type: DataTypes.UUID,
       allowNull: true,
       references: {
         model: 'stories',
+        key: 'id',
+      },
+      onDelete: 'CASCADE',
+    },
+
+    reelId: {
+      type: DataTypes.UUID,
+      allowNull: true,
+      references: {
+        model: 'reels',
         key: 'id',
       },
       onDelete: 'CASCADE',
@@ -93,7 +105,7 @@ const Notification = sequelize.define(
     },
 
     // Has user seen this notification?
-    is_read: {
+    isRead: {
       type: DataTypes.BOOLEAN,
       defaultValue: false,
       allowNull: false,

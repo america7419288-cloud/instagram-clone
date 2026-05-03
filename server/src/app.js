@@ -8,6 +8,8 @@ const app = express();
 app.use(helmet());
 
 const normalizeOrigin = (origin) => origin?.trim().replace(/\/$/, '');
+const reelRoutes = require('./routes/reel.routes');
+
 
 const allowedOrigins = [
     process.env.CLIENT_URL,
@@ -44,10 +46,10 @@ app.use(cors({
     credentials: true
 }));
 
-app.use(express.json({limit: '10mb'}));
-app.use(express.urlencoded({extended: true, limit: '10mb'}));
+app.use(express.json({ limit: '10mb' }));
+app.use(express.urlencoded({ extended: true, limit: '10mb' }));
 
-if (process.env.MODE_ENV === 'production'){
+if (process.env.MODE_ENV === 'production') {
     app.use(morgan('dev'))
 }
 app.get('/', (req, res) => {
@@ -71,11 +73,12 @@ app.use('/api/v1/auth', require('./routes/auth.routes'));
 app.use('/api/v1/users', require('./routes/user.routes'));
 app.use('/api/v1/posts', require('./routes/post.routes'));
 app.use('/api/v1/users', require('./routes/follow.routes'));
-app.use('/api/v1/comments', require('./routes/comment.routes')); 
+app.use('/api/v1/comments', require('./routes/comment.routes'));
 app.use('/api/v1/stories', require('./routes/story.routes'));
 app.use('/api/v1/notifications', require('./routes/notification.routes'));
 app.use('/api/v1/conversations', require('./routes/conversation.routes'));
-app.use('/api/v1/messages', require('./routes/message.routes'));  
+app.use('/api/v1/messages', require('./routes/message.routes'));
+app.use('/api/reels', reelRoutes);
 
 
 app.get('/api/v1/test', (req, res) => {
@@ -100,7 +103,7 @@ app.use((err, req, res, next) => {
     res.status(err.status || 500).json({
         success: false,
         message: err.message || 'Internal server error',
-        ...(process.env.MODE_ENV === 'development' && {stack: err.stack})
+        ...(process.env.MODE_ENV === 'development' && { stack: err.stack })
     });
 });
 

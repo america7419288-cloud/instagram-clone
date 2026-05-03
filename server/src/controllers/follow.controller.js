@@ -55,7 +55,7 @@ const followUser = async (req, res) => {
 
     // 3. CHECK IF ALREADY FOLLOWING
     const existingFollow = await Follower.findOne({
-      where: { follower_id: followerId, following_id: followingId },
+      where: { followerId: followerId, followingId: followingId },
     });
 
     if (existingFollow) {
@@ -79,8 +79,8 @@ const followUser = async (req, res) => {
 
     // 5. CREATE FOLLOW RECORD
     const follow = await Follower.create({
-      follower_id: followerId,
-      following_id: followingId,
+      followerId: followerId,
+      followingId: followingId,
       status,
     });
 
@@ -96,7 +96,7 @@ const followUser = async (req, res) => {
 
     // 6. GET UPDATED COUNTS
     const followersCount = await Follower.count({
-      where: { following_id: followingId, status: 'accepted' },
+      where: { followingId: followingId, status: 'accepted' },
     });
 
     if (status === 'pending') {
@@ -133,7 +133,7 @@ const unfollowUser = async (req, res) => {
     const followerId = req.user.id;
 
     const follow = await Follower.findOne({
-      where: { follower_id: followerId, following_id: followingId },
+      where: { followerId: followerId, followingId: followingId },
     });
 
     if (!follow) {
@@ -146,7 +146,7 @@ const unfollowUser = async (req, res) => {
     await follow.destroy();
 
     const followersCount = await Follower.count({
-      where: { following_id: followingId, status: 'accepted' },
+      where: { followingId: followingId, status: 'accepted' },
     });
 
     console.log(`👥 Unfollowed: ${followerId} → ${followingId}`);
@@ -181,16 +181,16 @@ const getFollowStatus = async (req, res) => {
     // Check if current user follows target
     const follow = await Follower.findOne({
       where: {
-        follower_id: currentUserId,
-        following_id: targetId,
+        followerId: currentUserId,
+        followingId: targetId,
       },
     });
 
     // Check if target follows current user back
     const followBack = await Follower.findOne({
       where: {
-        follower_id: targetId,
-        following_id: currentUserId,
+        followerId: targetId,
+        followingId: currentUserId,
         status: 'accepted',
       },
     });
@@ -202,11 +202,11 @@ const getFollowStatus = async (req, res) => {
 
     // Get counts
     const followersCount = await Follower.count({
-      where: { following_id: targetId, status: 'accepted' },
+      where: { followingId: targetId, status: 'accepted' },
     });
 
     const followingCount = await Follower.count({
-      where: { follower_id: targetId, status: 'accepted' },
+      where: { followerId: targetId, status: 'accepted' },
     });
 
     return successResponse(res, 200, 'Follow status fetched', {
@@ -253,7 +253,7 @@ const getFollowers = async (req, res) => {
     }
 
     const { count, rows: followers } = await Follower.findAndCountAll({
-      where: { following_id: userId, status: 'accepted' },
+      where: { followingId: userId, status: 'accepted' },
       include: [
         {
           model: User,
@@ -275,8 +275,8 @@ const getFollowers = async (req, res) => {
 
     const currentUserFollows = await Follower.findAll({
       where: {
-        follower_id: currentUserId,
-        following_id: { [Op.in]: followerUserIds },
+        followerId: currentUserId,
+        followingId: { [Op.in]: followerUserIds },
         status: 'accepted',
       },
       attributes: ['following_id'],
@@ -284,7 +284,7 @@ const getFollowers = async (req, res) => {
     });
 
     const followingSet = new Set(
-      currentUserFollows.map((f) => f.following_id)
+      currentUserFollows.map((f) => f.followingId)
     );
 
     const formattedFollowers = followers.map((f) => ({
@@ -339,7 +339,7 @@ const getFollowing = async (req, res) => {
     }
 
     const { count, rows: following } = await Follower.findAndCountAll({
-      where: { follower_id: userId, status: 'accepted' },
+      where: { followerId: userId, status: 'accepted' },
       include: [
         {
           model: User,
@@ -361,8 +361,8 @@ const getFollowing = async (req, res) => {
 
     const currentUserFollows = await Follower.findAll({
       where: {
-        follower_id: currentUserId,
-        following_id: { [Op.in]: followingUserIds },
+        followerId: currentUserId,
+        followingId: { [Op.in]: followingUserIds },
         status: 'accepted',
       },
       attributes: ['following_id'],
@@ -370,7 +370,7 @@ const getFollowing = async (req, res) => {
     });
 
     const followingSet = new Set(
-      currentUserFollows.map((f) => f.following_id)
+      currentUserFollows.map((f) => f.followingId)
     );
 
     const formattedFollowing = following.map((f) => ({
@@ -410,8 +410,8 @@ const removeFollower = async (req, res) => {
 
     const follow = await Follower.findOne({
       where: {
-        follower_id: followerToRemoveId,
-        following_id: currentUserId,
+        followerId: followerToRemoveId,
+        followingId: currentUserId,
         status: 'accepted',
       },
     });
@@ -429,7 +429,7 @@ const removeFollower = async (req, res) => {
     return successResponse(
       res, 200,
       'Follower removed successfully.',
-      { removed_follower_id: followerToRemoveId }
+      { removed_followerId: followerToRemoveId }
     );
 
   } catch (error) {
@@ -452,7 +452,7 @@ const getFollowRequests = async (req, res) => {
 
     const { count, rows: requests } = await Follower.findAndCountAll({
       where: {
-        following_id: currentUserId,
+        followingId: currentUserId,
         status: 'pending',
       },
       include: [
@@ -506,8 +506,8 @@ const acceptFollowRequest = async (req, res) => {
 
     const follow = await Follower.findOne({
       where: {
-        follower_id: requesterId,
-        following_id: currentUserId,
+        followerId: requesterId,
+        followingId: currentUserId,
         status: 'pending',
       },
     });
@@ -581,8 +581,8 @@ const rejectFollowRequest = async (req, res) => {
 
     const follow = await Follower.findOne({
       where: {
-        follower_id: requesterId,
-        following_id: currentUserId,
+        followerId: requesterId,
+        followingId: currentUserId,
         status: 'pending',
       },
     });

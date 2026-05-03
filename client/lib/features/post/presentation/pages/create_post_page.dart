@@ -126,9 +126,12 @@ class _CreatePostPageState extends ConsumerState<CreatePostPage> {
     try {
       final file = ref.read(createPostProvider).selectedImages[index];
       
-      // Skip cropping for videos
-      if (file.path.toLowerCase().endsWith('.mp4') || 
-          file.path.toLowerCase().endsWith('.mov')) {
+      final path = file.path.toLowerCase();
+      if (path.endsWith('.mp4') || 
+          path.endsWith('.mov') || 
+          path.endsWith('.m4v') || 
+          path.endsWith('.3gp') ||
+          path.endsWith('.avi')) {
         return;
       }
 
@@ -518,6 +521,9 @@ class _CreatePostPageState extends ConsumerState<CreatePostPage> {
                   : Image.file(
                       createState.selectedImages[0],
                       fit: BoxFit.contain,
+                      errorBuilder: (context, error, stackTrace) => const Center(
+                        child: Icon(Icons.broken_image, color: Colors.white54, size: 48),
+                      ),
                     ),
             ),
 
@@ -895,8 +901,12 @@ class _ThumbnailItem extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final bool isVideo = file.path.toLowerCase().endsWith('.mp4') || 
-                        file.path.toLowerCase().endsWith('.mov');
+    final path = file.path.toLowerCase();
+    final bool isVideo = path.endsWith('.mp4') || 
+                        path.endsWith('.mov') ||
+                        path.endsWith('.m4v') ||
+                        path.endsWith('.3gp') ||
+                        path.endsWith('.avi');
 
     return Container(
       width: 80,
@@ -923,7 +933,16 @@ class _ThumbnailItem extends StatelessWidget {
                         child: Icon(Icons.videocam, color: Colors.white, size: 24),
                       ),
                     )
-                  : Image.file(file, width: 80, height: 80, fit: BoxFit.cover),
+                  : Image.file(
+                      file, 
+                      width: 80, 
+                      height: 80, 
+                      fit: BoxFit.cover,
+                      errorBuilder: (context, error, stackTrace) => Container(
+                        color: Colors.grey[800],
+                        child: const Icon(Icons.broken_image, color: Colors.white38),
+                      ),
+                    ),
             ),
           ),
 

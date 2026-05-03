@@ -30,6 +30,10 @@ class AppConstants {
   static const String postsUrl = '/posts';
   static const String uploadProfilePicEndpoint = '/users/profile-pic';
 
+  static const String reelsUrl      = '/reels';
+static const String reelsFeedUrl  = '/reels/feed';
+static const String reelsExplore  = '/reels/explore';
+
 
   static const String tokenKey = 'auth_token';
   static const String refreshTokenKey = 'refresh_token';

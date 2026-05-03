@@ -20,7 +20,9 @@ const StoryView = require('./StoryView.model');
 const Notification = require('./Notification.model');
 const Conversation = require('./Conversation.model');              // ⭐ NEW
 const ConversationParticipant = require('./ConversationParticipant.model'); // ⭐ NEW
-const Message = require('./Message.model');                        // ⭐ NEW
+const Message = require('./Message.model');
+const Reel = require('./Reel.model');
+const ReelLike = require('./ReelLike.model');                       // ⭐ NEW
 
 // ─── ALL ASSOCIATIONS ──────────────────────────────────────
 
@@ -107,6 +109,31 @@ Comment.belongsTo(Comment, {
   foreignKey: 'parent_comment_id',
   as: 'parent',
 });
+
+// ─── User → Reel ──────────────────────────────────────
+User.hasMany(Reel, {
+  foreignKey: 'userId',
+  as: 'reels',
+  onDelete: 'CASCADE',
+});
+Reel.belongsTo(User, {
+  foreignKey: 'userId',
+  as: 'user',
+});
+
+// ─── Reel → ReelLike ──────────────────────────────────
+Reel.hasMany(ReelLike, {
+  foreignKey: 'reelId',
+  as: 'likes',
+  onDelete: 'CASCADE',
+});
+ReelLike.belongsTo(Reel, { foreignKey: 'reelId' });
+ReelLike.belongsTo(User, { foreignKey: 'userId', as: 'user' });
+User.hasMany(ReelLike, {
+  foreignKey: 'userId',
+  onDelete: 'CASCADE',
+});
+
 
 // COMMENT LIKES
 Comment.hasMany(CommentLike, {
@@ -303,7 +330,7 @@ const syncDatabase = async () => {
     // Temporarily force alter: true in production so Render creates the new columns
     await sequelize.sync({ alter: true });
     console.log(`✅ Database synced (alter: true) in ${isProduction ? 'production' : 'development'} mode`);
-    
+
     console.log('✅ Database tables synced!');
     console.log('   → users, posts, post_media');
     console.log('   → likes, hashtags, post_hashtags');
@@ -340,4 +367,6 @@ module.exports = {
   Conversation,
   ConversationParticipant,
   Message,
+  Reel,
+  ReelLike,
 };

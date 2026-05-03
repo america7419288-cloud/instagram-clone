@@ -25,47 +25,92 @@ const createNotification = async ({
   type,
   referencePostId = null,
   referenceCommentId = null,
+  reelId = null,
   referenceStoryId = null,
   message = null,
 }) => {
   try {
-    // Don't notify yourself
+    // 1. Don't notify yourself
     if (recipientId === senderId) return null;
 
-    // Check if exact same notification already exists recently
-    // (prevent duplicate notifications)
+    // 2. Build message if not provided
+    if (!message) {
+      const sender = await User.findByPk(senderId, {
+        attributes: ['username'],
+      });
+      if (!sender) return null;
+
+      switch (type) {
+        case 'like':
+          message = `${sender.username} liked your photo.`;
+          break;
+        case 'comment':
+          message = `${sender.username} commented on your photo.`;
+          break;
+        case 'reply':
+          message = `${sender.username} replied to your comment.`;
+          break;
+        case 'follow':
+          message = `${sender.username} started following you.`;
+          break;
+        case 'follow_request':
+          message = `${sender.username} requested to follow you.`;
+          break;
+        case 'follow_accept':
+          message = `${sender.username} accepted your follow request.`;
+          break;
+        case 'mention_post':
+          message = `${sender.username} mentioned you in a post.`;
+          break;
+        case 'mention_comment':
+          message = `${sender.username} mentioned you in a comment.`;
+          break;
+        case 'comment_like':
+          message = `${sender.username} liked your comment.`;
+          break;
+        case 'reel_like':
+          message = `${sender.username} liked your reel.`;
+          break;
+        case 'reel_comment':
+          message = `${sender.username} commented on your reel.`;
+          break;
+        default:
+          message = `${sender.username} interacted with you.`;
+      }
+    }
+
+    // 3. Check for recent duplicate (same user, same type, same content)
     const recentDuplicate = await Notification.findOne({
       where: {
-        recipient_id: recipientId,
-        sender_id: senderId,
+        recipientId: recipientId,
+        senderId: senderId,
         type,
-        ...(referencePostId && { reference_post_id: referencePostId }),
-        ...(referenceCommentId && {
-          reference_comment_id: referenceCommentId,
-        }),
+        ...(referencePostId && { postId: referencePostId }),
+        ...(reelId && { reelId: reelId }),
+        ...(referenceCommentId && { commentId: referenceCommentId }),
       },
     });
 
     if (recentDuplicate) {
-      // Update timestamp instead of creating duplicate
-      await recentDuplicate.update({ is_read: false });
+      await recentDuplicate.update({ isRead: false, createdAt: new Date() });
       return recentDuplicate;
     }
 
+    // 4. Create notification
     const notification = await Notification.create({
-      recipient_id: recipientId,
-      sender_id: senderId,
+      recipientId: recipientId,
+      senderId: senderId,
       type,
-      reference_post_id: referencePostId,
-      reference_comment_id: referenceCommentId,
-      reference_story_id: referenceStoryId,
+      postId: referencePostId,
+      commentId: referenceCommentId,
+      storyId: referenceStoryId,
+      reelId: reelId,
       message,
-      is_read: false,
+      isRead: false,
     });
 
     return notification;
   } catch (error) {
-    // Notification failures should never break main action
     console.error('❌ Create notification error:', error.message);
     return null;
   }
@@ -79,7 +124,7 @@ const notifyLike = async (senderId, postId) => {
     if (!post) return;
 
     return await createNotification({
-      recipientId: post.user_id,
+      recipientId: post.userId,
       senderId,
       type: 'like',
       referencePostId: postId,
@@ -97,7 +142,7 @@ const notifyComment = async (senderId, postId, commentId) => {
     if (!post) return;
 
     return await createNotification({
-      recipientId: post.user_id,
+      recipientId: post.userId,
       senderId,
       type: 'comment',
       referencePostId: postId,

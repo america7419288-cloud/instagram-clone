@@ -13,14 +13,14 @@ const CommentLike = sequelize.define(
       allowNull: false,
     },
 
-    user_id: {
+    userId: {
       type: DataTypes.UUID,
       allowNull: false,
       references: { model: 'users', key: 'id' },
       onDelete: 'CASCADE',
     },
 
-    comment_id: {
+    commentId: {
       type: DataTypes.UUID,
       allowNull: false,
       references: { model: 'comments', key: 'id' },

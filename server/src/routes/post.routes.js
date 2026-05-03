@@ -19,6 +19,10 @@ const {
   getSavedPosts,
   getPostsByHashtag,
 } = require('../controllers/post.controller');
+const {
+  addComment,
+  getComments,
+} = require('../controllers/comment.controller');
 
 const { protect, optionalAuth } = require('../middleware/auth.middleware');
 const { uploadPostMedia } = require('../services/upload.service');
@@ -84,5 +88,9 @@ router.get('/:postId/likes', optionalAuth, getPostLikers);
 // Save endpoints
 router.post('/:postId/save', protect, savePost);
 router.delete('/:postId/save', protect, unsavePost);
+
+// ─── Comment endpoints ────────────────────────────────
+router.post('/:id/comments', protect, addComment);
+router.get('/:id/comments', protect, getComments);
 
 module.exports = router;

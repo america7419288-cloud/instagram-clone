@@ -12,6 +12,7 @@ const {
   likeComment,
   unlikeComment,
   pinComment,
+  replyToComment,
 } = require('../controllers/comment.controller');
 
 const { protect } = require('../middleware/auth.middleware');
@@ -29,6 +30,9 @@ const { protect } = require('../middleware/auth.middleware');
 
 // GET replies for a comment
 router.get('/:id/replies', protect, getReplies);
+
+// Reply to a comment
+router.post('/:id/reply', protect, replyToComment);
 
 // Edit comment
 router.put('/:id', protect, editComment);

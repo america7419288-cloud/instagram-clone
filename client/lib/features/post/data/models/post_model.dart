@@ -46,8 +46,8 @@ class PostMediaModel {
     return PostMediaModel(
       id: json['id']?.toString() ?? '',
       url: json['url']?.toString() ?? json['media_url']?.toString() ?? '',
-      thumbnailUrl: json['thumbnai_url']?.toString() ?? json['thumbnai_url']?.toString() ?? json['thumbnail_url']?.toString(),
-      mediaType: json['media_type']?.toString() ?? json['media_type']?.toString() ?? 'image',
+      thumbnailUrl: json['thumbnail_url']?.toString() ?? json['small_url']?.toString() ?? json['thumbnai_url']?.toString(),
+      mediaType: json['media_type']?.toString() ?? json['mediaType']?.toString() ?? 'image',
       duration: json['duration'] != null
           ? int.tryParse(json['duration'].toString())
           : null,

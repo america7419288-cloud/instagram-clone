@@ -53,7 +53,8 @@ const formatComment = (comment, currentUserId = null) => {
       : false,
 
     // Parent comment id (for replies)
-    parent_comment_id: c.parent_comment_id || null,
+    parent_comment_id: c.parentCommentId || null,
+    post_id: c.postId,
   };
 };
 
@@ -103,7 +104,7 @@ const addComment = async (req, res) => {
       parentComment = await Comment.findOne({
         where: {
           id: parent_comment_id,
-          post_id: postId, // Must be on same post
+          postId: postId, // Must be on same post
         },
       });
 
@@ -117,15 +118,15 @@ const addComment = async (req, res) => {
 
     // 5. CREATE COMMENT
     const comment = await Comment.create({
-      post_id: postId,
-      user_id: userId,
+      postId: postId,
+      userId: userId,
       content: content.trim(),
-      parent_comment_id: parent_comment_id || null,
+      parentCommentId: parent_comment_id || null,
     });
 
     if (parentComment) {
-      if (parentComment.user_id !== userId) {
-        notifyReply(userId, comment.id, parentComment.post_id, parentComment.user_id);
+      if (parentComment.userId !== userId) {
+        notifyReply(userId, comment.id, parentComment.postId, parentComment.userId);
       }
     } else {
       notifyComment(userId, postId, comment.id);
@@ -189,8 +190,8 @@ const getComments = async (req, res) => {
     // Pinned comments first, then newest
     const { count, rows: comments } = await Comment.findAndCountAll({
       where: {
-        post_id: postId,
-        parent_comment_id: null, // Top-level only
+        postId: postId,
+        parentCommentId: null, // Top-level only
         is_hidden: false,
       },
       include: [
@@ -217,7 +218,7 @@ const getComments = async (req, res) => {
 
     // Get like counts for all comments
     const likeCounts = await CommentLike.findAll({
-      where: { comment_id: { [Op.in]: commentIds } },
+      where: { commentId: { [Op.in]: commentIds } },
       attributes: [
         'comment_id',
         [sequelize.fn('COUNT', sequelize.col('id')), 'count'],
@@ -229,7 +230,7 @@ const getComments = async (req, res) => {
     // Get reply counts for all comments
     const replyCounts = await Comment.findAll({
       where: {
-        parent_comment_id: { [Op.in]: commentIds },
+        parentCommentId: { [Op.in]: commentIds },
         is_hidden: false,
       },
       attributes: [
@@ -243,8 +244,8 @@ const getComments = async (req, res) => {
     // Get current user's liked comments
     const userLikes = await CommentLike.findAll({
       where: {
-        user_id: currentUserId,
-        comment_id: { [Op.in]: commentIds },
+        userId: currentUserId,
+        commentId: { [Op.in]: commentIds },
       },
       attributes: ['comment_id'],
       raw: true,
@@ -253,16 +254,16 @@ const getComments = async (req, res) => {
     // Build lookup maps
     const likeCountMap = {};
     likeCounts.forEach((l) => {
-      likeCountMap[l.comment_id] = parseInt(l.count);
+      likeCountMap[l.commentId] = parseInt(l.count);
     });
 
     const replyCountMap = {};
     replyCounts.forEach((r) => {
-      replyCountMap[r.parent_comment_id] = parseInt(r.count);
+      replyCountMap[r.parentCommentId] = parseInt(r.count);
     });
 
     const likedCommentIds = new Set(
-      userLikes.map((l) => l.comment_id)
+      userLikes.map((l) => l.commentId)
     );
 
     // Format comments
@@ -313,7 +314,7 @@ const getReplies = async (req, res) => {
 
     const { count, rows: replies } = await Comment.findAndCountAll({
       where: {
-        parent_comment_id: commentId,
+        parentCommentId: commentId,
         is_hidden: false,
       },
       include: [
@@ -335,7 +336,7 @@ const getReplies = async (req, res) => {
 
     // Get like counts
     const likeCounts = await CommentLike.findAll({
-      where: { comment_id: { [Op.in]: replyIds } },
+      where: { commentId: { [Op.in]: replyIds } },
       attributes: [
         'comment_id',
         [sequelize.fn('COUNT', sequelize.col('id')), 'count'],
@@ -346,8 +347,8 @@ const getReplies = async (req, res) => {
 
     const userLikes = await CommentLike.findAll({
       where: {
-        user_id: currentUserId,
-        comment_id: { [Op.in]: replyIds },
+        userId: currentUserId,
+        commentId: { [Op.in]: replyIds },
       },
       attributes: ['comment_id'],
       raw: true,
@@ -355,10 +356,10 @@ const getReplies = async (req, res) => {
 
     const likeCountMap = {};
     likeCounts.forEach((l) => {
-      likeCountMap[l.comment_id] = parseInt(l.count);
+      likeCountMap[l.commentId] = parseInt(l.count);
     });
 
-    const likedIds = new Set(userLikes.map((l) => l.comment_id));
+    const likedIds = new Set(userLikes.map((l) => l.commentId));
 
     const formattedReplies = replies.map((reply) => {
       const r = reply.toJSON();
@@ -408,7 +409,7 @@ const editComment = async (req, res) => {
     }
 
     // Only comment owner can edit
-    if (comment.user_id !== userId) {
+    if (comment.userId !== userId) {
       return errorResponse(
         res, 403,
         'You can only edit your own comments.'
@@ -453,8 +454,8 @@ const deleteComment = async (req, res) => {
     // Can delete if:
     // 1. You own the comment
     // 2. You own the post the comment is on
-    const isCommentOwner = comment.user_id === userId;
-    const isPostOwner = comment.post?.user_id === userId;
+    const isCommentOwner = comment.userId === userId;
+    const isPostOwner = comment.post?.userId === userId;
 
     if (!isCommentOwner && !isPostOwner) {
       return errorResponse(
@@ -496,7 +497,7 @@ const likeComment = async (req, res) => {
     }
 
     const [like, created] = await CommentLike.findOrCreate({
-      where: { user_id: userId, comment_id: commentId },
+      where: { userId: userId, commentId: commentId },
     });
 
     if (!created) {
@@ -513,17 +514,17 @@ const likeComment = async (req, res) => {
       notifyCommentLike(
         userId,
         commentId,
-        commentToNotify.user_id,
-        commentToNotify.post_id
+        commentToNotify.userId,
+        commentToNotify.postId
       );
     }
 
     const likeCount = await CommentLike.count({
-      where: { comment_id: commentId },
+      where: { commentId: commentId },
     });
 
     return successResponse(res, 200, 'Comment liked! ❤️', {
-      comment_id: commentId,
+      commentId: commentId,
       like_count: likeCount,
       is_liked: true,
     });
@@ -545,7 +546,7 @@ const unlikeComment = async (req, res) => {
     const userId = req.user.id;
 
     const deleted = await CommentLike.destroy({
-      where: { user_id: userId, comment_id: commentId },
+      where: { userId: userId, commentId: commentId },
     });
 
     if (deleted === 0) {
@@ -556,11 +557,11 @@ const unlikeComment = async (req, res) => {
     }
 
     const likeCount = await CommentLike.count({
-      where: { comment_id: commentId },
+      where: { commentId: commentId },
     });
 
     return successResponse(res, 200, 'Comment unliked.', {
-      comment_id: commentId,
+      commentId: commentId,
       like_count: likeCount,
       is_liked: false,
     });
@@ -591,7 +592,7 @@ const pinComment = async (req, res) => {
     }
 
     // Only post owner can pin
-    if (comment.post?.user_id !== userId) {
+    if (comment.post?.userId !== userId) {
       return errorResponse(
         res, 403,
         'Only the post owner can pin comments.'
@@ -601,20 +602,70 @@ const pinComment = async (req, res) => {
     // Unpin any currently pinned comment on this post
     await Comment.update(
       { is_pinned: false },
-      { where: { post_id: comment.post_id, is_pinned: true } }
+      { where: { postId: comment.postId, is_pinned: true } }
     );
 
     // Pin this comment
     await comment.update({ is_pinned: true });
 
     return successResponse(res, 200, 'Comment pinned! 📌', {
-      comment_id: commentId,
+      commentId: commentId,
       is_pinned: true,
     });
 
   } catch (error) {
     console.error('❌ Pin comment error:', error);
     return errorResponse(res, 500, 'Failed to pin comment.');
+  }
+};
+
+// ─────────────────────────────────────────────────────────────
+// @route   POST /api/v1/comments/:id/reply
+// @desc    Reply to a specific comment
+// @access  Private
+// ─────────────────────────────────────────────────────────────
+const replyToComment = async (req, res) => {
+  try {
+    const { id: parentCommentId } = req.params;
+    const userId = req.user.id;
+    const { content } = req.body;
+
+    if (!content || content.trim().length === 0) {
+      return errorResponse(res, 400, 'Reply content is required.');
+    }
+
+    const parentComment = await Comment.findByPk(parentCommentId);
+    if (!parentComment) {
+      return errorResponse(res, 404, 'Parent comment not found.');
+    }
+
+    const comment = await Comment.create({
+      postId: parentComment.postId,
+      userId: userId,
+      content: content.trim(),
+      parentCommentId: parentCommentId,
+    });
+
+    if (parentComment.userId !== userId) {
+      notifyReply(userId, comment.id, parentComment.postId, parentComment.userId);
+    }
+    processMentions(content.trim(), userId, parentComment.postId, comment.id);
+
+    const fullComment = await Comment.findByPk(comment.id, {
+      include: [{ model: User, as: 'user', attributes: ['id', 'username', 'full_name', 'profile_pic_url', 'is_verified'] }],
+    });
+
+    const commentData = fullComment.toJSON();
+    commentData.like_count = 0;
+    commentData.reply_count = 0;
+    commentData.is_liked = false;
+
+    return successResponse(res, 201, 'Reply added successfully!', {
+      reply: formatComment(commentData, userId),
+    });
+  } catch (error) {
+    console.error('❌ Reply comment error:', error);
+    return errorResponse(res, 500, 'Failed to add reply.');
   }
 };
 
@@ -627,4 +678,5 @@ module.exports = {
   likeComment,
   unlikeComment,
   pinComment,
+  replyToComment,
 };

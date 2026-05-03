@@ -14,19 +14,17 @@ const Follower = sequelize.define(
     },
 
     // The person WHO IS FOLLOWING
-    follower_id: {
+    followerId: {
       type: DataTypes.UUID,
       allowNull: false,
-      field: 'follower_id',
       references: { model: 'users', key: 'id' },
       onDelete: 'CASCADE',
     },
 
     // The person BEING FOLLOWED
-    following_id: {
+    followingId: {
       type: DataTypes.UUID,
       allowNull: false,
-      field: 'following_id',
       references: { model: 'users', key: 'id' },
       onDelete: 'CASCADE',
     },
@@ -59,7 +57,7 @@ const Follower = sequelize.define(
     validate: {
       // Can't follow yourself
       notSelf() {
-        if (this.follower_id === this.following_id) {
+        if (this.followerId === this.followingId) {
           throw new Error('You cannot follow yourself');
         }
       },

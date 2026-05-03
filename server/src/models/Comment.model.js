@@ -14,15 +14,26 @@ const Comment = sequelize.define(
     },
 
     // Which post this comment belongs to
-    post_id: {
+    postId: {
       type: DataTypes.UUID,
-      allowNull: false,
+      allowNull: true, // Allow NULL for reel comments
       references: { model: 'posts', key: 'id' },
       onDelete: 'CASCADE',
     },
 
+    // ─── NEW: Reel comment support ────────────────────
+    reelId: {
+      type: DataTypes.UUID,
+      allowNull: true,   // Allow NULL for post comments
+      references: {
+        model: 'reels',
+        key: 'id',
+      },
+      onDelete: 'CASCADE',
+    },
+
     // Who wrote this comment
-    user_id: {
+    userId: {
       type: DataTypes.UUID,
       allowNull: false,
       references: { model: 'users', key: 'id' },
@@ -31,7 +42,7 @@ const Comment = sequelize.define(
 
     // NULL = top-level comment
     // Has value = reply to another comment
-    parent_comment_id: {
+    parentCommentId: {
       type: DataTypes.UUID,
       allowNull: true,
       references: { model: 'comments', key: 'id' },
@@ -49,6 +60,18 @@ const Comment = sequelize.define(
           msg: 'Comment cannot exceed 2200 characters',
         },
       },
+    },
+
+    likesCount: {
+      type: DataTypes.INTEGER,
+      allowNull: false,
+      defaultValue: 0,
+    },
+
+    repliesCount: {
+      type: DataTypes.INTEGER,
+      allowNull: false,
+      defaultValue: 0,
     },
 
     // Post owner can pin one comment
@@ -72,6 +95,7 @@ const Comment = sequelize.define(
       { fields: ['user_id'] },
       { fields: ['parent_comment_id'] },
       { fields: ['is_pinned'] },
+      { fields: ['reel_id'] },
     ],
   }
 );

@@ -75,11 +75,9 @@ class _VideoPlayerWidgetState extends State<VideoPlayerWidget>
   // ─── Initialize video player ──────────────────────────
   Future<void> _initializeVideo() async {
     try {
+      debugPrint('🎬 Initializing video: ${widget.videoUrl}');
       _controller = VideoPlayerController.networkUrl(
         Uri.parse(widget.videoUrl),
-        videoPlayerOptions: VideoPlayerOptions(
-          mixWithOthers: true, // Don't interrupt other audio
-        ),
       );
 
       await _controller!.initialize();
@@ -98,8 +96,9 @@ class _VideoPlayerWidgetState extends State<VideoPlayerWidget>
       if (_isVisible && widget.autoPlay) {
         _play();
       }
-    } catch (e) {
+    } catch (e, stack) {
       debugPrint('❌ VideoPlayer init error: $e');
+      debugPrint('StackTrace: $stack');
       if (mounted) {
         setState(() => _hasError = true);
       }

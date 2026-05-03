@@ -163,14 +163,14 @@ const uploadVideoToCloudinary = (
       (error, result) => {
         if (error) {
           console.error('❌ Cloudinary video upload error:', error.message);
-          
+
           if (error.message.includes('File size too large')) {
             return reject(new Error('Video file is too large. Maximum size is 100MB.'));
           }
           if (error.message.includes('Invalid video')) {
             return reject(new Error('Invalid video format. Please use MP4, MOV, or WebM.'));
           }
-          
+
           return reject(new Error('Failed to upload video. Please try again.'));
         }
 
@@ -306,6 +306,107 @@ const uploadStoryToCloudinary = (buffer, mimetype) => {
 
     uploadStream.end(buffer);
   });
+};
+
+// server/src/services/upload.service.js
+// ADD this function after uploadStoryToCloudinary
+// Keep everything else the same
+
+// ─── Upload Reel video to Cloudinary ──────────────────
+const uploadReelToCloudinary = async (buffer, mimetype) => {
+  try {
+    const dataURI = bufferToDataURI(buffer, mimetype);
+
+    console.log('☁️  Uploading reel to Cloudinary...');
+
+    const result = await cloudinary.uploader.upload(dataURI, {
+      folder: 'instagram-clone/reels',
+      resource_type: 'video',
+      // ─── Generate thumbnail at 0.5 second mark ──────
+      eager: [
+        {
+          width: 1080,
+          height: 1920,
+          crop: 'fill',
+          gravity: 'center',
+          start_offset: '0.5',
+          format: 'jpg',
+          quality: 'auto',
+        },
+      ],
+      eager_async: false,
+      // ─── Optimize video for mobile streaming ────────
+      transformation: [
+        {
+          quality: 'auto',
+          fetch_format: 'mp4',
+          // Normalize to vertical if possible
+          width: 1080,
+          height: 1920,
+          crop: 'limit',
+        },
+      ],
+    });
+
+    // ─── Extract thumbnail ───────────────────────────
+    let thumbnailUrl = null;
+    if (result.eager && result.eager.length > 0) {
+      thumbnailUrl = result.eager[0].secure_url;
+    } else {
+      thumbnailUrl = result.secure_url
+        .replace('/video/upload/', '/video/upload/w_1080,h_1920,c_fill,so_0.5,f_jpg/')
+        .replace(/\.(mp4|mov|avi|webm|3gp|mpeg)$/i, '.jpg');
+    }
+
+    const duration = result.duration
+      ? Math.round(result.duration)
+      : null;
+
+    console.log(`✅ Reel uploaded: ${result.public_id}`);
+    console.log(`   Duration: ${duration}s`);
+
+    return {
+      videoUrl: result.secure_url,
+      thumbnailUrl,
+      publicId: result.public_id,
+      duration,
+      width: result.width,
+      height: result.height,
+    };
+  } catch (error) {
+    console.error('❌ Reel upload error:', error.message);
+
+    if (error.message.includes('File size too large')) {
+      throw new Error(
+        'Reel video is too large. Maximum size is 100MB.'
+      );
+    }
+
+    throw new Error('Failed to upload reel. Please try again.');
+  }
+};
+
+// ─── Add to exports ───────────────────────────────────
+// In your existing module.exports, ADD uploadReelToCloudinary:
+module.exports = {
+  // ─── Multer middleware ─────────────────────────────
+  uploadProfilePicture,
+  uploadPostMedia,
+  uploadStoryMedia,
+
+  // ─── Cloudinary helpers ────────────────────────────
+  uploadImageToCloudinary,
+  uploadVideoToCloudinary,
+  uploadProfilePictureToCloudinary,
+  uploadStoryToCloudinary,
+  uploadReelToCloudinary,      // ← NEW
+  deleteFromCloudinary,
+
+  // ─── Utils ────────────────────────────────────────
+  getMediaType,
+  MAX_POST_VIDEO_DURATION,
+  MAX_STORY_VIDEO_DURATION,
+  MAX_REEL_VIDEO_DURATION: 60, // ← NEW constant
 };
 
 // ─── Delete from Cloudinary ────────────────────────────
