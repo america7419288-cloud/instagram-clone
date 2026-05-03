@@ -64,7 +64,10 @@ const getUserProfile = async (req, res) => {
 
     const [postCount, followersCount, followingCount] = await Promise.all([
       Post.count({
-        where: { user_id: user.id, is_archived: false },
+        where: {
+          userId: user.id,
+          isArchived: { [Op.or]: [false, null] },
+        },
       }),
       Follower.count({
         where: { following_id: user.id, status: 'accepted' },

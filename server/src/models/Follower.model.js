@@ -17,6 +17,7 @@ const Follower = sequelize.define(
     follower_id: {
       type: DataTypes.UUID,
       allowNull: false,
+      field: 'follower_id',
       references: { model: 'users', key: 'id' },
       onDelete: 'CASCADE',
     },
@@ -25,6 +26,7 @@ const Follower = sequelize.define(
     following_id: {
       type: DataTypes.UUID,
       allowNull: false,
+      field: 'following_id',
       references: { model: 'users', key: 'id' },
       onDelete: 'CASCADE',
     },

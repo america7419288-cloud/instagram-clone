@@ -180,6 +180,7 @@ const getFeed = async (req, res) => {
     const posts = await Post.findAll({
       where: {
         userId: { [Op.in]: feedUserIds },
+        isArchived: { [Op.or]: [false, null] },
       },
       include: _postIncludes(userId),
       order: [['createdAt', 'DESC']],
@@ -222,6 +223,7 @@ const getExplorePosts = async (req, res) => {
     const posts = await Post.findAll({
       where: {
         userId: { [Op.notIn]: followingIds },
+        isArchived: { [Op.or]: [false, null] },
       },
       include: _postIncludes(userId),
       order: [['createdAt', 'DESC']],
@@ -284,7 +286,10 @@ const getUserPosts = async (req, res) => {
     }
 
     const { count, rows: posts } = await Post.findAndCountAll({
-      where: { userId: user.id, isArchived: false },
+      where: {
+        userId: user.id,
+        isArchived: { [Op.or]: [false, null] },
+      },
       include: _postIncludes(currentUserId),
       order: [['createdAt', 'DESC']],
       limit,

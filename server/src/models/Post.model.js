@@ -15,6 +15,7 @@ const Post = sequelize.define(
     userId: {
       type: DataTypes.UUID,
       allowNull: false,
+      field: 'user_id',
       references: {
         model: 'users',
         key: 'id',
@@ -38,12 +39,14 @@ const Post = sequelize.define(
       type: DataTypes.INTEGER,
       allowNull: false,
       defaultValue: 0,
+      field: 'like_count',
     },
 
     commentsCount: {
       type: DataTypes.INTEGER,
       allowNull: false,
       defaultValue: 0,
+      field: 'comment_count',
     },
 
     isArchived: {
