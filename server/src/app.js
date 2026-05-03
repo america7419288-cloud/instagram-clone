@@ -22,6 +22,8 @@ const allowedOrigins = [
     .filter(Boolean);
 
 const allowAllOrigins = allowedOrigins.includes('*');
+const storyAdvancedRoutes = require('./routes/story_advanced.routes');
+const highlightRoutes = require('./routes/highlight.routes');
 
 const isProduction = process.env.NODE_ENV === 'production' || process.env.MODE_ENV === 'production';
 
@@ -78,6 +80,8 @@ app.use('/api/v1/stories', require('./routes/story.routes'));
 app.use('/api/v1/notifications', require('./routes/notification.routes'));
 app.use('/api/v1/conversations', require('./routes/conversation.routes'));
 app.use('/api/v1/messages', require('./routes/message.routes'));
+app.use('/api/stories', storyAdvancedRoutes);
+app.use('/api/highlights', highlightRoutes);
 app.use('/api/v1/reels', reelRoutes);
 
 

@@ -18,11 +18,18 @@ const Block = require('./Block.model');
 const Story = require('./Story.model');
 const StoryView = require('./StoryView.model');
 const Notification = require('./Notification.model');
-const Conversation = require('./Conversation.model');              // ⭐ NEW
-const ConversationParticipant = require('./ConversationParticipant.model'); // ⭐ NEW
+const Conversation = require('./Conversation.model');
+const ConversationParticipant = require('./ConversationParticipant.model');
 const Message = require('./Message.model');
 const Reel = require('./Reel.model');
-const ReelLike = require('./ReelLike.model');                       // ⭐ NEW
+const ReelLike = require('./ReelLike.model');
+const StoryPoll = require('./StoryPoll.model');
+const StoryPollVote = require('./StoryPollVote.model');
+const StoryQuestion = require('./StoryQuestion.model');
+const StoryAnswer = require('./StoryAnswer.model');
+const StoryReaction = require('./StoryReaction.model');
+const StoryHighlight = require('./StoryHighlight.model');
+const StoryHighlightItem = require('./StoryHighlightItem.model');
 
 // ─── ALL ASSOCIATIONS ──────────────────────────────────────
 
@@ -120,6 +127,48 @@ Reel.belongsTo(User, {
   foreignKey: 'userId',
   as: 'user',
 });
+
+// ─── Story → StoryPoll ────────────────────────────────
+Story.hasOne(StoryPoll, { foreignKey: 'storyId', as: 'poll', onDelete: 'CASCADE' });
+StoryPoll.belongsTo(Story, { foreignKey: 'storyId' });
+
+// ─── StoryPoll → StoryPollVote ────────────────────────
+StoryPoll.hasMany(StoryPollVote, { foreignKey: 'pollId', as: 'votes', onDelete: 'CASCADE' });
+StoryPollVote.belongsTo(StoryPoll, { foreignKey: 'pollId', as: 'poll' });
+StoryPollVote.belongsTo(User, { foreignKey: 'userId', as: 'user' });
+StoryPollVote.belongsTo(Story, { foreignKey: 'storyId' });
+
+// ─── Story → StoryQuestion ────────────────────────────
+Story.hasOne(StoryQuestion, { foreignKey: 'storyId', as: 'question', onDelete: 'CASCADE' });
+StoryQuestion.belongsTo(Story, { foreignKey: 'storyId' });
+
+// ─── StoryQuestion → StoryAnswer ─────────────────────
+StoryQuestion.hasMany(StoryAnswer, { foreignKey: 'questionId', as: 'answers', onDelete: 'CASCADE' });
+StoryAnswer.belongsTo(StoryQuestion, { foreignKey: 'questionId', as: 'question' });
+StoryAnswer.belongsTo(User, { foreignKey: 'userId', as: 'user' });
+StoryAnswer.belongsTo(Story, { foreignKey: 'storyId' });
+
+// ─── Story → StoryReaction ────────────────────────────
+Story.hasMany(StoryReaction, { foreignKey: 'storyId', as: 'reactions', onDelete: 'CASCADE' });
+StoryReaction.belongsTo(Story, { foreignKey: 'storyId' });
+StoryReaction.belongsTo(User, { foreignKey: 'userId', as: 'user' });
+
+// ─── User → StoryHighlight ────────────────────────────
+User.hasMany(StoryHighlight, { foreignKey: 'userId', as: 'highlights', onDelete: 'CASCADE' });
+StoryHighlight.belongsTo(User, { foreignKey: 'userId', as: 'user' });
+
+// ─── StoryHighlight → StoryHighlightItem ─────────────
+StoryHighlight.hasMany(StoryHighlightItem, {
+  foreignKey: 'highlightId',
+  as: 'items',
+  onDelete: 'CASCADE',
+});
+StoryHighlightItem.belongsTo(StoryHighlight, {
+  foreignKey: 'highlightId',
+  as: 'highlight',
+});
+StoryHighlightItem.belongsTo(Story, { foreignKey: 'storyId' });
+
 
 // ─── Reel → ReelLike ──────────────────────────────────
 Reel.hasMany(ReelLike, {
@@ -369,4 +418,11 @@ module.exports = {
   Message,
   Reel,
   ReelLike,
+  StoryPoll,
+  StoryPollVote,
+  StoryQuestion,
+  StoryAnswer,
+  StoryReaction,
+  StoryHighlight,
+  StoryHighlightItem,
 };

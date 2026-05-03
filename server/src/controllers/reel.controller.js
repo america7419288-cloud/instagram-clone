@@ -6,7 +6,7 @@ const { v4: uuidv4 } = require('uuid');
 const { Op } = require('sequelize');
 const {
     User,
-    Reel,
+    Reel, // test
     ReelLike,
     Comment,
     CommentLike,

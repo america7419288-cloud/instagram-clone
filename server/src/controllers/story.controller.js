@@ -680,64 +680,52 @@ const deleteStory = async (req, res) => {
   }
 };
 
-// ─────────────────────────────────────────────────────────────
-// @route   GET /api/v1/stories/archive
-// @desc    Get all own stories including expired (archive)
-// @access  Private
-// ─────────────────────────────────────────────────────────────
+// ─────────────────────────────────────────────────────
+// GET STORY ARCHIVE
+// Stories that have expired but belong to the current user
+// GET /api/v1/stories/archive
+// ─────────────────────────────────────────────────────
 const getStoryArchive = async (req, res) => {
   try {
     const userId = req.user.id;
     const page = parseInt(req.query.page) || 1;
     const limit = parseInt(req.query.limit) || 20;
     const offset = (page - 1) * limit;
-    const now = new Date();
 
-    const { count, rows: stories } = await Story.findAndCountAll({
-      where: { user_id: userId },
-      include: [
-        {
-          model: StoryView,
-          as: 'views',
-          attributes: ['id'],
-        },
-      ],
+    // ─── Get EXPIRED stories ──────────
+    const stories = await Story.findAll({
+      where: {
+        user_id: userId,
+        expires_at: { [Op.lt]: new Date() }, // expired
+      },
       order: [['created_at', 'DESC']],
       limit,
       offset,
     });
 
-    const formattedStories = stories.map((story) => ({
-      id: story.id,
-      media_url: story.media_url,
-      thumbnail_url: story.thumbnail_url,
-      media_type: story.media_type,
-      caption: story.caption,
-      view_count: story.views?.length || 0,
-      expires_at: story.expires_at,
-      is_expired: story.expires_at < now,
-      created_at: story.createdAt,
+    const formatted = stories.map((s) => ({
+      id: s.id,
+      media_url: s.media_url,
+      media_type: s.media_type,
+      thumbnail_url: s.thumbnail_url,
+      caption: s.caption,
+      created_at: s.createdAt || s.created_at,
+      expires_at: s.expires_at,
     }));
 
-    return paginatedResponse(
-      res,
-      'Story archive fetched',
-      formattedStories,
-      {
-        page,
-        totalPages: Math.ceil(count / limit),
-        totalItems: count,
-        limit,
-      }
-    );
-
+    return res.json({
+      success: true,
+      message: 'Story archive loaded',
+      data: formatted,
+      timestamp: new Date().toISOString(),
+    });
   } catch (error) {
-    console.error('❌ Get archive error:', error);
-    return errorResponse(
-      res,
-      500,
-      'Failed to fetch story archive.'
-    );
+    console.error('❌ getStoryArchive error:', error);
+    return res.status(500).json({
+      success: false,
+      message: 'Failed to load story archive',
+      timestamp: new Date().toISOString(),
+    });
   }
 };
 

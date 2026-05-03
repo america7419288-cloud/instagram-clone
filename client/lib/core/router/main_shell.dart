@@ -7,7 +7,7 @@ import 'package:go_router/go_router.dart';
 
 import '../../core/theme/app_theme.dart';
 import '../../features/auth/presentation/providers/auth_provider.dart';
-import '../../features/notifications/presentation/providers/notification_provider.dart';
+import 'package:instagram_clinet/features/notifications/presentation/providers/notification_provider.dart';
 
 class MainShell extends ConsumerStatefulWidget {
   final Widget child;

@@ -88,4 +88,9 @@ router.post('/:id/follow/reject', protect, rejectFollowRequest);
 // Get user profile by username (must be LAST - catches everything)
 router.get('/:username', optionalAuth, getUserProfile);
 
+const { getUserHighlights } = require('../controllers/story_advanced.controller');
+
+// ─── User highlights (NEW) ─────────────────────────────────
+router.get('/:username/highlights', optionalAuth, getUserHighlights);
+
 module.exports = router;
