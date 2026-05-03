@@ -10,6 +10,7 @@ import '../../../../core/theme/app_theme.dart';
 import '../../../../shared/widgets/app_snackbar.dart';
 import '../../../../features/auth/presentation/providers/auth_provider.dart';
 import '../../data/models/story_model.dart';
+import '../../data/models/story_advanced_model.dart';
 import '../../data/repositories/story_service.dart';
 import '../providers/story_provider.dart';
 
@@ -289,22 +290,30 @@ class _StoryViewerState extends ConsumerState<StoryViewer>
   }
 
   Widget _buildStickers(StoryModel story) {
+    final size = MediaQuery.of(context).size;
+
     return Positioned.fill(
-      child: Center(
-        child: Column(
-          mainAxisAlignment: MainAxisAlignment.center,
-          children: [
-            if (story.poll != null) _buildPoll(story.poll!),
-            if (story.question != null) _buildQuestion(story.question!),
-          ],
-        ),
-      ),
-    );
+      child: Stack(
+        children: [
+        if (story.poll != null)
+          Positioned(
+            left: (story.poll!.x * size.width - 90).clamp(0, size.width - 180),
+            top: (story.poll!.y * size.height - 40).clamp(80, size.height - 180),
+            child: _buildPoll(story.poll!),
+          ),
+        if (story.question != null)
+          Positioned(
+            left: (story.question!.x * size.width - 90).clamp(0, size.width - 180),
+            top: (story.question!.y * size.height - 40).clamp(80, size.height - 180),
+            child: _buildQuestion(story.question!),
+          ),
+      ],
+    ),);
   }
 
   Widget _buildPoll(StoryPollModel poll) {
     return Container(
-      width: 250,
+      width: 180,
       padding: const EdgeInsets.all(16),
       decoration: BoxDecoration(
         color: Colors.white,
@@ -324,7 +333,7 @@ class _StoryViewerState extends ConsumerState<StoryViewer>
             poll.question,
             style: const TextStyle(
               color: Colors.black,
-              fontSize: 18,
+              fontSize: 14,
               fontWeight: FontWeight.bold,
             ),
             textAlign: TextAlign.center,
@@ -404,7 +413,7 @@ class _StoryViewerState extends ConsumerState<StoryViewer>
 
   Widget _buildQuestion(StoryQuestionModel question) {
     return Container(
-      width: 280,
+      width: 180,
       decoration: BoxDecoration(
         color: Colors.white,
         borderRadius: BorderRadius.circular(16),

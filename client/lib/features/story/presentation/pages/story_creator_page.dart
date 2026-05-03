@@ -281,9 +281,21 @@ class _StoryCreatorPageState extends ConsumerState<StoryCreatorPage>
           'question': _sticker!.pollQuestion,
           'optionA':  _sticker!.optionA,
           'optionB':  _sticker!.optionB,
+          'x':        _sticker!.dx,
+          'y':        _sticker!.dy,
+          'width':    0.0, // Can be added if measured
+          'height':   0.0,
+          'rotation': 0.0,
         };
       } else if (_sticker?.type == StoryStickerType.question) {
-        questionData = {'text': _sticker!.questionText};
+        questionData = {
+          'text':     _sticker!.questionText,
+          'x':        _sticker!.dx,
+          'y':        _sticker!.dy,
+          'width':    0.0,
+          'height':   0.0,
+          'rotation': 0.0,
+        };
       }
 
       await ref.read(storyServiceProvider).createStory(

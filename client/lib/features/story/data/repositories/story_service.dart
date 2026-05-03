@@ -125,12 +125,25 @@ class StoryService {
           .add(MapEntry('optionA', pollData['optionA'] ?? 'Yes'));
       formData.fields
           .add(MapEntry('optionB', pollData['optionB'] ?? 'No'));
+      
+      // Positioning
+      formData.fields.add(MapEntry('stickerX', pollData['x']?.toString() ?? '0.5'));
+      formData.fields.add(MapEntry('stickerY', pollData['y']?.toString() ?? '0.5'));
+      formData.fields.add(MapEntry('stickerWidth', pollData['width']?.toString() ?? '0'));
+      formData.fields.add(MapEntry('stickerHeight', pollData['height']?.toString() ?? '0'));
+      formData.fields.add(MapEntry('stickerRotation', pollData['rotation']?.toString() ?? '0'));
     }
 
     if (questionData != null) {
       formData.fields.add(
         MapEntry('questionText', questionData['text'] ?? 'Ask me anything'),
       );
+      // Positioning
+      formData.fields.add(MapEntry('stickerX', questionData['x']?.toString() ?? '0.5'));
+      formData.fields.add(MapEntry('stickerY', questionData['y']?.toString() ?? '0.5'));
+      formData.fields.add(MapEntry('stickerWidth', questionData['width']?.toString() ?? '0'));
+      formData.fields.add(MapEntry('stickerHeight', questionData['height']?.toString() ?? '0'));
+      formData.fields.add(MapEntry('stickerRotation', questionData['rotation']?.toString() ?? '0'));
     }
 
     await _client.dio.post(

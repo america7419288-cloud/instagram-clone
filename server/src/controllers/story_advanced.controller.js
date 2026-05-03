@@ -54,7 +54,9 @@ const votePoll = async (req, res) => {
         const existingVote = await StoryPollVote.findOne({
             where: { storyId, userId },
         });
+        if (existingVote) {
             return errorResponse(res, 400, 'You have already voted');
+        }
 
         // ─── Create vote ──────────────────────────────────
         await StoryPollVote.create({
@@ -148,14 +150,22 @@ const answerQuestion = async (req, res) => {
         const { answer } = req.body;
 
         // ─── Validate ─────────────────────────────────────
+        if (!answer || !answer.trim()) {
             return errorResponse(res, 400, 'Answer cannot be empty');
+        }
+        if (answer.length > 500) {
             return errorResponse(res, 400, 'Answer too long (max 500 chars)');
+        }
 
         // ─── Check story + question exist ─────────────────
         const story = await Story.findByPk(storyId, {
             attributes: ['id', 'userId'],
         });
         if (!story) return errorResponse(res, 404, 'Story not found');
+
+        const question = await StoryQuestion.findOne({
+            where: { storyId },
+        });
 
         if (!question) {
             return errorResponse(res, 404, 'This story has no question sticker');

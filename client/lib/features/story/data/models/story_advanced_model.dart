@@ -16,6 +16,13 @@ class StoryPollModel {
   final String? myVote; // 'a' | 'b' | null
   final bool hasVoted;
 
+  // Positioning
+  final double x;
+  final double y;
+  final double width;
+  final double height;
+  final double rotation;
+
   const StoryPollModel({
     required this.id,
     required this.question,
@@ -28,6 +35,11 @@ class StoryPollModel {
     this.percentB = 0,
     this.myVote,
     this.hasVoted = false,
+    this.x = 0.5,
+    this.y = 0.5,
+    this.width = 0,
+    this.height = 0,
+    this.rotation = 0,
   });
 
   factory StoryPollModel.fromJson(Map<String, dynamic> json) {
@@ -43,6 +55,11 @@ class StoryPollModel {
       percentB:   int.tryParse(json['percentB']?.toString() ?? '0') ?? 0,
       myVote:     json['myVote']?.toString(),
       hasVoted:   json['hasVoted'] == true,
+      x:          double.tryParse(json['x']?.toString() ?? '0.5') ?? 0.5,
+      y:          double.tryParse(json['y']?.toString() ?? '0.5') ?? 0.5,
+      width:      double.tryParse(json['width']?.toString() ?? '0') ?? 0,
+      height:     double.tryParse(json['height']?.toString() ?? '0') ?? 0,
+      rotation:   double.tryParse(json['rotation']?.toString() ?? '0') ?? 0,
     );
   }
 
@@ -58,6 +75,11 @@ class StoryPollModel {
     int? percentB,
     String? myVote,
     bool? hasVoted,
+    double? x,
+    double? y,
+    double? width,
+    double? height,
+    double? rotation,
   }) {
     return StoryPollModel(
       id:         id ?? this.id,
@@ -71,6 +93,11 @@ class StoryPollModel {
       percentB:   percentB ?? this.percentB,
       myVote:     myVote ?? this.myVote,
       hasVoted:   hasVoted ?? this.hasVoted,
+      x:          x ?? this.x,
+      y:          y ?? this.y,
+      width:      width ?? this.width,
+      height:     height ?? this.height,
+      rotation:   rotation ?? this.rotation,
     );
   }
 }
@@ -83,10 +110,22 @@ class StoryQuestionModel {
   final String question;
   final int answersCount;
 
+  // Positioning
+  final double x;
+  final double y;
+  final double width;
+  final double height;
+  final double rotation;
+
   const StoryQuestionModel({
     required this.id,
     required this.question,
     this.answersCount = 0,
+    this.x = 0.5,
+    this.y = 0.5,
+    this.width = 0,
+    this.height = 0,
+    this.rotation = 0,
   });
 
   factory StoryQuestionModel.fromJson(Map<String, dynamic> json) {
@@ -97,6 +136,11 @@ class StoryQuestionModel {
             json['answersCount']?.toString() ?? '0',
           ) ??
           0,
+      x:          double.tryParse(json['x']?.toString() ?? '0.5') ?? 0.5,
+      y:          double.tryParse(json['y']?.toString() ?? '0.5') ?? 0.5,
+      width:      double.tryParse(json['width']?.toString() ?? '0') ?? 0,
+      height:     double.tryParse(json['height']?.toString() ?? '0') ?? 0,
+      rotation:   double.tryParse(json['rotation']?.toString() ?? '0') ?? 0,
     );
   }
 }

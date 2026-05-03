@@ -65,6 +65,12 @@ const formatStory = (story, viewerId = null) => {
           votesA: s.poll.votesA || s.poll.votes_a || 0,
           votesB: s.poll.votesB || s.poll.votes_b || 0,
           totalVotes: (s.poll.votesA || s.poll.votes_a || 0) + (s.poll.votesB || s.poll.votes_b || 0),
+          // Positioning
+          x: s.poll.x || 0.5,
+          y: s.poll.y || 0.5,
+          width: s.poll.width || 0,
+          height: s.poll.height || 0,
+          rotation: s.poll.rotation || 0,
         }
       : null,
     question: s.question
@@ -72,6 +78,12 @@ const formatStory = (story, viewerId = null) => {
           id: s.question.id,
           question: s.question.question,
           answersCount: s.question.answersCount || s.question.answers_count || 0,
+          // Positioning
+          x: s.question.x || 0.5,
+          y: s.question.y || 0.5,
+          width: s.question.width || 0,
+          height: s.question.height || 0,
+          rotation: s.question.rotation || 0,
         }
       : null,
   };
@@ -93,6 +105,12 @@ const createStory = async (req, res) => {
       optionA,
       optionB,
       questionText,
+      // Positioning
+      stickerX,
+      stickerY,
+      stickerWidth,
+      stickerHeight,
+      stickerRotation,
     } = req.body;
 
     // Normalize audience: 'all' -> 'followers'
@@ -145,6 +163,11 @@ const createStory = async (req, res) => {
         question: pollQuestion,
         optionA:  optionA || 'Yes',
         optionB:  optionB || 'No',
+        x:        stickerX || 0.5,
+        y:        stickerY || 0.5,
+        width:    stickerWidth || 0,
+        height:   stickerHeight || 0,
+        rotation: stickerRotation || 0,
       });
     }
 
@@ -152,6 +175,11 @@ const createStory = async (req, res) => {
       await StoryQuestion.create({
         storyId:  story.id,
         question: questionText,
+        x:        stickerX || 0.5,
+        y:        stickerY || 0.5,
+        width:    stickerWidth || 0,
+        height:   stickerHeight || 0,
+        rotation: stickerRotation || 0,
       });
     }
 

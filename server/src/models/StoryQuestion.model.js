@@ -33,6 +33,32 @@ const StoryQuestion = sequelize.define(
             allowNull: false,
             defaultValue: 0,
         },
+        // ─── Positioning ──────────────────────────────────
+        x: {
+            type: DataTypes.FLOAT,
+            allowNull: false,
+            defaultValue: 0.5,
+        },
+        y: {
+            type: DataTypes.FLOAT,
+            allowNull: false,
+            defaultValue: 0.5,
+        },
+        width: {
+            type: DataTypes.FLOAT,
+            allowNull: false,
+            defaultValue: 0,
+        },
+        height: {
+            type: DataTypes.FLOAT,
+            allowNull: false,
+            defaultValue: 0,
+        },
+        rotation: {
+            type: DataTypes.FLOAT,
+            allowNull: false,
+            defaultValue: 0,
+        },
     },
     {
         tableName: 'story_questions',
