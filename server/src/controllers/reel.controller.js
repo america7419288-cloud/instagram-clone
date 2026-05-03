@@ -47,8 +47,8 @@ const createReel = async (req, res) => {
         if (!file) {
             return errorResponse(
                 res,
-                'Please select a video for your reel',
-                400
+                400,
+                'Please select a video for your reel'
             );
         }
 
@@ -56,8 +56,8 @@ const createReel = async (req, res) => {
         if (!file.mimetype.startsWith('video/')) {
             return errorResponse(
                 res,
-                'Reels must be video files (MP4, MOV, WebM)',
-                400
+                400,
+                'Reels must be video files (MP4, MOV, WebM)'
             );
         }
 
@@ -75,8 +75,8 @@ const createReel = async (req, res) => {
 
             return errorResponse(
                 res,
-                `Reel is ${uploaded.duration}s. Maximum allowed is ${MAX_REEL_DURATION}s.`,
-                400
+                400,
+                `Reel is ${uploaded.duration}s. Maximum allowed is ${MAX_REEL_DURATION}s.`
             );
         }
 
@@ -100,7 +100,7 @@ const createReel = async (req, res) => {
 
         console.log(`✅ Reel created: ${reel.id}`);
 
-        return successResponse(res, 'Reel created successfully', fullReel, 201);
+        return successResponse(res, 201, 'Reel created successfully', fullReel);
     } catch (error) {
         console.error('❌ createReel error:', error);
         return errorResponse(
@@ -176,10 +176,10 @@ const getReelsFeed = async (req, res) => {
         const allReels = [...followedReels, ...trendingReels];
         const formatted = allReels.map((r) => _formatReel(r, userId));
 
-        return successResponse(res, 'Reels feed loaded', formatted);
+        return successResponse(res, 200, 'Reels feed loaded', formatted);
     } catch (error) {
         console.error('❌ getReelsFeed error:', error);
-        return errorResponse(res, 'Failed to load reels feed', 500);
+        return errorResponse(res, 500, 'Failed to load reels feed');
     }
 };
 
@@ -207,10 +207,10 @@ const getExploreReels = async (req, res) => {
         });
 
         const formatted = reels.map((r) => _formatReel(r, userId));
-        return successResponse(res, 'Explore reels loaded', formatted);
+        return successResponse(res, 200, 'Explore reels loaded', formatted);
     } catch (error) {
         console.error('❌ getExploreReels error:', error);
-        return errorResponse(res, 'Failed to load explore reels', 500);
+        return errorResponse(res, 500, 'Failed to load explore reels');
     }
 };
 
@@ -226,13 +226,13 @@ const getReel = async (req, res) => {
         const reel = await _fetchReelById(reelId, userId);
 
         if (!reel) {
-            return errorResponse(res, 'Reel not found', 404);
+            return errorResponse(res, 404, 'Reel not found');
         }
 
-        return successResponse(res, 'Reel loaded', reel);
+        return successResponse(res, 200, 'Reel loaded', reel);
     } catch (error) {
         console.error('❌ getReel error:', error);
-        return errorResponse(res, 'Failed to load reel', 500);
+        return errorResponse(res, 500, 'Failed to load reel');
     }
 };
 
@@ -255,7 +255,7 @@ const getUserReels = async (req, res) => {
         });
 
         if (!user) {
-            return errorResponse(res, 'User not found', 404);
+            return errorResponse(res, 404, 'User not found');
         }
 
         const reels = await Reel.findAll({
@@ -270,10 +270,10 @@ const getUserReels = async (req, res) => {
         });
 
         const formatted = reels.map((r) => _formatReel(r, currentUserId));
-        return successResponse(res, 'User reels loaded', formatted);
+        return successResponse(res, 200, 'User reels loaded', formatted);
     } catch (error) {
         console.error('❌ getUserReels error:', error);
-        return errorResponse(res, 'Failed to load user reels', 500);
+        return errorResponse(res, 500, 'Failed to load user reels');
     }
 };
 
@@ -291,17 +291,17 @@ const recordPlay = async (req, res) => {
         });
 
         if (!reel) {
-            return errorResponse(res, 'Reel not found', 404);
+            return errorResponse(res, 404, 'Reel not found');
         }
 
         // Increment plays count
         await reel.increment('playsCount');
 
-        return successResponse(res, 'Play recorded');
+        return successResponse(res, 200, 'Play recorded');
     } catch (error) {
         console.error('❌ recordPlay error:', error);
         // Non-critical, don't return error to client
-        return successResponse(res, 'Play recorded');
+        return successResponse(res, 200, 'Play recorded');
     }
 };
 
@@ -319,7 +319,7 @@ const likeReel = async (req, res) => {
         });
 
         if (!reel) {
-            return errorResponse(res, 'Reel not found', 404);
+            return errorResponse(res, 404, 'Reel not found');
         }
 
         // ─── Check already liked ──────────────────────────
@@ -328,7 +328,7 @@ const likeReel = async (req, res) => {
         });
 
         if (existing) {
-            return errorResponse(res, 'Reel already liked', 400);
+            return errorResponse(res, 400, 'Reel already liked');
         }
 
         // ─── Create like ──────────────────────────────────
@@ -354,10 +354,10 @@ const likeReel = async (req, res) => {
             }
         }
 
-        return successResponse(res, 'Reel liked');
+        return successResponse(res, 200, 'Reel liked');
     } catch (error) {
         console.error('❌ likeReel error:', error);
-        return errorResponse(res, 'Failed to like reel', 500);
+        return errorResponse(res, 500, 'Failed to like reel');
     }
 };
 
@@ -375,7 +375,7 @@ const unlikeReel = async (req, res) => {
         });
 
         if (!like) {
-            return errorResponse(res, 'Reel not liked', 400);
+            return errorResponse(res, 400, 'Reel not liked');
         }
 
         await like.destroy();
@@ -388,10 +388,10 @@ const unlikeReel = async (req, res) => {
             await reel.decrement('likesCount');
         }
 
-        return successResponse(res, 'Reel unliked');
+        return successResponse(res, 200, 'Reel unliked');
     } catch (error) {
         console.error('❌ unlikeReel error:', error);
-        return errorResponse(res, 'Failed to unlike reel', 500);
+        return errorResponse(res, 500, 'Failed to unlike reel');
     }
 };
 
@@ -427,10 +427,10 @@ const getReelLikers = async (req, res) => {
         });
 
         const users = likes.map((l) => l.user);
-        return successResponse(res, 'Reel likers loaded', users);
+        return successResponse(res, 200, 'Reel likers loaded', users);
     } catch (error) {
         console.error('❌ getReelLikers error:', error);
-        return errorResponse(res, 'Failed to get reel likers', 500);
+        return errorResponse(res, 500, 'Failed to get reel likers');
     }
 };
 
@@ -493,10 +493,10 @@ const getReelComments = async (req, res) => {
             createdAt: c.createdAt,
         }));
 
-        return successResponse(res, 'Reel comments loaded', formatted);
+        return successResponse(res, 200, 'Reel comments loaded', formatted);
     } catch (error) {
         console.error('❌ getReelComments error:', error);
-        return errorResponse(res, 'Failed to load reel comments', 500);
+        return errorResponse(res, 500, 'Failed to load reel comments');
     }
 };
 
@@ -512,7 +512,7 @@ const addReelComment = async (req, res) => {
         const { text } = req.body;
 
         if (!text || !text.trim()) {
-            return errorResponse(res, 'Comment text is required', 400);
+            return errorResponse(res, 400, 'Comment text is required');
         }
 
         const reel = await Reel.findByPk(reelId, {
@@ -520,7 +520,7 @@ const addReelComment = async (req, res) => {
         });
 
         if (!reel) {
-            return errorResponse(res, 'Reel not found', 404);
+            return errorResponse(res, 404, 'Reel not found');
         }
 
         // ─── Create comment ───────────────────────────────
@@ -556,6 +556,7 @@ const addReelComment = async (req, res) => {
 
         return successResponse(
             res,
+            201,
             'Comment added',
             {
                 id: comment.id,
@@ -570,12 +571,11 @@ const addReelComment = async (req, res) => {
                 isPinned: false,
                 isLiked: false,
                 createdAt: comment.createdAt,
-            },
-            201
+            }
         );
     } catch (error) {
         console.error('❌ addReelComment error:', error);
-        return errorResponse(res, 'Failed to add comment', 500);
+        return errorResponse(res, 500, 'Failed to add comment');
     }
 };
 
@@ -595,8 +595,8 @@ const deleteReel = async (req, res) => {
         if (!reel) {
             return errorResponse(
                 res,
-                'Reel not found or not yours',
-                404
+                404,
+                'Reel not found or not yours'
             );
         }
 
@@ -609,10 +609,10 @@ const deleteReel = async (req, res) => {
         await reel.destroy();
 
         console.log(`🗑️  Reel deleted: ${reelId}`);
-        return successResponse(res, 'Reel deleted successfully');
+        return successResponse(res, 200, 'Reel deleted successfully');
     } catch (error) {
         console.error('❌ deleteReel error:', error);
-        return errorResponse(res, 'Failed to delete reel', 500);
+        return errorResponse(res, 500, 'Failed to delete reel');
     }
 };
 
