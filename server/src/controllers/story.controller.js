@@ -56,8 +56,24 @@ const formatStory = (story, viewerId = null) => {
     is_own_story: viewerId ? s.user_id === viewerId : false,
 
     // Stickers
-    poll: s.poll || null,
-    question: s.question || null,
+    poll: s.poll
+      ? {
+          id: s.poll.id,
+          question: s.poll.question,
+          optionA: s.poll.optionA || s.poll.option_a,
+          optionB: s.poll.optionB || s.poll.option_b,
+          votesA: s.poll.votesA || s.poll.votes_a || 0,
+          votesB: s.poll.votesB || s.poll.votes_b || 0,
+          totalVotes: (s.poll.votesA || s.poll.votes_a || 0) + (s.poll.votesB || s.poll.votes_b || 0),
+        }
+      : null,
+    question: s.question
+      ? {
+          id: s.question.id,
+          question: s.question.question,
+          answersCount: s.question.answersCount || s.question.answers_count || 0,
+        }
+      : null,
   };
 };
 

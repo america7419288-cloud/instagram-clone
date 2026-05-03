@@ -37,26 +37,24 @@ const votePoll = async (req, res) => {
 
         // ─── Validate option ──────────────────────────────
         if (!['a', 'b'].includes(option)) {
-            return errorResponse(res, 'Option must be "a" or "b"', 400);
+            return errorResponse(res, 400, 'Option must be "a" or "b"');
         }
 
         // ─── Check story exists ───────────────────────────
         const story = await Story.findByPk(storyId, {
             attributes: ['id', 'userId', 'expiresAt'],
         });
-        if (!story) return errorResponse(res, 'Story not found', 404);
+        if (!story) return errorResponse(res, 404, 'Story not found');
 
         // ─── Check story has poll ─────────────────────────
         const poll = await StoryPoll.findOne({ where: { storyId } });
-        if (!poll) return errorResponse(res, 'This story has no poll', 404);
+        if (!poll) return errorResponse(res, 404, 'This story has no poll');
 
         // ─── Check already voted ──────────────────────────
         const existingVote = await StoryPollVote.findOne({
             where: { storyId, userId },
         });
-        if (existingVote) {
-            return errorResponse(res, 'You have already voted', 400);
-        }
+            return errorResponse(res, 400, 'You have already voted');
 
         // ─── Create vote ──────────────────────────────────
         await StoryPollVote.create({
@@ -78,7 +76,7 @@ const votePoll = async (req, res) => {
 
         const totalVotes = poll.votesA + poll.votesB;
 
-        return successResponse(res, 'Vote recorded', {
+        return successResponse(res, 200, 'Vote recorded', {
             option,
             votesA: poll.votesA,
             votesB: poll.votesB,
@@ -92,7 +90,7 @@ const votePoll = async (req, res) => {
         });
     } catch (error) {
         console.error('❌ votePoll error:', error);
-        return errorResponse(res, 'Failed to vote', 500);
+        return errorResponse(res, 500, 'Failed to vote');
     }
 };
 
@@ -106,7 +104,7 @@ const getPollResults = async (req, res) => {
         const userId = req.user.id;
 
         const poll = await StoryPoll.findOne({ where: { storyId } });
-        if (!poll) return errorResponse(res, 'No poll found for this story', 404);
+        if (!poll) return errorResponse(res, 404, 'No poll found for this story');
 
         // ─── Did current user vote? ───────────────────────
         const myVote = await StoryPollVote.findOne({
@@ -116,7 +114,7 @@ const getPollResults = async (req, res) => {
 
         const totalVotes = poll.votesA + poll.votesB;
 
-        return successResponse(res, 'Poll results loaded', {
+        return successResponse(res, 200, 'Poll results loaded', {
             question: poll.question,
             optionA: poll.optionA,
             optionB: poll.optionB,
@@ -134,7 +132,7 @@ const getPollResults = async (req, res) => {
         });
     } catch (error) {
         console.error('❌ getPollResults error:', error);
-        return errorResponse(res, 'Failed to get poll results', 500);
+        return errorResponse(res, 500, 'Failed to get poll results');
     }
 };
 
@@ -150,22 +148,17 @@ const answerQuestion = async (req, res) => {
         const { answer } = req.body;
 
         // ─── Validate ─────────────────────────────────────
-        if (!answer || answer.trim().length === 0) {
-            return errorResponse(res, 'Answer cannot be empty', 400);
-        }
-        if (answer.trim().length > 500) {
-            return errorResponse(res, 'Answer too long (max 500 chars)', 400);
-        }
+            return errorResponse(res, 400, 'Answer cannot be empty');
+            return errorResponse(res, 400, 'Answer too long (max 500 chars)');
 
         // ─── Check story + question exist ─────────────────
         const story = await Story.findByPk(storyId, {
             attributes: ['id', 'userId'],
         });
-        if (!story) return errorResponse(res, 'Story not found', 404);
+        if (!story) return errorResponse(res, 404, 'Story not found');
 
-        const question = await StoryQuestion.findOne({ where: { storyId } });
         if (!question) {
-            return errorResponse(res, 'This story has no question sticker', 404);
+            return errorResponse(res, 404, 'This story has no question sticker');
         }
 
         // ─── Check already answered ───────────────────────
@@ -173,7 +166,7 @@ const answerQuestion = async (req, res) => {
             where: { questionId: question.id, userId },
         });
         if (existing) {
-            return errorResponse(res, 'You have already answered this question', 400);
+            return errorResponse(res, 400, 'You have already answered this question');
         }
 
         // ─── Create answer ────────────────────────────────
@@ -202,14 +195,14 @@ const answerQuestion = async (req, res) => {
             });
         }
 
-        return successResponse(res, 'Answer submitted', {
+        return successResponse(res, 201, 'Answer submitted', {
             id: newAnswer.id,
             answer: newAnswer.answer,
             createdAt: newAnswer.createdAt,
-        }, 201);
+        });
     } catch (error) {
         console.error('❌ answerQuestion error:', error);
-        return errorResponse(res, 'Failed to submit answer', 500);
+        return errorResponse(res, 500, 'Failed to submit answer');
     }
 };
 
@@ -226,14 +219,14 @@ const getQuestionAnswers = async (req, res) => {
         const story = await Story.findByPk(storyId, {
             attributes: ['id', 'userId'],
         });
-        if (!story) return errorResponse(res, 'Story not found', 404);
+        if (!story) return errorResponse(res, 404, 'Story not found');
         if (story.userId !== userId) {
-            return errorResponse(res, 'Not authorized', 403);
+            return errorResponse(res, 403, 'Not authorized');
         }
 
         const question = await StoryQuestion.findOne({ where: { storyId } });
         if (!question) {
-            return errorResponse(res, 'No question found', 404);
+            return errorResponse(res, 404, 'No question found');
         }
 
         const answers = await StoryAnswer.findAll({
@@ -248,7 +241,7 @@ const getQuestionAnswers = async (req, res) => {
             order: [['createdAt', 'DESC']],
         });
 
-        return successResponse(res, 'Answers loaded', {
+        return successResponse(res, 200, 'Answers loaded', {
             question: question.question,
             answersCount: question.answersCount,
             answers: answers.map((a) => ({
@@ -260,7 +253,7 @@ const getQuestionAnswers = async (req, res) => {
         });
     } catch (error) {
         console.error('❌ getQuestionAnswers error:', error);
-        return errorResponse(res, 'Failed to get answers', 500);
+        return errorResponse(res, 500, 'Failed to get answers');
     }
 };
 
@@ -288,7 +281,7 @@ const reactToStory = async (req, res) => {
         const story = await Story.findByPk(storyId, {
             attributes: ['id', 'userId'],
         });
-        if (!story) return errorResponse(res, 'Story not found', 404);
+        if (!story) return errorResponse(res, 404, 'Story not found');
 
         // ─── Upsert reaction (update if exists) ──────────
         const [reaction, created] = await StoryReaction.findOrCreate({
@@ -324,12 +317,13 @@ const reactToStory = async (req, res) => {
 
         return successResponse(
             res,
+            200,
             created ? 'Reaction added' : 'Reaction updated',
             { emoji }
         );
     } catch (error) {
         console.error('❌ reactToStory error:', error);
-        return errorResponse(res, 'Failed to react to story', 500);
+        return errorResponse(res, 500, 'Failed to react to story');
     }
 };
 
@@ -347,14 +341,14 @@ const removeReaction = async (req, res) => {
         });
 
         if (!reaction) {
-            return errorResponse(res, 'No reaction found', 404);
+            return errorResponse(res, 404, 'No reaction found');
         }
 
         await reaction.destroy();
-        return successResponse(res, 'Reaction removed');
+        return successResponse(res, 200, 'Reaction removed');
     } catch (error) {
         console.error('❌ removeReaction error:', error);
-        return errorResponse(res, 'Failed to remove reaction', 500);
+        return errorResponse(res, 500, 'Failed to remove reaction');
     }
 };
 
@@ -370,20 +364,20 @@ const replyToStory = async (req, res) => {
         const { message } = req.body;
 
         if (!message || message.trim().length === 0) {
-            return errorResponse(res, 'Message cannot be empty', 400);
+            return errorResponse(res, 400, 'Message cannot be empty');
         }
 
         // ─── Get story + owner ────────────────────────────
         const story = await Story.findByPk(storyId, {
             attributes: ['id', 'userId', 'mediaUrl', 'mediaType', 'thumbnailUrl'],
         });
-        if (!story) return errorResponse(res, 'Story not found', 404);
+        if (!story) return errorResponse(res, 404, 'Story not found');
 
         const recipientId = story.userId;
 
         // ─── Can't reply to own story ─────────────────────
         if (recipientId === senderId) {
-            return errorResponse(res, 'Cannot reply to your own story', 400);
+            return errorResponse(res, 400, 'Cannot reply to your own story');
         }
 
         // ─── Find or create DM conversation ──────────────
@@ -448,13 +442,13 @@ const replyToStory = async (req, res) => {
             },
         });
 
-        return successResponse(res, 'Reply sent', {
+        return successResponse(res, 201, 'Reply sent', {
             conversationId: conversation.id,
             messageId: newMessage.id,
-        }, 201);
+        });
     } catch (error) {
         console.error('❌ replyToStory error:', error);
-        return errorResponse(res, 'Failed to send reply', 500);
+        return errorResponse(res, 500, 'Failed to send reply');
     }
 };
 
@@ -470,10 +464,10 @@ const createHighlight = async (req, res) => {
 
         // ─── Validate ─────────────────────────────────────
         if (!title || title.trim().length === 0) {
-            return errorResponse(res, 'Highlight title is required', 400);
+            return errorResponse(res, 400, 'Highlight title is required');
         }
         if (title.trim().length > 50) {
-            return errorResponse(res, 'Title max 50 characters', 400);
+            return errorResponse(res, 400, 'Title max 50 characters');
         }
 
         // ─── Create highlight ─────────────────────────────
@@ -516,13 +510,13 @@ const createHighlight = async (req, res) => {
 
         return successResponse(
             res,
+            201,
             'Highlight created',
-            _formatHighlight(highlight),
-            201
+            _formatHighlight(highlight)
         );
     } catch (error) {
         console.error('❌ createHighlight error:', error);
-        return errorResponse(res, 'Failed to create highlight', 500);
+        return errorResponse(res, 500, 'Failed to create highlight');
     }
 };
 
@@ -538,7 +532,7 @@ const getUserHighlights = async (req, res) => {
             where: { username },
             attributes: ['id'],
         });
-        if (!user) return errorResponse(res, 'User not found', 404);
+        if (!user) return errorResponse(res, 404, 'User not found');
 
         const highlights = await StoryHighlight.findAll({
             where: { userId: user.id },
@@ -555,12 +549,13 @@ const getUserHighlights = async (req, res) => {
 
         return successResponse(
             res,
+            200,
             'Highlights loaded',
             highlights.map(_formatHighlight)
         );
     } catch (error) {
         console.error('❌ getUserHighlights error:', error);
-        return errorResponse(res, 'Failed to load highlights', 500);
+        return errorResponse(res, 500, 'Failed to load highlights');
     }
 };
 
@@ -588,17 +583,18 @@ const getHighlight = async (req, res) => {
         });
 
         if (!highlight) {
-            return errorResponse(res, 'Highlight not found', 404);
+            return errorResponse(res, 404, 'Highlight not found');
         }
 
         return successResponse(
             res,
+            200,
             'Highlight loaded',
             _formatHighlight(highlight)
         );
     } catch (error) {
         console.error('❌ getHighlight error:', error);
-        return errorResponse(res, 'Failed to load highlight', 500);
+        return errorResponse(res, 500, 'Failed to load highlight');
     }
 };
 
@@ -617,13 +613,13 @@ const updateHighlight = async (req, res) => {
             where: { id: highlightId, userId },
         });
         if (!highlight) {
-            return errorResponse(res, 'Highlight not found or not yours', 404);
+            return errorResponse(res, 404, 'Highlight not found or not yours');
         }
 
         const updates = {};
         if (title !== undefined) {
             if (title.trim().length === 0) {
-                return errorResponse(res, 'Title cannot be empty', 400);
+                return errorResponse(res, 400, 'Title cannot be empty');
             }
             updates.title = title.trim().slice(0, 50);
         }
@@ -633,12 +629,13 @@ const updateHighlight = async (req, res) => {
 
         return successResponse(
             res,
+            200,
             'Highlight updated',
             _formatHighlight(highlight)
         );
     } catch (error) {
         console.error('❌ updateHighlight error:', error);
-        return errorResponse(res, 'Failed to update highlight', 500);
+        return errorResponse(res, 500, 'Failed to update highlight');
     }
 };
 
@@ -655,14 +652,14 @@ const deleteHighlight = async (req, res) => {
             where: { id: highlightId, userId },
         });
         if (!highlight) {
-            return errorResponse(res, 'Highlight not found or not yours', 404);
+            return errorResponse(res, 404, 'Highlight not found or not yours');
         }
 
         await highlight.destroy();
-        return successResponse(res, 'Highlight deleted');
+        return successResponse(res, 200, 'Highlight deleted');
     } catch (error) {
         console.error('❌ deleteHighlight error:', error);
-        return errorResponse(res, 'Failed to delete highlight', 500);
+        return errorResponse(res, 500, 'Failed to delete highlight');
     }
 };
 
@@ -682,7 +679,7 @@ const addStoryToHighlight = async (req, res) => {
             where: { id: highlightId, userId },
         });
         if (!highlight) {
-            return errorResponse(res, 'Highlight not found or not yours', 404);
+            return errorResponse(res, 404, 'Highlight not found or not yours');
         }
 
         // ─── Check story ownership ────────────────────────
@@ -691,7 +688,7 @@ const addStoryToHighlight = async (req, res) => {
             attributes: ['id', 'mediaUrl', 'thumbnailUrl', 'mediaType'],
         });
         if (!story) {
-            return errorResponse(res, 'Story not found or not yours', 404);
+            return errorResponse(res, 404, 'Story not found or not yours');
         }
 
         // ─── Check not already in highlight ───────────────
@@ -699,7 +696,7 @@ const addStoryToHighlight = async (req, res) => {
             where: { highlightId, storyId },
         });
         if (existing) {
-            return errorResponse(res, 'Story already in this highlight', 400);
+            return errorResponse(res, 400, 'Story already in this highlight');
         }
 
         // ─── Get current item count for order ────────────
@@ -723,10 +720,10 @@ const addStoryToHighlight = async (req, res) => {
             });
         }
 
-        return successResponse(res, 'Story added to highlight');
+        return successResponse(res, 200, 'Story added to highlight');
     } catch (error) {
         console.error('❌ addStoryToHighlight error:', error);
-        return errorResponse(res, 'Failed to add story to highlight', 500);
+        return errorResponse(res, 500, 'Failed to add story to highlight');
     }
 };
 
@@ -743,14 +740,14 @@ const removeStoryFromHighlight = async (req, res) => {
             where: { id: highlightId, userId },
         });
         if (!highlight) {
-            return errorResponse(res, 'Highlight not found or not yours', 404);
+            return errorResponse(res, 404, 'Highlight not found or not yours');
         }
 
         const item = await StoryHighlightItem.findOne({
             where: { highlightId, storyId },
         });
         if (!item) {
-            return errorResponse(res, 'Story not in this highlight', 404);
+            return errorResponse(res, 404, 'Story not in this highlight');
         }
 
         await item.destroy();
@@ -773,10 +770,10 @@ const removeStoryFromHighlight = async (req, res) => {
             await highlight.update({ coverUrl: null, storiesCount: 0 });
         }
 
-        return successResponse(res, 'Story removed from highlight');
+        return successResponse(res, 200, 'Story removed from highlight');
     } catch (error) {
         console.error('❌ removeStoryFromHighlight error:', error);
-        return errorResponse(res, 'Failed to remove story', 500);
+        return errorResponse(res, 500, 'Failed to remove story');
     }
 };
 

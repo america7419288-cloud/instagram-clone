@@ -92,10 +92,14 @@ class _StoryViewerState extends ConsumerState<StoryViewer>
   }
 
   void _markCurrentStoryViewed() {
-    ref.read(storyFeedProvider.notifier).markStoryViewed(
-          _currentGroup.user.id,
-          _currentStory.id,
-        );
+    // 💡 Fix: Defer state update to avoid "modify during build" error
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      if (!mounted) return;
+      ref.read(storyFeedProvider.notifier).markStoryViewed(
+            _currentGroup.user.id,
+            _currentStory.id,
+          );
+    });
   }
 
   void _goToNextStory() {
@@ -190,6 +194,7 @@ class _StoryViewerState extends ConsumerState<StoryViewer>
         child: Stack(
           children: [
             _buildStoryMedia(story),
+            _buildStickers(story),
             Container(
               height: 150,
               decoration: const BoxDecoration(
@@ -281,6 +286,207 @@ class _StoryViewerState extends ConsumerState<StoryViewer>
               ),
             ),
     );
+  }
+
+  Widget _buildStickers(StoryModel story) {
+    return Positioned.fill(
+      child: Center(
+        child: Column(
+          mainAxisAlignment: MainAxisAlignment.center,
+          children: [
+            if (story.poll != null) _buildPoll(story.poll!),
+            if (story.question != null) _buildQuestion(story.question!),
+          ],
+        ),
+      ),
+    );
+  }
+
+  Widget _buildPoll(StoryPollModel poll) {
+    return Container(
+      width: 250,
+      padding: const EdgeInsets.all(16),
+      decoration: BoxDecoration(
+        color: Colors.white,
+        borderRadius: BorderRadius.circular(16),
+        boxShadow: [
+          BoxShadow(
+            color: Colors.black26,
+            blurRadius: 10,
+            offset: const Offset(0, 4),
+          ),
+        ],
+      ),
+      child: Column(
+        mainAxisSize: MainAxisSize.min,
+        children: [
+          Text(
+            poll.question,
+            style: const TextStyle(
+              color: Colors.black,
+              fontSize: 18,
+              fontWeight: FontWeight.bold,
+            ),
+            textAlign: TextAlign.center,
+          ),
+          const SizedBox(height: 20),
+          Row(
+            children: [
+              Expanded(
+                child: _buildPollOption(
+                  poll.optionA,
+                  poll.percentA,
+                  poll.myVote == 'a',
+                  () => _votePoll('a'),
+                ),
+              ),
+              const SizedBox(width: 12),
+              Expanded(
+                child: _buildPollOption(
+                  poll.optionB,
+                  poll.percentB,
+                  poll.myVote == 'b',
+                  () => _votePoll('b'),
+                ),
+              ),
+            ],
+          ),
+        ],
+      ),
+    );
+  }
+
+  Widget _buildPollOption(
+    String label,
+    int percent,
+    bool isSelected,
+    VoidCallback onTap,
+  ) {
+    return GestureDetector(
+      onTap: onTap,
+      child: Container(
+        height: 48,
+        decoration: BoxDecoration(
+          color: isSelected ? Colors.blue[50] : Colors.grey[100],
+          borderRadius: BorderRadius.circular(12),
+          border: Border.all(
+            color: isSelected ? Colors.blue : Colors.transparent,
+            width: 2,
+          ),
+        ),
+        child: Stack(
+          children: [
+            // Progress bar background (simplified)
+            if (percent > 0)
+              FractionallySizedBox(
+                widthFactor: percent / 100,
+                child: Container(
+                  decoration: BoxDecoration(
+                    color: Colors.blue.withOpacity(0.2),
+                    borderRadius: BorderRadius.circular(10),
+                  ),
+                ),
+              ),
+            Center(
+              child: Text(
+                percent > 0 ? '$percent%' : label,
+                style: TextStyle(
+                  color: isSelected ? Colors.blue[700] : Colors.black87,
+                  fontWeight: FontWeight.bold,
+                ),
+              ),
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+
+  Widget _buildQuestion(StoryQuestionModel question) {
+    return Container(
+      width: 280,
+      decoration: BoxDecoration(
+        color: Colors.white,
+        borderRadius: BorderRadius.circular(16),
+        boxShadow: [
+          BoxShadow(
+            color: Colors.black26,
+            blurRadius: 10,
+            offset: const Offset(0, 4),
+          ),
+        ],
+      ),
+      child: Column(
+        mainAxisSize: MainAxisSize.min,
+        children: [
+          Container(
+            padding: const EdgeInsets.all(16),
+            width: double.infinity,
+            decoration: const BoxDecoration(
+              color: Color(0xFFF194B4), // Classic pink sticker color
+              borderRadius: BorderRadius.vertical(top: Radius.circular(16)),
+            ),
+            child: Text(
+              question.question,
+              style: const TextStyle(
+                color: Colors.white,
+                fontSize: 18,
+                fontWeight: FontWeight.bold,
+              ),
+              textAlign: TextAlign.center,
+            ),
+          ),
+          Container(
+            padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
+            child: TextField(
+              decoration: InputDecoration(
+                hintText: 'Type something...',
+                hintStyle: TextStyle(color: Colors.grey[400]),
+                border: InputBorder.none,
+                contentPadding: EdgeInsets.zero,
+              ),
+              textAlign: TextAlign.center,
+              onTap: () {
+                _pauseStory();
+                setState(() => _isTyping = true);
+              },
+              onSubmitted: (val) {
+                _resumeStory();
+                setState(() => _isTyping = false);
+                if (val.isNotEmpty) {
+                  _answerQuestion(val);
+                }
+              },
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+
+  void _votePoll(String option) async {
+    try {
+      await ref.read(storyServiceProvider).votePoll(
+            storyId: _currentStory.id,
+            option: option,
+          );
+      // Refresh feed to show results
+      ref.invalidate(storyFeedProvider);
+    } catch (e) {
+      if (mounted) AppSnackbar.error(context, e.toString());
+    }
+  }
+
+  void _answerQuestion(String answer) async {
+    try {
+      await ref.read(storyServiceProvider).answerQuestion(
+            storyId: _currentStory.id,
+            answer: answer,
+          );
+      if (mounted) AppSnackbar.success(context, 'Answer sent!');
+    } catch (e) {
+      if (mounted) AppSnackbar.error(context, e.toString());
+    }
   }
 
   Widget _buildProgressBars() {
