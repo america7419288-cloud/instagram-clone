@@ -308,10 +308,6 @@ const uploadStoryToCloudinary = (buffer, mimetype) => {
   });
 };
 
-// server/src/services/upload.service.js
-// ADD this function after uploadStoryToCloudinary
-// Keep everything else the same
-
 // ─── Upload Reel video to Cloudinary ──────────────────
 const uploadReelToCloudinary = async (buffer, mimetype) => {
   try {
@@ -386,29 +382,6 @@ const uploadReelToCloudinary = async (buffer, mimetype) => {
   }
 };
 
-// ─── Add to exports ───────────────────────────────────
-// In your existing module.exports, ADD uploadReelToCloudinary:
-module.exports = {
-  // ─── Multer middleware ─────────────────────────────
-  uploadProfilePicture,
-  uploadPostMedia,
-  uploadStoryMedia,
-
-  // ─── Cloudinary helpers ────────────────────────────
-  uploadImageToCloudinary,
-  uploadVideoToCloudinary,
-  uploadProfilePictureToCloudinary,
-  uploadStoryToCloudinary,
-  uploadReelToCloudinary,      // ← NEW
-  deleteFromCloudinary,
-
-  // ─── Utils ────────────────────────────────────────
-  getMediaType,
-  MAX_POST_VIDEO_DURATION,
-  MAX_STORY_VIDEO_DURATION,
-  MAX_REEL_VIDEO_DURATION: 60, // ← NEW constant
-};
-
 // ─── Delete from Cloudinary ────────────────────────────
 const deleteFromCloudinary = async (publicId, resourceType = 'image') => {
   try {
@@ -429,13 +402,14 @@ const getMediaType = (mimetype) => {
   return 'image';
 };
 
-// ─── Validate video duration ──────────────────────────
-// We can't easily check duration from buffer alone.
-// Cloudinary returns it after upload, so we validate
-// AFTER upload and delete if too long.
+// ─── Constants ────────────────────────────────────────
 const MAX_POST_VIDEO_DURATION = 60;   // 60 seconds for posts
 const MAX_STORY_VIDEO_DURATION = 15;  // 15 seconds for stories
+const MAX_REEL_VIDEO_DURATION = 60;   // 60 seconds for reels
 
+// ─────────────────────────────────────────────────────
+// EXPORTS
+// ─────────────────────────────────────────────────────
 module.exports = {
   // Multer middleware
   uploadProfilePicture,
@@ -447,10 +421,12 @@ module.exports = {
   uploadVideoToCloudinary,
   uploadProfilePictureToCloudinary,
   uploadStoryToCloudinary,
+  uploadReelToCloudinary,
   deleteFromCloudinary,
 
   // Utils
   getMediaType,
   MAX_POST_VIDEO_DURATION,
   MAX_STORY_VIDEO_DURATION,
+  MAX_REEL_VIDEO_DURATION,
 };
