@@ -6,7 +6,6 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 
 import '../../../../core/theme/app_theme.dart';
-import '../../../../shared/widgets/app_snackbar.dart';
 import '../../../../features/auth/presentation/providers/auth_provider.dart';
 import '../../data/models/story_model.dart';
 import '../providers/story_provider.dart';
@@ -100,10 +99,6 @@ class StoriesBar extends ConsumerWidget {
         transitionDuration: const Duration(milliseconds: 200),
       ),
     );
-  }
-
-  void _showCreateStoryPrompt(BuildContext context) {
-    AppSnackbar.info(context, 'Story creation coming soon!');
   }
 }
 

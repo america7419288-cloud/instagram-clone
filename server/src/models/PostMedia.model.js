@@ -26,6 +26,7 @@ const PostMedia = sequelize.define(
     url: {
       type: DataTypes.TEXT,
       allowNull: false,
+      field: 'media_url', // Map to existing database column
       validate: {
         notEmpty: true,
       },
@@ -37,6 +38,7 @@ const PostMedia = sequelize.define(
     thumbnailUrl: {
       type: DataTypes.TEXT,
       allowNull: true,
+      field: 'small_url', // Map to existing database column
     },
 
     // ─── Media type ───────────────────────────────────
@@ -67,6 +69,7 @@ const PostMedia = sequelize.define(
       type: DataTypes.INTEGER,
       allowNull: false,
       defaultValue: 0,
+      field: 'display_order', // Map to existing database column
     },
 
     // ─── Image dimensions (optional metadata) ─────────
