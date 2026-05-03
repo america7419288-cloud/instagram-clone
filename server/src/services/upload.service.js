@@ -85,130 +85,122 @@ const bufferToDataURI = (buffer, mimetype) => {
 };
 
 // ─── Upload single image to Cloudinary ────────────────
-const uploadImageToCloudinary = async (
+const uploadImageToCloudinary = (
   buffer,
   mimetype,
   folder = 'instagram-clone/posts'
 ) => {
-  try {
-    const dataURI = bufferToDataURI(buffer, mimetype);
+  return new Promise((resolve, reject) => {
+    const uploadStream = cloudinary.uploader.upload_stream(
+      {
+        folder,
+        resource_type: 'image',
+        fetch_format: 'auto',
+        quality: 'auto',
+        transformation: [
+          {
+            width: 1080,
+            height: 1080,
+            crop: 'limit',
+            quality: 'auto',
+            fetch_format: 'auto',
+          },
+        ],
+      },
+      (error, result) => {
+        if (error) {
+          console.error('❌ Cloudinary image upload error:', error.message);
+          return reject(new Error('Failed to upload image. Please try again.'));
+        }
+        resolve({
+          url: result.secure_url,
+          publicId: result.public_id,
+          width: result.width,
+          height: result.height,
+          mediaType: 'image',
+          thumbnailUrl: null,
+          duration: null,
+        });
+      }
+    );
 
-    const result = await cloudinary.uploader.upload(dataURI, {
-      folder,
-      resource_type: 'image',
-      // Auto-format to WebP if browser supports
-      fetch_format: 'auto',
-      // Auto-quality optimization
-      quality: 'auto',
-      // Transformation: normalize image
-      transformation: [
-        {
-          width: 1080,
-          height: 1080,
-          crop: 'limit', // Don't enlarge small images
-          quality: 'auto',
-          fetch_format: 'auto',
-        },
-      ],
-    });
-
-    return {
-      url: result.secure_url,
-      publicId: result.public_id,
-      width: result.width,
-      height: result.height,
-      mediaType: 'image',
-      thumbnailUrl: null,
-      duration: null,
-    };
-  } catch (error) {
-    console.error('❌ Cloudinary image upload error:', error.message);
-    throw new Error('Failed to upload image. Please try again.');
-  }
+    uploadStream.end(buffer);
+  });
 };
 
 // ─── Upload video to Cloudinary ───────────────────────
-const uploadVideoToCloudinary = async (
+const uploadVideoToCloudinary = (
   buffer,
   mimetype,
   folder = 'instagram-clone/posts/videos'
 ) => {
-  try {
-    const dataURI = bufferToDataURI(buffer, mimetype);
+  return new Promise((resolve, reject) => {
+    console.log('☁️ Uploading video to Cloudinary via stream...');
 
-    console.log('☁️ Uploading video to Cloudinary...');
+    const uploadStream = cloudinary.uploader.upload_stream(
+      {
+        folder,
+        resource_type: 'video',
+        eager: [
+          {
+            width: 1080,
+            height: 1080,
+            crop: 'fill',
+            gravity: 'center',
+            start_offset: '1',
+            format: 'jpg',
+            quality: 'auto',
+          },
+        ],
+        eager_async: false,
+        transformation: [
+          {
+            quality: 'auto',
+            fetch_format: 'mp4',
+          },
+        ],
+      },
+      (error, result) => {
+        if (error) {
+          console.error('❌ Cloudinary video upload error:', error.message);
+          
+          if (error.message.includes('File size too large')) {
+            return reject(new Error('Video file is too large. Maximum size is 100MB.'));
+          }
+          if (error.message.includes('Invalid video')) {
+            return reject(new Error('Invalid video format. Please use MP4, MOV, or WebM.'));
+          }
+          
+          return reject(new Error('Failed to upload video. Please try again.'));
+        }
 
-    const result = await cloudinary.uploader.upload(dataURI, {
-      folder,
-      resource_type: 'video',
-      // Cloudinary auto-generates thumbnail
-      eager: [
-        {
-          // Generate thumbnail at 1 second mark
-          width: 1080,
-          height: 1080,
-          crop: 'fill',
-          gravity: 'center',
-          start_offset: '1',
-          format: 'jpg',
-          quality: 'auto',
-        },
-      ],
-      eager_async: false, // Wait for thumbnail generation
-      // Optimize video
-      transformation: [
-        {
-          quality: 'auto',
-          fetch_format: 'mp4',
-        },
-      ],
-    });
+        // ─── Extract thumbnail URL ─────────────────────────
+        let thumbnailUrl = null;
+        if (result.eager && result.eager.length > 0) {
+          thumbnailUrl = result.eager[0].secure_url;
+        } else {
+          thumbnailUrl = result.secure_url
+            .replace('/video/upload/', '/video/upload/w_1080,h_1080,c_fill,so_1,f_jpg/')
+            .replace(/\.(mp4|mov|avi|webm|3gp|mpeg)$/i, '.jpg');
+        }
 
-    // ─── Extract thumbnail URL ─────────────────────────
-    // Cloudinary returns eager transformations as array
-    let thumbnailUrl = null;
+        const duration = result.duration ? Math.round(result.duration) : null;
 
-    if (result.eager && result.eager.length > 0) {
-      thumbnailUrl = result.eager[0].secure_url;
-    } else {
-      // Fallback: construct thumbnail URL manually
-      // Replace video extension with jpg and add transformations
-      thumbnailUrl = result.secure_url
-        .replace('/video/upload/', '/video/upload/w_1080,h_1080,c_fill,so_1,f_jpg/')
-        .replace(/\.(mp4|mov|avi|webm|3gp|mpeg)$/i, '.jpg');
-    }
+        console.log(`✅ Video uploaded: ${result.public_id}`);
+        resolve({
+          url: result.secure_url,
+          publicId: result.public_id,
+          width: result.width,
+          height: result.height,
+          mediaType: 'video',
+          thumbnailUrl,
+          duration,
+        });
+      }
+    );
 
-    // ─── Get video duration ────────────────────────────
-    const duration = result.duration
-      ? Math.round(result.duration)
-      : null;
-
-    console.log(`✅ Video uploaded: ${result.public_id}`);
-    console.log(`   Duration: ${duration}s`);
-    console.log(`   Thumbnail: ${thumbnailUrl}`);
-
-    return {
-      url: result.secure_url,
-      publicId: result.public_id,
-      width: result.width,
-      height: result.height,
-      mediaType: 'video',
-      thumbnailUrl,
-      duration,
-    };
-  } catch (error) {
-    console.error('❌ Cloudinary video upload error:', error.message);
-
-    // Better error messages
-    if (error.message.includes('File size too large')) {
-      throw new Error('Video file is too large. Maximum size is 100MB.');
-    }
-    if (error.message.includes('Invalid video')) {
-      throw new Error('Invalid video format. Please use MP4, MOV, or WebM.');
-    }
-
-    throw new Error('Failed to upload video. Please try again.');
-  }
+    uploadStream.end(buffer);
+  });
 };
 
 // ─── Upload profile picture ────────────────────────────

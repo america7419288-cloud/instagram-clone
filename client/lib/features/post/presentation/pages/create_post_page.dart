@@ -49,7 +49,7 @@ class _CreatePostPageState extends ConsumerState<CreatePostPage> {
   // ─── PICK FROM GALLERY ───────────────────────────────────
   Future<void> _pickFromGallery() async {
     try {
-      final List<XFile> pickedFiles = await _imagePicker.pickMultiImage(
+      final List<XFile> pickedFiles = await _imagePicker.pickMultipleMedia(
         maxWidth: 4096,
         maxHeight: 4096,
         imageQuality: 100,
@@ -71,7 +71,7 @@ class _CreatePostPageState extends ConsumerState<CreatePostPage> {
 
       ref.read(createPostProvider.notifier).addImages(files);
     } catch (e) {
-      _showErrorSnackbar('Failed to pick images: $e');
+      _showErrorSnackbar('Failed to pick media: $e');
     }
   }
 
@@ -99,10 +99,38 @@ class _CreatePostPageState extends ConsumerState<CreatePostPage> {
     }
   }
 
+  // ─── PICK VIDEO FROM CAMERA ──────────────────────────────
+  Future<void> _pickVideoFromCamera() async {
+    try {
+      final XFile? video = await _imagePicker.pickVideo(
+        source: ImageSource.camera,
+        maxDuration: const Duration(minutes: 5),
+      );
+
+      if (video == null) return;
+
+      final currentCount = ref.read(createPostProvider).selectedImages.length;
+      if (currentCount >= 10) {
+        _showMaxImagesSnackbar();
+        return;
+      }
+
+      ref.read(createPostProvider.notifier).addImages([File(video.path)]);
+    } catch (e) {
+      _showErrorSnackbar('Failed to record video: $e');
+    }
+  }
+
   // ─── CROP IMAGE ──────────────────────────────────────────
   Future<void> _cropImage(int index) async {
     try {
       final file = ref.read(createPostProvider).selectedImages[index];
+      
+      // Skip cropping for videos
+      if (file.path.toLowerCase().endsWith('.mp4') || 
+          file.path.toLowerCase().endsWith('.mov')) {
+        return;
+      }
 
       final croppedFile = await ImageCropper().cropImage(
         sourcePath: file.path,
@@ -119,7 +147,7 @@ class _CreatePostPageState extends ConsumerState<CreatePostPage> {
             lockAspectRatio: false,
             aspectRatioPresets: [
               CropAspectRatioPreset.square,
-              CropAspectRatioPreset4x5(),
+              CropAspectRatioPreset.ratio4x3,
               CropAspectRatioPreset.ratio16x9,
               CropAspectRatioPreset.original,
             ],
@@ -128,7 +156,7 @@ class _CreatePostPageState extends ConsumerState<CreatePostPage> {
             title: 'Crop Image',
             aspectRatioPresets: [
               CropAspectRatioPreset.square,
-              CropAspectRatioPreset4x5(),
+              CropAspectRatioPreset.ratio4x3,
               CropAspectRatioPreset.ratio16x9,
             ],
           ),
@@ -172,7 +200,7 @@ class _CreatePostPageState extends ConsumerState<CreatePostPage> {
               const SizedBox(height: 20),
 
               const Text(
-                'Add Photos',
+                'Add Photos & Videos',
                 style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold),
               ),
               const SizedBox(height: 16),
@@ -185,7 +213,7 @@ class _CreatePostPageState extends ConsumerState<CreatePostPage> {
                     color: AppColors.textPrimary,
                   ),
                 ),
-                title: const Text('Photo Library'),
+                title: const Text('Media Library'),
                 subtitle: const Text('Choose from your gallery'),
                 onTap: () {
                   Navigator.pop(ctx);
@@ -206,6 +234,22 @@ class _CreatePostPageState extends ConsumerState<CreatePostPage> {
                 onTap: () {
                   Navigator.pop(ctx);
                   _pickFromCamera();
+                },
+              ),
+
+              ListTile(
+                leading: const CircleAvatar(
+                  backgroundColor: AppColors.background,
+                  child: Icon(
+                    Icons.videocam_outlined,
+                    color: AppColors.textPrimary,
+                  ),
+                ),
+                title: const Text('Record Video'),
+                subtitle: const Text('Capture a new video'),
+                onTap: () {
+                  Navigator.pop(ctx);
+                  _pickVideoFromCamera();
                 },
               ),
 
@@ -270,7 +314,7 @@ class _CreatePostPageState extends ConsumerState<CreatePostPage> {
   }
 
   void _showMaxImagesSnackbar() {
-    AppSnackbar.warning(context, 'Maximum 10 images per post');
+    AppSnackbar.warning(context, 'Maximum 10 items per post');
   }
 
   void _showErrorSnackbar(String message) {
@@ -399,7 +443,7 @@ class _CreatePostPageState extends ConsumerState<CreatePostPage> {
             ),
             const SizedBox(height: 16),
             const Text(
-              'Add Photos',
+              'Add Photos & Videos',
               style: TextStyle(
                 fontSize: 20,
                 fontWeight: FontWeight.bold,
@@ -427,7 +471,7 @@ class _CreatePostPageState extends ConsumerState<CreatePostPage> {
               ),
               icon: const Icon(Icons.photo_library, size: 20),
               label: const Text(
-                'Select Photos',
+                'Select Media',
                 style: TextStyle(fontWeight: FontWeight.w600),
               ),
             ),
@@ -462,10 +506,19 @@ class _CreatePostPageState extends ConsumerState<CreatePostPage> {
               width: double.infinity,
               height: 300,
               color: Colors.black,
-              child: Image.file(
-                createState.selectedImages[0],
-                fit: BoxFit.contain,
-              ),
+              child: createState.selectedImages[0].path.toLowerCase().endsWith('.mp4') ||
+                      createState.selectedImages[0].path.toLowerCase().endsWith('.mov')
+                  ? const Center(
+                      child: Icon(
+                        Icons.play_circle_outline,
+                        color: Colors.white,
+                        size: 64,
+                      ),
+                    )
+                  : Image.file(
+                      createState.selectedImages[0],
+                      fit: BoxFit.contain,
+                    ),
             ),
 
             // Add more button (top right)
@@ -539,7 +592,7 @@ class _CreatePostPageState extends ConsumerState<CreatePostPage> {
             mainAxisAlignment: MainAxisAlignment.spaceBetween,
             children: [
               Text(
-                '${createState.selectedImages.length} photo${createState.selectedImages.length > 1 ? 's' : ''} selected',
+                '${createState.selectedImages.length} item${createState.selectedImages.length > 1 ? 's' : ''} selected',
                 style: const TextStyle(
                   color: AppColors.textSecondary,
                   fontSize: 13,
@@ -719,7 +772,7 @@ class _CreatePostPageState extends ConsumerState<CreatePostPage> {
             Text(
               createState.uploadStep == UploadStep.processing
                   ? 'Processing your post...'
-                  : 'Uploading ${createState.selectedImages.length} photo${createState.selectedImages.length > 1 ? 's' : ''}...',
+                  : 'Uploading ${createState.selectedImages.length} item${createState.selectedImages.length > 1 ? 's' : ''}...',
               style: const TextStyle(fontSize: 18, fontWeight: FontWeight.bold),
             ),
 
@@ -842,6 +895,9 @@ class _ThumbnailItem extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final bool isVideo = file.path.toLowerCase().endsWith('.mp4') || 
+                        file.path.toLowerCase().endsWith('.mov');
+
     return Container(
       width: 80,
       height: 80,
@@ -858,9 +914,30 @@ class _ThumbnailItem extends StatelessWidget {
                     : null,
                 borderRadius: BorderRadius.circular(6),
               ),
-              child: Image.file(file, width: 80, height: 80, fit: BoxFit.cover),
+              child: isVideo
+                  ? Container(
+                      color: Colors.black87,
+                      width: 80,
+                      height: 80,
+                      child: const Center(
+                        child: Icon(Icons.videocam, color: Colors.white, size: 24),
+                      ),
+                    )
+                  : Image.file(file, width: 80, height: 80, fit: BoxFit.cover),
             ),
           ),
+
+          // Video indicator
+          if (isVideo)
+            const Positioned(
+              top: 4,
+              left: 4,
+              child: Icon(
+                Icons.play_circle_fill,
+                color: Colors.white70,
+                size: 20,
+              ),
+            ),
 
           // "Cover" label on first image
           if (isFirst)
@@ -884,44 +961,53 @@ class _ThumbnailItem extends StatelessWidget {
                     color: Colors.white,
                     fontSize: 9,
                     fontWeight: FontWeight.bold,
-                    letterSpacing: 0.5,
                   ),
                 ),
               ),
             ),
 
-          // Remove button (top right)
+          // Crop button (only for images)
+          if (!isVideo)
+            Positioned(
+              bottom: 4,
+              right: 4,
+              child: GestureDetector(
+                onTap: onCrop,
+                child: Container(
+                  padding: const EdgeInsets.all(4),
+                  decoration: BoxDecoration(
+                    color: Colors.black.withOpacity(0.6),
+                    shape: BoxShape.circle,
+                  ),
+                  child: const Icon(Icons.crop, color: Colors.white, size: 12),
+                ),
+              ),
+            ),
+
+          // Remove button
           Positioned(
-            top: 2,
-            right: 2,
+            top: -4,
+            right: -4,
             child: GestureDetector(
               onTap: onRemove,
               child: Container(
-                width: 20,
-                height: 20,
+                padding: const EdgeInsets.all(2),
                 decoration: const BoxDecoration(
-                  color: Colors.black54,
+                  color: Colors.white,
                   shape: BoxShape.circle,
+                  boxShadow: [
+                    BoxShadow(
+                      color: Colors.black12,
+                      blurRadius: 4,
+                      spreadRadius: 1,
+                    ),
+                  ],
                 ),
-                child: const Icon(Icons.close, color: Colors.white, size: 14),
-              ),
-            ),
-          ),
-
-          // Crop button (bottom right)
-          Positioned(
-            bottom: isFirst ? 18 : 2,
-            right: 2,
-            child: GestureDetector(
-              onTap: onCrop,
-              child: Container(
-                width: 20,
-                height: 20,
-                decoration: const BoxDecoration(
-                  color: Colors.black54,
-                  shape: BoxShape.circle,
+                child: const Icon(
+                  Icons.cancel,
+                  color: AppColors.secondary,
+                  size: 20,
                 ),
-                child: const Icon(Icons.crop, color: Colors.white, size: 12),
               ),
             ),
           ),
@@ -929,12 +1015,4 @@ class _ThumbnailItem extends StatelessWidget {
       ),
     );
   }
-}
-
-class CropAspectRatioPreset4x5 implements CropAspectRatioPresetData {
-  @override
-  String get name => '4x5';
-
-  @override
-  (int, int)? get data => (4, 5);
 }
