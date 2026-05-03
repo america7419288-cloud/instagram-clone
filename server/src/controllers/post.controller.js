@@ -265,15 +265,16 @@ const getPost = async (req, res) => {
 // ─────────────────────────────────────────────────────
 const getUserPosts = async (req, res) => {
   try {
-    const { username } = req.params;
+    const identifier = req.params.username;
     const currentUserId = req.user?.id;
     const page = parseInt(req.query.page) || 1;
     const limit = parseInt(req.query.limit) || 20;
     const offset = (page - 1) * limit;
 
-    // ─── Find user ────────────────────────────────────
+    // ─── Find user (by UUID or username) ──────────────
+    const isUuid = /^[0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{12}$/.test(identifier);
     const user = await User.findOne({
-      where: { username },
+      where: isUuid ? { id: identifier } : { username: identifier },
       attributes: ['id'],
     });
 
