@@ -696,27 +696,50 @@ const _formatPost = (post, userId) => {
     .sort((a, b) => a.order - b.order)
     .map((m) => ({
       id: m.id,
-      media_url: m.url,
-      thumbnail_url: m.thumbnailUrl,
+      url: m.url, // Standard URL
+      media_url: m.url, // Legacy snake_case
+      thumbnailUrl: m.thumbnailUrl, // New camelCase
+      thumbnail_url: m.thumbnailUrl, // Legacy snake_case
       small_url: m.thumbnailUrl,
       medium_url: m.url,
-      media_type: m.mediaType,
+      mediaType: m.mediaType, // New camelCase
+      media_type: m.mediaType, // Legacy snake_case
       duration: m.duration,
       width: m.width,
       height: m.height,
-      display_order: m.order,
+      order: m.order,
+      display_order: m.order, // Legacy snake_case
     }));
+
+  const hasVideo = mediaFiles.some(m => m.mediaType === 'video');
+  const hasMultiple = mediaFiles.length > 1;
 
   return {
     id: post.id,
     caption: post.caption,
     location: post.location,
+    
+    // ─── NEW: camelCase fields for Flutter ────────────
+    userId: post.userId,
+    username: post.user?.username,
+    fullName: post.user?.fullName,
+    userAvatar: post.user?.profile_pic_url,
+    isVerified: post.user?.is_verified || false,
+    likesCount: post.likesCount || 0,
+    commentsCount: post.commentsCount || 0,
+    isLiked: userId ? (post.likes?.length > 0) : false,
+    isSaved: userId ? (post.saves?.length > 0) : false,
+    hasVideo,
+    hasMultiple,
+    createdAt: post.createdAt,
+    updatedAt: post.updatedAt,
+    mediaFiles,
+
+    // ─── Legacy snake_case fields ────────────────────
     media: mediaFiles,
-    // ─── Profile grid fields ─────────────────────────
-    thumbnail_url: mediaFiles.length > 0 ? (mediaFiles[0].small_url || mediaFiles[0].thumbnail_url || mediaFiles[0].media_url) : null,
-    media_type: mediaFiles.length > 0 ? mediaFiles[0].media_type : 'image',
-    is_carousel: mediaFiles.length > 1,
-    // ─── User ────────────────────────────────────────
+    thumbnail_url: mediaFiles.length > 0 ? (mediaFiles[0].thumbnailUrl || mediaFiles[0].url) : null,
+    media_type: mediaFiles.length > 0 ? mediaFiles[0].mediaType : 'image',
+    is_carousel: hasMultiple,
     user: post.user ? {
       id: post.user.id,
       username: post.user.username,
@@ -724,16 +747,11 @@ const _formatPost = (post, userId) => {
       profile_pic_url: post.user.profile_pic_url,
       is_verified: post.user.is_verified || false,
     } : null,
-    // ─── Counts ──────────────────────────────────────
     like_count: post.likesCount || 0,
     comment_count: post.commentsCount || 0,
-    save_count: 0,
-    // ─── Current user state ───────────────────────────
     is_liked: userId ? (post.likes?.length > 0) : false,
     is_saved: userId ? (post.saves?.length > 0) : false,
     is_own_post: userId === post.userId,
-    comments_disabled: false,
-    // ─── Timestamps ──────────────────────────────────
     created_at: post.createdAt,
   };
 };

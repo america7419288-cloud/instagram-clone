@@ -1,186 +1,289 @@
 // lib/features/post/data/models/post_model.dart
 
-// ─── POST MEDIA MODEL ──────────────────────────────────────
+import 'package:flutter/foundation.dart';
+
+import '../../../profile/data/models/profile_model.dart';
+
+// ─────────────────────────────────────────────────────
+// POST MEDIA MODEL
+// ─────────────────────────────────────────────────────
 class PostMediaModel {
   final String id;
-  final String mediaUrl;
-  final String? thumbnailUrl;
-  final String? smallUrl;
-  final String? mediumUrl;
-  final String mediaType; // 'image' or 'video'
-  final int displayOrder;
+  final String url;
+  final String? thumbnailUrl;  // ← NEW: for videos
+  final String mediaType;      // ← NEW: 'image' | 'video'
+  final int? duration;         // ← NEW: seconds (videos only)
   final int? width;
   final int? height;
-  final double? duration;
+  final int order;
 
   const PostMediaModel({
     required this.id,
-    required this.mediaUrl,
+    required this.url,
     this.thumbnailUrl,
-    this.smallUrl,
-    this.mediumUrl,
-    required this.mediaType,
-    required this.displayOrder,
+    this.mediaType = 'image',
+    this.duration,
     this.width,
     this.height,
-    this.duration,
+    this.order = 0,
   });
+
+  // ─── Helpers ─────────────────────────────────────────
+  bool get isVideo => mediaType == 'video';
+  bool get isImage => mediaType == 'image';
+  String get feedUrl => url;
+
+
+  // Duration formatted as "0:45" or "1:05"
+  String get durationFormatted {
+    if (duration == null) return '';
+    final minutes = duration! ~/ 60;
+    final seconds = duration! % 60;
+    return '$minutes:${seconds.toString().padLeft(2, '0')}';
+  }
 
   factory PostMediaModel.fromJson(Map<String, dynamic> json) {
     return PostMediaModel(
-      id: json['id'] ?? '',
-      mediaUrl: json['media_url'] ?? '',
-      thumbnailUrl: json['thumbnail_url'],
-      smallUrl: json['small_url'],
-      mediumUrl: json['medium_url'],
-      mediaType: json['media_type'] ?? 'image',
-      displayOrder: _asInt(json['display_order']),
-      width: json['width'] == null ? null : _asInt(json['width']),
-      height: json['height'] == null ? null : _asInt(json['height']),
-      duration: _asDouble(json['duration']),
+      id: json['id']?.toString() ?? '',
+      url: json['url']?.toString() ?? json['media_url']?.toString() ?? '',
+      thumbnailUrl: json['thumbnai_url']?.toString() ?? json['thumbnai_url']?.toString() ?? json['thumbnail_url']?.toString(),
+      mediaType: json['media_type']?.toString() ?? json['media_type']?.toString() ?? 'image',
+      duration: json['duration'] != null
+          ? int.tryParse(json['duration'].toString())
+          : null,
+      width: json['width'] != null
+          ? int.tryParse(json['width'].toString())
+          : null,
+      height: json['height'] != null
+          ? int.tryParse(json['height'].toString())
+          : null,
+      order: json['order'] != null
+          ? int.tryParse(json['order'].toString()) ?? 0
+          : 0,
     );
   }
 
-  // Best URL for feed display (medium → original)
-  String get feedUrl => mediumUrl ?? mediaUrl;
+  Map<String, dynamic> toJson() => {
+        'id': id,
+        'url': url,
+        'thumbnailUrl': thumbnailUrl,
+        'mediaType': mediaType,
+        'duration': duration,
+        'width': width,
+        'height': height,
+        'order': order,
+      };
 
-  // Best URL for grid/thumbnail
-  String get thumbnailDisplayUrl => smallUrl ?? thumbnailUrl ?? mediaUrl;
-
-  bool get isVideo => mediaType == 'video';
-  bool get isImage => mediaType == 'image';
-}
-
-// ─── POST USER MODEL ────────────────────────────────────────
-class PostUserModel {
-  final String id;
-  final String username;
-  final String fullName;
-  final String? profilePicUrl;
-  final bool isVerified;
-
-  const PostUserModel({
-    required this.id,
-    required this.username,
-    required this.fullName,
-    this.profilePicUrl,
-    required this.isVerified,
-  });
-
-  factory PostUserModel.fromJson(Map<String, dynamic> json) {
-    return PostUserModel(
-      id: json['id'] ?? '',
-      username: json['username'] ?? '',
-      fullName: json['full_name'] ?? '',
-      profilePicUrl: json['profile_pic_url'],
-      isVerified: json['is_verified'] ?? false,
+  PostMediaModel copyWith({
+    String? id,
+    String? url,
+    String? thumbnailUrl,
+    String? mediaType,
+    int? duration,
+    int? width,
+    int? height,
+    int? order,
+  }) {
+    return PostMediaModel(
+      id: id ?? this.id,
+      url: url ?? this.url,
+      thumbnailUrl: thumbnailUrl ?? this.thumbnailUrl,
+      mediaType: mediaType ?? this.mediaType,
+      duration: duration ?? this.duration,
+      width: width ?? this.width,
+      height: height ?? this.height,
+      order: order ?? this.order,
     );
   }
 }
 
-// ─── POST MODEL ─────────────────────────────────────────────
+// ─────────────────────────────────────────────────────
+// POST MODEL
+// ─────────────────────────────────────────────────────
 class PostModel {
   final String id;
+  final String userId;
+  final String username;
+  final String? fullName;
+  final String? userAvatar;
+  final bool isVerified;
   final String? caption;
   final String? location;
-  final List<PostMediaModel> media;
-  final PostUserModel? user;
-  final List<String> hashtags;
-  final int likeCount;
-  final int commentCount;
-  final int saveCount;
+  final List<PostMediaModel> mediaFiles;
+  final int likesCount;
+  final int commentsCount;
   final bool isLiked;
   final bool isSaved;
-  final bool isOwnPost;
-  final bool commentsDisabled;
-  final DateTime? createdAt;
+  final bool hasVideo;       // ← NEW: any media is video
+  final bool hasMultiple;    // ← NEW: carousel post
+  final DateTime createdAt;
+  final DateTime updatedAt;
+
+  // Extra fields used in UI
+  final bool hasStory;
 
   const PostModel({
     required this.id,
+    required this.userId,
+    required this.username,
+    this.fullName,
+    this.userAvatar,
+    this.isVerified = false,
     this.caption,
     this.location,
-    required this.media,
-    this.user,
-    required this.hashtags,
-    required this.likeCount,
-    required this.commentCount,
-    required this.saveCount,
-    required this.isLiked,
-    required this.isSaved,
-    required this.isOwnPost,
-    required this.commentsDisabled,
-    this.createdAt,
+    this.mediaFiles = const [],
+    this.likesCount = 0,
+    this.commentsCount = 0,
+    this.isLiked = false,
+    this.isSaved = false,
+    this.hasVideo = false,
+    this.hasMultiple = false,
+    required this.createdAt,
+    required this.updatedAt,
+    this.hasStory = false,
   });
 
+  // ─── Compatibility Getters (Backward Compatibility) ───────
+  int get likeCount => likesCount;
+  int get commentCount => commentsCount;
+  List<PostMediaModel> get media => mediaFiles;
+  bool get isCarousel => hasMultiple;
+  bool get commentsDisabled => false; // TODO: Implement if needed
+
+  // User object shim
+  ProfileModel? get user => ProfileModel(
+        id: userId,
+        username: username,
+        email: '',
+        fullName: fullName ?? '',
+        profilePicUrl: userAvatar,
+        isVerified: isVerified,
+        isPrivate: false,
+        isActive: true,
+        postCount: 0,
+        followersCount: 0,
+        followingCount: 0,
+        isOwnProfile: false,
+      );
+
+  // Check if own post
+  bool get isOwnPost => false; // This should be calculated based on current user id
+
+
+  // ─── Helpers ─────────────────────────────────────────
+  PostMediaModel? get firstMedia =>
+      mediaFiles.isNotEmpty ? mediaFiles.first : null;
+
+  String? get coverUrl {
+    final first = firstMedia;
+    if (first == null) return null;
+    // For videos: use thumbnail; for images: use url
+    if (first.isVideo) return first.thumbnailUrl ?? first.url;
+    return first.url;
+  }
+
   factory PostModel.fromJson(Map<String, dynamic> json) {
+    // Handle both snake_case and camelCase for mediaFiles
+    final mediaRaw = json['mediaFiles'] ?? json['media'] ?? [];
+    final mediaList = (mediaRaw as List<dynamic>)
+        .map((m) => PostMediaModel.fromJson(m as Map<String, dynamic>))
+        .toList()
+      ..sort((a, b) => a.order.compareTo(b.order));
+
     return PostModel(
-      id: json['id'] ?? '',
-      caption: json['caption'],
-      location: json['location'],
-      media: (json['media'] as List<dynamic>? ?? [])
-          .whereType<Map<String, dynamic>>()
-          .map(PostMediaModel.fromJson)
-          .toList(),
-      user: json['user'] != null
-          ? PostUserModel.fromJson(json['user'] as Map<String, dynamic>)
-          : null,
-      hashtags: List<String>.from(json['hashtags'] ?? []),
-      likeCount: _asInt(json['like_count']),
-      commentCount: _asInt(json['comment_count']),
-      saveCount: _asInt(json['save_count']),
-      isLiked: json['is_liked'] ?? false,
-      isSaved: json['is_saved'] ?? false,
-      isOwnPost: json['is_own_post'] ?? false,
-      commentsDisabled: json['comments_disabled'] ?? false,
-      createdAt: json['created_at'] != null
-          ? DateTime.tryParse(json['created_at'])
-          : null,
+      id: json['id']?.toString() ?? '',
+      userId: json['userId']?.toString() ?? json['user_id']?.toString() ?? '',
+      username: json['username']?.toString() ?? json['user']?['username']?.toString() ?? '',
+      fullName: json['fullName']?.toString() ?? json['user']?['full_name']?.toString(),
+      userAvatar: json['userAvatar']?.toString() ?? json['user']?['profile_pic_url']?.toString(),
+      isVerified: json['isVerified'] == true || json['user']?['is_verified'] == true,
+      caption: json['caption']?.toString(),
+      location: json['location']?.toString(),
+      mediaFiles: mediaList,
+      likesCount: int.tryParse((json['likesCount'] ?? json['like_count'] ?? '0').toString()) ?? 0,
+      commentsCount:
+          int.tryParse((json['commentsCount'] ?? json['comment_count'] ?? '0').toString()) ?? 0,
+      isLiked: json['isLiked'] == true || json['is_liked'] == true,
+      isSaved: json['isSaved'] == true || json['is_saved'] == true,
+      hasVideo: json['hasVideo'] == true ||
+          mediaList.any((m) => m.isVideo),
+      hasMultiple: json['hasMultiple'] == true || mediaList.length > 1,
+      createdAt: json['createdAt'] != null
+          ? DateTime.tryParse(json['createdAt'].toString()) ??
+              DateTime.now()
+          : (json['created_at'] != null 
+              ? DateTime.tryParse(json['created_at'].toString()) ?? DateTime.now()
+              : DateTime.now()),
+      updatedAt: json['updatedAt'] != null
+          ? DateTime.tryParse(json['updatedAt'].toString()) ??
+              DateTime.now()
+          : DateTime.now(),
+      hasStory: json['hasStory'] == true,
     );
   }
 
-  // Create a copy with modified fields
-  // Used for optimistic UI updates
+  Map<String, dynamic> toJson() => {
+        'id': id,
+        'userId': userId,
+        'username': username,
+        'fullName': fullName,
+        'userAvatar': userAvatar,
+        'isVerified': isVerified,
+        'caption': caption,
+        'location': location,
+        'mediaFiles': mediaFiles.map((m) => m.toJson()).toList(),
+        'likesCount': likesCount,
+        'commentsCount': commentsCount,
+        'isLiked': isLiked,
+        'isSaved': isSaved,
+        'hasVideo': hasVideo,
+        'hasMultiple': hasMultiple,
+        'createdAt': createdAt.toIso8601String(),
+        'updatedAt': updatedAt.toIso8601String(),
+        'hasStory': hasStory,
+      };
+
   PostModel copyWith({
-    int? likeCount,
-    int? commentCount,
-    int? saveCount,
+    String? id,
+    String? userId,
+    String? username,
+    String? fullName,
+    String? userAvatar,
+    bool? isVerified,
+    String? caption,
+    String? location,
+    List<PostMediaModel>? mediaFiles,
+    int? likesCount,
+    int? commentsCount,
     bool? isLiked,
     bool? isSaved,
+    bool? hasVideo,
+    bool? hasMultiple,
+    DateTime? createdAt,
+    DateTime? updatedAt,
+    bool? hasStory,
+    int? likeCount, // Compatibility
+    int? commentCount, // Compatibility
   }) {
     return PostModel(
-      id: id,
-      caption: caption,
-      location: location,
-      media: media,
-      user: user,
-      hashtags: hashtags,
-      likeCount: likeCount ?? this.likeCount,
-      commentCount: commentCount ?? this.commentCount,
-      saveCount: saveCount ?? this.saveCount,
+      id: id ?? this.id,
+      userId: userId ?? this.userId,
+      username: username ?? this.username,
+      fullName: fullName ?? this.fullName,
+      userAvatar: userAvatar ?? this.userAvatar,
+      isVerified: isVerified ?? this.isVerified,
+      caption: caption ?? this.caption,
+      location: location ?? this.location,
+      mediaFiles: mediaFiles ?? this.mediaFiles,
+      likesCount: likeCount ?? likesCount ?? this.likesCount,
+      commentsCount: commentCount ?? commentsCount ?? this.commentsCount,
       isLiked: isLiked ?? this.isLiked,
       isSaved: isSaved ?? this.isSaved,
-      isOwnPost: isOwnPost,
-      commentsDisabled: commentsDisabled,
-      createdAt: createdAt,
+      hasVideo: hasVideo ?? this.hasVideo,
+      hasMultiple: hasMultiple ?? this.hasMultiple,
+      createdAt: createdAt ?? this.createdAt,
+      updatedAt: updatedAt ?? this.updatedAt,
+      hasStory: hasStory ?? this.hasStory,
     );
   }
-
-  // First media item
-  PostMediaModel? get firstMedia => media.isNotEmpty ? media.first : null;
-
-  // Has multiple images (carousel)
-  bool get isCarousel => media.length > 1;
-}
-
-int _asInt(dynamic value) {
-  if (value is int) return value;
-  if (value is num) return value.toInt();
-  return int.tryParse(value?.toString() ?? '') ?? 0;
-}
-
-double? _asDouble(dynamic value) {
-  if (value == null) return null;
-  if (value is double) return value;
-  if (value is num) return value.toDouble();
-  return double.tryParse(value.toString());
 }

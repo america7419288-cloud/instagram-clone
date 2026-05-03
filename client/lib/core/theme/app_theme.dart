@@ -10,16 +10,24 @@ class AppColors {
   static const Color primaryDark = Color(0xFF0074CC);
   static const Color secondary = Color(0xFFED4956);
 
+  // ─── UTILITY COLORS ────────────────────────────────────
+  static const Color like = Color(0xFFED4956);
+  static const Color verified = Color(0xFF0095F6);
+  static const Color error = Color(0xFFED4956);
+  static const Color success = Color(0xFF4BB543);
+
   // ─── LIGHT MODE ────────────────────────────────────────
   static const Color background = Color(0xFFFAFAFA);
   static const Color white = Color(0xFFFFFFFF);
   static const Color black = Color(0xFF000000);
   static const Color textPrimary = Color(0xFF262626);
   static const Color textSecondary = Color(0xFF8E8E8E);
+  static const Color textTertiary = Color(0xFFC7C7C7);
   static const Color textLink = Color(0xFF00376B);
   static const Color border = Color(0xFFDBDBDB);
   static const Color divider = Color(0xFFEFEFEF);
-  static const Color shimmer = Color(0xFFE0E0E0);
+  static const Color shimmerBase = Color(0xFFEFEFEF);
+  static const Color iconPrimary = Color(0xFF262626);
 
   // ─── DARK MODE ─────────────────────────────────────────
   static const Color darkBackground = Color(0xFF000000);
@@ -28,7 +36,10 @@ class AppColors {
   static const Color darkBorder = Color(0xFF2C2C2E);
   static const Color darkDivider = Color(0xFF2C2C2E);
   static const Color darkTextPrimary = Color(0xFFFFFFFF);
-  static const Color darkTextSecondary = Color(0xFF8E8E8E);
+  static const Color darkTextSecondary = Color(0xFFA8A8A8);
+  static const Color darkTextTertiary = Color(0xFF737373);
+  static const Color darkIconPrimary = Color(0xFFF5F5F5);
+  static const Color darkShimmerBase = Color(0xFF1C1C1E);
 
   // ─── GRADIENTS ─────────────────────────────────────────
   static const LinearGradient instagramGradient = LinearGradient(

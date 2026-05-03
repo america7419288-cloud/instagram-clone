@@ -27,6 +27,9 @@ class AppConstants {
   static const String searchEndpoint = '/users/search';
   static const String suggestionsEndpoint = '/users/suggestions';
   static const String exploreEndpoint = '/posts/explore';
+  static const String postsUrl = '/posts';
+  static const String uploadProfilePicEndpoint = '/users/profile-pic';
+
 
   static const String tokenKey = 'auth_token';
   static const String refreshTokenKey = 'refresh_token';

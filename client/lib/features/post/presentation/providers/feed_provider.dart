@@ -221,6 +221,9 @@ class FeedNotifier extends Notifier<FeedState> {
     }
   }
 
+  Future<void> savePost(String postId) => toggleSave(postId);
+  Future<void> unsavePost(String postId) => toggleSave(postId);
+
   void incrementCommentCount(String postId) {
     state = state.copyWith(
       posts: state.posts.map((post) {

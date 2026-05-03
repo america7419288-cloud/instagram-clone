@@ -1,6 +1,8 @@
 import 'package:dio/dio.dart';
 import 'package:flutter_secure_storage/flutter_secure_storage.dart';
 import 'package:pretty_dio_logger/pretty_dio_logger.dart';
+import 'package:flutter_riverpod/flutter_riverpod.dart';
+
 
 import '../constants/app_constants.dart';
 
@@ -288,3 +290,6 @@ class _AuthInterceptor extends Interceptor {
     await _storage.delete(key: '${AppConstants.userKey}_email');
   }
 }
+
+final dioClientProvider = Provider<DioClient>((ref) => DioClient());
+

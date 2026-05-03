@@ -35,6 +35,9 @@ dependencies:
   shimmer: ^3.0.0                 # Loading skeleton effect
   lottie: ^3.0.0                  # Animations
   smooth_page_indicator: ^2.0.1   # Dots indicator for carousels
+  video_player: ^2.8.1
+  visibility_detector: ^0.4.0+2
+
 
   flutter_form_builder: ^10.3.0+2    # Form handling
   form_builder_validators: ^11.3.0 # Form validation
