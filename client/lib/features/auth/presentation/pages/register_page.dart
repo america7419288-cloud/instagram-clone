@@ -1,9 +1,11 @@
 // lib/features/auth/presentation/pages/register_page.dart
 
 import 'package:flutter/material.dart';
+import 'package:flutter/cupertino.dart';
 import 'package:flutter/gestures.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
+import 'package:phosphor_flutter/phosphor_flutter.dart';
 import '../../../../core/router/app_router.dart';
 import '../../../../core/theme/app_theme.dart';
 import '../../../../shared/widgets/custom_button.dart';
@@ -261,24 +263,20 @@ class _RegisterPageState extends ConsumerState<RegisterPage> {
                   suffixIcon: _isCheckingUsername
                       ? const Padding(
                           padding: EdgeInsets.all(12),
-                          child: SizedBox(
-                            width: 16,
-                            height: 16,
-                            child: CircularProgressIndicator(
-                              strokeWidth: 2,
-                              color: AppColors.textSecondary,
-                            ),
+                          child: CupertinoActivityIndicator(
+                            radius: 8,
+                            color: AppColors.textSecondary,
                           ),
                         )
                       : _isUsernameAvailable == true
-                      ? const Icon(
-                          Icons.check_circle,
+                      ? Icon(
+                          PhosphorIcons.checkCircle(PhosphorIconsStyle.fill),
                           color: AppColors.primary,
                           size: 20,
                         )
                       : _isUsernameAvailable == false
-                      ? const Icon(
-                          Icons.cancel,
+                      ? Icon(
+                          PhosphorIcons.xCircle(PhosphorIconsStyle.fill),
                           color: AppColors.secondary,
                           size: 20,
                         )
@@ -342,8 +340,8 @@ class _RegisterPageState extends ConsumerState<RegisterPage> {
                     ),
                     child: Row(
                       children: [
-                        const Icon(
-                          Icons.error_outline,
+                        Icon(
+                          PhosphorIcons.warningCircle(),
                           color: AppColors.secondary,
                           size: 18,
                         ),

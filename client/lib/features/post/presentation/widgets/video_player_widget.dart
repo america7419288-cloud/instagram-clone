@@ -243,7 +243,7 @@ class _VideoPlayerWidgetState extends State<VideoPlayerWidget>
           width: 32,
           height: 32,
           decoration: BoxDecoration(
-            color: Colors.black.withOpacity(0.6),
+            color: Colors.black.withValues(alpha: 0.6),
             shape: BoxShape.circle,
           ),
           child: Icon(
@@ -272,7 +272,7 @@ class _VideoPlayerWidgetState extends State<VideoPlayerWidget>
       child: Container(
         padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 3),
         decoration: BoxDecoration(
-          color: Colors.black.withOpacity(0.65),
+          color: Colors.black.withValues(alpha: 0.65),
           borderRadius: BorderRadius.circular(4),
         ),
         child: Text(
@@ -299,7 +299,7 @@ class _VideoPlayerWidgetState extends State<VideoPlayerWidget>
           width: 64,
           height: 64,
           decoration: BoxDecoration(
-            color: Colors.black.withOpacity(0.55),
+            color: Colors.black.withValues(alpha: 0.55),
             shape: BoxShape.circle,
           ),
           child: Icon(
@@ -456,7 +456,7 @@ class VideoThumbnail extends StatelessWidget {
               padding:
                   const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
               decoration: BoxDecoration(
-                color: Colors.black.withOpacity(0.7),
+                color: Colors.black.withValues(alpha: 0.7),
                 borderRadius: BorderRadius.circular(3),
               ),
               child: Text(

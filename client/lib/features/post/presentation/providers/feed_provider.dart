@@ -254,6 +254,23 @@ class FeedNotifier extends Notifier<FeedState> {
       isEmptyFeed: false,
     );
   }
+
+  // ─── DELETE POST ──────────────────────────────────────────
+  Future<void> deletePost(String postId) async {
+    try {
+      await _postService.deletePost(postId);
+      
+      // Remove from state
+      state = state.copyWith(
+        posts: state.posts.where((p) => p.id != postId).toList(),
+      );
+    } catch (e) {
+      state = state.copyWith(
+        errorMessage: e.toString().replaceAll('Exception: ', ''),
+      );
+      rethrow;
+    }
+  }
 }
 
 // ─── PROVIDERS ──────────────────────────────────────────────

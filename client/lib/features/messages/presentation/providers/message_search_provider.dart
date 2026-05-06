@@ -72,3 +72,4 @@ final messageSearchProvider =
     NotifierProvider<MessageSearchNotifier, MessageSearchState>(
   MessageSearchNotifier.new,
 );
+

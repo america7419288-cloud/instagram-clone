@@ -85,6 +85,7 @@ class ProfileModel {
     String? profilePicUrl,
     String? gender,
     bool? isPrivate,
+    int? postCount,
     int? followersCount,
     int? followingCount,
   }) {
@@ -100,13 +101,14 @@ class ProfileModel {
       isPrivate: isPrivate ?? this.isPrivate,
       isVerified: isVerified,
       isActive: isActive,
-      postCount: postCount,
+      postCount: postCount ?? this.postCount,
       followersCount: followersCount ?? this.followersCount,
       followingCount: followingCount ?? this.followingCount,
       isOwnProfile: isOwnProfile,
       followStatus: followStatus,
       isFollowing: isFollowing,
       isFollowedBy: isFollowedBy,
+      isRestricted: isRestricted,
     );
   }
 
@@ -154,3 +156,4 @@ class ProfilePostModel {
 
   bool get isVideo => mediaType == 'video';
 }
+

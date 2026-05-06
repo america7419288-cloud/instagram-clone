@@ -50,11 +50,11 @@ class _StoryQuestionOverlayState extends State<StoryQuestionOverlay> {
       margin:  const EdgeInsets.symmetric(horizontal: 24),
       padding: const EdgeInsets.all(16),
       decoration: BoxDecoration(
-        color:        Colors.white.withOpacity(0.92),
+        color:        Colors.white.withValues(alpha: 0.92),
         borderRadius: BorderRadius.circular(20),
         boxShadow: [
           BoxShadow(
-            color:      Colors.black.withOpacity(0.2),
+            color:      Colors.black.withValues(alpha: 0.2),
             blurRadius: 20,
             offset:     const Offset(0, 4),
           ),
@@ -68,7 +68,7 @@ class _StoryQuestionOverlayState extends State<StoryQuestionOverlay> {
             width:  36,
             height: 36,
             decoration: BoxDecoration(
-              color:  Colors.blue.withOpacity(0.12),
+              color:  Colors.blue.withValues(alpha: 0.12),
               shape:  BoxShape.circle,
             ),
             child: const Icon(

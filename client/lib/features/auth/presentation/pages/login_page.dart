@@ -1,9 +1,11 @@
 // lib/features/auth/presentation/pages/login_page.dart
 
 import 'package:flutter/material.dart';
+import 'package:flutter/cupertino.dart';
 import 'package:flutter/gestures.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
+import 'package:phosphor_flutter/phosphor_flutter.dart';
 import '../../../../core/router/app_router.dart';
 import '../../../../core/router/navigation_extensions.dart';
 import '../../../../core/theme/app_theme.dart';
@@ -230,7 +232,7 @@ class _LoginPageState extends ConsumerState<LoginPage> {
       child: Row(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          const Icon(Icons.info_outline, color: AppColors.secondary, size: 18),
+          Icon(PhosphorIcons.info(), color: AppColors.secondary, size: 18),
           const SizedBox(width: 8),
           Expanded(
             child: Text(
@@ -273,17 +275,16 @@ class _LoginPageState extends ConsumerState<LoginPage> {
       onTap: () {
         AppSnackbar.info(context, 'Facebook login coming soon!');
       },
-      child: const Row(
+      child: Row(
         mainAxisAlignment: MainAxisAlignment.center,
         children: [
-          // Facebook icon (using text for now)
           Icon(
-            Icons.facebook,
-            color: Color(0xFF1877F2), // Facebook blue
+            PhosphorIcons.facebookLogo(PhosphorIconsStyle.fill),
+            color: const Color(0xFF1877F2), // Facebook blue
             size: 22,
           ),
-          SizedBox(width: 8),
-          Text(
+          const SizedBox(width: 8),
+          const Text(
             'Continue with Facebook',
             style: TextStyle(
               color: Color(0xFF1877F2),
@@ -312,9 +313,9 @@ class _LoginPageState extends ConsumerState<LoginPage> {
         Row(
           mainAxisAlignment: MainAxisAlignment.center,
           children: [
-            _buildStoreBadge('App Store', Icons.apple),
+            _buildStoreBadge('App Store', PhosphorIcons.appleLogo(PhosphorIconsStyle.fill)),
             const SizedBox(width: 8),
-            _buildStoreBadge('Google Play', Icons.android),
+            _buildStoreBadge('Google Play', PhosphorIcons.androidLogo(PhosphorIconsStyle.fill)),
           ],
         ),
       ],
@@ -413,9 +414,9 @@ class _LoginPageState extends ConsumerState<LoginPage> {
               const SizedBox(height: 20),
 
               // Lock icon
-              const Center(
+              Center(
                 child: Icon(
-                  Icons.lock_outline,
+                  PhosphorIcons.lock(),
                   size: 48,
                   color: AppColors.textPrimary,
                 ),

@@ -1,19 +1,22 @@
 // lib/features/reels/presentation/widgets/reel_card.dart
 
 import 'package:flutter/material.dart';
+import 'package:flutter/cupertino.dart';
 import 'package:flutter/services.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
+import 'package:phosphor_flutter/phosphor_flutter.dart';
 import 'package:go_router/go_router.dart';
 import 'package:video_player/video_player.dart';
 
 import '../../../../core/theme/app_theme.dart';
 import '../../data/models/reel_model.dart';
 import '../providers/reel_provider.dart';
+import '../../../../shared/widgets/spring_widget.dart';
 import 'reel_action_buttons.dart';
 
 class ReelCard extends ConsumerStatefulWidget {
   final ReelModel reel;
-  final bool isActive; // Is this the currently visible reel?
+  final bool isActive;
   final VoidCallback? onVideoEnd;
 
   const ReelCard({
@@ -28,7 +31,7 @@ class ReelCard extends ConsumerStatefulWidget {
 }
 
 class _ReelCardState extends ConsumerState<ReelCard>
-    with SingleTickerProviderStateMixin {
+    with TickerProviderStateMixin {
   VideoPlayerController? _controller;
   bool _isInitialized = false;
   bool _isPaused = false;
@@ -36,16 +39,14 @@ class _ReelCardState extends ConsumerState<ReelCard>
   bool _showPauseIcon = false;
   bool _hasError = false;
 
-  // ─── Pause icon fade ──────────────────────────────────
   late AnimationController _pauseIconController;
   late Animation<double> _pauseIconOpacity;
-
-  // ─── Caption expand ───────────────────────────────────
+  late AnimationController _heartAnimationController;
+  final List<Offset> _hearts = [];
   bool _captionExpanded = false;
-
-  // ─── Optimistic state ─────────────────────────────────
   late bool _isLiked;
   late int _likeCount;
+  late AnimationController _albumArtController;
 
   @override
   void initState() {
@@ -64,6 +65,16 @@ class _ReelCardState extends ConsumerState<ReelCard>
       ),
     );
 
+    _heartAnimationController = AnimationController(
+      vsync: this,
+      duration: const Duration(milliseconds: 700),
+    );
+
+    _albumArtController = AnimationController(
+      vsync: this,
+      duration: const Duration(seconds: 3),
+    )..repeat();
+
     _initVideo();
   }
 
@@ -71,7 +82,6 @@ class _ReelCardState extends ConsumerState<ReelCard>
   void didUpdateWidget(ReelCard oldWidget) {
     super.didUpdateWidget(oldWidget);
 
-    // ─── Play/pause based on active state ─────────────
     if (widget.isActive != oldWidget.isActive) {
       if (widget.isActive) {
         _play();
@@ -81,11 +91,9 @@ class _ReelCardState extends ConsumerState<ReelCard>
       }
     }
 
-    // ─── Sync like state if reel changed ──────────────
     if (widget.reel.isLiked != oldWidget.reel.isLiked ||
         widget.reel.likesCount != oldWidget.reel.likesCount) {
       if (!_isLiked) {
-        // Only sync if we haven't optimistically updated
         setState(() {
           _isLiked = widget.reel.isLiked;
           _likeCount = widget.reel.likesCount;
@@ -97,11 +105,12 @@ class _ReelCardState extends ConsumerState<ReelCard>
   @override
   void dispose() {
     _pauseIconController.dispose();
+    _heartAnimationController.dispose();
+    _albumArtController.dispose();
     _controller?.dispose();
     super.dispose();
   }
 
-  // ─── Initialize video ─────────────────────────────────
   Future<void> _initVideo() async {
     try {
       _controller = VideoPlayerController.networkUrl(
@@ -118,7 +127,6 @@ class _ReelCardState extends ConsumerState<ReelCard>
 
       setState(() => _isInitialized = true);
 
-      // Auto-play if this is the active reel
       if (widget.isActive) _play();
     } catch (e) {
       debugPrint('❌ Reel video init error: $e');
@@ -144,7 +152,6 @@ class _ReelCardState extends ConsumerState<ReelCard>
     } else {
       _pause();
     }
-    // Show brief icon
     setState(() => _showPauseIcon = true);
     _pauseIconController.forward(from: 0).then((_) {
       if (mounted) setState(() => _showPauseIcon = false);
@@ -158,7 +165,6 @@ class _ReelCardState extends ConsumerState<ReelCard>
     HapticFeedback.selectionClick();
   }
 
-  // ─── Like handler ─────────────────────────────────────
   Future<void> _handleLike() async {
     final wasLiked = _isLiked;
     setState(() {
@@ -182,13 +188,22 @@ class _ReelCardState extends ConsumerState<ReelCard>
     }
   }
 
-  // ─── Double tap like ──────────────────────────────────
-  void _handleDoubleTap() {
+  void _handleDoubleTap(TapDownDetails details) {
     HapticFeedback.heavyImpact();
+    
+    setState(() {
+      _hearts.add(details.localPosition);
+    });
+
+    _heartAnimationController.forward(from: 0).then((_) {
+      if (mounted) {
+        setState(() => _hearts.clear());
+      }
+    });
+
     if (!_isLiked) _handleLike();
   }
 
-  // ─── Show comments ────────────────────────────────────
   void _showComments(BuildContext context) {
     _pause();
     showModalBottomSheet(
@@ -201,7 +216,6 @@ class _ReelCardState extends ConsumerState<ReelCard>
     });
   }
 
-  // ─── Share sheet ──────────────────────────────────────
   void _showShareSheet(BuildContext context) {
     _pause();
     showModalBottomSheet(
@@ -219,39 +233,21 @@ class _ReelCardState extends ConsumerState<ReelCard>
 
     return GestureDetector(
       onTap: _togglePlayPause,
-      onDoubleTap: _handleDoubleTap,
+      onDoubleTapDown: _handleDoubleTap,
       child: SizedBox(
         width: size.width,
         height: size.height,
         child: Stack(
           fit: StackFit.expand,
           children: [
-            // ─── Video / thumbnail ────────────────────────
             _buildVideoLayer(),
-
-            // ─── Gradient overlays ────────────────────────
             _buildGradients(),
-
-            // ─── Pause icon overlay ───────────────────────
+            ..._hearts.map((pos) => _buildDoubleTapHeart(pos)),
             if (_showPauseIcon) _buildPauseIcon(),
-
-            // ─── Bottom info (left side) ──────────────────
-            _buildBottomInfo(context),
-
-            // ─── Action buttons (right side) ──────────────
-            _buildActionButtonsPanel(context),
-
-            // ─── Top bar (mute + more) ────────────────────
             _buildTopBar(),
-
-            // ─── Progress bar ─────────────────────────────
-            if (_isInitialized && _controller != null)
-              _buildProgressBar(),
-
-            // ─── Loading state ────────────────────────────
+            _buildBottomInfo(context),
+            _buildActionButtonsPanel(context),
             if (!_isInitialized && !_hasError) _buildLoader(),
-
-            // ─── Error state ──────────────────────────────
             if (_hasError) _buildError(),
           ],
         ),
@@ -259,12 +255,36 @@ class _ReelCardState extends ConsumerState<ReelCard>
     );
   }
 
-  // ─────────────────────────────────────────────────────
-  // VIDEO LAYER
-  // ─────────────────────────────────────────────────────
+  Widget _buildDoubleTapHeart(Offset position) {
+    return Positioned(
+      left: position.dx - 50,
+      top: position.dy - 50,
+      child: AnimatedBuilder(
+        animation: _heartAnimationController,
+        builder: (context, child) {
+          final value = _heartAnimationController.value;
+          final scale = value < 0.2 ? value * 5 : (value < 0.5 ? 1.0 : (1.0 - (value - 0.5) * 2));
+          final opacity = value < 0.8 ? 1.0 : (1.0 - (value - 0.8) * 5).clamp(0.0, 1.0);
+          
+          return Opacity(
+            opacity: opacity,
+            child: Transform.scale(
+              scale: scale,
+              child: const Icon(
+                Icons.favorite,
+                color: Colors.white,
+                size: 100,
+                shadows: [Shadow(blurRadius: 20, color: Colors.black45)],
+              ),
+            ),
+          );
+        },
+      ),
+    );
+  }
+
   Widget _buildVideoLayer() {
     if (!_isInitialized || _controller == null) {
-      // Thumbnail while loading
       if (widget.reel.thumbnailUrl != null) {
         return Image.network(
           widget.reel.thumbnailUrl!,
@@ -285,13 +305,9 @@ class _ReelCardState extends ConsumerState<ReelCard>
     );
   }
 
-  // ─────────────────────────────────────────────────────
-  // GRADIENTS (top + bottom)
-  // ─────────────────────────────────────────────────────
   Widget _buildGradients() {
     return Stack(
       children: [
-        // Top gradient (for status bar readability)
         Positioned(
           top: 0,
           left: 0,
@@ -307,7 +323,6 @@ class _ReelCardState extends ConsumerState<ReelCard>
             ),
           ),
         ),
-        // Bottom gradient (for text readability)
         Positioned(
           bottom: 0,
           left: 0,
@@ -327,9 +342,6 @@ class _ReelCardState extends ConsumerState<ReelCard>
     );
   }
 
-  // ─────────────────────────────────────────────────────
-  // PAUSE ICON OVERLAY
-  // ─────────────────────────────────────────────────────
   Widget _buildPauseIcon() {
     return Center(
       child: FadeTransition(
@@ -338,11 +350,11 @@ class _ReelCardState extends ConsumerState<ReelCard>
           width: 72,
           height: 72,
           decoration: BoxDecoration(
-            color: Colors.black.withOpacity(0.5),
+            color: Colors.black.withValues(alpha: 0.5),
             shape: BoxShape.circle,
           ),
           child: Icon(
-            _isPaused ? Icons.play_arrow : Icons.pause,
+            _isPaused ? PhosphorIcons.play() : PhosphorIcons.pause(),
             color: Colors.white,
             size: 40,
           ),
@@ -351,109 +363,6 @@ class _ReelCardState extends ConsumerState<ReelCard>
     );
   }
 
-  // ─────────────────────────────────────────────────────
-  // BOTTOM INFO (left side)
-  // ─────────────────────────────────────────────────────
-  Widget _buildBottomInfo(BuildContext context) {
-    return Positioned(
-      bottom: 80,
-      left: 16,
-      right: 80, // leave space for action buttons
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        mainAxisSize: MainAxisSize.min,
-        children: [
-          // ─── Username ───────────────────────────────────
-          GestureDetector(
-            onTap: () =>
-                context.push('/profile/${widget.reel.username}'),
-            child: Row(
-              children: [
-                Text(
-                  '@${widget.reel.username}',
-                  style: const TextStyle(
-                    color: Colors.white,
-                    fontSize: 15,
-                    fontWeight: FontWeight.w700,
-                    shadows: [
-                      Shadow(blurRadius: 4, color: Colors.black54),
-                    ],
-                  ),
-                ),
-                if (widget.reel.isVerified) ...[
-                  const SizedBox(width: 4),
-                  const Icon(
-                    Icons.verified,
-                    color: Colors.white,
-                    size: 14,
-                  ),
-                ],
-              ],
-            ),
-          ),
-
-          // ─── Caption ────────────────────────────────────
-          if (widget.reel.caption != null &&
-              widget.reel.caption!.isNotEmpty) ...[
-            const SizedBox(height: 8),
-            GestureDetector(
-              onTap: () =>
-                  setState(() => _captionExpanded = !_captionExpanded),
-              child: AnimatedSize(
-                duration: const Duration(milliseconds: 200),
-                child: Text(
-                  widget.reel.caption!,
-                  style: const TextStyle(
-                    color: Colors.white,
-                    fontSize: 14,
-                    height: 1.4,
-                    shadows: [
-                      Shadow(blurRadius: 4, color: Colors.black45),
-                    ],
-                  ),
-                  maxLines: _captionExpanded ? null : 2,
-                  overflow: _captionExpanded
-                      ? TextOverflow.visible
-                      : TextOverflow.ellipsis,
-                ),
-              ),
-            ),
-          ],
-
-          // ─── Audio name ticker ──────────────────────────
-          const SizedBox(height: 12),
-          _AudioTicker(
-            audioName: widget.reel.audioName ??
-                'Original audio · ${widget.reel.username}',
-          ),
-        ],
-      ),
-    );
-  }
-
-  // ─────────────────────────────────────────────────────
-  // ACTION BUTTONS PANEL (right side)
-  // ─────────────────────────────────────────────────────
-  Widget _buildActionButtonsPanel(BuildContext context) {
-    return Positioned(
-      right: 12,
-      bottom: 80,
-      child: ReelActionButtons(
-        reel: widget.reel.copyWith(
-          isLiked: _isLiked,
-          likesCount: _likeCount,
-        ),
-        onLike: _handleLike,
-        onComment: () => _showComments(context),
-        onShare: () => _showShareSheet(context),
-        onAudio: () {},
-      ),
-    );
-  }
-
-  // ─────────────────────────────────────────────────────
-  // TOP BAR (mute + back)
-  // ─────────────────────────────────────────────────────
   Widget _buildTopBar() {
     return Positioned(
       top: 0,
@@ -461,39 +370,24 @@ class _ReelCardState extends ConsumerState<ReelCard>
       right: 0,
       child: SafeArea(
         child: Padding(
-          padding: const EdgeInsets.symmetric(
-            horizontal: 16,
-            vertical: 8,
-          ),
+          padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
           child: Row(
             mainAxisAlignment: MainAxisAlignment.spaceBetween,
             children: [
-              // ─── Reels title ─────────────────────────────
               const Text(
                 'Reels',
                 style: TextStyle(
                   color: Colors.white,
-                  fontSize: 18,
-                  fontWeight: FontWeight.w700,
-                  shadows: [
-                    Shadow(blurRadius: 4, color: Colors.black45),
-                  ],
+                  fontSize: 22,
+                  fontFamily: 'SF Pro Display',
+                  fontWeight: FontWeight.bold,
                 ),
               ),
-              // ─── Mute button ─────────────────────────────
-              GestureDetector(
-                onTap: _toggleMute,
-                child: Container(
-                  padding: const EdgeInsets.all(8),
-                  decoration: BoxDecoration(
-                    color: Colors.black.withOpacity(0.4),
-                    shape: BoxShape.circle,
-                  ),
-                  child: Icon(
-                    _isMuted ? Icons.volume_off : Icons.volume_up,
-                    color: Colors.white,
-                    size: 20,
-                  ),
+              BouncyTap(
+                onTap: () {},
+                child: const Padding(
+                  padding: EdgeInsets.all(8.0),
+                  child: Icon(Icons.camera_alt_outlined, color: Colors.white, size: 26),
                 ),
               ),
             ],
@@ -503,23 +397,121 @@ class _ReelCardState extends ConsumerState<ReelCard>
     );
   }
 
-  // ─────────────────────────────────────────────────────
-  // PROGRESS BAR (thin, at very bottom)
-  // ─────────────────────────────────────────────────────
-  Widget _buildProgressBar() {
+  Widget _buildBottomInfo(BuildContext context) {
     return Positioned(
-      bottom: 0,
-      left: 0,
-      right: 0,
-      child: VideoProgressIndicator(
-        _controller!,
-        allowScrubbing: false,
-        colors: const VideoProgressColors(
-          playedColor: Colors.white,
-          bufferedColor: Colors.white24,
-          backgroundColor: Colors.white12,
-        ),
-        padding: EdgeInsets.zero,
+      bottom: 80,
+      left: 12,
+      right: 80,
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        mainAxisSize: MainAxisSize.min,
+        children: [
+          BouncyTap(
+            onTap: () => context.push('/profile/${widget.reel.username}'),
+            child: Row(
+              mainAxisSize: MainAxisSize.min,
+              children: [
+                Text(
+                  widget.reel.username,
+                  style: const TextStyle(
+                    color: Colors.white,
+                    fontSize: 13,
+                    fontFamily: 'SF Pro Text',
+                    fontWeight: FontWeight.w600,
+                    shadows: [Shadow(blurRadius: 4, color: Colors.black54)],
+                  ),
+                ),
+                if (widget.reel.isVerified) ...[
+                  const SizedBox(width: 4),
+                  const Icon(Icons.verified, color: Colors.blue, size: 14),
+                ],
+              ],
+            ),
+          ),
+          if (widget.reel.caption != null && widget.reel.caption!.isNotEmpty) ...[
+            const SizedBox(height: 8),
+            GestureDetector(
+              onTap: () => setState(() => _captionExpanded = !_captionExpanded),
+              child: RichText(
+                maxLines: _captionExpanded ? null : 1,
+                overflow: _captionExpanded ? TextOverflow.visible : TextOverflow.ellipsis,
+                text: TextSpan(
+                  children: [
+                    TextSpan(
+                      text: widget.reel.caption!,
+                      style: const TextStyle(
+                        color: Colors.white,
+                        fontSize: 13,
+                        fontFamily: 'SF Pro Text',
+                      ),
+                    ),
+                    if (!_captionExpanded && widget.reel.caption!.length > 40)
+                      const TextSpan(
+                        text: ' ...more',
+                        style: TextStyle(
+                          color: Colors.white70,
+                          fontSize: 13,
+                          fontWeight: FontWeight.w600,
+                        ),
+                      ),
+                  ],
+                ),
+              ),
+            ),
+          ],
+          const SizedBox(height: 12),
+          _AudioTicker(
+            audioName: widget.reel.audioName ?? 'Original Audio - ${widget.reel.username}',
+          ),
+        ],
+      ),
+    );
+  }
+
+  Widget _buildActionButtonsPanel(BuildContext context) {
+    return Positioned(
+      right: 12,
+      bottom: 80,
+      child: Column(
+        children: [
+          ReelActionButtons(
+            reel: widget.reel.copyWith(
+              isLiked: _isLiked,
+              likesCount: _likeCount,
+            ),
+            onLike: _handleLike,
+            onComment: () => _showComments(context),
+            onShare: () => _showShareSheet(context),
+            onAudio: () {},
+          ),
+          const SizedBox(height: 20),
+          AnimatedBuilder(
+            animation: _albumArtController,
+            builder: (_, child) {
+              return Transform.rotate(
+                angle: _albumArtController.value * 2 * 3.14159,
+                child: child,
+              );
+            },
+            child: Container(
+              width: 24,
+              height: 24,
+              decoration: BoxDecoration(
+                border: Border.all(color: Colors.white, width: 2),
+                borderRadius: BorderRadius.circular(6),
+              ),
+              child: ClipRRect(
+                borderRadius: BorderRadius.circular(4),
+                child: widget.reel.thumbnailUrl != null
+                    ? Image.network(
+                        widget.reel.thumbnailUrl!,
+                        fit: BoxFit.cover,
+                      )
+                    : Container(color: Colors.grey),
+              ),
+            ),
+          ),
+        ],
       ),
     );
   }
@@ -529,22 +521,22 @@ class _ReelCardState extends ConsumerState<ReelCard>
       child: SizedBox(
         width: 28,
         height: 28,
-        child: CircularProgressIndicator(
+        child: CupertinoActivityIndicator(
           color: Colors.white,
-          strokeWidth: 2.5,
+          radius: 12,
         ),
       ),
     );
   }
 
   Widget _buildError() {
-    return const Center(
+    return Center(
       child: Column(
         mainAxisSize: MainAxisSize.min,
         children: [
-          Icon(Icons.error_outline, color: Colors.white54, size: 40),
-          SizedBox(height: 8),
-          Text(
+          Icon(PhosphorIcons.warningCircle(), color: Colors.white54, size: 40),
+          const SizedBox(height: 8),
+          const Text(
             'Reel unavailable',
             style: TextStyle(color: Colors.white54, fontSize: 13),
           ),
@@ -554,9 +546,6 @@ class _ReelCardState extends ConsumerState<ReelCard>
   }
 }
 
-// ─────────────────────────────────────────────────────
-// AUDIO TICKER (scrolling text like Instagram)
-// ─────────────────────────────────────────────────────
 class _AudioTicker extends StatefulWidget {
   final String audioName;
   const _AudioTicker({required this.audioName});
@@ -597,8 +586,8 @@ class _AudioTickerState extends State<_AudioTicker>
     return Row(
       mainAxisSize: MainAxisSize.min,
       children: [
-        const Icon(
-          Icons.music_note,
+        Icon(
+          PhosphorIcons.musicNote(),
           color: Colors.white,
           size: 14,
           shadows: [Shadow(blurRadius: 4, color: Colors.black45)],
@@ -636,9 +625,6 @@ class _AudioTickerState extends State<_AudioTicker>
   }
 }
 
-// ─────────────────────────────────────────────────────
-// COMMENTS SHEET (bottom sheet)
-// ─────────────────────────────────────────────────────
 class _CommentsSheet extends StatelessWidget {
   final String reelId;
   const _CommentsSheet({required this.reelId});
@@ -657,7 +643,6 @@ class _CommentsSheet extends StatelessWidget {
       ),
       child: Column(
         children: [
-          // Handle
           Container(
             width: 36,
             height: 4,
@@ -667,7 +652,6 @@ class _CommentsSheet extends StatelessWidget {
               borderRadius: BorderRadius.circular(2),
             ),
           ),
-          // Title
           Padding(
             padding: const EdgeInsets.symmetric(vertical: 8),
             child: Text(
@@ -682,7 +666,6 @@ class _CommentsSheet extends StatelessWidget {
             ),
           ),
           const Divider(height: 1),
-          // Comments list - TODO: implement with comment provider
           const Expanded(
             child: Center(
               child: Text(
@@ -697,9 +680,6 @@ class _CommentsSheet extends StatelessWidget {
   }
 }
 
-// ─────────────────────────────────────────────────────
-// SHARE SHEET
-// ─────────────────────────────────────────────────────
 class _ShareSheet extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
@@ -726,17 +706,17 @@ class _ShareSheet extends StatelessWidget {
             ),
           ),
           ListTile(
-            leading: const Icon(Icons.link),
+            leading: Icon(PhosphorIcons.link()),
             title: const Text('Copy link'),
             onTap: () => Navigator.pop(context),
           ),
           ListTile(
-            leading: const Icon(Icons.near_me_outlined),
+            leading: Icon(PhosphorIcons.paperPlaneTilt()),
             title: const Text('Send to...'),
             onTap: () => Navigator.pop(context),
           ),
           ListTile(
-            leading: const Icon(Icons.share_outlined),
+            leading: Icon(PhosphorIcons.shareNetwork()),
             title: const Text('Share to...'),
             onTap: () => Navigator.pop(context),
           ),

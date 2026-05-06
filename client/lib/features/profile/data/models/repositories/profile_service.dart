@@ -1,7 +1,7 @@
 // lib/features/profile/data/repositories/profile_service.dart
 
-import 'dart:io';
 import 'package:dio/dio.dart';
+import 'package:image_picker/image_picker.dart';
 import '../../../../../core/network/dio_client.dart';
 import '../profile_model.dart';
 
@@ -68,12 +68,13 @@ class ProfileService {
   }
 
   // ─── UPDATE PROFILE PICTURE ──────────────────────────────
-  Future<String> updateProfilePicture(File imageFile) async {
+  Future<String> updateProfilePicture(XFile imageFile) async {
     try {
+      final bytes = await imageFile.readAsBytes();
       final formData = FormData.fromMap({
-        'image': await MultipartFile.fromFile(
-          imageFile.path,
-          filename: 'profile_pic.jpg',
+        'image': MultipartFile.fromBytes(
+          bytes,
+          filename: imageFile.name,
           contentType: DioMediaType('image', 'jpeg'),
         ),
       });
@@ -104,3 +105,4 @@ class ProfileService {
     return Exception(message);
   }
 }
+

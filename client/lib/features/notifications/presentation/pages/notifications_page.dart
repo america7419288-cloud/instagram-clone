@@ -2,16 +2,19 @@
 
 import 'package:cached_network_image/cached_network_image.dart';
 import 'package:flutter/material.dart';
+import 'package:flutter/cupertino.dart';
 import 'package:flutter/services.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
+import 'package:phosphor_flutter/phosphor_flutter.dart';
 import 'package:timeago/timeago.dart' as timeago;
 
 import '../../../../core/router/navigation_extensions.dart';
 import '../../../../core/theme/app_theme.dart';
 import '../../../../shared/widgets/empty_state.dart';
 import '../../../../shared/widgets/error_view.dart';
+import '../../../../shared/widgets/spring_widget.dart';
 import '../../data/models/notification_model.dart';
-import 'package:instagram_clinet/features/notifications/presentation/providers/notification_provider.dart';
+import '../providers/notification_provider.dart';
 
 class NotificationsPage extends ConsumerStatefulWidget {
   const NotificationsPage({super.key});
@@ -48,122 +51,152 @@ class _NotificationsPageState extends ConsumerState<NotificationsPage> {
     final state = ref.watch(notificationProvider);
 
     return Scaffold(
-      backgroundColor: AppColors.white,
-      appBar: AppBar(
-        backgroundColor: AppColors.white,
-        elevation: 0,
-        scrolledUnderElevation: 0,
-        title: const Text(
-          'Activity',
-          style: TextStyle(
-            color: AppColors.textPrimary,
-            fontWeight: FontWeight.bold,
-            fontSize: 18,
-          ),
-        ),
-        actions: [
-          if (state.unreadCount > 0)
-            TextButton(
-              onPressed: () =>
-                  ref.read(notificationProvider.notifier).markAllAsRead(),
-              child: const Text(
-                'Mark all read',
-                style: TextStyle(
-                  color: AppColors.primary,
-                  fontSize: 13,
-                  fontWeight: FontWeight.w600,
-                ),
+      backgroundColor: Theme.of(context).brightness == Brightness.dark ? Colors.black : Colors.white,
+      body: CustomScrollView(
+        controller: _scrollController,
+        physics: const BouncingScrollPhysics(),
+        slivers: [
+          // ─── Navigation Bar ─────────────────────────────────
+          CupertinoSliverNavigationBar(
+            transitionBetweenRoutes: false,
+            largeTitle: const Text(
+              'Notifications',
+              style: TextStyle(
+                fontFamily: 'SF Pro Display',
+                fontWeight: FontWeight.bold,
               ),
             ),
+            border: Border(
+              bottom: BorderSide(
+                color: Colors.grey.withValues(alpha: 0.3),
+                width: 0.33,
+              ),
+            ),
+            backgroundColor: (Theme.of(context).brightness == Brightness.dark ? Colors.black : Colors.white).withValues(alpha: 0.9),
+          ),
+
+          // ─── Refresh Control ──────────────────────────────
+          CupertinoSliverRefreshControl(
+            onRefresh: () async {
+              HapticFeedback.lightImpact();
+              await ref.read(notificationProvider.notifier).refresh();
+            },
+          ),
+
+          // ─── Follow Requests Section ──────────────────────
+          if (state.notifications.isNotEmpty)
+            SliverToBoxAdapter(
+              child: _buildFollowRequestsHeader(),
+            ),
+
+          // ─── Notifications List ───────────────────────────
+          if (state.notifications.isEmpty && !state.isLoading)
+            const SliverFillRemaining(
+              child: Center(child: EmptyState.notifications()),
+            )
+          else
+            _buildNotificationsList(state),
+
+          // ─── Loading More ─────────────────────────────────
+          if (state.isLoadingMore)
+            const SliverToBoxAdapter(
+              child: Padding(
+                padding: EdgeInsets.all(16),
+                child: CupertinoActivityIndicator(),
+              ),
+            ),
+          
+          const SliverToBoxAdapter(child: SizedBox(height: 80)),
         ],
-      ),
-      body: RefreshIndicator(
-        onRefresh: () async {
-          HapticFeedback.lightImpact();
-          await ref.read(notificationProvider.notifier).refresh();
-        },
-        color: AppColors.primary,
-        displacement: 60,
-        strokeWidth: 2.5,
-        child: _buildBody(state),
       ),
     );
   }
 
-  Widget _buildBody(NotificationState state) {
-    if (state.isLoading) {
-      return const _NotificationsSkeleton();
-    }
-
-    if (state.errorMessage != null && state.notifications.isEmpty) {
-      return ListView(
-        physics: const AlwaysScrollableScrollPhysics(),
-        children: [
-          ErrorView(
-            message: state.errorMessage!,
-            onRetry: () => ref.read(notificationProvider.notifier).refresh(),
+  Widget _buildFollowRequestsHeader() {
+    return Column(
+      children: [
+        BouncyTap(
+          onTap: () => context.pushIfNotCurrent('/follow-requests'),
+          child: ListTile(
+            contentPadding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
+            leading: Stack(
+              children: [
+                const CircleAvatar(
+                  radius: 22,
+                  backgroundColor: AppColors.border,
+                  child: Icon(Icons.person_add_outlined, color: AppColors.textPrimary),
+                ),
+                Positioned(
+                  top: 0,
+                  right: 0,
+                  child: Container(
+                    width: 12,
+                    height: 12,
+                    decoration: const BoxDecoration(
+                      color: Colors.blue,
+                      shape: BoxShape.circle,
+                    ),
+                  ),
+                ),
+              ],
+            ),
+            title: const Text(
+              'Follow Requests',
+              style: TextStyle(
+                fontSize: 15,
+                fontWeight: FontWeight.w500,
+              ),
+            ),
+            subtitle: const Text(
+              'Approve or ignore requests',
+              style: TextStyle(
+                fontSize: 13,
+                color: AppColors.textSecondary,
+              ),
+            ),
+            trailing: const Icon(Icons.chevron_right, color: AppColors.border),
           ),
-        ],
-      );
-    }
+        ),
+        const Divider(height: 1, indent: 72),
+      ],
+    );
+  }
 
-    if (state.notifications.isEmpty) {
-      return ListView(
-        physics: const AlwaysScrollableScrollPhysics(),
-        children: const [
-          SizedBox(height: 40),
-          EmptyState.notifications(),
-        ],
-      );
-    }
-
+  Widget _buildNotificationsList(NotificationState state) {
     final groups = state.groupedNotifications;
 
-    return ListView.builder(
-      controller: _scrollController,
-      physics: const AlwaysScrollableScrollPhysics(),
-      itemCount: groups.length + (state.isLoadingMore ? 1 : 0),
-      itemBuilder: (context, index) {
-        if (index == groups.length) {
-          return const Padding(
-            padding: EdgeInsets.all(16),
-            child: Center(
-              child: CircularProgressIndicator(
-                color: AppColors.primary,
-                strokeWidth: 2,
-              ),
-            ),
-          );
-        }
-
-        final group = groups[index];
-
-        return Column(
-          crossAxisAlignment: CrossAxisAlignment.start,
-          children: [
-            Padding(
-              padding: const EdgeInsets.fromLTRB(16, 16, 16, 8),
-              child: Text(
-                group.title,
-                style: const TextStyle(
-                  fontSize: 15,
-                  fontWeight: FontWeight.bold,
-                  color: AppColors.textPrimary,
+    return SliverList(
+      delegate: SliverChildBuilderDelegate(
+        (context, index) {
+          final group = groups[index];
+          return Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              Padding(
+                padding: const EdgeInsets.fromLTRB(16, 16, 16, 8),
+                child: Text(
+                  group.title,
+                  style: const TextStyle(
+                    fontSize: 15,
+                    fontWeight: FontWeight.bold,
+                    color: AppColors.textPrimary,
+                  ),
                 ),
               ),
-            ),
-            ...group.notifications.map(
-              (notification) => _NotificationItem(
-                notification: notification,
-                onTap: () => _handleNotificationTap(notification),
-                onDelete: () => ref
-                    .read(notificationProvider.notifier)
-                    .deleteNotification(notification.id),
+              ...group.notifications.map(
+                (notification) => _NotificationRow(
+                  notification: notification,
+                  onTap: () => _handleNotificationTap(notification),
+                  onDelete: () => ref
+                      .read(notificationProvider.notifier)
+                      .deleteNotification(notification.id),
+                ),
               ),
-            ),
-          ],
-        );
-      },
+            ],
+          );
+        },
+        childCount: groups.length,
+      ),
     );
   }
 
@@ -174,17 +207,14 @@ class _NotificationsPageState extends ConsumerState<NotificationsPage> {
 
     if (notification.referencePostId != null) {
       context.pushIfNotCurrent('/post/${notification.referencePostId}');
-    } else if (notification.sender != null &&
-        (notification.isFollow ||
-            notification.isFollowRequest ||
-            notification.isFollowAccept)) {
+    } else if (notification.sender != null) {
       context.pushIfNotCurrent('/profile/${notification.sender!.username}');
     }
   }
 }
 
-class _NotificationItem extends StatelessWidget {
-  const _NotificationItem({
+class _NotificationRow extends StatelessWidget {
+  const _NotificationRow({
     required this.notification,
     required this.onTap,
     required this.onDelete,
@@ -203,52 +233,27 @@ class _NotificationItem extends StatelessWidget {
       background: Container(
         alignment: Alignment.centerRight,
         padding: const EdgeInsets.only(right: 20),
-        color: AppColors.secondary,
-        child: const Icon(Icons.delete_outline, color: Colors.white, size: 24),
+        color: Colors.red,
+        child: const Icon(Icons.delete, color: Colors.white),
       ),
-      child: InkWell(
+      child: BouncyTap(
         onTap: onTap,
         child: Container(
-          color: notification.isRead
-              ? Colors.transparent
-              : AppColors.primary.withOpacity(0.04),
           padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 10),
+          decoration: BoxDecoration(
+            color: notification.isRead
+                ? Colors.transparent
+                : AppColors.primary.withValues(alpha: 0.1),
+          ),
           child: Row(
-            crossAxisAlignment: CrossAxisAlignment.center,
             children: [
-              Container(
-                width: 8,
-                height: 8,
-                margin: const EdgeInsets.only(right: 8),
-                decoration: BoxDecoration(
-                  shape: BoxShape.circle,
-                  color: notification.isRead
-                      ? Colors.transparent
-                      : AppColors.primary,
-                ),
-              ),
               _buildAvatar(),
               const SizedBox(width: 12),
               Expanded(
-                child: Column(
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  children: [
-                    _buildMessage(),
-                    const SizedBox(height: 4),
-                    Text(
-                      notification.createdAt != null
-                          ? timeago.format(notification.createdAt!)
-                          : '',
-                      style: const TextStyle(
-                        color: AppColors.textSecondary,
-                        fontSize: 12,
-                      ),
-                    ),
-                  ],
-                ),
+                child: _buildContent(),
               ),
               const SizedBox(width: 12),
-              _buildRightSide(context),
+              _buildAction(context),
             ],
           ),
         ),
@@ -258,99 +263,64 @@ class _NotificationItem extends StatelessWidget {
 
   Widget _buildAvatar() {
     final sender = notification.sender;
-
-    return Stack(
-      children: [
-        Container(
-          width: 44,
-          height: 44,
-          decoration: const BoxDecoration(
-            shape: BoxShape.circle,
-            color: AppColors.border,
-          ),
-          child: ClipOval(
-            child: sender?.profilePicUrl != null
-                ? CachedNetworkImage(
-                    imageUrl: sender!.profilePicUrl!,
-                    fit: BoxFit.cover,
-                    errorWidget: (_, __, ___) =>
-                        _defaultAvatar(sender.username),
-                  )
-                : _defaultAvatar(sender?.username ?? '?'),
-          ),
-        ),
-        Positioned(
-          bottom: 0,
-          right: 0,
-          child: Container(
-            width: 20,
-            height: 20,
-            decoration: BoxDecoration(
-              color: _typeColor(),
-              shape: BoxShape.circle,
-              border: Border.all(color: Colors.white, width: 1.5),
-            ),
-            child: Icon(_typeIcon(), color: Colors.white, size: 11),
-          ),
-        ),
-      ],
+    return Container(
+      width: 44,
+      height: 44,
+      decoration: BoxDecoration(
+        shape: BoxShape.circle,
+        border: Border.all(color: AppColors.border, width: 0.5),
+      ),
+      child: ClipOval(
+        child: sender?.profilePicUrl != null
+            ? CachedNetworkImage(
+                imageUrl: sender!.profilePicUrl!,
+                fit: BoxFit.cover,
+                errorWidget: (_, __, ___) => _defaultAvatar(),
+              )
+            : _defaultAvatar(),
+      ),
     );
   }
 
-  Widget _defaultAvatar(String username) {
+  Widget _defaultAvatar() {
     return Container(
       color: AppColors.border,
-      child: Center(
-        child: Text(
-          username.isNotEmpty ? username[0].toUpperCase() : '?',
-          style: const TextStyle(
-            fontSize: 18,
-            fontWeight: FontWeight.bold,
-            color: AppColors.textSecondary,
-          ),
-        ),
-      ),
+      child: const Icon(Icons.person, color: Colors.white, size: 24),
     );
   }
 
-  Widget _buildMessage() {
-    final username = notification.sender?.username ?? '';
+  Widget _buildContent() {
+    final username = notification.sender?.username ?? 'Someone';
+    final message = notification.message;
+    final timeStr = notification.createdAt != null
+        ? ' ${timeago.format(notification.createdAt!, locale: 'en_short')}'
+        : '';
 
-    if (notification.message.startsWith(username)) {
-      final rest = notification.message.substring(username.length);
-      return RichText(
-        maxLines: 2,
-        overflow: TextOverflow.ellipsis,
-        text: TextSpan(
-          style: const TextStyle(
-            fontSize: 14,
-            color: AppColors.textPrimary,
-            height: 1.3,
-          ),
-          children: [
-            TextSpan(
-              text: username,
-              style: const TextStyle(fontWeight: FontWeight.w600),
-            ),
-            TextSpan(text: rest),
-          ],
-        ),
-      );
-    }
-
-    return Text(
-      notification.message,
-      maxLines: 2,
+    return RichText(
+      maxLines: 3,
       overflow: TextOverflow.ellipsis,
-      style: const TextStyle(
-        fontSize: 14,
-        color: AppColors.textPrimary,
-        height: 1.3,
+      text: TextSpan(
+        style: const TextStyle(
+          fontSize: 13,
+          color: AppColors.textPrimary,
+          fontFamily: 'SF Pro Text',
+        ),
+        children: [
+          TextSpan(
+            text: username,
+            style: const TextStyle(fontWeight: FontWeight.w600),
+          ),
+          TextSpan(text: ' $message'),
+          TextSpan(
+            text: timeStr,
+            style: const TextStyle(color: AppColors.textSecondary),
+          ),
+        ],
       ),
     );
   }
 
-  Widget _buildRightSide(BuildContext context) {
+  Widget _buildAction(BuildContext context) {
     if (notification.postThumbnail != null) {
       return ClipRRect(
         borderRadius: BorderRadius.circular(4),
@@ -359,21 +329,12 @@ class _NotificationItem extends StatelessWidget {
           width: 44,
           height: 44,
           fit: BoxFit.cover,
-          errorWidget: (_, __, ___) => Container(
-            width: 44,
-            height: 44,
-            color: AppColors.border,
-            child: const Icon(
-              Icons.image_outlined,
-              color: AppColors.textSecondary,
-            ),
-          ),
         ),
       );
     }
 
     if (notification.showFollowButton) {
-      return _FollowButton(
+      return _NotificationFollowButton(
         notificationId: notification.id,
         isFollowRequest: notification.isFollowRequest,
       );
@@ -381,51 +342,10 @@ class _NotificationItem extends StatelessWidget {
 
     return const SizedBox.shrink();
   }
-
-  IconData _typeIcon() {
-    switch (notification.type) {
-      case 'like':
-        return Icons.favorite;
-      case 'comment':
-      case 'reply':
-        return Icons.chat_bubble;
-      case 'follow':
-      case 'follow_request':
-      case 'follow_accept':
-        return Icons.person;
-      case 'mention_post':
-      case 'mention_comment':
-        return Icons.alternate_email;
-      case 'comment_like':
-        return Icons.favorite;
-      default:
-        return Icons.notifications;
-    }
-  }
-
-  Color _typeColor() {
-    switch (notification.type) {
-      case 'like':
-      case 'comment_like':
-        return AppColors.secondary;
-      case 'comment':
-      case 'reply':
-        return const Color(0xFF0095F6);
-      case 'follow':
-      case 'follow_request':
-      case 'follow_accept':
-        return const Color(0xFF833AB4);
-      case 'mention_post':
-      case 'mention_comment':
-        return const Color(0xFFFCB045);
-      default:
-        return AppColors.textSecondary;
-    }
-  }
 }
 
-class _FollowButton extends ConsumerStatefulWidget {
-  const _FollowButton({
+class _NotificationFollowButton extends ConsumerStatefulWidget {
+  const _NotificationFollowButton({
     required this.notificationId,
     required this.isFollowRequest,
   });
@@ -434,134 +354,54 @@ class _FollowButton extends ConsumerStatefulWidget {
   final bool isFollowRequest;
 
   @override
-  ConsumerState<_FollowButton> createState() => _FollowButtonState();
+  ConsumerState<_NotificationFollowButton> createState() =>
+      _NotificationFollowButtonState();
 }
 
-class _FollowButtonState extends ConsumerState<_FollowButton> {
+class _NotificationFollowButtonState
+    extends ConsumerState<_NotificationFollowButton> {
   bool _isFollowing = false;
-  bool _isLoading = false;
 
   @override
   Widget build(BuildContext context) {
     if (_isFollowing) {
-      return OutlinedButton(
-        onPressed: () {},
-        style: OutlinedButton.styleFrom(
-          side: const BorderSide(color: AppColors.border),
-          shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(8)),
-          padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
-          minimumSize: Size.zero,
-          tapTargetSize: MaterialTapTargetSize.shrinkWrap,
+      return Container(
+        padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
+        decoration: BoxDecoration(
+          border: Border.all(color: AppColors.border),
+          borderRadius: BorderRadius.circular(8),
         ),
         child: const Text(
           'Following',
           style: TextStyle(
             fontSize: 13,
-            color: AppColors.textPrimary,
             fontWeight: FontWeight.w600,
+            color: AppColors.textPrimary,
           ),
         ),
       );
     }
 
-    return ElevatedButton(
-      onPressed: _isLoading ? null : _handleFollow,
-      style: ElevatedButton.styleFrom(
-        backgroundColor: AppColors.primary,
-        foregroundColor: Colors.white,
-        elevation: 0,
-        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(8)),
-        padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
-        minimumSize: Size.zero,
-        tapTargetSize: MaterialTapTargetSize.shrinkWrap,
-      ),
-      child: _isLoading
-          ? const SizedBox(
-              width: 12,
-              height: 12,
-              child: CircularProgressIndicator(
-                strokeWidth: 2,
-                color: Colors.white,
-              ),
-            )
-          : Text(
-              widget.isFollowRequest ? 'Confirm' : 'Follow',
-              style: const TextStyle(fontSize: 13, fontWeight: FontWeight.w600),
-            ),
-    );
-  }
-
-  Future<void> _handleFollow() async {
-    setState(() => _isLoading = true);
-    await Future.delayed(const Duration(milliseconds: 500));
-
-    if (mounted) {
-      setState(() {
-        _isLoading = false;
-        _isFollowing = true;
-      });
-    }
-  }
-}
-
-class _NotificationsSkeleton extends StatelessWidget {
-  const _NotificationsSkeleton();
-
-  @override
-  Widget build(BuildContext context) {
-    return ListView.builder(
-      physics: const AlwaysScrollableScrollPhysics(),
-      itemCount: 8,
-      itemBuilder: (_, __) => Padding(
-        padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 10),
-        child: Row(
-          children: [
-            const SizedBox(width: 16),
-            Container(
-              width: 44,
-              height: 44,
-              decoration: const BoxDecoration(
-                color: AppColors.border,
-                shape: BoxShape.circle,
-              ),
-            ),
-            const SizedBox(width: 12),
-            Expanded(
-              child: Column(
-                crossAxisAlignment: CrossAxisAlignment.start,
-                children: [
-                  Container(
-                    height: 12,
-                    width: double.infinity,
-                    decoration: BoxDecoration(
-                      color: AppColors.border,
-                      borderRadius: BorderRadius.circular(6),
-                    ),
-                  ),
-                  const SizedBox(height: 6),
-                  Container(
-                    height: 10,
-                    width: 120,
-                    decoration: BoxDecoration(
-                      color: AppColors.border.withOpacity(0.5),
-                      borderRadius: BorderRadius.circular(5),
-                    ),
-                  ),
-                ],
-              ),
-            ),
-            const SizedBox(width: 12),
-            Container(
-              width: 44,
-              height: 44,
-              decoration: BoxDecoration(
-                color: AppColors.border,
-                borderRadius: BorderRadius.circular(4),
-              ),
-            ),
-          ],
+    return BouncyTap(
+      onTap: () {
+        setState(() => _isFollowing = true);
+      },
+      child: Container(
+        padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 6),
+        decoration: BoxDecoration(
+          color: AppColors.primary,
+          borderRadius: BorderRadius.circular(8),
+        ),
+        child: Text(
+          widget.isFollowRequest ? 'Confirm' : 'Follow',
+          style: const TextStyle(
+            fontSize: 13,
+            fontWeight: FontWeight.w600,
+            color: Colors.white,
+          ),
         ),
       ),
     );
   }
 }
+

@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'spring_widget.dart';
 
 class EmptyState extends StatelessWidget {
   const EmptyState({
@@ -119,24 +120,24 @@ class EmptyState extends StatelessWidget {
             ],
             if (buttonLabel != null && onButton != null) ...[
               const SizedBox(height: 24),
-              TextButton(
-                onPressed: onButton,
-                style: TextButton.styleFrom(
-                  backgroundColor: const Color(0xFF0095F6),
-                  foregroundColor: Colors.white,
+              BouncyTap(
+                onTap: onButton,
+                child: Container(
                   padding: const EdgeInsets.symmetric(
                     horizontal: 24,
                     vertical: 10,
                   ),
-                  shape: RoundedRectangleBorder(
+                  decoration: BoxDecoration(
+                    color: const Color(0xFF0095F6),
                     borderRadius: BorderRadius.circular(8),
                   ),
-                ),
-                child: Text(
-                  buttonLabel!,
-                  style: const TextStyle(
-                    fontSize: 14,
-                    fontWeight: FontWeight.w600,
+                  child: Text(
+                    buttonLabel!,
+                    style: const TextStyle(
+                      fontSize: 14,
+                      fontWeight: FontWeight.w600,
+                      color: Colors.white,
+                    ),
                   ),
                 ),
               ),

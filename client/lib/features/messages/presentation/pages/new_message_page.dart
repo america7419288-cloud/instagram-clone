@@ -8,6 +8,7 @@ import '../../../../core/theme/app_theme.dart';
 import '../../../../shared/widgets/app_snackbar.dart';
 import '../providers/message_search_provider.dart';
 import '../providers/message_provider.dart';
+import '../../../../shared/widgets/spring_widget.dart';
 
 class NewMessagePage extends ConsumerStatefulWidget {
   const NewMessagePage({super.key});
@@ -35,9 +36,14 @@ class _NewMessagePageState extends ConsumerState<NewMessagePage> {
         backgroundColor: AppColors.white,
         elevation: 0,
         scrolledUnderElevation: 0,
-        leading: IconButton(
-          icon: const Icon(Icons.close, color: AppColors.textPrimary),
-          onPressed: () => context.pop(),
+        leading: BouncyTap(
+          onTap: () => context.pop(),
+          child: const Center(
+            child: Padding(
+              padding: EdgeInsets.all(12),
+              child: Icon(Icons.close, color: AppColors.textPrimary),
+            ),
+          ),
         ),
         title: const Text(
           'New message',
@@ -48,15 +54,18 @@ class _NewMessagePageState extends ConsumerState<NewMessagePage> {
           ),
         ),
         actions: [
-          TextButton(
-            onPressed: () {
+          BouncyTap(
+            onTap: () {
               // Create group logic could go here later
             },
-            child: const Text(
-              'Chat',
-              style: TextStyle(
-                color: AppColors.primary,
-                fontWeight: FontWeight.bold,
+            child: const Padding(
+              padding: EdgeInsets.symmetric(horizontal: 16, vertical: 8),
+              child: Text(
+                'Chat',
+                style: TextStyle(
+                  color: AppColors.primary,
+                  fontWeight: FontWeight.bold,
+                ),
               ),
             ),
           ),
@@ -136,27 +145,7 @@ class _NewMessagePageState extends ConsumerState<NewMessagePage> {
       itemCount: state.users.length,
       itemBuilder: (context, index) {
         final user = state.users[index];
-        return ListTile(
-          leading: CircleAvatar(
-            backgroundColor: AppColors.border,
-            backgroundImage: user.profilePicUrl != null
-                ? CachedNetworkImageProvider(user.profilePicUrl!)
-                : null,
-            child: user.profilePicUrl == null
-                ? Text(
-                    user.username[0].toUpperCase(),
-                    style: const TextStyle(color: AppColors.textPrimary),
-                  )
-                : null,
-          ),
-          title: Text(
-            user.username,
-            style: const TextStyle(fontWeight: FontWeight.w600),
-          ),
-          subtitle: Text(
-            user.fullName,
-            style: const TextStyle(color: AppColors.textSecondary),
-          ),
+        return BouncyTap(
           onTap: () async {
             // Create or get conversation
             try {
@@ -190,8 +179,31 @@ class _NewMessagePageState extends ConsumerState<NewMessagePage> {
               AppSnackbar.error(context, 'Error: $e');
             }
           },
+          child: ListTile(
+            leading: CircleAvatar(
+              backgroundColor: AppColors.border,
+              backgroundImage: user.profilePicUrl != null
+                  ? CachedNetworkImageProvider(user.profilePicUrl!)
+                  : null,
+              child: user.profilePicUrl == null
+                  ? Text(
+                      user.username[0].toUpperCase(),
+                      style: const TextStyle(color: AppColors.textPrimary),
+                    )
+                  : null,
+            ),
+            title: Text(
+              user.username,
+              style: const TextStyle(fontWeight: FontWeight.w600),
+            ),
+            subtitle: Text(
+              user.fullName,
+              style: const TextStyle(color: AppColors.textSecondary),
+            ),
+          ),
         );
       },
     );
   }
 }
+

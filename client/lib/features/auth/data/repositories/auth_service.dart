@@ -107,6 +107,9 @@ class AuthService {
     }
   }
 
+  // Alias for getCurrentUser used in AuthNotifier
+  Future<UserModel?> getMe() => getCurrentUser();
+
   // ─── CHECK USERNAME AVAILABILITY ───────────────────────
   Future<Map<String, dynamic>> checkUsername(String username) async {
     try {

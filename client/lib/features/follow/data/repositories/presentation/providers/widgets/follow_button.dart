@@ -5,6 +5,8 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import '../../../../../../../core/theme/app_theme.dart';
 import '../../../../../../../shared/widgets/app_snackbar.dart';
 import '../follow_provider.dart';
+import '../../../../../../../shared/widgets/spring_widget.dart';
+
 
 // ─── FOLLOW BUTTON ──────────────────────────────────────────
 // Reusable widget used everywhere (profile, search, suggestions)
@@ -23,6 +25,7 @@ class FollowButton extends ConsumerWidget {
     final followState = ref.watch(followProvider(targetUserId));
 
     if (followState.isOwnProfile) return const SizedBox.shrink();
+    if (followState.hasBlockedMe) return const SizedBox.shrink();
 
     return _buildButton(context, ref, followState);
   }
@@ -34,105 +37,120 @@ class FollowButton extends ConsumerWidget {
   ) {
     final isLoading = followState.isLoading;
 
-    // ─── FOLLOWING button (outlined)
-    if (followState.isFollowing) {
-      return OutlinedButton(
-        onPressed: isLoading
-            ? null
-            : () => _handleToggle(context, ref, followState),
-        style: OutlinedButton.styleFrom(
-          side: const BorderSide(color: AppColors.border),
-          shape: RoundedRectangleBorder(
+    // ─── BLOCKED button (filled blue)
+    if (followState.isBlocked) {
+      return BouncyTap(
+        onTap: isLoading ? null : () => _handleUnblock(context, ref),
+        child: Container(
+          padding: compact
+              ? const EdgeInsets.symmetric(horizontal: 12, vertical: 6)
+              : const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
+          constraints: BoxConstraints(minWidth: compact ? 0 : 88),
+          decoration: BoxDecoration(
+            color: AppColors.primary,
             borderRadius: BorderRadius.circular(8),
           ),
-          padding: compact
-              ? const EdgeInsets.symmetric(
-                  horizontal: 12, vertical: 6)
-              : const EdgeInsets.symmetric(
-                  horizontal: 16, vertical: 8),
-          minimumSize: compact ? Size.zero : const Size(88, 36),
-          tapTargetSize: compact
-              ? MaterialTapTargetSize.shrinkWrap
-              : MaterialTapTargetSize.padded,
-        ),
-        child: isLoading
-            ? _loadingIndicator(AppColors.textPrimary)
-            : Text(
-                'Following',
-                style: TextStyle(
-                  color: AppColors.textPrimary,
-                  fontSize: compact ? 13 : 14,
-                  fontWeight: FontWeight.w600,
+          child: isLoading
+              ? _loadingIndicator(Colors.white)
+              : Text(
+                  'Unblock',
+                  textAlign: TextAlign.center,
+                  style: TextStyle(
+                    color: Colors.white,
+                    fontSize: compact ? 13 : 14,
+                    fontWeight: FontWeight.w600,
+                  ),
                 ),
-              ),
+        ),
+      );
+    }
+
+    // ─── FOLLOWING button (outlined)
+    if (followState.isFollowing) {
+      return BouncyTap(
+        onTap: isLoading
+            ? null
+            : () => _handleToggle(context, ref, followState),
+        child: Container(
+          padding: compact
+              ? const EdgeInsets.symmetric(horizontal: 12, vertical: 6)
+              : const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
+          constraints: BoxConstraints(minWidth: compact ? 0 : 88),
+          decoration: BoxDecoration(
+            border: Border.all(color: AppColors.border),
+            borderRadius: BorderRadius.circular(8),
+          ),
+          child: isLoading
+              ? _loadingIndicator(AppColors.textPrimary)
+              : Text(
+                  'Following',
+                  textAlign: TextAlign.center,
+                  style: TextStyle(
+                    color: AppColors.textPrimary,
+                    fontSize: compact ? 13 : 14,
+                    fontWeight: FontWeight.w600,
+                  ),
+                ),
+        ),
       );
     }
 
     // ─── REQUESTED button (outlined, lighter)
     if (followState.isPending) {
-      return OutlinedButton(
-        onPressed: isLoading
+      return BouncyTap(
+        onTap: isLoading
             ? null
             : () => _handleToggle(context, ref, followState),
-        style: OutlinedButton.styleFrom(
-          side: const BorderSide(color: AppColors.border),
-          shape: RoundedRectangleBorder(
+        child: Container(
+          padding: compact
+              ? const EdgeInsets.symmetric(horizontal: 12, vertical: 6)
+              : const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
+          constraints: BoxConstraints(minWidth: compact ? 0 : 88),
+          decoration: BoxDecoration(
+            border: Border.all(color: AppColors.border),
             borderRadius: BorderRadius.circular(8),
           ),
-          padding: compact
-              ? const EdgeInsets.symmetric(
-                  horizontal: 12, vertical: 6)
-              : const EdgeInsets.symmetric(
-                  horizontal: 16, vertical: 8),
-          minimumSize: compact ? Size.zero : const Size(88, 36),
-          tapTargetSize: compact
-              ? MaterialTapTargetSize.shrinkWrap
-              : MaterialTapTargetSize.padded,
-        ),
-        child: isLoading
-            ? _loadingIndicator(AppColors.textSecondary)
-            : Text(
-                'Requested',
-                style: TextStyle(
-                  color: AppColors.textSecondary,
-                  fontSize: compact ? 13 : 14,
-                  fontWeight: FontWeight.w600,
+          child: isLoading
+              ? _loadingIndicator(AppColors.textSecondary)
+              : Text(
+                  'Requested',
+                  textAlign: TextAlign.center,
+                  style: TextStyle(
+                    color: AppColors.textSecondary,
+                    fontSize: compact ? 13 : 14,
+                    fontWeight: FontWeight.w600,
+                  ),
                 ),
-              ),
+        ),
       );
     }
 
     // ─── FOLLOW button (filled blue)
-    return ElevatedButton(
-      onPressed: isLoading
+    return BouncyTap(
+      onTap: isLoading
           ? null
           : () => _handleToggle(context, ref, followState),
-      style: ElevatedButton.styleFrom(
-        backgroundColor: AppColors.primary,
-        foregroundColor: Colors.white,
-        elevation: 0,
-        shape: RoundedRectangleBorder(
+      child: Container(
+        padding: compact
+            ? const EdgeInsets.symmetric(horizontal: 12, vertical: 6)
+            : const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
+        constraints: BoxConstraints(minWidth: compact ? 0 : 88),
+        decoration: BoxDecoration(
+          color: AppColors.primary,
           borderRadius: BorderRadius.circular(8),
         ),
-        padding: compact
-            ? const EdgeInsets.symmetric(
-                horizontal: 12, vertical: 6)
-            : const EdgeInsets.symmetric(
-                horizontal: 16, vertical: 8),
-        minimumSize: compact ? Size.zero : const Size(88, 36),
-        tapTargetSize: compact
-            ? MaterialTapTargetSize.shrinkWrap
-            : MaterialTapTargetSize.padded,
-      ),
-      child: isLoading
-          ? _loadingIndicator(Colors.white)
-          : Text(
-              'Follow',
-              style: TextStyle(
-                fontSize: compact ? 13 : 14,
-                fontWeight: FontWeight.w600,
+        child: isLoading
+            ? _loadingIndicator(Colors.white)
+            : Text(
+                'Follow',
+                textAlign: TextAlign.center,
+                style: TextStyle(
+                  color: Colors.white,
+                  fontSize: compact ? 13 : 14,
+                  fontWeight: FontWeight.w600,
+                ),
               ),
-            ),
+      ),
     );
   }
 
@@ -202,5 +220,18 @@ class FollowButton extends ConsumerWidget {
       ),
     );
     return result ?? false;
+  }
+
+  Future<void> _handleUnblock(BuildContext context, WidgetRef ref) async {
+    try {
+      await ref.read(followProvider(targetUserId).notifier).unblockUser();
+      if (context.mounted) {
+        AppSnackbar.success(context, 'User unblocked');
+      }
+    } catch (e) {
+      if (context.mounted) {
+        AppSnackbar.error(context, e.toString().replaceAll('Exception: ', ''));
+      }
+    }
   }
 }

@@ -1,14 +1,18 @@
 // lib/features/reels/presentation/pages/reels_page.dart
 
 import 'package:flutter/material.dart';
+import 'package:flutter/cupertino.dart';
 import 'package:flutter/services.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
+import 'package:phosphor_flutter/phosphor_flutter.dart';
 
 import '../../../../core/theme/app_theme.dart';
 import '../../../../shared/widgets/empty_state.dart';
 import '../../../../shared/widgets/error_view.dart';
+import '../../../../shared/widgets/spring_widget.dart';
 import '../providers/reel_provider.dart';
 import '../widgets/reel_card.dart';
+import '../../../../core/router/main_shell.dart';
 
 class ReelsPage extends ConsumerStatefulWidget {
   const ReelsPage({super.key});
@@ -77,9 +81,9 @@ class _ReelsPageState extends ConsumerState<ReelsPage>
           child: SizedBox(
             width: 28,
             height: 28,
-            child: CircularProgressIndicator(
+            child: CupertinoActivityIndicator(
               color: Colors.white,
-              strokeWidth: 2.5,
+              radius: 12,
             ),
           ),
         ),
@@ -105,8 +109,8 @@ class _ReelsPageState extends ConsumerState<ReelsPage>
           child: Column(
             mainAxisAlignment: MainAxisAlignment.center,
             children: [
-              const Icon(
-                Icons.play_circle_outline,
+              Icon(
+                PhosphorIcons.playCircle(),
                 color: Colors.white54,
                 size: 64,
               ),
@@ -125,11 +129,17 @@ class _ReelsPageState extends ConsumerState<ReelsPage>
                 style: TextStyle(color: Colors.white54, fontSize: 14),
               ),
               const SizedBox(height: 24),
-              TextButton(
-                onPressed: _onRefresh,
-                child: Text(
-                  'Refresh',
-                  style: const TextStyle(color: AppColors.primary),
+              BouncyTap(
+                onTap: _onRefresh,
+                child: Padding(
+                  padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
+                  child: Text(
+                    'Refresh',
+                    style: const TextStyle(
+                      color: AppColors.primary,
+                      fontWeight: FontWeight.w600,
+                    ),
+                  ),
                 ),
               ),
             ],
@@ -137,6 +147,9 @@ class _ReelsPageState extends ConsumerState<ReelsPage>
         ),
       );
     }
+
+    final mainTabIndex = ref.watch(mainShellTabIndexProvider);
+    final isReelsTabActive = mainTabIndex == 2;
 
     // ─── Reels feed ───────────────────────────────────
     return Scaffold(
@@ -157,9 +170,9 @@ class _ReelsPageState extends ConsumerState<ReelsPage>
               child: SizedBox(
                 width: 24,
                 height: 24,
-                child: CircularProgressIndicator(
+                child: CupertinoActivityIndicator(
                   color: Colors.white,
-                  strokeWidth: 2,
+                  radius: 10,
                 ),
               ),
             );
@@ -170,7 +183,7 @@ class _ReelsPageState extends ConsumerState<ReelsPage>
           return ReelCard(
             key: ValueKey(reel.id),
             reel: reel,
-            isActive: index == _currentIndex,
+            isActive: index == _currentIndex && isReelsTabActive,
           );
         },
       ),

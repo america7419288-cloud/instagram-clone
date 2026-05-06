@@ -7,8 +7,10 @@ const {
   User,
   Post,
   PostMedia,
+  Block,
   sequelize,
 } = require('../models');
+const { getBlockedUserIds } = require('../utils/block.utils');
 const {
   successResponse,
   errorResponse,
@@ -16,6 +18,7 @@ const {
 } = require('../utils/response.utils');
 const { emitToUser } = require('../services/socket.service');
 const { Op } = require('sequelize');
+const { createMessageNotification } = require('../services/notification.service');
 
 // ─── HELPER: Format conversation for inbox ─────────────────
 const formatConversation = (conv, currentUserId) => {
@@ -130,6 +133,12 @@ const createOrGetConversation = async (req, res) => {
 
     if (!targetUser) {
       return errorResponse(res, 404, 'User not found.');
+    }
+
+    // 2.1 CHECK IF BLOCKED
+    const blockedUserIds = await getBlockedUserIds(currentUserId);
+    if (blockedUserIds.includes(targetUserId)) {
+      return errorResponse(res, 403, 'You cannot message this user.');
     }
 
     // 3. CHECK IF DM ALREADY EXISTS
@@ -322,13 +331,23 @@ const getInbox = async (req, res) => {
 
     const unreadCountByConversationId = new Map(unreadCountEntries);
 
+    // 2.1 Filter out conversations with blocked users
+    const blockedUserIds = await getBlockedUserIds(currentUserId);
+    
     // 3. Format conversations
-    const formattedConversations = conversations.map((conv) => {
-      const formatted = formatConversation(conv, currentUserId);
-      formatted.unread_count = unreadCountByConversationId.get(conv.id) || 0;
-      
-      return formatted;
-    });
+    const formattedConversations = conversations
+      .map((conv) => {
+        const formatted = formatConversation(conv, currentUserId);
+        formatted.unread_count = unreadCountByConversationId.get(conv.id) || 0;
+        return formatted;
+      })
+      .filter((conv) => {
+        // If it's a DM (not group), check if the other user is blocked
+        if (!conv.is_group && conv.other_user) {
+          return !blockedUserIds.includes(conv.other_user.id);
+        }
+        return true;
+      });
 
     return paginatedResponse(
       res,
@@ -543,6 +562,21 @@ const sendMessage = async (req, res) => {
       );
     }
 
+    // 2.1 CHECK IF BLOCKED (for DMs)
+    const conversation = await Conversation.findByPk(conversationId, {
+      include: [{ model: User, as: 'participants', attributes: ['id'] }]
+    });
+
+    if (conversation && !conversation.is_group) {
+      const otherParticipant = conversation.participants.find(p => p.id !== senderId);
+      if (otherParticipant) {
+        const blockedUserIds = await getBlockedUserIds(senderId);
+        if (blockedUserIds.includes(otherParticipant.id)) {
+          return errorResponse(res, 403, 'You cannot send messages to this user.');
+        }
+      }
+    }
+
     // 3. VALIDATE REPLY (if replying)
     if (reply_to_message_id) {
       const replyTarget = await Message.findOne({
@@ -632,6 +666,31 @@ const sendMessage = async (req, res) => {
           last_message_at: lastMessageAt,
         });
       });
+
+      // ─── Push notification ─────────────────────────────────
+      // Find all participants except sender
+      try {
+        const participants = await ConversationParticipant.findAll({
+          where: {
+            conversation_id: conversationId,
+            user_id: { [Op.ne]: senderId },
+          },
+          attributes: ['user_id'],
+        });
+
+        // Send push to each recipient
+        for (const participant of participants) {
+          await createMessageNotification({
+            recipientId: participant.userId || participant.user_id,
+            senderId,
+            conversationId: conversationId,
+            messageText: content,
+          });
+        }
+      } catch (pushError) {
+        // Non-fatal: don't fail the message send
+        console.error('Push notification error:', pushError.message);
+      }
     }
 
     console.log(

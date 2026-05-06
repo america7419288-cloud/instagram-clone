@@ -79,7 +79,7 @@ class _StoryReactionBarState extends State<StoryReactionBar>
                 vertical:   8,
               ),
               decoration: BoxDecoration(
-                color:        Colors.black.withOpacity(0.7),
+                color:        Colors.black.withValues(alpha: 0.7),
                 borderRadius: BorderRadius.circular(30),
               ),
               child: Row(
@@ -143,7 +143,7 @@ class _StoryReactionBarState extends State<StoryReactionBar>
                   padding: const EdgeInsets.all(10),
                   decoration: BoxDecoration(
                     color: _expanded
-                        ? Colors.white.withOpacity(0.2)
+                        ? Colors.white.withValues(alpha: 0.2)
                         : Colors.transparent,
                     shape: BoxShape.circle,
                   ),

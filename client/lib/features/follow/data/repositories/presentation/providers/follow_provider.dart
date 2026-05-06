@@ -18,12 +18,16 @@ class FollowState {
   final int followersCount;
   final int followingCount;
   final bool isOwnProfile;
+  final bool isBlocked;
+  final bool hasBlockedMe;
 
   const FollowState({
     this.status = FollowStatus.notFollowing,
     this.followersCount = 0,
     this.followingCount = 0,
     this.isOwnProfile = false,
+    this.isBlocked = false,
+    this.hasBlockedMe = false,
   });
 
   FollowState copyWith({
@@ -31,12 +35,16 @@ class FollowState {
     int? followersCount,
     int? followingCount,
     bool? isOwnProfile,
+    bool? isBlocked,
+    bool? hasBlockedMe,
   }) {
     return FollowState(
       status: status ?? this.status,
       followersCount: followersCount ?? this.followersCount,
       followingCount: followingCount ?? this.followingCount,
       isOwnProfile: isOwnProfile ?? this.isOwnProfile,
+      isBlocked: isBlocked ?? this.isBlocked,
+      hasBlockedMe: hasBlockedMe ?? this.hasBlockedMe,
     );
   }
 
@@ -84,6 +92,8 @@ class FollowNotifier extends StateNotifier<FollowState> {
         followingCount:
             data['following_count'] as int? ?? counts['following'] as int? ?? 0,
         isOwnProfile: isOwnProfile,
+        isBlocked: data['is_blocked_by_me'] as bool? ?? false,
+        hasBlockedMe: data['has_blocked_me'] as bool? ?? false,
       );
     } catch (e) {
       // Keep default state on error
@@ -140,6 +150,38 @@ class FollowNotifier extends StateNotifier<FollowState> {
         state = state.copyWith(status: previousStatus);
         rethrow;
       }
+    }
+  }
+
+  // ─── BLOCK USER ───────────────────────────────────────────
+  Future<void> blockUser() async {
+    state = state.copyWith(status: FollowStatus.loading);
+    try {
+      await _service.blockUser(targetUserId);
+      state = state.copyWith(
+        status: FollowStatus.notFollowing,
+        isBlocked: true,
+        // When blocking, followers count might decrease if they were following
+        followersCount: state.followersCount > 0 ? state.followersCount - 1 : 0,
+      );
+    } catch (e) {
+      state = state.copyWith(status: FollowStatus.notFollowing);
+      rethrow;
+    }
+  }
+
+  // ─── UNBLOCK USER ─────────────────────────────────────────
+  Future<void> unblockUser() async {
+    state = state.copyWith(status: FollowStatus.loading);
+    try {
+      await _service.unblockUser(targetUserId);
+      state = state.copyWith(
+        status: FollowStatus.notFollowing,
+        isBlocked: false,
+      );
+    } catch (e) {
+      state = state.copyWith(status: FollowStatus.notFollowing);
+      rethrow;
     }
   }
 }

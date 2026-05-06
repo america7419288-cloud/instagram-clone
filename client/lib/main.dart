@@ -1,40 +1,68 @@
-// lib/main.dart
+// lib/main.dart - Force recompile
 
+import 'package:firebase_core/firebase_core.dart';
+import 'package:firebase_messaging/firebase_messaging.dart';
 import 'package:flutter/material.dart';
+import 'package:flutter/cupertino.dart';
+import 'package:flutter/foundation.dart';
 import 'package:flutter/services.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'core/router/app_router.dart';
+import 'core/services/notification_handler.dart';
+import 'core/services/push_notification_service.dart';
 import 'core/theme/app_theme.dart';
 import 'core/providers/theme_provider.dart';
 
 void main() async {
   WidgetsFlutterBinding.ensureInitialized();
 
+  // ─── Edge-to-Edge Display ──────────────────────────
+  SystemChrome.setSystemUIOverlayStyle(
+    const SystemUiOverlayStyle(
+      statusBarColor: Colors.transparent,
+      systemNavigationBarColor: Colors.transparent,
+      systemNavigationBarDividerColor: Colors.transparent,
+    ),
+  );
+  
+  await SystemChrome.setEnabledSystemUIMode(SystemUiMode.edgeToEdge);
+
+  // ─── Lock to portrait ────────────────────────────────
   await SystemChrome.setPreferredOrientations([
     DeviceOrientation.portraitUp,
     DeviceOrientation.portraitDown,
   ]);
 
-  SystemChrome.setSystemUIOverlayStyle(
-    const SystemUiOverlayStyle(
-      statusBarColor: Colors.transparent,
-      statusBarIconBrightness: Brightness.dark,
-    ),
-  );
+  // ─── Initialize Firebase ─────────────────────────────
+  try {
+    if (kIsWeb) {
+      debugPrint('ℹ️ Firebase initialization skipped on Web (options missing)');
+    } else {
+      await Firebase.initializeApp();
+      debugPrint('✅ Firebase initialized');
+
+      // ─── Register background message handler ───────────
+      FirebaseMessaging.onBackgroundMessage(
+        firebaseMessagingBackgroundHandler,
+      );
+    }
+  } catch (e) {
+    debugPrint('⚠️ Firebase init error: $e');
+  }
 
   runApp(
     const ProviderScope(
-      child: MyApp(),
+      child: InstagramCloneApp(),
     ),
   );
 }
 
-class MyApp extends ConsumerWidget {
-  const MyApp({super.key});
+class InstagramCloneApp extends ConsumerWidget {
+  const InstagramCloneApp({super.key});
 
   @override
   Widget build(BuildContext context, WidgetRef ref) {
-    final router = ref.watch(routerProvider);
+    final router = ref.watch(appRouterProvider);
     final themeState = ref.watch(themeProvider);
 
     // Show loading while theme loads from storage
@@ -43,7 +71,7 @@ class MyApp extends ConsumerWidget {
         debugShowCheckedModeBanner: false,
         home: Scaffold(
           body: Center(
-            child: CircularProgressIndicator(),
+            child: CupertinoActivityIndicator(radius: 12),
           ),
         ),
       );
@@ -53,12 +81,39 @@ class MyApp extends ConsumerWidget {
       title: 'Instagram Clone',
       debugShowCheckedModeBanner: false,
 
-      // ⭐ Dynamic theme based on provider
-      theme: AppTheme.lightTheme,
-      darkTheme: AppTheme.darkTheme,
+      // ⭐ iOS Design Theme
+      theme: AppTheme.lightTheme.copyWith(
+        pageTransitionsTheme: const PageTransitionsTheme(
+          builders: {
+            TargetPlatform.android: CupertinoPageTransitionsBuilder(),
+            TargetPlatform.iOS: CupertinoPageTransitionsBuilder(),
+          },
+        ),
+      ),
+      darkTheme: AppTheme.darkTheme.copyWith(
+        pageTransitionsTheme: const PageTransitionsTheme(
+          builders: {
+            TargetPlatform.android: CupertinoPageTransitionsBuilder(),
+            TargetPlatform.iOS: CupertinoPageTransitionsBuilder(),
+          },
+        ),
+      ),
       themeMode: themeState.themeMode,
 
       routerConfig: router,
+      
+      builder: (context, child) {
+        // Apply Global No-Ripple behavior
+        return ScrollConfiguration(
+          behavior: const ScrollBehavior().copyWith(
+            physics: const BouncingScrollPhysics(),
+            overscroll: false,
+          ),
+          child: NotificationHandler(
+            child: child ?? const SizedBox.shrink(),
+          ),
+        );
+      },
     );
   }
 }

@@ -1,15 +1,17 @@
 // lib/features/home/presentation/pages/home_page.dart
 
+import 'package:flutter/cupertino.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
+import 'package:phosphor_flutter/phosphor_flutter.dart';
 import 'package:go_router/go_router.dart';
 
 import '../../../../core/router/app_router.dart';
+import '../../../../core/router/main_shell.dart';
 import '../../../../core/theme/app_theme.dart';
-import '../../../../shared/widgets/empty_state.dart';
+import '../../../../shared/widgets/spring_widget.dart';
 import '../../../../shared/widgets/error_view.dart';
-import '../../../../shared/widgets/shimmer_widget.dart';
 import '../../../messages/presentation/providers/message_provider.dart';
 import 'package:instagram_clinet/features/notifications/presentation/providers/notification_provider.dart';
 import '../../../post/presentation/providers/feed_provider.dart';
@@ -22,7 +24,7 @@ class HomePage extends ConsumerWidget {
 
   @override
   Widget build(BuildContext context, WidgetRef ref) {
-    return const Scaffold(body: HomePageContent());
+    return const HomePageContent();
   }
 }
 
@@ -44,7 +46,6 @@ class _HomePageContentState extends ConsumerState<HomePageContent> {
 
   @override
   void dispose() {
-    _scrollController.removeListener(_onScroll);
     _scrollController.dispose();
     super.dispose();
   }
@@ -59,266 +60,198 @@ class _HomePageContentState extends ConsumerState<HomePageContent> {
   @override
   Widget build(BuildContext context) {
     final feedState = ref.watch(feedProvider);
+    final isDark = CupertinoTheme.of(context).brightness == Brightness.dark;
 
-    return Scaffold(
-      backgroundColor: AppColors.white,
-      appBar: _buildAppBar(context),
-      body: RefreshIndicator(
-        onRefresh: () async {
-          HapticFeedback.lightImpact();
-          await Future.wait<void>([
-            ref.read(feedProvider.notifier).refreshFeed(),
-            ref.read(storyFeedProvider.notifier).loadStories(),
-            ref.read(notificationProvider.notifier).loadUnreadCount(),
-          ]);
-        },
-        color: AppColors.primary,
-        displacement: 60,
-        strokeWidth: 2.5,
-        child: _buildBody(feedState),
-      ),
-    );
-  }
+    // Listen for scroll-to-top signal from MainShell
+    ref.listen(homeScrollSignalProvider, (prev, next) {
+      if (next > (prev ?? 0) && _scrollController.hasClients) {
+        _scrollController.animateTo(
+          0,
+          duration: const Duration(milliseconds: 600),
+          curve: Curves.easeOutQuart,
+        );
+      }
+    });
 
-  PreferredSizeWidget _buildAppBar(BuildContext context) {
-    final unreadCount = ref.watch(unreadNotificationsCountProvider);
-
-    return AppBar(
-      backgroundColor: AppColors.white,
-      elevation: 0,
-      scrolledUnderElevation: 0,
-      title: ShaderMask(
-        shaderCallback: (bounds) => AppColors.instagramGradient.createShader(
-          Rect.fromLTWH(0, 0, bounds.width, bounds.height),
+    return Material(
+      type: MaterialType.transparency,
+      child: CupertinoPageScaffold(
+        backgroundColor: isDark ? Colors.black : Colors.white,
+      child: CustomScrollView(
+        controller: _scrollController,
+        physics: const BouncingScrollPhysics(
+          parent: AlwaysScrollableScrollPhysics(),
         ),
-        child: const Text(
-          'Instagram',
-          style: TextStyle(
-            fontSize: 28,
-            fontFamily: 'Billabong',
-            color: Colors.white,
-          ),
-        ),
-      ),
-      actions: [
-        Stack(
-          clipBehavior: Clip.none,
-          children: [
-            IconButton(
-              onPressed: () => context.go(AppRoutes.notifications),
-              icon: const Icon(
-                Icons.favorite_border,
-                color: AppColors.textPrimary,
-                size: 26,
+        slivers: [
+          // ─── Top Navigation Bar ──────────────────────────
+          SliverAppBar(
+            pinned: true,
+            floating: true,
+            backgroundColor: isDark ? Colors.black : Colors.white,
+            elevation: 0,
+            centerTitle: false,
+            titleSpacing: 16,
+            toolbarHeight: 52,
+            title: ShaderMask(
+              shaderCallback: (bounds) => const LinearGradient(
+                colors: [
+                  Color(0xFF833AB4), // Purple
+                  Color(0xFFFD1D1D), // Red
+                  Color(0xFFFCAF45), // Orange
+                ],
+                begin: Alignment.topLeft,
+                end: Alignment.bottomRight,
+              ).createShader(bounds),
+              child: const Text(
+                'Instagram',
+                style: TextStyle(
+                  fontFamily: 'Billabong',
+                  fontSize: 32,
+                  color: Colors.white,
+                ),
               ),
             ),
-            if (unreadCount > 0)
-              Positioned(
-                top: 6,
-                right: 6,
-                child: Container(
-                  width: 18,
-                  height: 18,
-                  decoration: const BoxDecoration(
-                    color: AppColors.secondary,
-                    shape: BoxShape.circle,
+            actions: [
+              BouncyTap(
+                onTap: () => context.push(AppRoutes.createPost),
+                child: Icon(
+                  PhosphorIcons.plusSquare(PhosphorIconsStyle.bold),
+                  color: isDark ? Colors.white : Colors.black,
+                  size: 26,
+                ),
+              ),
+              const SizedBox(width: 18),
+              _buildNavIcon(
+                icon: PhosphorIcons.heart(PhosphorIconsStyle.bold),
+                onTap: () => context.push(AppRoutes.notifications),
+                badgeCount: ref.watch(unreadNotificationsCountProvider),
+                isDark: isDark,
+              ),
+              const SizedBox(width: 18),
+              _buildNavIcon(
+                icon: PhosphorIcons.paperPlaneTilt(PhosphorIconsStyle.bold),
+                onTap: () => context.push(AppRoutes.messages),
+                badgeCount: ref.watch(dmUnreadCountProvider),
+                isDark: isDark,
+              ),
+              const SizedBox(width: 16),
+            ],
+            bottom: PreferredSize(
+              preferredSize: const Size.fromHeight(0.33),
+              child: Container(
+                color: isDark ? const Color(0xFF2C2C2C) : const Color(0xFFDBDBDB),
+                height: 0.33,
+              ),
+            ),
+          ),
+
+          // ─── Refresh Control ─────────────────────────────
+          CupertinoSliverRefreshControl(
+            onRefresh: () async {
+              HapticFeedback.lightImpact();
+              await Future.wait([
+                ref.read(feedProvider.notifier).refreshFeed(),
+                ref.read(storyFeedProvider.notifier).loadStories(),
+              ]);
+            },
+          ),
+
+          // ─── Stories Section ─────────────────────────────
+          // Reduced distance by applying a small negative translation
+          const SliverToBoxAdapter(
+            child: StoriesBar(),
+          ),
+
+          // ─── Feed Separator ──────────────────────────────
+          SliverToBoxAdapter(
+            child: Divider(
+              height: 0.33,
+              thickness: 0.33,
+              color: isDark ? const Color(0xFF2C2C2C) : const Color(0xFFDBDBDB),
+            ),
+          ),
+
+          // ─── Post List ───────────────────────────────────
+          if (feedState.isLoading && feedState.posts.isEmpty)
+            const SliverFillRemaining(
+              child: Center(child: CupertinoActivityIndicator()),
+            )
+          else if (feedState.isEmptyFeed)
+            const SliverToBoxAdapter(
+              child: Padding(
+                padding: EdgeInsets.symmetric(vertical: 40),
+                child: Center(child: Text('No posts yet')),
+              ),
+            )
+          else
+            SliverList(
+              delegate: SliverChildBuilderDelegate(
+                (context, index) {
+                  if (index == feedState.posts.length) {
+                    if (feedState.hasMore) {
+                      return const Padding(
+                        padding: EdgeInsets.all(20),
+                        child: CupertinoActivityIndicator(),
+                      );
+                    }
+                    return const SizedBox(height: 50);
+                  }
+
+                  final post = feedState.posts[index];
+                  return PostCard(key: ValueKey(post.id), post: post);
+                },
+                childCount: feedState.posts.length + 1,
+              ),
+            ),
+        ],
+      ),
+    ),
+  );
+}
+
+  Widget _buildNavIcon({
+    required IconData icon,
+    required VoidCallback onTap,
+    int badgeCount = 0,
+    required bool isDark,
+  }) {
+    return BouncyTap(
+      onTap: onTap,
+      child: Stack(
+        clipBehavior: Clip.none,
+        children: [
+          Icon(
+            icon,
+            size: 24,
+            color: isDark ? Colors.white : Colors.black,
+          ),
+          if (badgeCount > 0)
+            Positioned(
+              top: -2,
+              right: -2,
+              child: Container(
+                padding: const EdgeInsets.all(2),
+                decoration: BoxDecoration(
+                  color: const Color(0xFFFF3040),
+                  shape: BoxShape.circle,
+                  border: Border.all(
+                    color: isDark ? Colors.black : Colors.white,
+                    width: 1.5,
                   ),
-                  child: Center(
-                    child: Text(
-                      unreadCount > 9 ? '9+' : '$unreadCount',
-                      style: const TextStyle(
-                        color: Colors.white,
-                        fontSize: 10,
-                        fontWeight: FontWeight.bold,
-                      ),
+                ),
+                constraints: const BoxConstraints(minWidth: 16, minHeight: 16),
+                child: Center(
+                  child: Text(
+                    badgeCount > 9 ? '9+' : '$badgeCount',
+                    style: const TextStyle(
+                      color: Colors.white,
+                      fontSize: 8,
+                      fontWeight: FontWeight.bold,
                     ),
                   ),
                 ),
               ),
-          ],
-        ),
-        Stack(
-          clipBehavior: Clip.none,
-          children: [
-            IconButton(
-              onPressed: () => context.go(AppRoutes.messages),
-              icon: const Icon(
-                Icons.send_outlined,
-                color: AppColors.textPrimary,
-                size: 26,
-              ),
             ),
-            Consumer(
-              builder: (context, ref, _) {
-                final dmCount = ref.watch(dmUnreadCountProvider);
-                if (dmCount == 0) {
-                  return const SizedBox.shrink();
-                }
-
-                return Positioned(
-                  top: 6,
-                  right: 6,
-                  child: Container(
-                    width: 18,
-                    height: 18,
-                    decoration: const BoxDecoration(
-                      color: AppColors.secondary,
-                      shape: BoxShape.circle,
-                    ),
-                    child: Center(
-                      child: Text(
-                        dmCount > 9 ? '9+' : '$dmCount',
-                        style: const TextStyle(
-                          color: Colors.white,
-                          fontSize: 10,
-                          fontWeight: FontWeight.bold,
-                        ),
-                      ),
-                    ),
-                  ),
-                );
-              },
-            ),
-          ],
-        ),
-        const SizedBox(width: 4),
-      ],
-    );
-  }
-
-  Widget _buildBody(FeedState feedState) {
-    if (feedState.errorMessage != null && feedState.posts.isEmpty) {
-      return ListView(
-        physics: const AlwaysScrollableScrollPhysics(),
-        children: [
-          ErrorView(
-            message: feedState.errorMessage!,
-            onRetry: () => ref.read(feedProvider.notifier).loadFeed(),
-          ),
-        ],
-      );
-    }
-
-    if (feedState.isLoading && feedState.posts.isEmpty) {
-      return const _LoadingFeed();
-    }
-
-    if (feedState.isEmptyFeed || feedState.posts.isEmpty) {
-      return ListView(
-        physics: const AlwaysScrollableScrollPhysics(),
-        children: const [
-          StoriesBar(),
-          SizedBox(height: 60),
-          EmptyState.feed(),
-        ],
-      );
-    }
-
-    return _buildFeedList(feedState);
-  }
-
-  Widget _buildFeedList(FeedState feedState) {
-    return CustomScrollView(
-      controller: _scrollController,
-      slivers: [
-        const SliverToBoxAdapter(
-          child: Column(
-            children: [
-              StoriesBar(),
-              Divider(height: 1, color: AppColors.border),
-            ],
-          ),
-        ),
-        SliverList(
-          delegate: SliverChildBuilderDelegate((context, index) {
-            if (index == feedState.posts.length) {
-              if (feedState.isLoadingMore) {
-                return const Padding(
-                  padding: EdgeInsets.all(20),
-                  child: Center(
-                    child: CircularProgressIndicator(
-                      color: AppColors.primary,
-                      strokeWidth: 2,
-                    ),
-                  ),
-                );
-              }
-              if (!feedState.hasMore) {
-                return const _EndOfFeedMessage();
-              }
-              return const SizedBox.shrink();
-            }
-
-            final post = feedState.posts[index];
-            return Column(
-              children: [
-                PostCard(key: ValueKey(post.id), post: post),
-                const Divider(height: 1, color: AppColors.border),
-              ],
-            );
-          }, childCount: feedState.posts.length + 1),
-        ),
-        const SliverToBoxAdapter(child: SizedBox(height: 20)),
-      ],
-    );
-  }
-}
-
-class _LoadingFeed extends StatelessWidget {
-  const _LoadingFeed();
-
-  @override
-  Widget build(BuildContext context) {
-    return const SingleChildScrollView(
-      physics: AlwaysScrollableScrollPhysics(),
-      child: Column(
-        children: [
-          StoryBarSkeleton(),
-          Divider(height: 1, color: AppColors.border),
-          FeedSkeleton(),
-        ],
-      ),
-    );
-  }
-}
-
-class _EndOfFeedMessage extends StatelessWidget {
-  const _EndOfFeedMessage();
-
-  @override
-  Widget build(BuildContext context) {
-    return Padding(
-      padding: const EdgeInsets.all(24),
-      child: Column(
-        children: [
-          Container(
-            width: 60,
-            height: 60,
-            decoration: BoxDecoration(
-              shape: BoxShape.circle,
-              border: Border.all(color: AppColors.border, width: 2),
-            ),
-            child: const Icon(
-              Icons.camera_alt_outlined,
-              color: AppColors.textSecondary,
-              size: 28,
-            ),
-          ),
-          const SizedBox(height: 12),
-          const Text(
-            "You're all caught up",
-            style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold),
-          ),
-          const SizedBox(height: 4),
-          const Text(
-            'You have seen all new posts\nfrom the past 3 days.',
-            textAlign: TextAlign.center,
-            style: TextStyle(
-              color: AppColors.textSecondary,
-              fontSize: 14,
-              height: 1.4,
-            ),
-          ),
         ],
       ),
     );

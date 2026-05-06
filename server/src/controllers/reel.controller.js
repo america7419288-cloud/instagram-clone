@@ -12,7 +12,9 @@ const {
     CommentLike,
     Follower,
     Notification,
+    Block,
 } = require('../models');
+const { getBlockedUserIds } = require('../utils/block.utils');
 const {
     successResponse,
     errorResponse,
@@ -105,8 +107,8 @@ const createReel = async (req, res) => {
         console.error('❌ createReel error:', error);
         return errorResponse(
             res,
-            error.message || 'Failed to create reel',
-            500
+            500,
+            error.message || 'Failed to create reel'
         );
     }
 };
@@ -135,11 +137,16 @@ const getReelsFeed = async (req, res) => {
         const followingIds = following.map((f) => f.followingId);
         const feedUserIds = [userId, ...followingIds];
 
+        const blockedUserIds = await getBlockedUserIds(userId);
+
         // ─── Strategy: Mix followed + trending ────────────
         // Fetch from followed users first
         const followedReels = await Reel.findAll({
             where: {
-                userId: { [Op.in]: feedUserIds },
+                userId: { 
+                    [Op.in]: feedUserIds,
+                    [Op.notIn]: blockedUserIds
+                },
                 isPublic: true,
             },
             include: _reelIncludes(userId),
@@ -157,7 +164,7 @@ const getReelsFeed = async (req, res) => {
 
             trendingReels = await Reel.findAll({
                 where: {
-                    userId: { [Op.notIn]: feedUserIds },
+                    userId: { [Op.notIn]: [...feedUserIds, ...blockedUserIds] },
                     id: { [Op.notIn]: followedReelIds },
                     isPublic: true,
                 },
@@ -194,8 +201,13 @@ const getExploreReels = async (req, res) => {
         const limit = parseInt(req.query.limit) || 20;
         const offset = (page - 1) * limit;
 
+        const blockedUserIds = await getBlockedUserIds(userId);
+
         const reels = await Reel.findAll({
-            where: { isPublic: true },
+            where: { 
+                isPublic: true,
+                userId: { [Op.notIn]: blockedUserIds }
+            },
             include: _reelIncludes(userId),
             order: [
                 ['playsCount', 'DESC'],
@@ -406,8 +418,13 @@ const getReelLikers = async (req, res) => {
         const limit = parseInt(req.query.limit) || 20;
         const offset = (page - 1) * limit;
 
+        const blockedUserIds = await getBlockedUserIds(req.user.id);
+
         const likes = await ReelLike.findAll({
-            where: { reelId },
+            where: {
+                reelId,
+                userId: { [Op.notIn]: blockedUserIds },
+            },
             include: [
                 {
                     model: User,
@@ -446,10 +463,13 @@ const getReelComments = async (req, res) => {
         const limit = parseInt(req.query.limit) || 20;
         const offset = (page - 1) * limit;
 
+        const blockedUserIds = await getBlockedUserIds(userId);
+
         const comments = await Comment.findAll({
             where: {
                 reelId,
-                parentId: null, // Top-level only
+                parentCommentId: null, // Top-level only
+                userId: { [Op.notIn]: blockedUserIds },
             },
             include: [
                 {
@@ -521,6 +541,22 @@ const addReelComment = async (req, res) => {
 
         if (!reel) {
             return errorResponse(res, 404, 'Reel not found');
+        }
+
+        // ─── Check if blocked ─────────────────────────────
+        const blockedUserIds = await getBlockedUserIds(userId);
+        if (blockedUserIds.includes(reel.userId)) {
+            return errorResponse(res, 403, 'You cannot comment on this reel');
+        }
+
+        const blockExists = await Block.findOne({
+            where: {
+                blocker_id: reel.userId,
+                blocked_id: userId,
+            },
+        });
+        if (blockExists) {
+            return errorResponse(res, 403, 'You cannot comment on this reel');
         }
 
         // ─── Create comment ───────────────────────────────

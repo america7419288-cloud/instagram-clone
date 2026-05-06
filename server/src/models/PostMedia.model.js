@@ -82,6 +82,13 @@ const PostMedia = sequelize.define(
       type: DataTypes.INTEGER,
       allowNull: true,
     },
+
+    // ─── Filter Matrix (optional metadata) ────────────
+    filterMatrix: {
+      type: DataTypes.TEXT,
+      allowNull: true,
+      field: 'filter_matrix',
+    },
   },
   {
     tableName: 'post_media',

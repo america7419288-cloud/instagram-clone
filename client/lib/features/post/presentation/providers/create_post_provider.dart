@@ -119,6 +119,7 @@ class CreatePostNotifier extends StateNotifier<CreatePostState> {
     List<XFile>? files,
     String? caption,
     String? location,
+    List<List<double>>? filterMatrices,
   }) async {
     final uploadFiles = files != null 
         ? files.map((f) => File(f.path)).toList() 
@@ -150,7 +151,7 @@ class CreatePostNotifier extends StateNotifier<CreatePostState> {
       }
       formData.fields.add(MapEntry('comments_disabled', state.commentsDisabled.toString()));
 
-      // Add each file
+      // Add each file and its corresponding filter
       for (int i = 0; i < uploadFiles.length; i++) {
         final file = uploadFiles[i];
         final fileName = file.path.split('/').last;
@@ -169,6 +170,10 @@ class CreatePostNotifier extends StateNotifier<CreatePostState> {
             ),
           ),
         );
+        
+        if (filterMatrices != null && i < filterMatrices.length) {
+          formData.fields.add(MapEntry('filters[$i]', filterMatrices[i].join(',')));
+        }
       }
 
       final response = await _dioClient.dio.post(
@@ -190,7 +195,14 @@ class CreatePostNotifier extends StateNotifier<CreatePostState> {
       );
 
       if (response.data['success'] == true) {
-        final post = PostModel.fromJson(response.data['data']['post']);
+        final data = response.data['data'];
+        final postMap = (data is Map && data.containsKey('post')) ? data['post'] : data;
+        
+        if (postMap == null) {
+          throw Exception('Server returned success but no post data');
+        }
+
+        final post = PostModel.fromJson(postMap as Map<String, dynamic>);
         
         state = state.copyWith(
           uploadStep: UploadStep.success,

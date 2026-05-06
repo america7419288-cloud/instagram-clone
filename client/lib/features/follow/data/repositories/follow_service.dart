@@ -166,6 +166,24 @@ class FollowService {
     }
   }
 
+  // ─── BLOCK USER ──────────────────────────────────────────
+  Future<void> blockUser(String userId) async {
+    try {
+      await _dioClient.post('/users/$userId/block');
+    } on DioException catch (e) {
+      throw _handleError(e);
+    }
+  }
+
+  // ─── UNBLOCK USER ────────────────────────────────────────
+  Future<void> unblockUser(String userId) async {
+    try {
+      await _dioClient.delete('/users/$userId/block');
+    } on DioException catch (e) {
+      throw _handleError(e);
+    }
+  }
+
   // ─── ERROR HANDLER ───────────────────────────────────────
   Exception _handleError(DioException e) {
     final message =

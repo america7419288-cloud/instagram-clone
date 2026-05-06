@@ -6,12 +6,12 @@ class AppConstants {
 
   static const String baseUrl = String.fromEnvironment(
     'API_BASE_URL',
-    defaultValue: 'https://instagram-clone-im0x.onrender.com/api/v1',
+    defaultValue: 'http://10.126.0.227:5000/api/v1',
   );
 
   static const String socketUrl = String.fromEnvironment(
     'SOCKET_URL',
-    defaultValue: 'https://instagram-clone-im0x.onrender.com',
+    defaultValue: 'http://10.126.0.227:5000',
   );
 
   static const String loginEndpoint = '/auth/login';
@@ -41,6 +41,7 @@ class AppConstants {
 
 
   static const String tokenKey = 'auth_token';
+  static const String accessTokenKey = 'auth_token';
   static const String refreshTokenKey = 'refresh_token';
   static const String userKey = 'current_user';
   static const String themeKey = 'app_theme';

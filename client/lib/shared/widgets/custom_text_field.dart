@@ -2,6 +2,7 @@
 
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
+import 'package:phosphor_flutter/phosphor_flutter.dart';
 import '../../core/theme/app_theme.dart';
 
 class CustomTextField extends StatefulWidget {
@@ -119,8 +120,8 @@ class _CustomTextFieldState extends State<CustomTextField> {
                     },
                     icon: Icon(
                       _obscureText
-                          ? Icons.visibility_off_outlined
-                          : Icons.visibility_outlined,
+                          ? PhosphorIcons.eyeClosed()
+                          : PhosphorIcons.eye(),
                       color: AppColors.textSecondary,
                       size: 20,
                     ),

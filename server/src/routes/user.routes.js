@@ -13,6 +13,8 @@ const {
   searchUsers,
   getSuggestedUsers,
   getUserById,
+  saveFcmToken,
+  clearFcmToken,
 } = require('../controllers/user.controller');
 
 const {
@@ -60,6 +62,10 @@ router.get('/search', protect, searchValidation, handleValidationErrors, searchU
 // Suggested users
 router.get('/suggestions', protect, getSuggestedUsers);
 
+// ─── FCM Token endpoints ──────────────────────────────
+router.put('/fcm-token', protect, saveFcmToken);
+router.delete('/fcm-token', protect, clearFcmToken);
+
 // ⭐ Follow requests (must be before /:id routes)
 router.get('/follow-requests', protect, getFollowRequests);
 
@@ -67,7 +73,7 @@ router.get('/follow-requests', protect, getFollowRequests);
 router.put('/profile', protect, updateProfileValidation, handleValidationErrors, updateProfile);
 
 // Profile picture
-router.put('/profile-picture', protect, handleUpload, updateProfilePicture);
+router.post('/profile-picture', protect, handleUpload, updateProfilePicture);
 router.delete('/profile-picture', protect, removeProfilePicture);
 
 // ─── USER SPECIFIC ROUTES (with :id param) ─────────────────

@@ -4,6 +4,7 @@ node_modules/
 *.env
 server/uploads/
 npm-debug.log*
+server/serviceAccountKey.json
 
 
 client/.dart_tool/

@@ -5,8 +5,10 @@ const {
   CommentLike,
   User,
   Post,
+  Block,
   sequelize,
 } = require('../models');
+const { getBlockedUserIds } = require('../utils/block.utils');
 const {
   successResponse,
   errorResponse,
@@ -32,11 +34,11 @@ const formatComment = (comment, currentUserId = null) => {
     updated_at: c.updated_at || c.updatedAt,
 
     // Who wrote it
-    user: c.user
+        user: c.user
       ? {
           id: c.user.id,
           username: c.user.username,
-          full_name: c.user.full_name,
+          full_name: c.user.fullName || c.user.full_name,
           profile_pic_url: c.user.profile_pic_url,
           is_verified: c.user.is_verified,
         }
@@ -90,6 +92,22 @@ const addComment = async (req, res) => {
       return errorResponse(res, 404, 'Post not found.');
     }
 
+    // 2.1 CHECK IF BLOCKED
+    const blockedUserIds = await getBlockedUserIds(userId);
+    if (blockedUserIds.includes(post.userId)) {
+      return errorResponse(res, 403, 'You cannot comment on this post.');
+    }
+
+    const blockExists = await Block.findOne({
+      where: {
+        blocker_id: post.userId,
+        blocked_id: userId,
+      },
+    });
+    if (blockExists) {
+      return errorResponse(res, 403, 'You cannot comment on this post.');
+    }
+
     // 3. CHECK IF COMMENTS ARE DISABLED
     if (post.comments_disabled) {
       return errorResponse(
@@ -141,7 +159,7 @@ const addComment = async (req, res) => {
           model: User,
           as: 'user',
           attributes: [
-            'id', 'username', 'full_name',
+            'id', 'username', 'fullName',
             'profile_pic_url', 'is_verified',
           ],
         },
@@ -180,6 +198,8 @@ const getComments = async (req, res) => {
     const limit = parseInt(req.query.limit) || 20;
     const offset = (page - 1) * limit;
 
+    const blockedUserIds = await getBlockedUserIds(currentUserId);
+
     // Check post exists
     const post = await Post.findByPk(postId);
     if (!post) {
@@ -193,6 +213,7 @@ const getComments = async (req, res) => {
         postId: postId,
         parentCommentId: null, // Top-level only
         is_hidden: false,
+        userId: { [Op.notIn]: blockedUserIds },
       },
       include: [
         {
@@ -306,6 +327,8 @@ const getReplies = async (req, res) => {
     const limit = parseInt(req.query.limit) || 10;
     const offset = (page - 1) * limit;
 
+    const blockedUserIds = await getBlockedUserIds(currentUserId);
+
     // Verify parent comment exists
     const parentComment = await Comment.findByPk(commentId);
     if (!parentComment) {
@@ -316,6 +339,7 @@ const getReplies = async (req, res) => {
       where: {
         parentCommentId: commentId,
         is_hidden: false,
+        userId: { [Op.notIn]: blockedUserIds },
       },
       include: [
         {

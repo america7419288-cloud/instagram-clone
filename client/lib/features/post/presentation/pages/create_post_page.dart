@@ -2,14 +2,19 @@
 
 import 'dart:io';
 import 'package:flutter/material.dart';
+import 'package:flutter/cupertino.dart';
+import 'package:flutter/services.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
-import 'package:image_picker/image_picker.dart';
-import 'package:image_cropper/image_cropper.dart';
+import 'package:photo_manager/photo_manager.dart';
+import 'package:photo_manager_image_provider/photo_manager_image_provider.dart';
+import 'package:video_player/video_player.dart';
+import 'package:phosphor_flutter/phosphor_flutter.dart';
+
 import '../../../../core/theme/app_theme.dart';
 import '../../../../core/router/app_router.dart';
-import '../../../../shared/widgets/app_snackbar.dart';
-import '../providers/create_post_provider.dart';
+import '../../../../shared/widgets/spring_widget.dart';
+import '../providers/media_picker_provider.dart';
 
 class CreatePostPage extends ConsumerStatefulWidget {
   const CreatePostPage({super.key});
@@ -19,661 +24,251 @@ class CreatePostPage extends ConsumerStatefulWidget {
 }
 
 class _CreatePostPageState extends ConsumerState<CreatePostPage> {
-  final TextEditingController _captionController = TextEditingController();
-  final TextEditingController _locationController = TextEditingController();
-  final FocusNode _captionFocus = FocusNode();
-  final ImagePicker _imagePicker = ImagePicker();
-
-  // Max characters for caption
-  static const int _maxCaptionLength = 2200;
-
+  bool _isPreviewExpanded = false;
+  double _aspectRatio = 1.0;
+  
   @override
   void initState() {
     super.initState();
-    _captionController.addListener(_onCaptionChanged);
-  }
-
-  @override
-  void dispose() {
-    _captionController.removeListener(_onCaptionChanged);
-    _captionController.dispose();
-    _locationController.dispose();
-    _captionFocus.dispose();
-    super.dispose();
-  }
-
-  void _onCaptionChanged() {
-    ref.read(createPostProvider.notifier).setCaption(_captionController.text);
-  }
-
-  // ─── PICK FROM GALLERY ───────────────────────────────────
-  Future<void> _pickFromGallery() async {
-    try {
-      final List<XFile> pickedFiles = await _imagePicker.pickMultipleMedia(
-        maxWidth: 4096,
-        maxHeight: 4096,
-        imageQuality: 100,
-      );
-
-      if (pickedFiles.isEmpty) return;
-
-      final currentCount = ref.read(createPostProvider).selectedImages.length;
-      final int remaining = 10 - currentCount;
-
-      if (remaining <= 0) {
-        _showMaxImagesSnackbar();
-        return;
-      }
-
-      // Limit to remaining slots
-      final toAdd = pickedFiles.take(remaining).toList();
-      final files = toAdd.map((x) => File(x.path)).toList();
-
-      ref.read(createPostProvider.notifier).addImages(files);
-    } catch (e) {
-      _showErrorSnackbar('Failed to pick media: $e');
-    }
-  }
-
-  // ─── PICK FROM CAMERA ────────────────────────────────────
-  Future<void> _pickFromCamera() async {
-    try {
-      final XFile? photo = await _imagePicker.pickImage(
-        source: ImageSource.camera,
-        maxWidth: 4096,
-        maxHeight: 4096,
-        imageQuality: 100,
-      );
-
-      if (photo == null) return;
-
-      final currentCount = ref.read(createPostProvider).selectedImages.length;
-      if (currentCount >= 10) {
-        _showMaxImagesSnackbar();
-        return;
-      }
-
-      ref.read(createPostProvider.notifier).addImages([File(photo.path)]);
-    } catch (e) {
-      _showErrorSnackbar('Failed to open camera: $e');
-    }
-  }
-
-  // ─── PICK VIDEO FROM CAMERA ──────────────────────────────
-  Future<void> _pickVideoFromCamera() async {
-    try {
-      final XFile? video = await _imagePicker.pickVideo(
-        source: ImageSource.camera,
-        maxDuration: const Duration(minutes: 5),
-      );
-
-      if (video == null) return;
-
-      final currentCount = ref.read(createPostProvider).selectedImages.length;
-      if (currentCount >= 10) {
-        _showMaxImagesSnackbar();
-        return;
-      }
-
-      ref.read(createPostProvider.notifier).addImages([File(video.path)]);
-    } catch (e) {
-      _showErrorSnackbar('Failed to record video: $e');
-    }
-  }
-
-  // ─── CROP IMAGE ──────────────────────────────────────────
-  Future<void> _cropImage(int index) async {
-    try {
-      final file = ref.read(createPostProvider).selectedImages[index];
-      
-      final path = file.path.toLowerCase();
-      if (path.endsWith('.mp4') || 
-          path.endsWith('.mov') || 
-          path.endsWith('.m4v') || 
-          path.endsWith('.3gp') ||
-          path.endsWith('.avi')) {
-        return;
-      }
-
-      final croppedFile = await ImageCropper().cropImage(
-        sourcePath: file.path,
-        maxWidth: 4096,
-        maxHeight: 4096,
-        compressQuality: 100,
-        uiSettings: [
-          AndroidUiSettings(
-            toolbarTitle: 'Crop Image',
-            toolbarColor: AppColors.primary,
-            toolbarWidgetColor: Colors.white,
-            activeControlsWidgetColor: AppColors.primary,
-            initAspectRatio: CropAspectRatioPreset.square,
-            lockAspectRatio: false,
-            aspectRatioPresets: [
-              CropAspectRatioPreset.square,
-              CropAspectRatioPreset.ratio4x3,
-              CropAspectRatioPreset.ratio16x9,
-              CropAspectRatioPreset.original,
-            ],
-          ),
-          IOSUiSettings(
-            title: 'Crop Image',
-            aspectRatioPresets: [
-              CropAspectRatioPreset.square,
-              CropAspectRatioPreset.ratio4x3,
-              CropAspectRatioPreset.ratio16x9,
-            ],
-          ),
-        ],
-      );
-
-      if (croppedFile != null) {
-        final images = List<File>.from(
-          ref.read(createPostProvider).selectedImages,
-        );
-        images[index] = File(croppedFile.path);
-        ref.read(createPostProvider.notifier).setImages(images);
-      }
-    } catch (e) {
-      _showErrorSnackbar('Failed to crop image: $e');
-    }
-  }
-
-  // ─── SHOW SOURCE PICKER ───────────────────────────────────
-  void _showImageSourcePicker() {
-    showModalBottomSheet(
-      context: context,
-      shape: const RoundedRectangleBorder(
-        borderRadius: BorderRadius.vertical(top: Radius.circular(20)),
-      ),
-      builder: (ctx) => SafeArea(
-        child: Padding(
-          padding: const EdgeInsets.symmetric(vertical: 16),
-          child: Column(
-            mainAxisSize: MainAxisSize.min,
-            children: [
-              // Handle bar
-              Container(
-                width: 40,
-                height: 4,
-                decoration: BoxDecoration(
-                  color: AppColors.border,
-                  borderRadius: BorderRadius.circular(2),
-                ),
-              ),
-              const SizedBox(height: 20),
-
-              const Text(
-                'Add Photos & Videos',
-                style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold),
-              ),
-              const SizedBox(height: 16),
-
-              ListTile(
-                leading: const CircleAvatar(
-                  backgroundColor: AppColors.background,
-                  child: Icon(
-                    Icons.photo_library_outlined,
-                    color: AppColors.textPrimary,
-                  ),
-                ),
-                title: const Text('Media Library'),
-                subtitle: const Text('Choose from your gallery'),
-                onTap: () {
-                  Navigator.pop(ctx);
-                  _pickFromGallery();
-                },
-              ),
-
-              ListTile(
-                leading: const CircleAvatar(
-                  backgroundColor: AppColors.background,
-                  child: Icon(
-                    Icons.camera_alt_outlined,
-                    color: AppColors.textPrimary,
-                  ),
-                ),
-                title: const Text('Camera'),
-                subtitle: const Text('Take a new photo'),
-                onTap: () {
-                  Navigator.pop(ctx);
-                  _pickFromCamera();
-                },
-              ),
-
-              ListTile(
-                leading: const CircleAvatar(
-                  backgroundColor: AppColors.background,
-                  child: Icon(
-                    Icons.videocam_outlined,
-                    color: AppColors.textPrimary,
-                  ),
-                ),
-                title: const Text('Record Video'),
-                subtitle: const Text('Capture a new video'),
-                onTap: () {
-                  Navigator.pop(ctx);
-                  _pickVideoFromCamera();
-                },
-              ),
-
-              const SizedBox(height: 8),
-            ],
-          ),
-        ),
-      ),
-    );
-  }
-
-  // ─── UPLOAD POST ─────────────────────────────────────────
-  Future<void> _uploadPost() async {
-    FocusScope.of(context).unfocus();
-
-    final success = await ref.read(createPostProvider.notifier).uploadPost();
-
-    if (success && mounted) {
-      // Show success message
-      AppSnackbar.success(context, 'Post shared successfully!');
-
-      // Reset create post state
-      ref.read(createPostProvider.notifier).reset();
-
-      // Navigate to home feed
-      if (mounted) context.go(AppRoutes.home);
-    }
-  }
-
-  // ─── CONFIRM DISCARD ─────────────────────────────────────
-  Future<bool> _confirmDiscard() async {
-    final hasContent =
-        ref.read(createPostProvider).hasImages ||
-        _captionController.text.isNotEmpty;
-
-    if (!hasContent) return true;
-
-    final result = await showDialog<bool>(
-      context: context,
-      builder: (ctx) => AlertDialog(
-        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
-        title: const Text('Discard Post?'),
-        content: const Text('If you go back now, your post will be discarded.'),
-        actions: [
-          TextButton(
-            onPressed: () => Navigator.pop(ctx, false),
-            child: const Text('Keep Editing'),
-          ),
-          TextButton(
-            onPressed: () => Navigator.pop(ctx, true),
-            style: TextButton.styleFrom(foregroundColor: AppColors.secondary),
-            child: const Text(
-              'Discard',
-              style: TextStyle(fontWeight: FontWeight.bold),
-            ),
-          ),
-        ],
-      ),
-    );
-
-    return result ?? false;
-  }
-
-  void _showMaxImagesSnackbar() {
-    AppSnackbar.warning(context, 'Maximum 10 items per post');
-  }
-
-  void _showErrorSnackbar(String message) {
-    AppSnackbar.error(context, message);
+    Future.microtask(() => ref.read(mediaPickerProvider.notifier).initialize());
   }
 
   @override
   Widget build(BuildContext context) {
-    final createState = ref.watch(createPostProvider);
+    final pickerState = ref.watch(mediaPickerProvider);
+    final pickerNotifier = ref.read(mediaPickerProvider.notifier);
 
-    return WillPopScope(
-      onWillPop: _confirmDiscard,
-      child: Scaffold(
-        backgroundColor: AppColors.white,
+    if (pickerState.error != null) {
+      return _buildErrorState(pickerState.error!);
+    }
 
-        // ─── APP BAR ──────────────────────────────────────
-        appBar: AppBar(
-          backgroundColor: AppColors.white,
-          elevation: 0,
-          scrolledUnderElevation: 0,
-          leading: IconButton(
-            onPressed: () async {
-              if (await _confirmDiscard()) {
-                if (mounted) {
-                  ref.read(createPostProvider.notifier).reset();
-                  context.pop();
-                }
-              }
-            },
-            icon: const Icon(Icons.close, color: AppColors.textPrimary),
+    String title = "New post";
+    String actionText = "Next";
+    if (pickerState.mode == CreateMode.story) {
+      title = "New story";
+      actionText = "Add to story";
+    } else if (pickerState.mode == CreateMode.reel) {
+      title = "New reel";
+      actionText = "Next";
+    } else if (pickerState.mode == CreateMode.live) {
+      title = "Live";
+      actionText = "Go Live";
+    }
+
+    return Scaffold(
+      backgroundColor: Colors.black,
+      appBar: AppBar(
+        backgroundColor: Colors.black,
+        elevation: 0,
+        centerTitle: true,
+        leading: IconButton(
+          icon: const Icon(Icons.close, color: Colors.white, size: 28),
+          onPressed: () => context.pop(),
+        ),
+        title: Text(
+          title,
+          style: const TextStyle(
+            color: Colors.white,
+            fontSize: 17,
+            fontWeight: FontWeight.w600,
           ),
-          title: const Text(
-            'New Post',
-            style: TextStyle(
-              color: AppColors.textPrimary,
-              fontWeight: FontWeight.bold,
-              fontSize: 16,
-            ),
-          ),
-          actions: [
-            // Share button
-            TextButton(
-              onPressed: createState.hasImages && !createState.isUploading
-                  ? _uploadPost
-                  : null,
-              child: Text(
-                'Share',
-                style: TextStyle(
-                  color: createState.hasImages && !createState.isUploading
-                      ? AppColors.primary
-                      : AppColors.border,
-                  fontWeight: FontWeight.bold,
-                  fontSize: 16,
-                ),
+        ),
+        actions: [
+          TextButton(
+            onPressed: () => _handleNext(pickerState),
+            child: Text(
+              actionText,
+              style: const TextStyle(
+                color: Color(0xFF0095F6),
+                fontWeight: FontWeight.bold,
+                fontSize: 17,
               ),
             ),
-          ],
-        ),
-
-        // ─── BODY ─────────────────────────────────────────
-        body: createState.isUploading
-            ? _buildUploadingState(createState)
-            : createState.uploadStep == UploadStep.error
-            ? _buildErrorState(createState)
-            : _buildCreateForm(createState),
-      ),
-    );
-  }
-
-  // ─── MAIN CREATE FORM ─────────────────────────────────────
-  Widget _buildCreateForm(CreatePostState createState) {
-    return SingleChildScrollView(
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
-          // Image section
-          if (!createState.hasImages)
-            _buildImagePicker()
-          else
-            _buildImagePreview(createState),
-
-          const Divider(height: 1, color: AppColors.border),
-
-          // Caption input
-          _buildCaptionInput(createState),
-
-          const Divider(height: 1, color: AppColors.border),
-
-          // Location input
-          _buildLocationInput(),
-
-          const Divider(height: 1, color: AppColors.border),
-
-          // Advanced settings
-          _buildAdvancedSettings(createState),
-
-          const SizedBox(height: 40),
+          ),
         ],
       ),
-    );
-  }
-
-  // ─── IMAGE PICKER (empty state) ───────────────────────────
-  Widget _buildImagePicker() {
-    return GestureDetector(
-      onTap: _showImageSourcePicker,
-      child: Container(
-        width: double.infinity,
-        height: 300,
-        color: AppColors.background,
+      body: SafeArea(
+        bottom: false,
         child: Column(
-          mainAxisAlignment: MainAxisAlignment.center,
           children: [
-            Container(
-              width: 80,
-              height: 80,
-              decoration: BoxDecoration(
-                color: AppColors.border.withOpacity(0.5),
-                shape: BoxShape.circle,
-              ),
-              child: const Icon(
-                Icons.add_photo_alternate_outlined,
-                size: 40,
-                color: AppColors.textSecondary,
-              ),
-            ),
-            const SizedBox(height: 16),
-            const Text(
-              'Add Photos & Videos',
-              style: TextStyle(
-                fontSize: 20,
-                fontWeight: FontWeight.bold,
-                color: AppColors.textPrimary,
-              ),
-            ),
-            const SizedBox(height: 8),
-            const Text(
-              'Tap to select from gallery or camera',
-              style: TextStyle(color: AppColors.textSecondary, fontSize: 14),
-            ),
-            const SizedBox(height: 24),
-            ElevatedButton.icon(
-              onPressed: _pickFromGallery,
-              style: ElevatedButton.styleFrom(
-                backgroundColor: AppColors.primary,
-                foregroundColor: Colors.white,
-                padding: const EdgeInsets.symmetric(
-                  horizontal: 24,
-                  vertical: 12,
-                ),
-                shape: RoundedRectangleBorder(
-                  borderRadius: BorderRadius.circular(8),
-                ),
-              ),
-              icon: const Icon(Icons.photo_library, size: 20),
-              label: const Text(
-                'Select Media',
-                style: TextStyle(fontWeight: FontWeight.w600),
-              ),
-            ),
-            const SizedBox(height: 12),
-            TextButton.icon(
-              onPressed: _pickFromCamera,
-              icon: const Icon(
-                Icons.camera_alt_outlined,
-                color: AppColors.textSecondary,
-              ),
-              label: const Text(
-                'Take Photo',
-                style: TextStyle(color: AppColors.textSecondary),
-              ),
-            ),
-          ],
-        ),
-      ),
-    );
-  }
-
-  // ─── IMAGE PREVIEW (with images selected) ─────────────────
-  Widget _buildImagePreview(CreatePostState createState) {
-    return Column(
-      crossAxisAlignment: CrossAxisAlignment.start,
-      children: [
-        // Main image preview (first image large)
-        Stack(
-          children: [
-            // Main image
-            Container(
+            // ─── MEDIA PREVIEW AREA ──────────────────────────
+            AnimatedContainer(
+              duration: const Duration(milliseconds: 300),
+              curve: Curves.easeInOut,
+              height: _isPreviewExpanded 
+                  ? MediaQuery.of(context).size.height * 0.7 
+                  : MediaQuery.of(context).size.height * 0.45,
               width: double.infinity,
-              height: 300,
-              color: Colors.black,
-              child: createState.selectedImages[0].path.toLowerCase().endsWith('.mp4') ||
-                      createState.selectedImages[0].path.toLowerCase().endsWith('.mov')
-                  ? const Center(
-                      child: Icon(
-                        Icons.play_circle_outline,
-                        color: Colors.white,
-                        size: 64,
-                      ),
-                    )
-                  : Image.file(
-                      createState.selectedImages[0],
-                      fit: BoxFit.contain,
-                      errorBuilder: (context, error, stackTrace) => const Center(
-                        child: Icon(Icons.broken_image, color: Colors.white54, size: 48),
-                      ),
-                    ),
-            ),
-
-            // Add more button (top right)
-            if (createState.selectedImages.length < 10)
-              Positioned(
-                top: 12,
-                right: 12,
-                child: GestureDetector(
-                  onTap: _showImageSourcePicker,
-                  child: Container(
-                    padding: const EdgeInsets.symmetric(
-                      horizontal: 12,
-                      vertical: 6,
-                    ),
-                    decoration: BoxDecoration(
-                      color: Colors.black.withOpacity(0.6),
-                      borderRadius: BorderRadius.circular(20),
-                    ),
+              child: Stack(
+                fit: StackFit.expand,
+                children: [
+                  _buildSelectedPreview(pickerState.selectedAsset),
+                  
+                  // Top Overlay Buttons
+                  Positioned(
+                    top: 12,
+                    left: 12,
+                    right: 12,
                     child: Row(
-                      mainAxisSize: MainAxisSize.min,
+                      mainAxisAlignment: MainAxisAlignment.spaceBetween,
                       children: [
-                        const Icon(Icons.add, color: Colors.white, size: 16),
-                        const SizedBox(width: 4),
-                        Text(
-                          '${createState.selectedImages.length}/10',
-                          style: const TextStyle(
-                            color: Colors.white,
-                            fontSize: 13,
-                            fontWeight: FontWeight.w600,
-                          ),
+                        _OverlayButton(
+                          icon: PhosphorIcons.camera(),
+                          onTap: () {}, // Open camera
+                        ),
+                        Row(
+                          children: [
+                            _OverlayButton(
+                              icon: PhosphorIcons.crop(),
+                              onTap: () {},
+                            ),
+                            const SizedBox(width: 8),
+                            _OverlayButton(
+                              icon: _isPreviewExpanded 
+                                  ? PhosphorIcons.arrowsIn() 
+                                  : PhosphorIcons.arrowsOut(),
+                              onTap: () => setState(() => _isPreviewExpanded = !_isPreviewExpanded),
+                            ),
+                            const SizedBox(width: 8),
+                            _OverlayButton(
+                              icon: PhosphorIcons.squaresFour(),
+                              isActive: pickerState.isMultiSelect,
+                              onTap: () => pickerNotifier.toggleMultiSelect(),
+                            ),
+                          ],
                         ),
                       ],
                     ),
                   ),
-                ),
+
+                  // Aspect Ratio Toggle
+                  Positioned(
+                    bottom: 12,
+                    left: 12,
+                    child: BouncyTap(
+                      onTap: _toggleAspectRatio,
+                      child: Container(
+                        padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 6),
+                        decoration: BoxDecoration(
+                          color: Colors.black.withValues(alpha: 0.6),
+                          borderRadius: BorderRadius.circular(20),
+                        ),
+                        child: Text(
+                          _getAspectRatioText(),
+                          style: const TextStyle(color: Colors.white, fontSize: 12, fontWeight: FontWeight.bold),
+                        ),
+                      ),
+                    ),
+                  ),
+                ],
               ),
+            ),
+
+            // ─── RECENTS HEADER ──────────────────────────────
+            _buildRecentsHeader(pickerState, pickerNotifier),
+
+            // ─── MEDIA GRID ──────────────────────────────────
+            Expanded(
+              child: _buildMediaGrid(pickerState, pickerNotifier),
+            ),
+
+            // ─── MODE SWITCHER ───────────────────────────────
+            _buildModeSwitcher(pickerState, pickerNotifier),
           ],
         ),
+      ),
+    );
+  }
 
-        // Thumbnails row (reorderable)
-        if (createState.selectedImages.length > 1)
-          SizedBox(
-            height: 80,
-            child: ReorderableListView.builder(
-              scrollDirection: Axis.horizontal,
-              itemCount: createState.selectedImages.length,
-              onReorder: (oldIndex, newIndex) {
-                if (newIndex > oldIndex) newIndex--;
-                ref
-                    .read(createPostProvider.notifier)
-                    .reorderImages(oldIndex, newIndex);
-              },
-              itemBuilder: (context, index) {
-                return _ThumbnailItem(
-                  key: ValueKey(createState.selectedImages[index].path),
-                  file: createState.selectedImages[index],
-                  index: index,
-                  isFirst: index == 0,
-                  onRemove: () =>
-                      ref.read(createPostProvider.notifier).removeImage(index),
-                  onCrop: () => _cropImage(index),
-                );
-              },
-            ),
-          ),
-
-        // Image count indicator
-        Padding(
-          padding: const EdgeInsets.fromLTRB(12, 8, 12, 4),
-          child: Row(
-            mainAxisAlignment: MainAxisAlignment.spaceBetween,
+  Widget _buildErrorState(String error) {
+    return Scaffold(
+      backgroundColor: Colors.black,
+      appBar: AppBar(
+        backgroundColor: Colors.black,
+        leading: IconButton(
+          icon: const Icon(Icons.close, color: Colors.white),
+          onPressed: () => context.pop(),
+        ),
+      ),
+      body: Center(
+        child: Padding(
+          padding: const EdgeInsets.all(40.0),
+          child: Column(
+            mainAxisAlignment: MainAxisAlignment.center,
             children: [
-              Text(
-                '${createState.selectedImages.length} item${createState.selectedImages.length > 1 ? 's' : ''} selected',
-                style: const TextStyle(
-                  color: AppColors.textSecondary,
-                  fontSize: 13,
-                ),
+              Icon(PhosphorIcons.warningCircle(), color: Colors.white, size: 60),
+              const SizedBox(height: 20),
+              const Text(
+                'Permission Denied',
+                style: TextStyle(color: Colors.white, fontSize: 20, fontWeight: FontWeight.bold),
               ),
+              const SizedBox(height: 12),
               Text(
-                'Hold & drag to reorder',
-                style: const TextStyle(
-                  color: AppColors.textSecondary,
-                  fontSize: 12,
+                error,
+                textAlign: TextAlign.center,
+                style: TextStyle(color: Colors.grey[400], fontSize: 14),
+              ),
+              const SizedBox(height: 30),
+              ElevatedButton(
+                style: ElevatedButton.styleFrom(
+                  backgroundColor: const Color(0xFF0095F6),
+                  padding: const EdgeInsets.symmetric(horizontal: 30, vertical: 12),
+                  shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(8)),
                 ),
+                onPressed: () => ref.read(mediaPickerProvider.notifier).initialize(),
+                child: const Text('Try Again', style: TextStyle(color: Colors.white)),
+              ),
+              TextButton(
+                onPressed: () => PhotoManager.openSetting(),
+                child: const Text('Open Settings', style: TextStyle(color: Color(0xFF0095F6))),
               ),
             ],
           ),
         ),
-      ],
+      ),
     );
   }
 
-  // ─── CAPTION INPUT ────────────────────────────────────────
-  Widget _buildCaptionInput(CreatePostState createState) {
-    final charCount = _captionController.text.length;
+  Widget _buildSelectedPreview(AssetEntity? asset) {
+    if (asset == null) {
+      return Container(color: Colors.black, child: const Center(child: CupertinoActivityIndicator(color: Colors.white)));
+    }
 
-    return Padding(
-      padding: const EdgeInsets.all(16),
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
+    if (asset.type == AssetType.video) {
+      return _VideoPreview(asset: asset);
+    }
+
+    return AssetEntityImage(
+      asset,
+      isOriginal: true,
+      fit: BoxFit.cover,
+    );
+  }
+
+  Widget _buildRecentsHeader(MediaPickerState state, MediaPickerNotifier notifier) {
+    return Container(
+      padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
+      color: Colors.black,
+      child: Row(
+        mainAxisAlignment: MainAxisAlignment.spaceBetween,
         children: [
-          // Label
-          const Text(
-            'Caption',
-            style: TextStyle(
-              fontSize: 13,
-              fontWeight: FontWeight.w600,
-              color: AppColors.textSecondary,
-            ),
-          ),
-          const SizedBox(height: 8),
-
-          // Text field
-          TextField(
-            controller: _captionController,
-            focusNode: _captionFocus,
-            maxLines: 6,
-            minLines: 3,
-            maxLength: _maxCaptionLength,
-            style: const TextStyle(
-              fontSize: 15,
-              color: AppColors.textPrimary,
-              height: 1.5,
-            ),
-            decoration: InputDecoration(
-              hintText: 'Write a caption... #hashtag @mention',
-              hintStyle: const TextStyle(
-                color: AppColors.textSecondary,
-                fontSize: 15,
-              ),
-              border: InputBorder.none,
-              counterText: '', // Hide default counter
-              contentPadding: EdgeInsets.zero,
-            ),
-          ),
-
-          // Character counter
-          Row(
-            mainAxisAlignment: MainAxisAlignment.end,
-            children: [
-              Text(
-                '$charCount / $_maxCaptionLength',
-                style: TextStyle(
-                  color: charCount > _maxCaptionLength * 0.9
-                      ? AppColors.secondary
-                      : AppColors.textSecondary,
-                  fontSize: 12,
+          BouncyTap(
+            onTap: () => _showAlbumPicker(state, notifier),
+            child: Row(
+              children: [
+                Text(
+                  state.selectedAlbum?.name ?? 'Recents',
+                  style: const TextStyle(color: Colors.white, fontSize: 16, fontWeight: FontWeight.bold),
                 ),
+                const Icon(Icons.keyboard_arrow_down, color: Colors.white, size: 20),
+              ],
+            ),
+          ),
+          Row(
+            children: [
+              _HeaderCircleButton(
+                icon: PhosphorIcons.camera(PhosphorIconsStyle.bold),
+                onTap: () {},
               ),
             ],
           ),
@@ -682,133 +277,155 @@ class _CreatePostPageState extends ConsumerState<CreatePostPage> {
     );
   }
 
-  // ─── LOCATION INPUT ───────────────────────────────────────
-  Widget _buildLocationInput() {
-    return Padding(
-      padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 4),
-      child: TextField(
-        controller: _locationController,
-        style: const TextStyle(fontSize: 15),
-        onChanged: (value) {
-          ref.read(createPostProvider.notifier).setLocation(value);
-        },
-        decoration: const InputDecoration(
-          hintText: 'Add location',
-          hintStyle: TextStyle(color: AppColors.textSecondary),
-          prefixIcon: Icon(
-            Icons.location_on_outlined,
-            color: AppColors.textSecondary,
+  Widget _buildMediaGrid(MediaPickerState state, MediaPickerNotifier notifier) {
+    if (state.isLoading && state.assets.isEmpty) {
+      return const Center(child: CupertinoActivityIndicator(color: Colors.white));
+    }
+
+    return GridView.builder(
+      padding: EdgeInsets.zero,
+      physics: const BouncingScrollPhysics(),
+      gridDelegate: const SliverGridDelegateWithFixedCrossAxisCount(
+        crossAxisCount: 4,
+        crossAxisSpacing: 2,
+        mainAxisSpacing: 2,
+      ),
+      itemCount: state.assets.length,
+      itemBuilder: (context, index) {
+        final asset = state.assets[index];
+        final isSelected = state.selectedAssets.contains(asset);
+        final selectionIndex = state.selectedAssets.indexOf(asset) + 1;
+        final isPrimary = state.selectedAsset == asset;
+
+        return GestureDetector(
+          onTap: () => notifier.selectAsset(asset),
+          child: Stack(
+            fit: StackFit.expand,
+            children: [
+              AssetEntityImage(
+                asset,
+                isOriginal: false,
+                thumbnailSize: const ThumbnailSize.square(250),
+                fit: BoxFit.cover,
+              ),
+              
+              if (asset.type == AssetType.video)
+                Positioned(
+                  top: 8,
+                  right: 8,
+                  child: Icon(PhosphorIcons.videoCamera(PhosphorIconsStyle.fill), color: Colors.white, size: 16),
+                ),
+
+              if (state.isMultiSelect)
+                Positioned(
+                  top: 6,
+                  right: 6,
+                  child: Container(
+                    width: 22,
+                    height: 22,
+                    decoration: BoxDecoration(
+                      shape: BoxShape.circle,
+                      color: isSelected ? const Color(0xFF0095F6) : Colors.black.withValues(alpha: 0.3),
+                      border: Border.all(color: Colors.white, width: 1.5),
+                    ),
+                    child: isSelected 
+                      ? Center(child: Text("$selectionIndex", style: const TextStyle(color: Colors.white, fontSize: 11, fontWeight: FontWeight.bold)))
+                      : null,
+                  ),
+                )
+              else if (isPrimary)
+                Container(
+                  color: Colors.white.withValues(alpha: 0.3),
+                ),
+            ],
           ),
-          border: InputBorder.none,
-          contentPadding: EdgeInsets.symmetric(vertical: 14),
-        ),
+        );
+      },
+    );
+  }
+
+  Widget _buildModeSwitcher(MediaPickerState state, MediaPickerNotifier notifier) {
+    return Container(
+      height: 70 + MediaQuery.of(context).padding.bottom,
+      color: Colors.black,
+      child: Column(
+        children: [
+          Expanded(
+            child: SingleChildScrollView(
+              scrollDirection: Axis.horizontal,
+              physics: const BouncingScrollPhysics(),
+              child: Row(
+                children: [
+                  const SizedBox(width: 20),
+                  ...CreateMode.values.map((mode) {
+                    final isActive = state.mode == mode;
+                    return GestureDetector(
+                      onTap: () {
+                        HapticFeedback.selectionClick();
+                        notifier.setMode(mode);
+                      },
+                      child: Container(
+                        padding: const EdgeInsets.symmetric(horizontal: 16),
+                        child: Text(
+                          mode.name.toUpperCase(),
+                          style: TextStyle(
+                            color: isActive ? Colors.white : Colors.grey[600],
+                            fontSize: 14,
+                            fontWeight: isActive ? FontWeight.bold : FontWeight.w600,
+                            letterSpacing: 0.5,
+                          ),
+                        ),
+                      ),
+                    );
+                  }),
+                  const SizedBox(width: 20),
+                ],
+              ),
+            ),
+          ),
+          SizedBox(height: MediaQuery.of(context).padding.bottom + 10),
+        ],
       ),
     );
   }
 
-  // ─── ADVANCED SETTINGS ────────────────────────────────────
-  Widget _buildAdvancedSettings(CreatePostState createState) {
-    return Column(
-      children: [
-        // Turn off commenting
-        SwitchListTile(
-          value: createState.commentsDisabled,
-          onChanged: (_) {
-            ref.read(createPostProvider.notifier).toggleComments();
-          },
-          title: const Text(
-            'Turn off commenting',
-            style: TextStyle(fontSize: 15),
-          ),
-          subtitle: const Text(
-            'People will not be able to comment on this post',
-            style: TextStyle(color: AppColors.textSecondary, fontSize: 13),
-          ),
-          activeColor: AppColors.primary,
-          contentPadding: const EdgeInsets.symmetric(
-            horizontal: 16,
-            vertical: 4,
-          ),
-        ),
-      ],
-    );
+  void _toggleAspectRatio() {
+    setState(() {
+      if (_aspectRatio == 1.0) _aspectRatio = 4 / 5;
+      else if (_aspectRatio == 4 / 5) _aspectRatio = 16 / 9;
+      else _aspectRatio = 1.0;
+    });
   }
 
-  // ─── UPLOADING STATE ─────────────────────────────────────
-  Widget _buildUploadingState(CreatePostState createState) {
-    return Center(
-      child: Padding(
-        padding: const EdgeInsets.all(40),
+  String _getAspectRatioText() {
+    if (_aspectRatio == 1.0) return "1:1";
+    if (_aspectRatio == 0.8) return "4:5";
+    return "16:9";
+  }
+
+  void _showAlbumPicker(MediaPickerState state, MediaPickerNotifier notifier) {
+    showCupertinoModalPopup(
+      context: context,
+      builder: (context) => Container(
+        height: MediaQuery.of(context).size.height * 0.4,
+        color: const Color(0xFF1C1C1E),
         child: Column(
-          mainAxisAlignment: MainAxisAlignment.center,
           children: [
-            // Animated upload icon
-            TweenAnimationBuilder<double>(
-              tween: Tween(begin: 0.0, end: createState.uploadProgress),
-              duration: const Duration(milliseconds: 300),
-              builder: (context, value, _) {
-                return Stack(
-                  alignment: Alignment.center,
-                  children: [
-                    SizedBox(
-                      width: 100,
-                      height: 100,
-                      child: CircularProgressIndicator(
-                        value: value,
-                        strokeWidth: 6,
-                        backgroundColor: AppColors.border,
-                        color: AppColors.primary,
-                      ),
-                    ),
-                    Text(
-                      '${createState.progressPercent}%',
-                      style: const TextStyle(
-                        fontSize: 20,
-                        fontWeight: FontWeight.bold,
-                        color: AppColors.textPrimary,
-                      ),
-                    ),
-                  ],
-                );
-              },
+            Container(
+              padding: const EdgeInsets.all(16),
+              child: const Text('Select Album', style: TextStyle(color: Colors.white, fontSize: 17, fontWeight: FontWeight.bold)),
             ),
-
-            const SizedBox(height: 32),
-
-            Text(
-              createState.uploadStep == UploadStep.processing
-                  ? 'Processing your post...'
-                  : 'Uploading ${createState.selectedImages.length} item${createState.selectedImages.length > 1 ? 's' : ''}...',
-              style: const TextStyle(fontSize: 18, fontWeight: FontWeight.bold),
-            ),
-
-            const SizedBox(height: 8),
-
-            const Text(
-              "Please don't close the app",
-              style: TextStyle(color: AppColors.textSecondary, fontSize: 14),
-            ),
-
-            const SizedBox(height: 24),
-
-            // Preview thumbnails during upload
-            SizedBox(
-              height: 60,
+            Expanded(
               child: ListView.builder(
-                scrollDirection: Axis.horizontal,
-                itemCount: createState.selectedImages.length,
+                itemCount: state.albums.length,
                 itemBuilder: (context, index) {
-                  return Container(
-                    width: 60,
-                    height: 60,
-                    margin: const EdgeInsets.only(right: 8),
-                    decoration: BoxDecoration(
-                      borderRadius: BorderRadius.circular(8),
-                      image: DecorationImage(
-                        image: FileImage(createState.selectedImages[index]),
-                        fit: BoxFit.cover,
-                      ),
-                    ),
+                  final album = state.albums[index];
+                  return ListTile(
+                    title: Text(album.name, style: const TextStyle(color: Colors.white)),
+                    onTap: () {
+                      notifier.loadAssets(album);
+                      Navigator.pop(context);
+                    },
                   );
                 },
               ),
@@ -819,219 +436,108 @@ class _CreatePostPageState extends ConsumerState<CreatePostPage> {
     );
   }
 
-  // ─── ERROR STATE ──────────────────────────────────────────
-  Widget _buildErrorState(CreatePostState createState) {
-    return Center(
-      child: Padding(
-        padding: const EdgeInsets.all(40),
-        child: Column(
-          mainAxisAlignment: MainAxisAlignment.center,
-          children: [
-            const Icon(
-              Icons.error_outline,
-              size: 72,
-              color: AppColors.secondary,
-            ),
-            const SizedBox(height: 24),
-            const Text(
-              'Upload Failed',
-              style: TextStyle(fontSize: 22, fontWeight: FontWeight.bold),
-            ),
-            const SizedBox(height: 12),
-            Text(
-              createState.errorMessage ??
-                  'Something went wrong. Please try again.',
-              textAlign: TextAlign.center,
-              style: const TextStyle(
-                color: AppColors.textSecondary,
-                fontSize: 14,
-                height: 1.5,
-              ),
-            ),
-            const SizedBox(height: 32),
-            ElevatedButton(
-              onPressed: _uploadPost,
-              style: ElevatedButton.styleFrom(
-                backgroundColor: AppColors.primary,
-                foregroundColor: Colors.white,
-                minimumSize: const Size(200, 44),
-                shape: RoundedRectangleBorder(
-                  borderRadius: BorderRadius.circular(8),
-                ),
-              ),
-              child: const Text(
-                'Try Again',
-                style: TextStyle(fontWeight: FontWeight.w600),
-              ),
-            ),
-            const SizedBox(height: 12),
-            TextButton(
-              onPressed: () {
-                ref.read(createPostProvider.notifier).reset();
-                context.pop();
-              },
-              child: const Text(
-                'Cancel',
-                style: TextStyle(color: AppColors.textSecondary),
-              ),
-            ),
-          ],
+  void _handleNext(MediaPickerState state) async {
+    if (state.selectedAsset == null) return;
+    
+    final asset = state.selectedAsset!;
+    final file = await asset.file;
+    if (file != null && mounted) {
+      context.push(AppRoutes.finalizePost, extra: file);
+    }
+  }
+}
+
+class _HeaderCircleButton extends StatelessWidget {
+  final IconData icon;
+  final VoidCallback onTap;
+
+  const _HeaderCircleButton({required this.icon, required this.onTap});
+
+  @override
+  Widget build(BuildContext context) {
+    return BouncyTap(
+      onTap: onTap,
+      child: Container(
+        padding: const EdgeInsets.all(8),
+        decoration: BoxDecoration(
+          color: const Color(0xFF262626),
+          shape: BoxShape.circle,
         ),
+        child: Icon(icon, color: Colors.white, size: 20),
       ),
     );
   }
 }
 
-// ─── THUMBNAIL ITEM (reorderable) ───────────────────────────
-class _ThumbnailItem extends StatelessWidget {
-  final File file;
-  final int index;
-  final bool isFirst;
-  final VoidCallback onRemove;
-  final VoidCallback onCrop;
+class _OverlayButton extends StatelessWidget {
+  final IconData icon;
+  final bool isActive;
+  final VoidCallback onTap;
 
-  const _ThumbnailItem({
-    super.key,
-    required this.file,
-    required this.index,
-    required this.isFirst,
-    required this.onRemove,
-    required this.onCrop,
-  });
+  const _OverlayButton({required this.icon, this.isActive = false, required this.onTap});
 
   @override
   Widget build(BuildContext context) {
-    final path = file.path.toLowerCase();
-    final bool isVideo = path.endsWith('.mp4') || 
-                        path.endsWith('.mov') ||
-                        path.endsWith('.m4v') ||
-                        path.endsWith('.3gp') ||
-                        path.endsWith('.avi');
-
-    return Container(
-      width: 80,
-      height: 80,
-      margin: const EdgeInsets.fromLTRB(8, 8, 0, 8),
-      child: Stack(
-        children: [
-          // Thumbnail image
-          ClipRRect(
-            borderRadius: BorderRadius.circular(6),
-            child: Container(
-              decoration: BoxDecoration(
-                border: isFirst
-                    ? Border.all(color: AppColors.primary, width: 2)
-                    : null,
-                borderRadius: BorderRadius.circular(6),
-              ),
-              child: isVideo
-                  ? Container(
-                      color: Colors.black87,
-                      width: 80,
-                      height: 80,
-                      child: const Center(
-                        child: Icon(Icons.videocam, color: Colors.white, size: 24),
-                      ),
-                    )
-                  : Image.file(
-                      file, 
-                      width: 80, 
-                      height: 80, 
-                      fit: BoxFit.cover,
-                      errorBuilder: (context, error, stackTrace) => Container(
-                        color: Colors.grey[800],
-                        child: const Icon(Icons.broken_image, color: Colors.white38),
-                      ),
-                    ),
-            ),
-          ),
-
-          // Video indicator
-          if (isVideo)
-            const Positioned(
-              top: 4,
-              left: 4,
-              child: Icon(
-                Icons.play_circle_fill,
-                color: Colors.white70,
-                size: 20,
-              ),
-            ),
-
-          // "Cover" label on first image
-          if (isFirst)
-            Positioned(
-              bottom: 0,
-              left: 0,
-              right: 0,
-              child: Container(
-                padding: const EdgeInsets.symmetric(vertical: 2),
-                decoration: BoxDecoration(
-                  color: AppColors.primary.withOpacity(0.8),
-                  borderRadius: const BorderRadius.only(
-                    bottomLeft: Radius.circular(6),
-                    bottomRight: Radius.circular(6),
-                  ),
-                ),
-                child: const Text(
-                  'COVER',
-                  textAlign: TextAlign.center,
-                  style: TextStyle(
-                    color: Colors.white,
-                    fontSize: 9,
-                    fontWeight: FontWeight.bold,
-                  ),
-                ),
-              ),
-            ),
-
-          // Crop button (only for images)
-          if (!isVideo)
-            Positioned(
-              bottom: 4,
-              right: 4,
-              child: GestureDetector(
-                onTap: onCrop,
-                child: Container(
-                  padding: const EdgeInsets.all(4),
-                  decoration: BoxDecoration(
-                    color: Colors.black.withOpacity(0.6),
-                    shape: BoxShape.circle,
-                  ),
-                  child: const Icon(Icons.crop, color: Colors.white, size: 12),
-                ),
-              ),
-            ),
-
-          // Remove button
-          Positioned(
-            top: -4,
-            right: -4,
-            child: GestureDetector(
-              onTap: onRemove,
-              child: Container(
-                padding: const EdgeInsets.all(2),
-                decoration: const BoxDecoration(
-                  color: Colors.white,
-                  shape: BoxShape.circle,
-                  boxShadow: [
-                    BoxShadow(
-                      color: Colors.black12,
-                      blurRadius: 4,
-                      spreadRadius: 1,
-                    ),
-                  ],
-                ),
-                child: const Icon(
-                  Icons.cancel,
-                  color: AppColors.secondary,
-                  size: 20,
-                ),
-              ),
-            ),
-          ),
-        ],
+    return BouncyTap(
+      onTap: onTap,
+      child: Container(
+        padding: const EdgeInsets.all(8),
+        decoration: BoxDecoration(
+          color: isActive ? const Color(0xFF0095F6) : Colors.black.withValues(alpha: 0.6),
+          shape: BoxShape.circle,
+        ),
+        child: Icon(icon, color: Colors.white, size: 20),
       ),
+    );
+  }
+}
+
+class _VideoPreview extends StatefulWidget {
+  final AssetEntity asset;
+  const _VideoPreview({required this.asset});
+
+  @override
+  State<_VideoPreview> createState() => _VideoPreviewState();
+}
+
+class _VideoPreviewState extends State<_VideoPreview> {
+  VideoPlayerController? _controller;
+  bool _isInitialized = false;
+
+  @override
+  void initState() {
+    super.initState();
+    _initController();
+  }
+
+  Future<void> _initController() async {
+    final file = await widget.asset.file;
+    if (file != null) {
+      _controller = VideoPlayerController.file(file)
+        ..initialize().then((_) {
+          if (mounted) {
+            setState(() => _isInitialized = true);
+            _controller?.play();
+            _controller?.setLooping(true);
+          }
+        });
+    }
+  }
+
+  @override
+  void dispose() {
+    _controller?.dispose();
+    super.dispose();
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    if (!_isInitialized || _controller == null) {
+      return AssetEntityImage(widget.asset, fit: BoxFit.cover);
+    }
+    return AspectRatio(
+      aspectRatio: _controller!.value.aspectRatio,
+      child: VideoPlayer(_controller!),
     );
   }
 }

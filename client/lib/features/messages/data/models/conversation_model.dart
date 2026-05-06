@@ -98,3 +98,4 @@ class ConversationModel {
     return otherUser?.profilePicUrl;
   }
 }
+

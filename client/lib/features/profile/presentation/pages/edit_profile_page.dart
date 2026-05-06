@@ -1,17 +1,17 @@
-// lib/features/profile/presentation/pages/edit_profile_page.dart
-
 import 'dart:io';
+import 'package:flutter/foundation.dart' show kIsWeb;
 
 import 'package:cached_network_image/cached_network_image.dart';
 import 'package:flutter/material.dart';
+import 'package:flutter/cupertino.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 import 'package:image_picker/image_picker.dart';
+import 'package:phosphor_flutter/phosphor_flutter.dart';
 
 import '../../../../core/theme/app_theme.dart';
 import '../../../../shared/widgets/app_snackbar.dart';
-import '../../../../shared/widgets/custom_button.dart';
-import '../../../../shared/widgets/custom_text_field.dart';
+import '../../../../shared/widgets/spring_widget.dart';
 import '../../../../features/auth/presentation/providers/auth_provider.dart';
 import '../providers/profile_provider.dart';
 
@@ -28,19 +28,13 @@ class _EditProfilePageState extends ConsumerState<EditProfilePage> {
   late TextEditingController _usernameController;
   late TextEditingController _bioController;
   late TextEditingController _websiteController;
+  late TextEditingController _emailController;
+  late TextEditingController _phoneController;
 
   String? _selectedGender;
   bool _isPrivate = false;
-  File? _selectedImageFile;
+  XFile? _selectedXFile;
   bool _initialized = false;
-  String? _errorMessage;
-
-  final List<String> _genderOptions = [
-    'prefer_not_to_say',
-    'male',
-    'female',
-    'custom',
-  ];
 
   @override
   void initState() {
@@ -49,6 +43,8 @@ class _EditProfilePageState extends ConsumerState<EditProfilePage> {
     _usernameController = TextEditingController();
     _bioController = TextEditingController();
     _websiteController = TextEditingController();
+    _emailController = TextEditingController();
+    _phoneController = TextEditingController();
   }
 
   @override
@@ -57,6 +53,8 @@ class _EditProfilePageState extends ConsumerState<EditProfilePage> {
     _usernameController.dispose();
     _bioController.dispose();
     _websiteController.dispose();
+    _emailController.dispose();
+    _phoneController.dispose();
     super.dispose();
   }
 
@@ -68,6 +66,8 @@ class _EditProfilePageState extends ConsumerState<EditProfilePage> {
     _usernameController.text = user.username ?? '';
     _bioController.text = user.bio ?? '';
     _websiteController.text = user.website ?? '';
+    _emailController.text = user.email ?? '';
+    _phoneController.text = user.phoneNumber ?? '';
     _selectedGender = user.gender;
     _isPrivate = user.isPrivate;
   }
@@ -83,7 +83,7 @@ class _EditProfilePageState extends ConsumerState<EditProfilePage> {
       );
 
       if (picked != null) {
-        setState(() => _selectedImageFile = File(picked.path));
+        setState(() => _selectedXFile = picked);
       }
     } catch (e) {
       if (mounted) {
@@ -93,53 +93,46 @@ class _EditProfilePageState extends ConsumerState<EditProfilePage> {
   }
 
   void _showImagePicker() {
-    showModalBottomSheet(
+    showCupertinoModalPopup(
       context: context,
-      shape: const RoundedRectangleBorder(
-        borderRadius: BorderRadius.vertical(top: Radius.circular(16)),
-      ),
-      builder: (ctx) => SafeArea(
-        child: Column(
-          mainAxisSize: MainAxisSize.min,
-          children: [
-            const SizedBox(height: 16),
-            Container(
-              width: 40,
-              height: 4,
-              decoration: BoxDecoration(
-                color: AppColors.border,
-                borderRadius: BorderRadius.circular(2),
-              ),
-            ),
-            const SizedBox(height: 16),
-            ListTile(
-              leading: const Icon(Icons.photo_library_outlined),
-              title: const Text('Choose from Gallery'),
-              onTap: () {
-                Navigator.pop(ctx);
-                _pickImage(ImageSource.gallery);
+      builder: (context) => CupertinoActionSheet(
+        title: const Text('Change Profile Photo', style: TextStyle(fontFamily: 'SF-Pro')),
+        actions: [
+          CupertinoActionSheetAction(
+            onPressed: () {
+              Navigator.pop(context);
+              _pickImage(ImageSource.gallery);
+            },
+            child: const Text('Choose from Gallery', style: TextStyle(fontFamily: 'SF-Pro')),
+          ),
+          CupertinoActionSheetAction(
+            onPressed: () {
+              Navigator.pop(context);
+              _pickImage(ImageSource.camera);
+            },
+            child: const Text('Take Photo', style: TextStyle(fontFamily: 'SF-Pro')),
+          ),
+          if (_selectedXFile != null || (ref.read(currentUserProvider)?.profilePicUrl != null))
+            CupertinoActionSheetAction(
+              isDestructiveAction: true,
+              onPressed: () {
+                Navigator.pop(context);
+                setState(() => _selectedXFile = null);
               },
+              child: const Text('Remove Current Photo', style: TextStyle(fontFamily: 'SF-Pro')),
             ),
-            ListTile(
-              leading: const Icon(Icons.camera_alt_outlined),
-              title: const Text('Take Photo'),
-              onTap: () {
-                Navigator.pop(ctx);
-                _pickImage(ImageSource.camera);
-              },
-            ),
-            const SizedBox(height: 8),
-          ],
+        ],
+        cancelButton: CupertinoActionSheetAction(
+          isDefaultAction: true,
+          onPressed: () => Navigator.pop(context),
+          child: const Text('Cancel', style: TextStyle(fontFamily: 'SF-Pro')),
         ),
       ),
     );
   }
 
   Future<void> _saveProfile() async {
-    setState(() => _errorMessage = null);
-
     if (!_formKey.currentState!.validate()) return;
-
     FocusScope.of(context).unfocus();
 
     final currentUser = ref.read(currentUserProvider);
@@ -147,15 +140,8 @@ class _EditProfilePageState extends ConsumerState<EditProfilePage> {
 
     final notifier = ref.read(profileProvider(currentUser.username).notifier);
 
-    if (_selectedImageFile != null) {
-      final picSuccess = await notifier.updateProfilePicture(_selectedImageFile!);
-      if (!picSuccess && mounted) {
-        setState(() {
-          _errorMessage =
-              ref.read(profileProvider(currentUser.username)).errorMessage;
-        });
-        return;
-      }
+    if (_selectedXFile != null) {
+      await notifier.updateProfilePicture(_selectedXFile!);
     }
 
     final success = await notifier.updateProfile(
@@ -167,194 +153,141 @@ class _EditProfilePageState extends ConsumerState<EditProfilePage> {
     );
 
     if (success && mounted) {
-      AppSnackbar.success(context, 'Profile updated successfully!');
+      AppSnackbar.success(context, 'Profile updated!');
       context.pop();
-    } else if (mounted) {
-      setState(() {
-        _errorMessage =
-            ref.read(profileProvider(currentUser.username)).errorMessage;
-      });
     }
   }
 
   @override
   Widget build(BuildContext context) {
     final currentUser = ref.watch(currentUserProvider);
-
     if (currentUser == null) {
-      return const Scaffold(
-        body: Center(child: CircularProgressIndicator()),
-      );
+      return const Scaffold(body: Center(child: CupertinoActivityIndicator()));
     }
 
     _initializeFromUser(currentUser);
-
     final profileState = ref.watch(profileProvider(currentUser.username));
     final isSaving = profileState.isSaving;
+    final isDark = Theme.of(context).brightness == Brightness.dark;
 
     return Scaffold(
-      backgroundColor: AppColors.white,
-      appBar: AppBar(
-        backgroundColor: AppColors.white,
-        elevation: 0,
-        title: const Text(
-          'Edit Profile',
-          style: TextStyle(
-            color: AppColors.textPrimary,
-            fontWeight: FontWeight.bold,
-            fontSize: 16,
-          ),
-        ),
-        leading: IconButton(
-          onPressed: () => context.pop(),
-          icon: const Icon(Icons.close, color: AppColors.textPrimary),
-        ),
-        actions: [
-          TextButton(
-            onPressed: isSaving ? null : _saveProfile,
+      backgroundColor: isDark ? Colors.black : const Color(0xFFF2F2F7),
+      appBar: CupertinoNavigationBar(
+        transitionBetweenRoutes: false,
+        backgroundColor: isDark ? Colors.black : Colors.white,
+        border: Border(bottom: BorderSide(color: isDark ? Colors.grey[900]! : Colors.grey[300]!, width: 0.5)),
+        leading: BouncyTap(
+          onTap: () => context.pop(),
+          child: Container(
+            alignment: Alignment.centerLeft,
             child: Text(
-              'Done',
+              'Cancel', 
               style: TextStyle(
-                color: isSaving ? AppColors.border : AppColors.primary,
-                fontWeight: FontWeight.bold,
-                fontSize: 16,
-              ),
+                color: isDark ? Colors.white : Colors.black, 
+                fontSize: 17, 
+                fontFamily: 'SF-Pro'
+              )
             ),
           ),
-        ],
+        ),
+        middle: Text(
+          'Edit Profile', 
+          style: TextStyle(
+            fontWeight: FontWeight.w600, 
+            fontSize: 17, 
+            fontFamily: 'SF-Pro',
+            color: isDark ? Colors.white : Colors.black,
+          )
+        ),
+        trailing: BouncyTap(
+          onTap: isSaving ? null : _saveProfile,
+          child: Container(
+            alignment: Alignment.centerRight,
+            child: isSaving 
+              ? const CupertinoActivityIndicator(radius: 10)
+              : const Text(
+                  'Done', 
+                  style: TextStyle(
+                    color: Color(0xFF0095F6), 
+                    fontWeight: FontWeight.w600, 
+                    fontSize: 17, 
+                    fontFamily: 'SF-Pro'
+                  )
+                ),
+          ),
+        ),
       ),
       body: SingleChildScrollView(
-        padding: const EdgeInsets.all(24),
+        physics: const BouncingScrollPhysics(),
         child: Form(
           key: _formKey,
           child: Column(
-            crossAxisAlignment: CrossAxisAlignment.center,
             children: [
-              _buildProfilePicture(currentUser),
-              const SizedBox(height: 24),
-              if (_errorMessage != null)
-                Container(
-                  width: double.infinity,
-                  padding: const EdgeInsets.all(12),
-                  margin: const EdgeInsets.only(bottom: 16),
-                  decoration: BoxDecoration(
-                    color: AppColors.secondary.withOpacity(0.1),
-                    borderRadius: BorderRadius.circular(8),
-                    border: Border.all(
-                      color: AppColors.secondary.withOpacity(0.3),
-                    ),
-                  ),
-                  child: Text(
-                    _errorMessage!,
-                    style: const TextStyle(
-                      color: AppColors.secondary,
-                      fontSize: 14,
-                    ),
-                  ),
-                ),
-              _buildFormField(
-                label: 'Name',
-                child: CustomTextField(
-                  hint: 'Full name',
-                  controller: _nameController,
-                  validator: (v) => v?.isEmpty == true ? 'Name is required' : null,
-                ),
+              const SizedBox(height: 20),
+              _buildAvatarSection(currentUser),
+              const SizedBox(height: 10),
+              
+              CupertinoFormSection.insetGrouped(
+                backgroundColor: Colors.transparent,
+                margin: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
+                children: [
+                  _buildFormRow('Name', _nameController, 'Name'),
+                  _buildFormRow('Username', _usernameController, 'Username'),
+                  _buildFormRow('Website', _websiteController, 'Website'),
+                  _buildFormRow('Bio', _bioController, 'Bio', maxLines: 3),
+                ],
               ),
-              _buildFormField(
-                label: 'Username',
-                child: CustomTextField(
-                  hint: 'Username',
-                  controller: _usernameController,
-                  validator: (v) {
-                    if (v?.isEmpty == true) return 'Required';
-                    if (v!.length < 3) return 'Min 3 characters';
-                    if (!RegExp(r'^[a-zA-Z0-9._]+$').hasMatch(v)) {
-                      return 'Letters, numbers, . and _ only';
-                    }
-                    return null;
-                  },
-                ),
-              ),
-              _buildFormField(
-                label: 'Bio',
-                child: CustomTextField(
-                  hint: 'Bio',
-                  controller: _bioController,
-                  maxLines: 3,
-                  maxLength: 150,
-                ),
-              ),
-              _buildFormField(
-                label: 'Website',
-                child: CustomTextField(
-                  hint: 'Website',
-                  controller: _websiteController,
-                  keyboardType: TextInputType.url,
-                ),
-              ),
-              _buildFormField(
-                label: 'Gender',
-                child: DropdownButtonFormField<String>(
-                  value: _selectedGender,
-                  hint: const Text(
-                    'Select gender',
-                    style: TextStyle(color: AppColors.textSecondary),
-                  ),
-                  decoration: InputDecoration(
-                    filled: true,
-                    fillColor: const Color(0xFFFAFAFA),
-                    border: OutlineInputBorder(
-                      borderRadius: BorderRadius.circular(5),
-                      borderSide: const BorderSide(color: AppColors.border),
-                    ),
-                    enabledBorder: OutlineInputBorder(
-                      borderRadius: BorderRadius.circular(5),
-                      borderSide: const BorderSide(color: AppColors.border),
-                    ),
-                    contentPadding: const EdgeInsets.symmetric(
-                      horizontal: 12,
-                      vertical: 14,
-                    ),
-                  ),
-                  items: _genderOptions
-                      .map(
-                        (g) => DropdownMenuItem(
-                          value: g,
-                          child: Text(
-                            _formatGender(g),
-                            style: const TextStyle(fontSize: 14),
+
+              CupertinoFormSection.insetGrouped(
+                backgroundColor: Colors.transparent,
+                margin: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
+                children: [
+                  CupertinoFormRow(
+                    child: BouncyTap(
+                      onTap: () {},
+                      child: const Row(
+                        children: [
+                          Text(
+                            'Switch to Professional Account', 
+                            style: TextStyle(
+                              color: Color(0xFF0095F6), 
+                              fontSize: 16, 
+                              fontFamily: 'SF-Pro'
+                            )
                           ),
-                        ),
-                      )
-                      .toList(),
-                  onChanged: (value) => setState(() => _selectedGender = value),
-                ),
+                        ],
+                      ),
+                    ),
+                  ),
+                ],
               ),
-              const Divider(height: 1, color: AppColors.border),
-              SwitchListTile(
-                value: _isPrivate,
-                onChanged: (value) => setState(() => _isPrivate = value),
-                title: const Text(
-                  'Private Account',
-                  style: TextStyle(fontSize: 15, fontWeight: FontWeight.w500),
-                ),
-                subtitle: const Text(
-                  'Only approved followers can see your posts',
-                  style: TextStyle(
-                    color: AppColors.textSecondary,
-                    fontSize: 13,
+
+              Padding(
+                padding: const EdgeInsets.only(left: 32, top: 16, bottom: 8),
+                child: Align(
+                  alignment: Alignment.centerLeft,
+                  child: Text(
+                    'Personal Information Settings', 
+                    style: TextStyle(
+                      color: isDark ? Colors.grey[400] : Colors.grey[600], 
+                      fontSize: 13, 
+                      fontWeight: FontWeight.w600, 
+                      fontFamily: 'SF-Pro'
+                    )
                   ),
                 ),
-                activeColor: AppColors.primary,
-                contentPadding: EdgeInsets.zero,
               ),
-              const Divider(height: 1, color: AppColors.border),
-              const SizedBox(height: 24),
-              CustomButton(
-                text: 'Save Changes',
-                isLoading: isSaving,
-                onPressed: isSaving ? null : _saveProfile,
+
+              CupertinoFormSection.insetGrouped(
+                backgroundColor: Colors.transparent,
+                margin: const EdgeInsets.symmetric(horizontal: 16, vertical: 0),
+                children: [
+                  _buildFormRow('Email', _emailController, 'Email', enabled: false),
+                  _buildFormRow('Phone', _phoneController, 'Phone'),
+                  _buildFormRow('Gender', TextEditingController(text: _formatGender(_selectedGender ?? '')), 'Gender', readOnly: true, onTap: _showGenderPicker),
+                ],
               ),
+              
               const SizedBox(height: 40),
             ],
           ),
@@ -363,100 +296,95 @@ class _EditProfilePageState extends ConsumerState<EditProfilePage> {
     );
   }
 
-  Widget _buildProfilePicture(dynamic currentUser) {
-    final profilePicUrl =
-        _selectedImageFile != null ? null : currentUser.profilePicUrl as String?;
-
+  Widget _buildAvatarSection(dynamic user) {
     return Column(
       children: [
         Container(
-          width: 100,
-          height: 100,
-          decoration: const BoxDecoration(
+          width: 86,
+          height: 86,
+          decoration: BoxDecoration(
             shape: BoxShape.circle,
-            color: AppColors.border,
+            color: Colors.grey[300],
+            border: Border.all(color: Colors.grey.withValues(alpha: 0.2), width: 0.5),
           ),
           child: ClipOval(
-            child: _selectedImageFile != null
-                ? Image.file(_selectedImageFile!, fit: BoxFit.cover)
-                : profilePicUrl != null
-                ? CachedNetworkImage(
-                    imageUrl: profilePicUrl,
-                    fit: BoxFit.cover,
-                    errorWidget: (_, __, ___) =>
-                        _defaultAvatar(currentUser.username ?? '?'),
-                  )
-                : _defaultAvatar(currentUser.username ?? '?'),
+            child: _selectedXFile != null
+                ? Image.file(File(_selectedXFile!.path), fit: BoxFit.cover)
+                : (user.profilePicUrl != null
+                    ? CachedNetworkImage(imageUrl: user.profilePicUrl, fit: BoxFit.cover)
+                    : Center(
+                        child: Text(
+                          user.username?[0].toUpperCase() ?? '?', 
+                          style: const TextStyle(fontSize: 32, fontWeight: FontWeight.bold, fontFamily: 'SF-Pro')
+                        )
+                      )),
           ),
         ),
         const SizedBox(height: 12),
-        GestureDetector(
+        BouncyTap(
           onTap: _showImagePicker,
           child: const Text(
-            'Change profile photo',
+            'Edit picture or avatar', 
             style: TextStyle(
-              color: AppColors.primary,
-              fontSize: 14,
-              fontWeight: FontWeight.w600,
-            ),
+              color: Color(0xFF0095F6), 
+              fontWeight: FontWeight.w600, 
+              fontSize: 14, 
+              fontFamily: 'SF-Pro'
+            )
           ),
         ),
       ],
     );
   }
 
-  Widget _defaultAvatar(String username) {
-    return Container(
-      color: AppColors.border,
-      child: Center(
+  Widget _buildFormRow(String label, TextEditingController controller, String placeholder, {int maxLines = 1, bool enabled = true, bool readOnly = false, VoidCallback? onTap}) {
+    return CupertinoFormRow(
+      prefix: SizedBox(
+        width: 90, 
         child: Text(
-          username.isNotEmpty ? username[0].toUpperCase() : '?',
-          style: const TextStyle(
-            fontSize: 36,
-            fontWeight: FontWeight.bold,
-            color: AppColors.textSecondary,
-          ),
+          label, 
+          style: const TextStyle(fontSize: 16, fontFamily: 'SF-Pro')
+        )
+      ),
+      child: CupertinoTextField(
+        controller: controller,
+        placeholder: placeholder,
+        maxLines: maxLines,
+        enabled: enabled,
+        readOnly: readOnly,
+        onTap: onTap,
+        decoration: null,
+        padding: const EdgeInsets.symmetric(vertical: 12),
+        style: const TextStyle(fontSize: 16, fontFamily: 'SF-Pro'),
+        placeholderStyle: const TextStyle(color: CupertinoColors.placeholderText, fontFamily: 'SF-Pro'),
+      ),
+    );
+  }
+
+  void _showGenderPicker() {
+    showCupertinoModalPopup(
+      context: context,
+      builder: (ctx) => CupertinoActionSheet(
+        title: const Text('Gender', style: TextStyle(fontFamily: 'SF-Pro')),
+        actions: ['Male', 'Female', 'Custom', 'Prefer not to say'].map((g) => CupertinoActionSheetAction(
+          onPressed: () {
+            setState(() => _selectedGender = g.toLowerCase().replaceAll(' ', '_'));
+            Navigator.pop(ctx);
+          },
+          child: Text(g, style: const TextStyle(fontFamily: 'SF-Pro')),
+        )).toList(),
+        cancelButton: CupertinoActionSheetAction(
+          onPressed: () => Navigator.pop(ctx),
+          child: const Text('Cancel', style: TextStyle(fontFamily: 'SF-Pro')),
         ),
       ),
     );
   }
 
-  Widget _buildFormField({
-    required String label,
-    required Widget child,
-  }) {
-    return Padding(
-      padding: const EdgeInsets.only(bottom: 16),
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
-          Text(
-            label,
-            style: const TextStyle(
-              fontSize: 13,
-              fontWeight: FontWeight.w600,
-              color: AppColors.textSecondary,
-            ),
-          ),
-          const SizedBox(height: 6),
-          child,
-        ],
-      ),
-    );
-  }
-
-  String _formatGender(String gender) {
-    switch (gender) {
-      case 'male':
-        return 'Male';
-      case 'female':
-        return 'Female';
-      case 'custom':
-        return 'Custom';
-      case 'prefer_not_to_say':
-        return 'Prefer not to say';
-      default:
-        return gender;
-    }
+  String _formatGender(String g) {
+    if (g == 'prefer_not_to_say') return 'Prefer not to say';
+    if (g.isEmpty) return 'Not specified';
+    final parts = g.split('_');
+    return parts.map((p) => p[0].toUpperCase() + p.substring(1)).join(' ');
   }
 }

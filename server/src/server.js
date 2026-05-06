@@ -7,6 +7,7 @@ const { syncDatabase } = require('./models');
 const { testCloudinary } = require('./config/cloudinary');
 const { startCleanupJob } = require('./utils/cleanup.utils');
 const { setupSocketServer } = require('./services/socket.service');
+const { initializeFirebase } = require('./config/firebase');
 
 const PORT = process.env.PORT || 5000;
 const HOST = process.env.HOST || '0.0.0.0';
@@ -38,6 +39,7 @@ const startServer = async () => {
 
     await testCloudinary();
     startCleanupJob();
+    initializeFirebase();
 
     app.set('trust proxy', isProduction ? 1 : false);
 

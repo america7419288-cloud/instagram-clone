@@ -1,10 +1,16 @@
 // lib/features/search/presentation/pages/search_page.dart
 
+import 'dart:ui';
 import 'package:flutter/material.dart';
+import 'package:flutter/cupertino.dart';
+import 'package:flutter/services.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:cached_network_image/cached_network_image.dart';
-import '../../../../core/router/navigation_extensions.dart';
+import 'package:video_player/video_player.dart';
+import 'package:flutter_staggered_grid_view/flutter_staggered_grid_view.dart';
+import 'package:go_router/go_router.dart';
 import '../../../../core/theme/app_theme.dart';
+import '../../../../shared/widgets/spring_widget.dart';
 import '../../../follow/data/repositories/presentation/providers/widgets/follow_button.dart';
 import 'providers/search_provider.dart';
 
@@ -19,11 +25,18 @@ class _SearchPageState extends ConsumerState<SearchPage> {
   final TextEditingController _searchController = TextEditingController();
   final FocusNode _searchFocus = FocusNode();
   final ScrollController _scrollController = ScrollController();
+  bool _isSearching = false;
+  int _selectedTabIndex = 1; // Default to Accounts
 
   @override
   void initState() {
     super.initState();
     _scrollController.addListener(_onScroll);
+    _searchFocus.addListener(() {
+      if (_searchFocus.hasFocus != _isSearching) {
+        setState(() => _isSearching = _searchFocus.hasFocus);
+      }
+    });
   }
 
   @override
@@ -45,456 +58,326 @@ class _SearchPageState extends ConsumerState<SearchPage> {
   @override
   Widget build(BuildContext context) {
     final searchState = ref.watch(searchProvider);
+    final isDark = Theme.of(context).brightness == Brightness.dark;
 
     return Scaffold(
-      backgroundColor: AppColors.white,
+      backgroundColor: Theme.of(context).scaffoldBackgroundColor,
 
-      // ─── APP BAR WITH SEARCH ───────────────────────────
-      appBar: AppBar(
-        backgroundColor: AppColors.white,
-        elevation: 0,
-        scrolledUnderElevation: 0,
-        title: _buildSearchBar(searchState),
-        automaticallyImplyLeading: false,
-      ),
-
-      // ─── BODY ──────────────────────────────────────────
-      body: searchState.showResults
-          ? _buildSearchResults(searchState)
-          : _buildExplore(searchState),
-    );
-  }
-
-  // ─── SEARCH BAR ────────────────────────────────────────────
-  Widget _buildSearchBar(SearchState searchState) {
-    return Container(
-      height: 40,
-      decoration: BoxDecoration(
-        color: AppColors.background,
-        borderRadius: BorderRadius.circular(10),
-      ),
-      child: TextField(
-        controller: _searchController,
-        focusNode: _searchFocus,
-        onChanged: (value) =>
-            ref.read(searchProvider.notifier).onQueryChanged(value),
-        onSubmitted: (value) {
-          ref.read(searchProvider.notifier).submitSearch(value);
-        },
-        decoration: InputDecoration(
-          hintText: 'Search users, hashtags...',
-          hintStyle: const TextStyle(
-            color: AppColors.textSecondary,
-            fontSize: 14,
-          ),
-          prefixIcon: const Icon(
-            Icons.search,
-            color: AppColors.textSecondary,
-            size: 20,
-          ),
-          suffixIcon: searchState.query.isNotEmpty
-              ? GestureDetector(
-                  onTap: () {
-                    _searchController.clear();
-                    ref.read(searchProvider.notifier).clearSearch();
-                    _searchFocus.unfocus();
-                  },
-                  child: const Icon(
-                    Icons.close,
-                    color: AppColors.textSecondary,
-                    size: 18,
-                  ),
-                )
-              : null,
-          border: InputBorder.none,
-          contentPadding: const EdgeInsets.symmetric(
-            vertical: 10,
-            horizontal: 12,
-          ),
-        ),
-      ),
-    );
-  }
-
-  // ─── SEARCH RESULTS ────────────────────────────────────────
-  Widget _buildSearchResults(SearchState searchState) {
-    if (searchState.isLoadingResults) {
-      return const Center(
-        child: CircularProgressIndicator(color: AppColors.primary),
-      );
-    }
-
-    if (searchState.userResults.isEmpty) {
-      return Center(
+      // ─── IOS SEARCH BAR ────────────────────────────
+      appBar: PreferredSize(
+        preferredSize: Size.fromHeight(_isSearching ? 88 : 52),
         child: Column(
-          mainAxisAlignment: MainAxisAlignment.center,
           children: [
-            const Icon(Icons.search_off, size: 60, color: AppColors.border),
-            const SizedBox(height: 16),
-            Text(
-              'No results for "${searchState.query}"',
-              style: const TextStyle(
-                fontSize: 16,
-                color: AppColors.textSecondary,
+            SafeArea(
+              child: Padding(
+                padding: const EdgeInsets.fromLTRB(16, 8, 16, 8),
+                child: Row(
+                  children: [
+                    Expanded(
+                      child: Container(
+                        height: 36,
+                        decoration: BoxDecoration(
+                          color: isDark ? AppColors.darkInputBackground : AppColors.inputBackground,
+                          borderRadius: BorderRadius.circular(10),
+                        ),
+                        child: TextField(
+                          controller: _searchController,
+                          focusNode: _searchFocus,
+                          onChanged: (v) => ref.read(searchProvider.notifier).onQueryChanged(v),
+                          style: const TextStyle(fontSize: 16),
+                          decoration: InputDecoration(
+                            hintText: 'Search',
+                            hintStyle: const TextStyle(color: AppColors.textSecondary),
+                            prefixIcon: const Icon(CupertinoIcons.search, size: 18, color: AppColors.textSecondary),
+                            border: InputBorder.none,
+                            contentPadding: const EdgeInsets.symmetric(vertical: 8),
+                          ),
+                        ),
+                      ),
+                    ),
+                    if (_isSearching)
+                      CupertinoButton(
+                        padding: const EdgeInsets.only(left: 12),
+                        onPressed: () {
+                          _searchFocus.unfocus();
+                          _searchController.clear();
+                          setState(() => _isSearching = false);
+                          ref.read(searchProvider.notifier).clearSearch();
+                        },
+                        child: const Text(
+                          'Cancel',
+                          style: TextStyle(color: AppColors.primary, fontSize: 16),
+                        ),
+                      ),
+                  ],
+                ),
               ),
             ),
+            if (_isSearching) _buildSearchTabs(isDark),
           ],
         ),
-      );
-    }
+      ),
 
-    return ListView.builder(
-      itemCount: searchState.userResults.length,
-      itemBuilder: (context, index) {
-        final user = searchState.userResults[index];
-        return _UserSearchResult(
-          user: user,
-          onTap: () {
-            ref
-                .read(searchProvider.notifier)
-                .submitSearch(user['username'] as String? ?? '');
-            context.pushIfNotCurrent('/profile/${user['username']}');
-          },
-        );
-      },
+      body: _isSearching
+          ? (searchState.showResults ? _buildSearchResults(searchState, isDark) : _buildRecentHistory(searchState, isDark))
+          : _buildExploreGrid(searchState),
     );
   }
 
-  // ─── EXPLORE (when no search query) ───────────────────────
-  Widget _buildExplore(SearchState searchState) {
-    return CustomScrollView(
-      controller: _scrollController,
-      slivers: [
-        // ─── RECENT SEARCHES ─────────────────────────────
-        if (searchState.recentSearches.isNotEmpty)
-          SliverToBoxAdapter(child: _buildRecentSearches(searchState)),
-
-        // ─── EXPLORE HEADER ──────────────────────────────
-        const SliverToBoxAdapter(
-          child: Padding(
-            padding: EdgeInsets.fromLTRB(16, 16, 16, 8),
-            child: Text(
-              'Explore',
-              style: TextStyle(
-                fontSize: 16,
-                fontWeight: FontWeight.bold,
-                color: AppColors.textPrimary,
+  Widget _buildSearchTabs(bool isDark) {
+    final tabs = ['Top', 'Accounts', 'Audio', 'Tags', 'Places', 'Reels'];
+    return Container(
+      height: 44,
+      decoration: BoxDecoration(
+        border: Border(bottom: BorderSide(color: isDark ? AppColors.darkSeparator : AppColors.separator, width: 0.5)),
+      ),
+      child: ListView.builder(
+        scrollDirection: Axis.horizontal,
+        itemCount: tabs.length,
+        itemBuilder: (context, index) {
+          final isSelected = index == _selectedTabIndex;
+          return BouncyTap(
+            onTap: () {
+              setState(() => _selectedTabIndex = index);
+              // In future: trigger new search based on tab type
+            },
+            child: Container(
+              padding: const EdgeInsets.symmetric(horizontal: 16),
+              alignment: Alignment.center,
+              decoration: BoxDecoration(
+                border: isSelected ? Border(bottom: BorderSide(color: isDark ? Colors.white : Colors.black, width: 1.5)) : null,
               ),
-            ),
-          ),
-        ),
-
-        // ─── EXPLORE GRID ────────────────────────────────
-        searchState.isLoadingExplore && searchState.explorePostsGrid.isEmpty
-            ? const SliverToBoxAdapter(
-                child: SizedBox(
-                  height: 300,
-                  child: Center(
-                    child: CircularProgressIndicator(color: AppColors.primary),
-                  ),
-                ),
-              )
-            : SliverPadding(
-                padding: const EdgeInsets.all(2),
-                sliver: _ExploreGrid(posts: searchState.explorePostsGrid),
-              ),
-
-        // ─── LOAD MORE INDICATOR ─────────────────────────
-        if (searchState.isLoadingExplore &&
-            searchState.explorePostsGrid.isNotEmpty)
-          const SliverToBoxAdapter(
-            child: Padding(
-              padding: EdgeInsets.all(16),
-              child: Center(
-                child: CircularProgressIndicator(
-                  color: AppColors.primary,
-                  strokeWidth: 2,
+              child: Text(
+                tabs[index],
+                style: TextStyle(
+                  fontSize: 14,
+                  fontWeight: isSelected ? FontWeight.w600 : FontWeight.w400,
+                  color: isSelected ? (isDark ? Colors.white : Colors.black) : AppColors.textSecondary,
                 ),
               ),
             ),
-          ),
-
-        const SliverToBoxAdapter(child: SizedBox(height: 80)),
-      ],
+          );
+        },
+      ),
     );
   }
 
-  // ─── RECENT SEARCHES ───────────────────────────────────────
-  Widget _buildRecentSearches(SearchState searchState) {
-    return Column(
-      crossAxisAlignment: CrossAxisAlignment.start,
+  Widget _buildExploreGrid(SearchState state) {
+    return RefreshIndicator(
+      onRefresh: () async => ref.read(searchProvider.notifier).refreshExplore(),
+      child: CustomScrollView(
+        controller: _scrollController,
+        physics: const BouncingScrollPhysics(),
+        slivers: [
+          SliverToBoxAdapter(
+            child: StaggeredGrid.count(
+              crossAxisCount: 3,
+              mainAxisSpacing: 1,
+              crossAxisSpacing: 1,
+              children: List.generate(state.explorePostsGrid.length, (index) {
+                // IOS Pattern: 1 large 2x2 every 18 tiles
+                final int pos = index % 18;
+                int crossCount = 1;
+                int mainCount = 1;
+                if (pos == 2 || pos == 11) {
+                  crossCount = 2;
+                  mainCount = 2;
+                }
+                return StaggeredGridTile.count(
+                  crossAxisCellCount: crossCount,
+                  mainAxisCellCount: mainCount,
+                  child: _ExploreItem(post: state.explorePostsGrid[index]),
+                );
+              }),
+            ),
+          ),
+          if (state.isLoadingExplore)
+            const SliverToBoxAdapter(
+              child: Padding(padding: EdgeInsets.all(20), child: CupertinoActivityIndicator()),
+            ),
+        ],
+      ),
+    );
+  }
+
+  Widget _buildRecentHistory(SearchState state, bool isDark) {
+    return ListView(
       children: [
         Padding(
           padding: const EdgeInsets.fromLTRB(16, 16, 16, 8),
           child: Row(
             mainAxisAlignment: MainAxisAlignment.spaceBetween,
             children: [
-              const Text(
-                'Recent',
-                style: TextStyle(fontSize: 16, fontWeight: FontWeight.bold),
-              ),
-              GestureDetector(
-                onTap: () =>
-                    ref.read(searchProvider.notifier).clearRecentSearches(),
-                child: const Text(
-                  'Clear all',
-                  style: TextStyle(
-                    color: AppColors.primary,
-                    fontSize: 14,
-                    fontWeight: FontWeight.w500,
-                  ),
+              const Text('Recent', style: TextStyle(fontWeight: FontWeight.bold, fontSize: 16)),
+              BouncyTap(
+                onTap: () => ref.read(searchProvider.notifier).clearRecentSearches(),
+                child: const Padding(
+                  padding: EdgeInsets.symmetric(horizontal: 8, vertical: 4),
+                  child: Text('See All', style: TextStyle(color: AppColors.primary, fontSize: 14, fontWeight: FontWeight.w600)),
                 ),
               ),
             ],
           ),
         ),
-        ...searchState.recentSearches.map(
-          (search) => ListTile(
-            leading: Container(
-              width: 44,
-              height: 44,
-              decoration: BoxDecoration(
-                shape: BoxShape.circle,
-                color: AppColors.border.withOpacity(0.5),
+        ...state.recentSearches.map((s) => BouncyTap(
+              onTap: () => _searchController.text = s,
+              child: ListTile(
+                leading: const CircleAvatar(radius: 22, backgroundColor: AppColors.border, child: Icon(CupertinoIcons.search, size: 20, color: Colors.grey)),
+                title: Text(s, style: const TextStyle(fontSize: 15, fontWeight: FontWeight.w500)),
+                trailing: const Icon(CupertinoIcons.xmark, size: 14, color: Colors.grey),
               ),
-              child: const Icon(
-                Icons.history,
-                color: AppColors.textSecondary,
-                size: 22,
-              ),
-            ),
-            title: Text(
-              search,
-              style: const TextStyle(fontSize: 14, fontWeight: FontWeight.w500),
-            ),
-            trailing: GestureDetector(
-              onTap: () =>
-                  ref.read(searchProvider.notifier).removeRecentSearch(search),
-              child: const Icon(
-                Icons.close,
-                size: 18,
-                color: AppColors.textSecondary,
-              ),
-            ),
-            onTap: () {
-              _searchController.text = search;
-              ref.read(searchProvider.notifier).onQueryChanged(search);
-            },
-            contentPadding: const EdgeInsets.symmetric(horizontal: 16),
-          ),
-        ),
-        const Divider(height: 1, color: AppColors.border),
+            )),
       ],
     );
   }
-}
 
-// ─── USER SEARCH RESULT ─────────────────────────────────────
-class _UserSearchResult extends ConsumerWidget {
-  final Map<String, dynamic> user;
-  final VoidCallback onTap;
+  Widget _buildSearchResults(SearchState state, bool isDark) {
+    if (state.isLoadingResults) return const Center(child: CupertinoActivityIndicator());
 
-  const _UserSearchResult({required this.user, required this.onTap});
-
-  @override
-  Widget build(BuildContext context, WidgetRef ref) {
-    final userId = user['id'] as String? ?? '';
-    final username = user['username'] as String? ?? '';
-    final fullName = user['full_name'] as String? ?? '';
-    final profilePicUrl = user['profile_pic_url'] as String?;
-    final isVerified = user['is_verified'] as bool? ?? false;
-    final isPrivate = user['is_private'] as bool? ?? false;
-    final bio = user['bio'] as String? ?? '';
-
-    return InkWell(
-      onTap: onTap,
-      child: Padding(
-        padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 10),
-        child: Row(
+    if (_selectedTabIndex != 1) {
+      final tabs = ['Top', 'Accounts', 'Audio', 'Tags', 'Places', 'Reels'];
+      return Center(
+        child: Column(
+          mainAxisAlignment: MainAxisAlignment.center,
           children: [
-            // Avatar
-            Container(
-              width: 52,
-              height: 52,
-              decoration: const BoxDecoration(
-                shape: BoxShape.circle,
-                color: AppColors.border,
-              ),
-              child: ClipOval(
-                child: profilePicUrl != null
-                    ? CachedNetworkImage(
-                        imageUrl: profilePicUrl,
-                        fit: BoxFit.cover,
-                        errorWidget: (_, __, ___) => _defaultAvatar(username),
-                      )
-                    : _defaultAvatar(username),
-              ),
+            Icon(CupertinoIcons.search, size: 48, color: AppColors.textSecondary.withValues(alpha: 0.5)),
+            const SizedBox(height: 16),
+            Text(
+              'Search for ${tabs[_selectedTabIndex]}',
+              style: const TextStyle(fontSize: 18, fontWeight: FontWeight.w600),
             ),
-
-            const SizedBox(width: 12),
-
-            // Info
-            Expanded(
-              child: Column(
-                crossAxisAlignment: CrossAxisAlignment.start,
-                children: [
-                  Row(
-                    children: [
-                      Text(
-                        username,
-                        style: const TextStyle(
-                          fontWeight: FontWeight.w600,
-                          fontSize: 14,
-                          color: AppColors.textPrimary,
-                        ),
-                      ),
-                      if (isVerified) ...[
-                        const SizedBox(width: 4),
-                        const Icon(
-                          Icons.verified,
-                          size: 14,
-                          color: AppColors.primary,
-                        ),
-                      ],
-                      if (isPrivate) ...[
-                        const SizedBox(width: 4),
-                        const Icon(
-                          Icons.lock,
-                          size: 12,
-                          color: AppColors.textSecondary,
-                        ),
-                      ],
-                    ],
-                  ),
-                  if (fullName.isNotEmpty)
-                    Text(
-                      fullName,
-                      style: const TextStyle(
-                        color: AppColors.textSecondary,
-                        fontSize: 13,
-                      ),
-                    ),
-                  if (bio.isNotEmpty)
-                    Text(
-                      bio,
-                      maxLines: 1,
-                      overflow: TextOverflow.ellipsis,
-                      style: const TextStyle(
-                        color: AppColors.textSecondary,
-                        fontSize: 12,
-                      ),
-                    ),
-                ],
-              ),
+            const SizedBox(height: 8),
+            const Text(
+              'Coming soon in the next update.',
+              style: TextStyle(fontSize: 14, color: AppColors.textSecondary),
             ),
-
-            const SizedBox(width: 8),
-
-            // Follow button
-            FollowButton(targetUserId: userId, compact: true),
           ],
         ),
-      ),
-    );
-  }
+      );
+    }
 
-  Widget _defaultAvatar(String username) {
-    return Container(
-      color: AppColors.border,
-      child: Center(
-        child: Text(
-          username.isNotEmpty ? username[0].toUpperCase() : '?',
-          style: const TextStyle(
-            fontSize: 20,
-            fontWeight: FontWeight.bold,
-            color: AppColors.textSecondary,
-          ),
-        ),
-      ),
+    if (state.userResults.isEmpty) {
+      return const Center(child: Text('No accounts found', style: TextStyle(color: AppColors.textSecondary)));
+    }
+
+    return ListView.builder(
+      itemCount: state.userResults.length,
+      itemBuilder: (context, index) {
+        final user = state.userResults[index];
+        return _UserResultTile(user: user);
+      },
     );
   }
 }
 
-// ─── EXPLORE GRID ────────────────────────────────────────────
-class _ExploreGrid extends StatelessWidget {
-  final List<Map<String, dynamic>> posts;
-
-  const _ExploreGrid({required this.posts});
-
-  @override
-  Widget build(BuildContext context) {
-    if (posts.isEmpty) return const SliverToBoxAdapter();
-
-    // Build masonry-style grid
-    // Pattern: [small, small, large] repeating
-    return SliverGrid(
-      gridDelegate: const SliverGridDelegateWithFixedCrossAxisCount(
-        crossAxisCount: 3,
-        crossAxisSpacing: 2,
-        mainAxisSpacing: 2,
-        childAspectRatio: 1,
-      ),
-      delegate: SliverChildBuilderDelegate((context, index) {
-        if (index >= posts.length) return null;
-        final post = posts[index];
-        return _ExploreGridItem(post: post);
-      }, childCount: posts.length),
-    );
-  }
-}
-
-// ─── EXPLORE GRID ITEM ───────────────────────────────────────
-class _ExploreGridItem extends StatelessWidget {
+class _ExploreItem extends StatelessWidget {
   final Map<String, dynamic> post;
-
-  const _ExploreGridItem({required this.post});
+  const _ExploreItem({required this.post});
 
   @override
   Widget build(BuildContext context) {
-    final postId = post['id'] as String? ?? '';
-    final thumbnailUrl = post['thumbnail_url'] as String?;
-    final mediaType = post['media_type'] as String? ?? 'image';
-
-    return GestureDetector(
-      onTap: () => context.pushIfNotCurrent('/post/$postId'),
+    return BouncyTap(
+      onLongPress: () => _showIOSPeak(context),
+      onTap: () => context.push('/post/${post['id']}'),
       child: Stack(
         fit: StackFit.expand,
         children: [
-          // Thumbnail
-          thumbnailUrl != null
-              ? CachedNetworkImage(
-                  imageUrl: thumbnailUrl,
-                  fit: BoxFit.cover,
-                  placeholder: (_, __) => Container(color: AppColors.border),
-                  errorWidget: (_, __, ___) => Container(
-                    color: AppColors.border,
-                    child: const Icon(
-                      Icons.image_outlined,
-                      color: AppColors.textSecondary,
-                    ),
-                  ),
-                )
-              : Container(
-                  color: AppColors.border,
-                  child: const Icon(
-                    Icons.image_outlined,
-                    color: AppColors.textSecondary,
-                  ),
-                ),
+          CachedNetworkImage(
+            imageUrl: post['thumbnail_url'] ?? '',
+            fit: BoxFit.cover,
+            placeholder: (context, url) => Container(color: Colors.grey[200]),
+          ),
+          if (post['media_type'] == 'video')
+            const Positioned(top: 8, right: 8, child: Icon(CupertinoIcons.play_fill, color: Colors.white, size: 18)),
+        ],
+      ),
+    );
+  }
 
-          // Video indicator
-          if (mediaType == 'video')
-            const Positioned(
-              top: 6,
-              right: 6,
-              child: Icon(
-                Icons.play_circle_fill,
-                color: Colors.white,
-                size: 20,
-                shadows: [Shadow(color: Colors.black54, blurRadius: 4)],
+  void _showIOSPeak(BuildContext context) {
+    HapticFeedback.heavyImpact();
+    showGeneralDialog(
+      context: context,
+      barrierDismissible: true,
+      barrierLabel: '',
+      barrierColor: Colors.black54,
+      transitionDuration: const Duration(milliseconds: 200),
+      pageBuilder: (ctx, anim1, anim2) {
+        return BackdropFilter(
+          filter: ImageFilter.blur(sigmaX: 20, sigmaY: 20),
+          child: Center(
+            child: ScaleTransition(
+              scale: CurvedAnimation(parent: anim1, curve: Curves.easeOut),
+              child: Container(
+                width: MediaQuery.of(context).size.width * 0.9,
+                decoration: BoxDecoration(color: Colors.white, borderRadius: BorderRadius.circular(16)),
+                child: Column(
+                  mainAxisSize: MainAxisSize.min,
+                  children: [
+                    ListTile(
+                      leading: const CircleAvatar(radius: 14, backgroundColor: AppColors.border),
+                      title: Text(post['username'] ?? 'username', style: const TextStyle(fontWeight: FontWeight.w600, fontSize: 14)),
+                    ),
+                    CachedNetworkImage(imageUrl: post['thumbnail_url'] ?? '', fit: BoxFit.cover, height: 350, width: double.infinity),
+                    const Padding(
+                      padding: EdgeInsets.symmetric(vertical: 12),
+                      child: Row(
+                        mainAxisAlignment: MainAxisAlignment.spaceAround,
+                        children: [
+                          Icon(CupertinoIcons.heart, size: 24),
+                          Icon(CupertinoIcons.person_circle, size: 24),
+                          Icon(CupertinoIcons.paperplane, size: 24),
+                          Icon(CupertinoIcons.ellipsis, size: 24),
+                        ],
+                      ),
+                    ),
+                  ],
+                ),
               ),
             ),
-        ],
+          ),
+        );
+      },
+    );
+  }
+}
+
+class _UserResultTile extends StatelessWidget {
+  final Map<String, dynamic> user;
+  const _UserResultTile({required this.user});
+
+  @override
+  Widget build(BuildContext context) {
+    return BouncyTap(
+      onTap: () => context.push('/profile/${user['username']}'),
+      child: ListTile(
+        contentPadding: const EdgeInsets.symmetric(horizontal: 16, vertical: 4),
+        leading: CircleAvatar(
+          radius: 22,
+          backgroundImage: user['profile_pic_url'] != null ? CachedNetworkImageProvider(user['profile_pic_url']) : null,
+          backgroundColor: Theme.of(context).brightness == Brightness.dark
+              ? AppColors.darkShimmerBase
+              : AppColors.shimmerBase,
+        ),
+        title: Row(
+          children: [
+            Text(user['username'] ?? '', style: const TextStyle(fontWeight: FontWeight.w600, fontSize: 14)),
+            if (user['is_verified'] == true) ...[
+              const SizedBox(width: 4),
+              const Icon(CupertinoIcons.checkmark_seal_fill, color: AppColors.verified, size: 14),
+            ],
+          ],
+        ),
+        subtitle: Text(
+          user['full_name'] ?? '',
+          style: TextStyle(
+            color: Theme.of(context).brightness == Brightness.dark
+                ? AppColors.darkTextSecondary
+                : AppColors.textSecondary,
+            fontSize: 14,
+          ),
+        ),
+        trailing: user['is_own_profile'] == true ? null : FollowButton(targetUserId: user['id'] ?? '', compact: true),
       ),
     );
   }

@@ -14,7 +14,8 @@ extension SafeGoRouterNavigation on BuildContext {
   }
 
   bool _isShellRoute(String location) {
-    return location == '/home' ||
+    return location == '/main' ||
+        location == '/home' ||
         location == '/search' ||
         location == '/reels' ||
         location == '/notifications' ||

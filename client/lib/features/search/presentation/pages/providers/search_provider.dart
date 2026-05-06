@@ -231,6 +231,15 @@ class SearchNotifier extends Notifier<SearchState> {
     }
   }
 
+  // ─── REFRESH EXPLORE ───────────────────────────────────
+  Future<void> refreshExplore() async {
+    state = state.copyWith(
+      explorePage: 1,
+      hasMoreExplore: true,
+    );
+    await loadExplorePosts();
+  }
+
   // ─── LOAD MORE EXPLORE ───────────────────────────────────
   Future<void> loadMoreExplore() async {
     if (state.isLoadingExplore || !state.hasMoreExplore) return;

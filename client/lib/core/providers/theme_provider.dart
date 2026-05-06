@@ -26,6 +26,17 @@ class ThemeState {
   }
 
   bool get isDark => themeMode == ThemeMode.dark;
+
+  String get themeModeLabel {
+    switch (themeMode) {
+      case ThemeMode.dark:
+        return 'Dark mode';
+      case ThemeMode.light:
+        return 'Light mode';
+      case ThemeMode.system:
+        return 'System default';
+    }
+  }
 }
 
 // ─── THEME NOTIFIER ─────────────────────────────────────────
@@ -63,10 +74,10 @@ class ThemeNotifier extends StateNotifier<ThemeState> {
   }
 
   // ─── TOGGLE DARK MODE ────────────────────────────────────
-  Future<void> toggleDarkMode() async {
-    final newMode = state.isDark
-        ? ThemeMode.light
-        : ThemeMode.dark;
+  Future<void> toggleDarkMode([bool? force]) async {
+    final newMode = force != null
+        ? (force ? ThemeMode.dark : ThemeMode.light)
+        : (state.isDark ? ThemeMode.light : ThemeMode.dark);
 
     await _saveTheme(newMode);
 

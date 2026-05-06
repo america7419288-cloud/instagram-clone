@@ -1,6 +1,8 @@
 // server/src/services/notification.service.js
 
+const { v4: uuidv4 } = require('uuid');
 const { Notification, Post, PostMedia, User } = require('../models');
+const { sendPushNotification } = require('./push.service');
 
 // ─── HELPER: Get post thumbnail ────────────────────────────
 const getPostThumbnail = async (postId) => {
@@ -23,95 +25,68 @@ const createNotification = async ({
   recipientId,
   senderId,
   type,
-  referencePostId = null,
-  referenceCommentId = null,
+  postId = null,
+  commentId = null,
+  storyId = null,
   reelId = null,
-  referenceStoryId = null,
   message = null,
 }) => {
   try {
-    // 1. Don't notify yourself
+    // ─── Never notify yourself ─────────────────────────
     if (recipientId === senderId) return null;
 
-    // 2. Build message if not provided
-    if (!message) {
-      const sender = await User.findByPk(senderId, {
-        attributes: ['username'],
-      });
-      if (!sender) return null;
-
-      switch (type) {
-        case 'like':
-          message = `${sender.username} liked your photo.`;
-          break;
-        case 'comment':
-          message = `${sender.username} commented on your photo.`;
-          break;
-        case 'reply':
-          message = `${sender.username} replied to your comment.`;
-          break;
-        case 'follow':
-          message = `${sender.username} started following you.`;
-          break;
-        case 'follow_request':
-          message = `${sender.username} requested to follow you.`;
-          break;
-        case 'follow_accept':
-          message = `${sender.username} accepted your follow request.`;
-          break;
-        case 'mention_post':
-          message = `${sender.username} mentioned you in a post.`;
-          break;
-        case 'mention_comment':
-          message = `${sender.username} mentioned you in a comment.`;
-          break;
-        case 'comment_like':
-          message = `${sender.username} liked your comment.`;
-          break;
-        case 'reel_like':
-          message = `${sender.username} liked your reel.`;
-          break;
-        case 'reel_comment':
-          message = `${sender.username} commented on your reel.`;
-          break;
-        default:
-          message = `${sender.username} interacted with you.`;
-      }
-    }
-
-    // 3. Check for recent duplicate (same user, same type, same content)
-    const recentDuplicate = await Notification.findOne({
-      where: {
-        recipientId: recipientId,
-        senderId: senderId,
-        type,
-        ...(referencePostId && { postId: referencePostId }),
-        ...(reelId && { reelId: reelId }),
-        ...(referenceCommentId && { commentId: referenceCommentId }),
-      },
-    });
-
-    if (recentDuplicate) {
-      await recentDuplicate.update({ isRead: false, createdAt: new Date() });
-      return recentDuplicate;
-    }
-
-    // 4. Create notification
+    // ─── Create DB notification ────────────────────────
     const notification = await Notification.create({
-      recipientId: recipientId,
-      senderId: senderId,
+      id: uuidv4(),
+      recipientId,
+      senderId,
       type,
-      postId: referencePostId,
-      commentId: referenceCommentId,
-      storyId: referenceStoryId,
-      reelId: reelId,
+      postId,
+      commentId,
+      storyId,
+      reelId,
       message,
       isRead: false,
     });
 
+    // ─── Fetch sender + recipient for push ────────────
+    const [sender, recipient] = await Promise.all([
+      User.findByPk(senderId, {
+        attributes: ['id', 'username', 'profile_pic_url'],
+      }),
+      User.findByPk(recipientId, {
+        attributes: ['id', 'fcmToken'],
+      }),
+    ]);
+
+    // ─── Send push notification ────────────────────────
+    if (sender && recipient?.fcmToken) {
+      const pushResult = await sendPushNotification({
+        fcmToken: recipient.fcmToken,
+        type,
+        senderUsername: sender.username,
+        extra: {
+          postId: postId || '',
+          commentId: commentId || '',
+          storyId: storyId || '',
+          senderUsername: sender.username,
+        },
+      });
+
+      // ─── Clear invalid token from DB ────────────────
+      if (pushResult === 'invalid_token') {
+        await User.update(
+          { fcmToken: null },
+          { where: { id: recipientId } }
+        );
+        console.log(`🗑️ Cleared invalid FCM token for user ${recipientId}`);
+      }
+    }
+
     return notification;
   } catch (error) {
-    console.error('❌ Create notification error:', error.message);
+    // ─── Non-fatal: log but don't throw ───────────────
+    console.error('❌ createNotification error:', error.message);
     return null;
   }
 };
@@ -127,7 +102,7 @@ const notifyLike = async (senderId, postId) => {
       recipientId: post.userId,
       senderId,
       type: 'like',
-      referencePostId: postId,
+      postId,
     });
   } catch (error) {
     console.error('Notify like error:', error.message);
@@ -145,8 +120,8 @@ const notifyComment = async (senderId, postId, commentId) => {
       recipientId: post.userId,
       senderId,
       type: 'comment',
-      referencePostId: postId,
-      referenceCommentId: commentId,
+      postId,
+      commentId,
     });
   } catch (error) {
     console.error('Notify comment error:', error.message);
@@ -161,8 +136,8 @@ const notifyReply = async (senderId, commentId, postId, originalCommentUserId) =
       recipientId: originalCommentUserId,
       senderId,
       type: 'reply',
-      referencePostId: postId,
-      referenceCommentId: commentId,
+      postId,
+      commentId,
     });
   } catch (error) {
     console.error('Notify reply error:', error.message);
@@ -224,8 +199,8 @@ const notifyCommentLike = async (
       recipientId: commentOwnerId,
       senderId,
       type: 'comment_like',
-      referencePostId: postId,
-      referenceCommentId: commentId,
+      postId,
+      commentId,
     });
   } catch (error) {
     console.error('Notify comment like error:', error.message);
@@ -244,7 +219,7 @@ const notifyMentionInPost = async (
       recipientId,
       senderId,
       type: 'mention_post',
-      referencePostId: postId,
+      postId,
     });
   } catch (error) {
     console.error('Notify mention post error:', error.message);
@@ -264,8 +239,8 @@ const notifyMentionInComment = async (
       recipientId,
       senderId,
       type: 'mention_comment',
-      referencePostId: postId,
-      referenceCommentId: commentId,
+      postId,
+      commentId,
     });
   } catch (error) {
     console.error('Notify mention comment error:', error.message);
@@ -317,8 +292,58 @@ const processMentions = async (
   }
 };
 
+// ─────────────────────────────────────────────────────
+// CREATE MESSAGE NOTIFICATION
+// Special handler for DM push notifications
+// ─────────────────────────────────────────────────────
+const createMessageNotification = async ({
+  recipientId,
+  senderId,
+  conversationId,
+  messageText,
+}) => {
+  try {
+    if (recipientId === senderId) return;
+
+    // ─── Fetch sender + recipient ──────────────────────
+    const [sender, recipient] = await Promise.all([
+      User.findByPk(senderId, {
+        attributes: ['id', 'username'],
+      }),
+      User.findByPk(recipientId, {
+        attributes: ['id', 'fcmToken'],
+      }),
+    ]);
+
+    if (!sender || !recipient?.fcmToken) return;
+
+    // ─── Send push (no DB notification for messages) ──
+    const pushResult = await sendPushNotification({
+      fcmToken: recipient.fcmToken,
+      type: 'message',
+      senderUsername: sender.username,
+      extra: {
+        messageText,
+        conversationId,
+        senderUsername: sender.username,
+      },
+    });
+
+    // ─── Clear invalid token ───────────────────────────
+    if (pushResult === 'invalid_token') {
+      await User.update(
+        { fcmToken: null },
+        { where: { id: recipientId } }
+      );
+    }
+  } catch (error) {
+    console.error('❌ createMessageNotification error:', error.message);
+  }
+};
+
 module.exports = {
   createNotification,
+  createMessageNotification,
   notifyLike,
   notifyComment,
   notifyReply,

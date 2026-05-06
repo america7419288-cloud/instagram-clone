@@ -74,6 +74,10 @@ const User = sequelize.define(
                 }
             }
         },
+        fcmToken: {
+            type: DataTypes.TEXT,
+            allowNull: true, 
+        },
         bio: {
             type: DataTypes.STRING(255),
             allowNull: true,
@@ -104,54 +108,54 @@ const User = sequelize.define(
             ),
             allowNull: true,
         },
-       website: {
-        type: DataTypes.STRING(255),
-        allowNull: true,
-        validate: {
-            isUrl: {
-                msg: 'Please provide a valid url'
+        website: {
+            type: DataTypes.STRING(255),
+            allowNull: true,
+            validate: {
+                isUrl: {
+                    msg: 'Please provide a valid url'
                 }
             }
-       },
-       is_private: {
+        },
+        is_private: {
             type: DataTypes.BOOLEAN,
-          defaultValue: false,
-          allowNull: false,
-       },
-       is_verified: {
+            defaultValue: false,
+            allowNull: false,
+        },
+        is_verified: {
             type: DataTypes.BOOLEAN,
-          defaultValue: false,
-          allowNull: false,
-       },
+            defaultValue: false,
+            allowNull: false,
+        },
 
-       is_active: {
-        type: DataTypes.BOOLEAN,
-        defaultValue: true,
-        allowNull: false,
-       },
+        is_active: {
+            type: DataTypes.BOOLEAN,
+            defaultValue: true,
+            allowNull: false,
+        },
 
-       is_banned: {
-        type: DataTypes.BOOLEAN,
-        defaultValue: false,
-        allowNull: false,
-       },
+        is_banned: {
+            type: DataTypes.BOOLEAN,
+            defaultValue: false,
+            allowNull: false,
+        },
 
-       google_id: {
-        type: DataTypes.STRING(255),
-        allowNull: true,
-        unique: true,
-       },
+        google_id: {
+            type: DataTypes.STRING(255),
+            allowNull: true,
+            unique: true,
+        },
 
-       facebook_id: {
-        type: DataTypes.STRING(255),
-        allowNull: true,
-        unique: true,
-       },
+        facebook_id: {
+            type: DataTypes.STRING(255),
+            allowNull: true,
+            unique: true,
+        },
 
-       last_active_at: {
-        type: DataTypes.DATE,
-        defaultValue: DataTypes.NOW,
-       },
+        last_active_at: {
+            type: DataTypes.DATE,
+            defaultValue: DataTypes.NOW,
+        },
     },
 
     {
@@ -198,4 +202,4 @@ const User = sequelize.define(
         }
     });
 
-    module.exports = User;
+module.exports = User;

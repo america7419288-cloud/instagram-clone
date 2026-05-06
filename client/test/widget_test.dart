@@ -12,7 +12,7 @@ import 'package:instagram_clinet/main.dart';
 
 void main() {
   testWidgets('App renders smoke test', (WidgetTester tester) async {
-    await tester.pumpWidget(const ProviderScope(child: MyApp()));
+    await tester.pumpWidget(const ProviderScope(child: InstagramCloneApp()));
 
     expect(find.text('Sign up'), findsOneWidget);
   });

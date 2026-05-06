@@ -467,3 +467,4 @@ final chatProvider =
       (ref, conversationId) =>
           ChatNotifier(ref.watch(messageServiceProvider), conversationId, ref),
     );
+

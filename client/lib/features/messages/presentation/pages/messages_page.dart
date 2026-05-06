@@ -2,10 +2,13 @@
 
 import 'package:cached_network_image/cached_network_image.dart';
 import 'package:flutter/material.dart';
+import 'package:flutter/cupertino.dart';
 import 'package:flutter/services.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
+import 'package:phosphor_flutter/phosphor_flutter.dart';
 import 'package:go_router/go_router.dart';
 import 'package:timeago/timeago.dart' as timeago;
+import '../../../../shared/widgets/spring_widget.dart';
 
 import '../../../../core/router/app_router.dart';
 import '../../../../core/theme/app_theme.dart';
@@ -15,73 +18,213 @@ import '../../../../shared/widgets/error_view.dart';
 import '../../data/models/conversation_model.dart';
 import '../providers/message_provider.dart';
 
-class MessagesPage extends ConsumerWidget {
+class MessagesPage extends ConsumerStatefulWidget {
   const MessagesPage({super.key});
 
   @override
-  Widget build(BuildContext context, WidgetRef ref) {
+  ConsumerState<MessagesPage> createState() => _MessagesPageState();
+}
+
+class _MessagesPageState extends ConsumerState<MessagesPage>
+    with SingleTickerProviderStateMixin {
+  late TabController _tabController;
+
+  @override
+  void initState() {
+    super.initState();
+    _tabController = TabController(length: 2, vsync: this);
+  }
+
+  @override
+  void dispose() {
+    _tabController.dispose();
+    super.dispose();
+  }
+
+  @override
+  Widget build(BuildContext context) {
     final inboxState = ref.watch(inboxProvider);
     final currentUser = ref.watch(currentUserProvider);
 
-    return Scaffold(
-      backgroundColor: AppColors.white,
-      appBar: AppBar(
-        backgroundColor: AppColors.white,
-        elevation: 0,
-        scrolledUnderElevation: 0,
-        title: Text(
-          currentUser?.username ?? 'Messages',
-          style: const TextStyle(
-            color: AppColors.textPrimary,
-            fontWeight: FontWeight.bold,
-            fontSize: 18,
+    final isDark = Theme.of(context).brightness == Brightness.dark;
+    final bgColor = isDark ? Colors.black : Colors.white;
+
+    return CupertinoPageScaffold(
+      backgroundColor: bgColor,
+      navigationBar: CupertinoNavigationBar(
+        transitionBetweenRoutes: false,
+        backgroundColor: bgColor,
+        border: Border(
+          bottom: BorderSide(
+            color: Colors.grey.withValues(alpha: 0.3),
+            width: 0.33,
           ),
         ),
-        actions: [
-          IconButton(
-            onPressed: () => context.push(AppRoutes.newMessage),
-            icon: const Icon(
-              Icons.edit_outlined,
-              color: AppColors.textPrimary,
-              size: 24,
+        leading: Navigator.canPop(context)
+            ? BouncyTap(
+                onTap: () => context.pop(),
+                child: Padding(
+                  padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 10),
+                  child: Icon(
+                    PhosphorIcons.caretLeft(),
+                    color: AppColors.textPrimary,
+                    size: 24,
+                  ),
+                ),
+              )
+            : null,
+        middle: Row(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            Text(
+              currentUser?.username ?? 'Messages',
+              style: const TextStyle(
+                color: AppColors.textPrimary,
+                fontWeight: FontWeight.w600,
+                fontSize: 17,
+                fontFamily: 'SF Pro Display',
+              ),
             ),
+            const SizedBox(width: 4),
+            Icon(
+              PhosphorIcons.caretDown(),
+              color: AppColors.textPrimary,
+              size: 16,
+            ),
+          ],
+        ),
+        trailing: BouncyTap(
+          onTap: () => context.push(AppRoutes.newMessage),
+          child: Icon(
+            PhosphorIcons.notePencil(),
+            color: AppColors.textPrimary,
+            size: 24,
           ),
-        ],
+        ),
       ),
-      body: RefreshIndicator(
-        onRefresh: () async {
-          HapticFeedback.lightImpact();
-          await ref.read(inboxProvider.notifier).refresh();
-        },
-        color: AppColors.primary,
-        displacement: 60,
-        strokeWidth: 2.5,
-        child: inboxState.isLoading
-            ? const _InboxSkeleton()
-            : inboxState.errorMessage != null &&
-                  inboxState.conversations.isEmpty
-            ? ListView(
-                physics: const AlwaysScrollableScrollPhysics(),
+      child: Material(
+        color: isDark ? Colors.black : Colors.white,
+        child: SafeArea(
+          child: Column(
+            children: [
+            // Search bar
+            Padding(
+              padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
+              child: BouncyTap(
+                onTap: () {
+                  // TODO: Open search
+                },
+                child: Container(
+                  height: 36,
+                  decoration: BoxDecoration(
+                    color: AppColors.shimmerBase,
+                    borderRadius: BorderRadius.circular(10),
+                  ),
+                  child: Row(
+                    children: [
+                      const SizedBox(width: 12),
+                      Icon(
+                        PhosphorIcons.magnifyingGlass(),
+                        color: AppColors.textSecondary,
+                        size: 18,
+                      ),
+                      const SizedBox(width: 8),
+                      Expanded(
+                        child: Text(
+                          'Search',
+                          style: TextStyle(
+                            fontSize: 15,
+                            color: AppColors.textSecondary,
+                          ),
+                        ),
+                      ),
+                    ],
+                  ),
+                ),
+              ),
+            ),
+
+            // Primary/General tabs
+            Padding(
+              padding: const EdgeInsets.symmetric(horizontal: 16),
+              child: Row(
                 children: [
-                  ErrorView(
-                    message: inboxState.errorMessage!,
-                    onRetry: () => ref.read(inboxProvider.notifier).loadInbox(),
+                  Expanded(
+                    child: TabBar(
+                      controller: _tabController,
+                      isScrollable: true,
+                      tabAlignment: TabAlignment.start,
+                      padding: EdgeInsets.zero,
+                      indicatorColor: AppColors.textPrimary,
+                      indicatorWeight: 1,
+                      indicatorSize: TabBarIndicatorSize.label,
+                      labelColor: AppColors.textPrimary,
+                      unselectedLabelColor: AppColors.textSecondary,
+                      labelStyle: const TextStyle(
+                        fontSize: 14,
+                        fontWeight: FontWeight.w600,
+                      ),
+                      unselectedLabelStyle: const TextStyle(
+                        fontSize: 14,
+                        fontWeight: FontWeight.normal,
+                      ),
+                      tabs: const [
+                        Tab(text: 'Primary'),
+                        Tab(text: 'General'),
+                      ],
+                      dividerColor: Colors.transparent,
+                    ),
+                  ),
+                  BouncyTap(
+                    onTap: () {},
+                    child: const Padding(
+                      padding: EdgeInsets.symmetric(vertical: 10),
+                      child: Text(
+                        'Requests',
+                        style: TextStyle(
+                          color: AppColors.primary,
+                          fontSize: 14,
+                          fontWeight: FontWeight.w400,
+                        ),
+                      ),
+                    ),
                   ),
                 ],
-              )
-            : inboxState.conversations.isEmpty
-            ? ListView(
-                physics: const AlwaysScrollableScrollPhysics(),
-                children: const [
-                  SizedBox(height: 60),
-                  EmptyState.messages(),
-                ],
-              )
-            : _buildConversationList(
-                context,
-                inboxState.conversations,
-                currentUser?.id ?? '',
               ),
+            ),
+            const SizedBox(height: 8),
+
+            // Content
+            Expanded(
+              child: inboxState.isLoading
+                  ? const _InboxSkeleton()
+                  : inboxState.errorMessage != null && inboxState.conversations.isEmpty
+                      ? ListView(
+                          physics: const AlwaysScrollableScrollPhysics(),
+                          children: [
+                            ErrorView(
+                              message: inboxState.errorMessage!,
+                              onRetry: () => ref.read(inboxProvider.notifier).loadInbox(),
+                            ),
+                          ],
+                        )
+                      : inboxState.conversations.isEmpty
+                          ? ListView(
+                              physics: const AlwaysScrollableScrollPhysics(),
+                              children: const [
+                                SizedBox(height: 60),
+                                EmptyState.messages(),
+                              ],
+                            )
+                          : _buildConversationList(
+                              context,
+                              inboxState.conversations,
+                              currentUser?.id ?? '',
+                            ),
+            ),
+          ],
+        ),
+      ),
       ),
     );
   }
@@ -92,7 +235,7 @@ class MessagesPage extends ConsumerWidget {
     String currentUserId,
   ) {
     return ListView.builder(
-      physics: const AlwaysScrollableScrollPhysics(),
+      physics: const BouncingScrollPhysics(),
       itemCount: conversations.length,
       itemBuilder: (context, index) {
         return _ConversationTile(
@@ -126,96 +269,153 @@ class _ConversationTile extends StatelessWidget {
         : '';
     final hasUnread = conversation.unreadCount > 0;
 
-    return InkWell(
-      onTap: onTap,
-      child: Padding(
-        padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 10),
+    return Dismissible(
+      key: Key(conversation.id),
+      direction: DismissDirection.horizontal,
+      background: Container(
+        alignment: Alignment.centerLeft,
+        padding: const EdgeInsets.only(left: 20),
+        color: Colors.grey[300],
         child: Row(
           children: [
-            _buildAvatar(),
-            const SizedBox(width: 12),
-            Expanded(
+            Column(
+              mainAxisSize: MainAxisSize.min,
+              children: [
+                Icon(PhosphorIcons.pushPin(), color: Colors.white),
+                const SizedBox(height: 4),
+                const Text(
+                  'Pin',
+                  style: TextStyle(color: Colors.white, fontSize: 12),
+                ),
+              ],
+            ),
+          ],
+        ),
+      ),
+      secondaryBackground: Container(
+        alignment: Alignment.centerRight,
+        padding: const EdgeInsets.only(right: 20),
+        child: Row(
+          mainAxisAlignment: MainAxisAlignment.end,
+          children: [
+            Column(
+              mainAxisSize: MainAxisSize.min,
+              children: [
+                Icon(PhosphorIcons.dotsThree(), color: Colors.white),
+                const SizedBox(height: 4),
+                const Text(
+                  'More',
+                  style: TextStyle(color: Colors.white, fontSize: 12),
+                ),
+              ],
+            ),
+            const SizedBox(width: 20),
+            Container(
+              color: Colors.red,
+              alignment: Alignment.center,
+              padding: const EdgeInsets.symmetric(horizontal: 20),
               child: Column(
-                crossAxisAlignment: CrossAxisAlignment.start,
+                mainAxisSize: MainAxisSize.min,
                 children: [
-                  Row(
-                    children: [
-                      Expanded(
-                        child: Text(
-                          conversation.displayName,
-                          style: TextStyle(
-                            fontWeight: hasUnread
-                                ? FontWeight.bold
-                                : FontWeight.w600,
-                            fontSize: 14,
-                            color: AppColors.textPrimary,
-                          ),
-                          maxLines: 1,
-                          overflow: TextOverflow.ellipsis,
-                        ),
-                      ),
-                      const SizedBox(width: 8),
-                      Text(
-                        timeText,
-                        style: TextStyle(
-                          fontSize: 12,
-                          color: hasUnread
-                              ? AppColors.textPrimary
-                              : AppColors.textSecondary,
-                          fontWeight: hasUnread
-                              ? FontWeight.w600
-                              : FontWeight.normal,
-                        ),
-                      ),
-                    ],
-                  ),
+                  Icon(PhosphorIcons.trash(), color: Colors.white),
                   const SizedBox(height: 4),
-                  Row(
-                    children: [
-                      Expanded(
-                        child: Text(
-                          conversation.lastMessage ?? 'Start a conversation',
-                          style: TextStyle(
-                            fontSize: 13,
-                            color: hasUnread
-                                ? AppColors.textPrimary
-                                : AppColors.textSecondary,
-                            fontWeight: hasUnread
-                                ? FontWeight.w500
-                                : FontWeight.normal,
-                          ),
-                          maxLines: 1,
-                          overflow: TextOverflow.ellipsis,
-                        ),
-                      ),
-                      if (hasUnread)
-                        Container(
-                          width: 20,
-                          height: 20,
-                          margin: const EdgeInsets.only(left: 8),
-                          decoration: const BoxDecoration(
-                            color: AppColors.textPrimary,
-                            shape: BoxShape.circle,
-                          ),
-                          child: Center(
-                            child: Text(
-                              conversation.unreadCount > 9
-                                  ? '9+'
-                                  : '${conversation.unreadCount}',
-                              style: const TextStyle(
-                                color: Colors.white,
-                                fontSize: 10,
-                                fontWeight: FontWeight.bold,
-                              ),
-                            ),
-                          ),
-                        ),
-                    ],
+                  const Text(
+                    'Delete',
+                    style: TextStyle(color: Colors.white, fontSize: 12),
                   ),
                 ],
               ),
             ),
           ],
+        ),
+      ),
+      child: BouncyTap(
+        onTap: onTap,
+        child: Padding(
+          padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 10),
+          child: Row(
+            children: [
+              _buildAvatar(),
+              const SizedBox(width: 12),
+              Expanded(
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Row(
+                      children: [
+                        Expanded(
+                          child: Text(
+                            conversation.displayName,
+                            style: TextStyle(
+                              fontWeight: hasUnread
+                                  ? FontWeight.w600
+                                  : FontWeight.w500,
+                              fontSize: 14,
+                              color: AppColors.textPrimary,
+                              fontFamily: 'SF Pro Text',
+                            ),
+                            maxLines: 1,
+                            overflow: TextOverflow.ellipsis,
+                          ),
+                        ),
+                        const SizedBox(width: 8),
+                        Text(
+                          timeText,
+                          style: TextStyle(
+                            fontSize: 13,
+                            color: hasUnread
+                                ? AppColors.textPrimary
+                                : AppColors.textSecondary,
+                            fontFamily: 'SF Pro Text',
+                          ),
+                        ),
+                      ],
+                    ),
+                    const SizedBox(height: 4),
+                    Row(
+                      children: [
+                        Expanded(
+                          child: Text(
+                            conversation.lastMessage ?? 'Start a conversation',
+                            style: TextStyle(
+                              fontSize: 13,
+                              color: hasUnread
+                                  ? AppColors.textPrimary
+                                  : AppColors.textSecondary,
+                              fontFamily: 'SF Pro Text',
+                            ),
+                            maxLines: 1,
+                            overflow: TextOverflow.ellipsis,
+                          ),
+                        ),
+                        if (hasUnread)
+                          Container(
+                            width: 8,
+                            height: 8,
+                            margin: const EdgeInsets.only(left: 8),
+                            decoration: const BoxDecoration(
+                              color: AppColors.primary,
+                              shape: BoxShape.circle,
+                            ),
+                          ),
+                      ],
+                    ),
+                  ],
+                ),
+              ),
+              const SizedBox(width: 12),
+              BouncyTap(
+                onTap: () {
+                  // TODO: Open camera
+                },
+                child: Icon(
+                  PhosphorIcons.camera(),
+                  color: AppColors.textPrimary,
+                  size: 24,
+                ),
+              ),
+            ],
+          ),
         ),
       ),
     );
@@ -302,3 +502,4 @@ class _InboxSkeleton extends StatelessWidget {
     );
   }
 }
+

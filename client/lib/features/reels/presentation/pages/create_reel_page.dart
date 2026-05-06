@@ -274,7 +274,7 @@ class _CreateReelPageState extends ConsumerState<CreateReelPage>
                   width: 100,
                   height: 100,
                   decoration: BoxDecoration(
-                    color: Colors.white.withOpacity(0.1),
+                    color: Colors.white.withValues(alpha: 0.1),
                     shape: BoxShape.circle,
                   ),
                   child: const Icon(
@@ -400,7 +400,7 @@ class _CreateReelPageState extends ConsumerState<CreateReelPage>
               vertical: 5,
             ),
             decoration: BoxDecoration(
-              color: Colors.black.withOpacity(0.55),
+              color: Colors.black.withValues(alpha: 0.55),
               borderRadius: BorderRadius.circular(20),
             ),
             child: Row(
@@ -444,8 +444,8 @@ class _CreateReelPageState extends ConsumerState<CreateReelPage>
           begin: Alignment.bottomCenter,
           end: Alignment.topCenter,
           colors: [
-            Colors.black.withOpacity(0.92),
-            Colors.black.withOpacity(0.6),
+            Colors.black.withValues(alpha: 0.92),
+            Colors.black.withValues(alpha: 0.6),
             Colors.transparent,
           ],
           stops: const [0.0, 0.6, 1.0],
@@ -524,10 +524,10 @@ class _CreateReelPageState extends ConsumerState<CreateReelPage>
   }) {
     return Container(
       decoration: BoxDecoration(
-        color: Colors.white.withOpacity(0.15),
+        color: Colors.white.withValues(alpha: 0.15),
         borderRadius: BorderRadius.circular(12),
         border: Border.all(
-          color: Colors.white.withOpacity(0.2),
+          color: Colors.white.withValues(alpha: 0.2),
           width: 0.5,
         ),
       ),
@@ -581,7 +581,7 @@ class _CreateReelPageState extends ConsumerState<CreateReelPage>
     final percent = (progress * 100).toInt();
 
     return Container(
-      color: Colors.black.withOpacity(0.75),
+      color: Colors.black.withValues(alpha: 0.75),
       child: Center(
         child: Column(
           mainAxisSize: MainAxisSize.min,
@@ -683,12 +683,12 @@ class _PickerOptionButton extends StatelessWidget {
           vertical: 14,
         ),
         decoration: BoxDecoration(
-          color: isPrimary ? AppColors.primary : Colors.white.withOpacity(0.12),
+          color: isPrimary ? AppColors.primary : Colors.white.withValues(alpha: 0.12),
           borderRadius: BorderRadius.circular(12),
           border: isPrimary
               ? null
               : Border.all(
-                  color: Colors.white.withOpacity(0.25),
+                  color: Colors.white.withValues(alpha: 0.25),
                   width: 0.5,
                 ),
         ),
@@ -732,10 +732,10 @@ class _GlassIconButton extends StatelessWidget {
         width: 40,
         height: 40,
         decoration: BoxDecoration(
-          color: Colors.black.withOpacity(0.45),
+          color: Colors.black.withValues(alpha: 0.45),
           shape: BoxShape.circle,
           border: Border.all(
-            color: Colors.white.withOpacity(0.15),
+            color: Colors.white.withValues(alpha: 0.15),
             width: 0.5,
           ),
         ),

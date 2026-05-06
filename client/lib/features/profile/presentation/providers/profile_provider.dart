@@ -1,7 +1,7 @@
 // lib/features/profile/presentation/providers/profile_provider.dart
 
 import 'dart:async';
-import 'dart:io';
+import 'package:image_picker/image_picker.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_riverpod/legacy.dart';
 import '../../data/models/profile_model.dart';
@@ -204,7 +204,7 @@ class ProfileNotifier extends StateNotifier<ProfileState> {
   }
 
   // ─── UPDATE PROFILE PICTURE ──────────────────────────────
-  Future<bool> updateProfilePicture(File imageFile) async {
+  Future<bool> updateProfilePicture(XFile imageFile) async {
     if (!mounted) return false;
     state = state.copyWith(isSaving: true);
 
@@ -236,6 +236,17 @@ class ProfileNotifier extends StateNotifier<ProfileState> {
       ),
     );
   }
+
+  // ─── REMOVE POST FROM STATE ──────────────────────────────
+  void removePost(String postId) {
+    if (!mounted) return;
+    state = state.copyWith(
+      posts: state.posts.where((p) => p.id != postId).toList(),
+      profile: state.profile?.copyWith(
+        postCount: (state.profile!.postCount - 1).clamp(0, 1 << 31),
+      ),
+    );
+  }
 }
 
 // ─── PROVIDERS ──────────────────────────────────────────────
@@ -249,3 +260,4 @@ final profileProvider =
       (ref, username) =>
           ProfileNotifier(ref.watch(profileServiceProvider), username),
     );
+

@@ -21,6 +21,18 @@ class ReelService {
 
   DioClient get _client => _ref.read(dioClientProvider);
 
+  // ─── Get single reel ──────────────────────────────────
+  Future<ReelModel> getReelById(String reelId) async {
+    final response = await _client.get('${AppConstants.reelsUrl}/$reelId');
+
+    if (response.data['success'] == true) {
+      return ReelModel.fromJson(response.data['data'] as Map<String, dynamic>);
+    }
+    throw Exception(
+      response.data['message'] ?? 'Failed to load reel',
+    );
+  }
+
   // ─── Get reels feed ───────────────────────────────────
   Future<List<ReelModel>> getReelsFeed({int page = 1}) async {
     final response = await _client.get(

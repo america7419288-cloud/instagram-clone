@@ -12,7 +12,10 @@ const {
   Hashtag,
   PostHashtag,
   Follower,
+  Reel,
+  Block,
 } = require('../models');
+const { getBlockedUserIds } = require('../utils/block.utils');
 const {
   successResponse,
   errorResponse,
@@ -37,6 +40,7 @@ const createPost = async (req, res) => {
   try {
     const userId = req.user.id;
     const { caption, location } = req.body;
+    const filters = req.body.filters || [];
     const files = req.files;
 
     // ─── Validate files ────────────────────────────────
@@ -90,6 +94,7 @@ const createPost = async (req, res) => {
       uploadedMedia.push({
         ...uploadResult,
         order: i,
+        filterMatrix: Array.isArray(filters) ? filters[i] : filters[`${i}`],
       });
     }
 
@@ -115,6 +120,7 @@ const createPost = async (req, res) => {
           width: media.width,
           height: media.height,
           order: media.order,
+          filterMatrix: media.filterMatrix,
         })
       )
     );
@@ -160,13 +166,13 @@ const getFeed = async (req, res) => {
     // ─── Get users that current user follows ──────────
     const following = await Follower.findAll({
       where: {
-        follower_id: userId,
+        followerId: userId,
         status: 'accepted',
       },
-      attributes: ['following_id'],
+      attributes: ['followingId'],
     });
 
-    const followingIds = following.map((f) => f.following_id);
+    const followingIds = following.map((f) => f.followingId);
 
     // ─── Include own posts in feed ────────────────────
     const feedUserIds = [userId, ...followingIds];
@@ -176,10 +182,15 @@ const getFeed = async (req, res) => {
       return successResponse(res, 200, 'Feed loaded', []);
     }
 
+    const blockedUserIds = await getBlockedUserIds(userId);
+
     // ─── Fetch posts ──────────────────────────────────
     const posts = await Post.findAll({
       where: {
-        userId: { [Op.in]: feedUserIds },
+        userId: { 
+          [Op.in]: feedUserIds,
+          [Op.notIn]: blockedUserIds
+        },
         isArchived: { [Op.or]: [false, null] },
       },
       include: _postIncludes(userId),
@@ -205,35 +216,89 @@ const getExplorePosts = async (req, res) => {
   try {
     const userId = req.user.id;
     const page = parseInt(req.query.page) || 1;
-    const limit = parseInt(req.query.limit) || 30;
+    const limit = parseInt(req.query.limit) || 24;
     const offset = (page - 1) * limit;
 
-    // ─── Get who the user follows (exclude from explore) ─
+    // ─── Get who the user follows ──────────────────────
     const following = await Follower.findAll({
-      where: { follower_id: userId, status: 'accepted' },
-      attributes: ['following_id'],
+      where: { followerId: userId, status: 'accepted' },
+      attributes: ['followingId'],
     });
-    const followingIds = [
-      userId,
-      ...following.map((f) => f.following_id),
-    ];
+    const followingIds = [userId, ...following.map((f) => f.followingId)];
 
-    // ─── Get posts NOT from followed users ────────────
-    // Sort by engagement (likes + comments) + recency
+    const blockedUserIds = await getBlockedUserIds(userId);
+
+    // ─── 1. Fetch Posts (75% of limit) ────────────────
+    const postLimit = Math.ceil(limit * 0.75);
     const posts = await Post.findAll({
       where: {
-        userId: { [Op.notIn]: followingIds },
+        userId: { 
+          [Op.notIn]: [...followingIds, ...blockedUserIds] 
+        },
         isArchived: { [Op.or]: [false, null] },
       },
       include: _postIncludes(userId),
       order: [['createdAt', 'DESC']],
-      limit,
-      offset,
+      limit: postLimit,
+      offset: (page - 1) * postLimit,
     });
 
-    const formatted = posts.map((p) => _formatPost(p, userId));
+    // ─── 2. Fetch Reels (25% of limit) ────────────────
+    const reelLimit = limit - posts.length;
+    let reels = [];
+    if (reelLimit > 0) {
+      reels = await Reel.findAll({
+        where: {
+          userId: { [Op.notIn]: [...followingIds, ...blockedUserIds] },
+          isPublic: true,
+        },
+        include: [
+          {
+            model: User,
+            as: 'user',
+            attributes: ['id', 'username', 'fullName', 'profile_pic_url', 'is_verified'],
+          },
+        ],
+        order: [['createdAt', 'DESC']],
+        limit: reelLimit,
+        offset: (page - 1) * reelLimit,
+      });
+    }
 
-    return successResponse(res, 200, 'Explore posts loaded', formatted);
+    // ─── 3. Format and Combine ────────────────────────
+    const formattedPosts = posts.map((p) => _formatPost(p, userId));
+    const formattedReels = reels.map((r) => ({
+      id: r.id,
+      userId: r.userId,
+      username: r.user?.username,
+      thumbnail_url: r.thumbnailUrl,
+      video_url: r.videoUrl, // Add this
+      media_type: 'video', // Mark as video for the grid icon
+      isReel: true,
+      caption: r.caption,
+      createdAt: r.createdAt,
+    }));
+
+    // Interleave: Post, Post, Reel, Post, Post, Reel...
+    const combined = [];
+    let pIdx = 0;
+    let rIdx = 0;
+    
+    while (pIdx < formattedPosts.length || rIdx < formattedReels.length) {
+      // Add up to 3 posts
+      for (let i = 0; i < 3 && pIdx < formattedPosts.length; i++) {
+        combined.push(formattedPosts[pIdx++]);
+      }
+      // Add 1 reel
+      if (rIdx < formattedReels.length) {
+        combined.push(formattedReels[rIdx++]);
+      }
+    }
+
+    return successResponse(res, 200, 'Explore feed loaded', {
+      posts: combined,
+      has_next: posts.length === postLimit || reels.length === reelLimit,
+    });
   } catch (error) {
     console.error('❌ getExplorePosts error:', error);
     return errorResponse(res, 500, 'Failed to load explore posts');
@@ -249,9 +314,10 @@ const getPost = async (req, res) => {
     const { postId } = req.params;
     const userId = req.user?.id;
 
+    const blockedUserIds = await getBlockedUserIds(userId);
     const post = await _fetchPostById(postId, userId);
 
-    if (!post) {
+    if (!post || blockedUserIds.includes(post.userId)) {
       return errorResponse(res, 404, 'Post not found');
     }
 
@@ -282,6 +348,11 @@ const getUserPosts = async (req, res) => {
     });
 
     if (!user) {
+      return errorResponse(res, 404, 'User not found');
+    }
+
+    const blockedUserIds = await getBlockedUserIds(currentUserId);
+    if (blockedUserIds.includes(user.id)) {
       return errorResponse(res, 404, 'User not found');
     }
 
@@ -402,6 +473,22 @@ const likePost = async (req, res) => {
 
     if (!post) {
       return errorResponse(res, 404, 'Post not found');
+    }
+
+    // ─── Check if blocked ─────────────────────────────
+    const blockedUserIds = await getBlockedUserIds(userId);
+    if (blockedUserIds.includes(post.userId)) {
+      return errorResponse(res, 403, 'You cannot like this post');
+    }
+
+    const blockExists = await Block.findOne({
+      where: {
+        blocker_id: post.userId,
+        blocked_id: userId,
+      },
+    });
+    if (blockExists) {
+      return errorResponse(res, 403, 'You cannot like this post');
     }
 
     // ─── Check already liked ──────────────────────────
@@ -801,7 +888,7 @@ const _processMentions = async (caption, postId, senderId, senderUsername) => {
         await createNotification({
           recipientId: user.id,
           senderId,
-          type: 'mention',
+          type: 'mention_post',
           postId,
         });
       }

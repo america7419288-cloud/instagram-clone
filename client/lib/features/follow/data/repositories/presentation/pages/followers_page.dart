@@ -599,7 +599,7 @@ class _UserListSkeleton extends StatelessWidget {
                   Container(
                     height: 10,
                     width: 80,
-                    color: AppColors.border.withOpacity(0.5),
+                    color: AppColors.border.withValues(alpha: 0.5),
                   ),
                 ],
               ),

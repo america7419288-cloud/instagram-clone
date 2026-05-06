@@ -3,10 +3,11 @@
 const { User, Follower, Block, Post, sequelize } = require('../models');
 const { successResponse, errorResponse } = require('../utils/response.utils');
 const {
-  uploadProfilePicture,
+  uploadProfilePictureToCloudinary,
   deleteFromCloudinary,
 } = require('../services/upload.service');
 const { Op } = require('sequelize');
+const { getBlockedUserIds } = require('../utils/block.utils');
 
 // ─────────────────────────────────────────────────────────────
 // HELPER: Format user for public profile response
@@ -70,10 +71,10 @@ const getUserProfile = async (req, res) => {
         },
       }),
       Follower.count({
-        where: { following_id: user.id, status: 'accepted' },
+        where: { followingId: user.id, status: 'accepted' },
       }),
       Follower.count({
-        where: { follower_id: user.id, status: 'accepted' },
+        where: { followerId: user.id, status: 'accepted' },
       }),
     ]);
 
@@ -86,14 +87,14 @@ const getUserProfile = async (req, res) => {
       const [myFollow, theirFollow] = await Promise.all([
         Follower.findOne({
           where: {
-            follower_id: currentUserId,
-            following_id: user.id,
+            followerId: currentUserId,
+            followingId: user.id,
           },
         }),
         Follower.findOne({
           where: {
-            follower_id: user.id,
-            following_id: currentUserId,
+            followerId: user.id,
+            followingId: currentUserId,
             status: 'accepted',
           },
         }),
@@ -321,9 +322,9 @@ const updateProfilePicture = async (req, res) => {
     }
 
     // 4. UPLOAD NEW PICTURE TO CLOUDINARY
-    const uploadResult = await uploadProfilePicture(
+    const uploadResult = await uploadProfilePictureToCloudinary(
       req.file.buffer,
-      userId
+      req.file.mimetype
     );
 
     console.log('✅ Profile picture uploaded to Cloudinary:', uploadResult.url);
@@ -423,6 +424,8 @@ const searchUsers = async (req, res) => {
     const searchTerm = q.trim().toLowerCase();
     const offset = (parseInt(page) - 1) * parseInt(limit);
 
+    const blockedUserIds = await getBlockedUserIds(currentUserId);
+
     // 2. SEARCH USERS
     // Search in username AND full name
     const { count, rows: users } = await User.findAndCountAll({
@@ -430,6 +433,8 @@ const searchUsers = async (req, res) => {
         [Op.and]: [
           // Not the current user
           { id: { [Op.ne]: currentUserId } },
+          // Not a blocked user
+          { id: { [Op.notIn]: blockedUserIds } },
           // Active and not banned
           { is_active: true },
           { is_banned: false },
@@ -481,8 +486,22 @@ const searchUsers = async (req, res) => {
       offset,
     });
 
-    // 3. FORMAT RESULTS
-    // For now, is_following is false (will update on Day 11)
+    // 3. CHECK FOLLOW STATUS
+    const userIds = users.map(u => u.id);
+    
+    const follows = await Follower.findAll({
+      where: {
+        followerId: currentUserId,
+        followingId: { [Op.in]: userIds },
+        status: 'accepted'
+      },
+      attributes: ['followingId'],
+      raw: true
+    });
+
+    const followSet = new Set(follows.map(f => f.followingId));
+
+    // 4. FORMAT RESULTS
     const formattedUsers = users.map((user) => ({
       id: user.id,
       username: user.username,
@@ -491,7 +510,7 @@ const searchUsers = async (req, res) => {
       bio: user.bio,
       is_verified: user.is_verified,
       is_private: user.is_private,
-      is_following: false, // Will be real value after Day 11
+      is_following: followSet.has(user.id),
     }));
 
     return successResponse(res, 200, 'Search results', {
@@ -523,30 +542,17 @@ const getSuggestedUsers = async (req, res) => {
     const limit = parseInt(req.query.limit) || 10;
 
     const alreadyFollowing = await Follower.findAll({
-      where: { follower_id: currentUserId },
-      attributes: ['following_id'],
+      where: { followerId: currentUserId },
+      attributes: ['followingId'],
       raw: true,
     });
 
-    const blockedUsers = await Block.findAll({
-      where: {
-        [Op.or]: [
-          { blocker_id: currentUserId },
-          { blocked_id: currentUserId },
-        ],
-      },
-      attributes: ['blocker_id', 'blocked_id'],
-      raw: true,
-    });
+    const blockedUserIds = await getBlockedUserIds(currentUserId);
 
     const excludeIds = [
       currentUserId,
-      ...alreadyFollowing.map((follow) => follow.following_id),
-      ...blockedUsers.map((block) =>
-        block.blocker_id === currentUserId
-          ? block.blocked_id
-          : block.blocker_id
-      ),
+      ...alreadyFollowing.map((follow) => follow.followingId),
+      ...blockedUserIds,
     ];
 
     const users = await User.findAll({
@@ -622,11 +628,108 @@ const getUserById = async (req, res) => {
       return errorResponse(res, 404, 'User not found.');
     }
 
+    const currentUserId = req.user?.id;
+    if (currentUserId && currentUserId !== user.id) {
+      const blockExists = await Block.findOne({
+        where: {
+          [Op.or]: [
+            { blocker_id: currentUserId, blocked_id: user.id },
+            { blocker_id: user.id, blocked_id: currentUserId },
+          ],
+        },
+      });
+
+      if (blockExists) {
+        return errorResponse(res, 404, 'User not found.');
+      }
+    }
+
     return successResponse(res, 200, 'User found', { user });
 
   } catch (error) {
     console.error('❌ Get user by ID error:', error);
     return errorResponse(res, 500, 'Something went wrong.');
+  }
+};
+
+// ─────────────────────────────────────────────────────
+// SAVE FCM TOKEN
+// PUT /api/users/fcm-token
+// body: { fcmToken: string }
+// Called by Flutter app on login + app open
+// ─────────────────────────────────────────────────────
+const saveFcmToken = async (req, res) => {
+  try {
+    const userId = req.user.id;
+    const { fcmToken } = req.body;
+
+    if (!fcmToken || typeof fcmToken !== 'string') {
+      return res.status(400).json({
+        success: false,
+        message: 'fcmToken is required',
+        timestamp: new Date().toISOString(),
+      });
+    }
+
+    // ─── Validate token format (basic check) ──────────
+    if (fcmToken.length < 20) {
+      return res.status(400).json({
+        success: false,
+        message: 'Invalid FCM token format',
+        timestamp: new Date().toISOString(),
+      });
+    }
+
+    // ─── Update user's FCM token ───────────────────────
+    await User.update(
+      { fcmToken },
+      { where: { id: userId } }
+    );
+
+    console.log(`📱 FCM token saved for user ${userId}`);
+
+    return res.json({
+      success: true,
+      message: 'FCM token saved',
+      timestamp: new Date().toISOString(),
+    });
+  } catch (error) {
+    console.error('❌ saveFcmToken error:', error.message);
+    return res.status(500).json({
+      success: false,
+      message: 'Failed to save FCM token',
+      timestamp: new Date().toISOString(),
+    });
+  }
+};
+
+// ─────────────────────────────────────────────────────
+// CLEAR FCM TOKEN (on logout)
+// DELETE /api/users/fcm-token
+// ─────────────────────────────────────────────────────
+const clearFcmToken = async (req, res) => {
+  try {
+    const userId = req.user.id;
+
+    await User.update(
+      { fcmToken: null },
+      { where: { id: userId } }
+    );
+
+    console.log(`📱 FCM token cleared for user ${userId}`);
+
+    return res.json({
+      success: true,
+      message: 'FCM token cleared',
+      timestamp: new Date().toISOString(),
+    });
+  } catch (error) {
+    console.error('❌ clearFcmToken error:', error.message);
+    return res.status(500).json({
+      success: false,
+      message: 'Failed to clear FCM token',
+      timestamp: new Date().toISOString(),
+    });
   }
 };
 
@@ -638,4 +741,6 @@ module.exports = {
   searchUsers,
   getSuggestedUsers,
   getUserById,
+  saveFcmToken,
+  clearFcmToken,
 };

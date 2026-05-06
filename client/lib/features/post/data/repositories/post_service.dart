@@ -162,6 +162,17 @@ class PostService {
     }
   }
 
+  // ─── DELETE POST ─────────────────────────────────────────
+  Future<void> deletePost(String postId) async {
+    try {
+      await _dioClient.delete(
+        '${AppConstants.postsEndpoint}/$postId',
+      );
+    } on DioException catch (e) {
+      throw _handleError(e);
+    }
+  }
+
   // ─── ERROR HANDLER ───────────────────────────────────────
   Exception _handleError(DioException e) {
     final message =

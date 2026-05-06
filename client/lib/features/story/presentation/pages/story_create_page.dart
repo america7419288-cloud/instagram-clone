@@ -646,7 +646,7 @@ class _StoryCreatePageState extends ConsumerState<StoryCreatePage>
             child: Container(
               padding: const EdgeInsets.all(12),
               decoration: BoxDecoration(
-                color: Colors.red.withOpacity(0.8),
+                color: Colors.red.withValues(alpha: 0.8),
                 borderRadius: BorderRadius.circular(8),
               ),
               child: Text(
@@ -736,7 +736,7 @@ class _StoryCreatePageState extends ConsumerState<StoryCreatePage>
                   fontWeight: FontWeight.bold,
                   shadows: [
                     Shadow(
-                      color: Colors.black.withOpacity(0.7),
+                      color: Colors.black.withValues(alpha: 0.7),
                       blurRadius: 6,
                       offset: const Offset(1, 1),
                     ),

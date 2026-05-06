@@ -15,6 +15,7 @@ const {
   errorResponse,
   paginatedResponse,
 } = require('../utils/response.utils');
+const { getBlockedUserIds } = require('../utils/block.utils');
 const {
   uploadStoryToCloudinary,
   deleteFromCloudinary,
@@ -231,38 +232,22 @@ const getStoryFeed = async (req, res) => {
     // 1. GET FOLLOWED USER IDs
     const following = await Follower.findAll({
       where: {
-        follower_id: currentUserId,
+        followerId: currentUserId,
         status: 'accepted',
       },
-      attributes: ['following_id'],
+      attributes: ['followingId'],
       raw: true,
     });
 
-    const followingIds = following.map((f) => f.following_id);
+    const followingIds = following.map((f) => f.followingId);
     // Include own stories in feed
     const feedUserIds = [currentUserId, ...followingIds];
 
-    // 2. GET BLOCKED USERS
-    const blocks = await Block.findAll({
-      where: {
-        [Op.or]: [
-          { blocker_id: currentUserId },
-          { blocked_id: currentUserId },
-        ],
-      },
-      attributes: ['blocker_id', 'blocked_id'],
-      raw: true,
-    });
-
-    const blockedIds = blocks.map((b) =>
-      b.blocker_id === currentUserId
-        ? b.blocked_id
-        : b.blocker_id
-    );
+    const blockedUserIds = await getBlockedUserIds(currentUserId);
 
     // Exclude blocked users from feed
     const filteredUserIds = feedUserIds.filter(
-      (id) => !blockedIds.includes(id)
+      (id) => !blockedUserIds.includes(id)
     );
 
     if (filteredUserIds.length === 0) {
@@ -451,16 +436,8 @@ const getUserStories = async (req, res) => {
     }
 
     // Check blocked
-    const blockExists = await Block.findOne({
-      where: {
-        [Op.or]: [
-          { blocker_id: currentUserId, blocked_id: userId },
-          { blocker_id: userId, blocked_id: currentUserId },
-        ],
-      },
-    });
-
-    if (blockExists) {
+    const blockedUserIds = await getBlockedUserIds(currentUserId);
+    if (blockedUserIds.includes(userId)) {
       return errorResponse(res, 404, 'User not found.');
     }
 

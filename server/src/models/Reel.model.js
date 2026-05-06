@@ -78,7 +78,7 @@ const Reel = sequelize.define(
         // ─── Audio / Music metadata ───────────────────────
         // Name of audio track if user added music (future)
         audioName: {
-            type: DataTypes.STRING(150),
+            type: DataTypes.STRING(500),
             allowNull: true,
         },
 

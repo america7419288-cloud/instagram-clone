@@ -9,6 +9,7 @@ class UserModel {
   final String? website;
   final String? profilePicUrl;
   final String? gender;
+  final String? phoneNumber;
 
   String? get profilePicture => profilePicUrl;
   final bool isPrivate;
@@ -34,6 +35,7 @@ class UserModel {
     this.website,
     this.profilePicUrl,
     this.gender,
+    this.phoneNumber,
     required this.isPrivate,
     required this.isVerified,
     required this.isActive,
@@ -58,6 +60,7 @@ class UserModel {
       website: json['website'],
       profilePicUrl: json['profile_pic_url'],
       gender: json['gender'],
+      phoneNumber: json['phone_number'],
       isPrivate: json['is_private'] ?? false,
       isVerified: json['is_verified'] ?? false,
       isActive: json['is_active'] ?? true,
@@ -87,6 +90,7 @@ class UserModel {
       'website': website,
       'profile_pic_url': profilePicUrl,
       'gender': gender,
+      'phone_number': phoneNumber,
       'is_private': isPrivate,
       'is_verified': isVerified,
       'is_active': isActive,
@@ -105,6 +109,7 @@ class UserModel {
     String? website,
     String? profilePicUrl,
     String? gender,
+    String? phoneNumber,
     bool? isPrivate,
     bool? isVerified,
     bool? isActive,
@@ -123,6 +128,7 @@ class UserModel {
       website: website ?? this.website,
       profilePicUrl: profilePicUrl ?? this.profilePicUrl,
       gender: gender ?? this.gender,
+      phoneNumber: phoneNumber ?? this.phoneNumber,
       isPrivate: isPrivate ?? this.isPrivate,
       isVerified: isVerified ?? this.isVerified,
       isActive: isActive ?? this.isActive,

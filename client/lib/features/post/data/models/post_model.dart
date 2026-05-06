@@ -116,6 +116,7 @@ class PostModel {
   final bool isSaved;
   final bool hasVideo;       // ← NEW: any media is video
   final bool hasMultiple;    // ← NEW: carousel post
+  final bool isOwnPost;
   final DateTime createdAt;
   final DateTime updatedAt;
 
@@ -138,6 +139,7 @@ class PostModel {
     this.isSaved = false,
     this.hasVideo = false,
     this.hasMultiple = false,
+    this.isOwnPost = false,
     required this.createdAt,
     required this.updatedAt,
     this.hasStory = false,
@@ -149,6 +151,7 @@ class PostModel {
   List<PostMediaModel> get media => mediaFiles;
   bool get isCarousel => hasMultiple;
   bool get commentsDisabled => false; // TODO: Implement if needed
+  bool get hasActiveStory => hasStory;
 
   // User object shim
   ProfileModel? get user => ProfileModel(
@@ -167,7 +170,7 @@ class PostModel {
       );
 
   // Check if own post
-  bool get isOwnPost => false; // This should be calculated based on current user id
+  // (isOwnPost is now a field)
 
 
   // ─── Helpers ─────────────────────────────────────────
@@ -218,6 +221,7 @@ class PostModel {
           ? DateTime.tryParse(json['updatedAt'].toString()) ??
               DateTime.now()
           : DateTime.now(),
+      isOwnPost: json['isOwnPost'] == true || json['is_own_post'] == true,
       hasStory: json['hasStory'] == true,
     );
   }
@@ -240,6 +244,7 @@ class PostModel {
         'hasMultiple': hasMultiple,
         'createdAt': createdAt.toIso8601String(),
         'updatedAt': updatedAt.toIso8601String(),
+        'isOwnPost': isOwnPost,
         'hasStory': hasStory,
       };
 
@@ -283,6 +288,7 @@ class PostModel {
       hasMultiple: hasMultiple ?? this.hasMultiple,
       createdAt: createdAt ?? this.createdAt,
       updatedAt: updatedAt ?? this.updatedAt,
+      isOwnPost: isOwnPost ?? this.isOwnPost,
       hasStory: hasStory ?? this.hasStory,
     );
   }

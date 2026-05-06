@@ -1,6 +1,7 @@
 // lib/shared/widgets/custom_button.dart
 
 import 'package:flutter/material.dart';
+import 'package:flutter/cupertino.dart';
 import '../../core/theme/app_theme.dart';
 
 class CustomButton extends StatelessWidget {
@@ -74,9 +75,9 @@ class CustomButton extends StatelessWidget {
       return SizedBox(
         width: 20,
         height: 20,
-        child: CircularProgressIndicator(
-          strokeWidth: 2,
+        child: CupertinoActivityIndicator(
           color: color,
+          radius: 8,
         ),
       );
     }

@@ -1,6 +1,6 @@
 // server/src/controllers/follow.controller.js
 
-const { Follower, User, Post, PostMedia, sequelize } = require('../models');
+const { Follower, User, Post, PostMedia, Block, sequelize } = require('../models');
 const {
   successResponse,
   errorResponse,
@@ -14,16 +14,17 @@ const {
 const { Op } = require('sequelize');
 
 // ─── HELPER: Format user for follow lists ──────────────────
-const formatFollowUser = (user, extras = {}) => ({
-  id: user.id,
-  username: user.username,
-  full_name: user.full_name,
-  profile_pic_url: user.profile_pic_url,
-  is_verified: user.is_verified,
-  is_private: user.is_private,
-  bio: user.bio,
-  ...extras,
-});
+const formatFollowUser = (user, extra = {}) => {
+  return {
+    id: user.id,
+    username: user.username,
+    full_name: user.fullName || user.username,
+    profile_pic_url: user.profile_pic_url,
+    is_private: user.is_private,
+    is_verified: user.is_verified,
+    ...extra
+  };
+};
 
 // ─────────────────────────────────────────────────────────────
 // @route   POST /api/v1/users/:id/follow
@@ -209,12 +210,25 @@ const getFollowStatus = async (req, res) => {
       where: { followerId: targetId, status: 'accepted' },
     });
 
+    // Check if current user blocked target
+    const isBlockedByMe = await Block.findOne({
+      where: { blocker_id: currentUserId, blocked_id: targetId },
+    });
+
+    // Check if target blocked current user
+    const hasBlockedMe = await Block.findOne({
+      where: { blocker_id: targetId, blocked_id: currentUserId },
+    });
+
     return successResponse(res, 200, 'Follow status fetched', {
       target_user_id: targetId,
+      is_own_profile: targetId === currentUserId,
       follow_status: followStatus,
       is_following: followStatus === 'accepted',
       is_follow_requested: followStatus === 'pending',
       follows_you: !!followBack,
+      is_blocked_by_me: !!isBlockedByMe,
+      has_blocked_me: !!hasBlockedMe,
       followers_count: followersCount,
       following_count: followingCount,
     });
@@ -248,7 +262,7 @@ const getFollowers = async (req, res) => {
     if (search) {
       userWhere[Op.or] = [
         { username: { [Op.iLike]: `%${search}%` } },
-        { full_name: { [Op.iLike]: `%${search}%` } },
+        { fullName: { [Op.iLike]: `%${search}%` } },
       ];
     }
 
@@ -260,7 +274,7 @@ const getFollowers = async (req, res) => {
           as: 'followerUser',
           where: userWhere,
           attributes: [
-            'id', 'username', 'full_name',
+            'id', 'username', 'fullName',
             'profile_pic_url', 'is_verified', 'is_private', 'bio',
           ],
         },
@@ -279,7 +293,7 @@ const getFollowers = async (req, res) => {
         followingId: { [Op.in]: followerUserIds },
         status: 'accepted',
       },
-      attributes: ['following_id'],
+      attributes: ['followingId'],
       raw: true,
     });
 
@@ -334,7 +348,7 @@ const getFollowing = async (req, res) => {
     if (search) {
       userWhere[Op.or] = [
         { username: { [Op.iLike]: `%${search}%` } },
-        { full_name: { [Op.iLike]: `%${search}%` } },
+        { fullName: { [Op.iLike]: `%${search}%` } },
       ];
     }
 
@@ -346,7 +360,7 @@ const getFollowing = async (req, res) => {
           as: 'followingUser',
           where: userWhere,
           attributes: [
-            'id', 'username', 'full_name',
+            'id', 'username', 'fullName',
             'profile_pic_url', 'is_verified', 'is_private', 'bio',
           ],
         },
@@ -365,7 +379,7 @@ const getFollowing = async (req, res) => {
         followingId: { [Op.in]: followingUserIds },
         status: 'accepted',
       },
-      attributes: ['following_id'],
+      attributes: ['followingId'],
       raw: true,
     });
 
@@ -460,7 +474,7 @@ const getFollowRequests = async (req, res) => {
           model: User,
           as: 'followerUser',
           attributes: [
-            'id', 'username', 'full_name',
+            'id', 'username', 'fullName',
             'profile_pic_url', 'is_verified',
           ],
         },
@@ -472,7 +486,7 @@ const getFollowRequests = async (req, res) => {
 
     const formattedRequests = requests.map((req) => ({
       request_id: req.id,
-      user: formatFollowUser(req.followerUser, {}),
+      requester: formatFollowUser(req.followerUser, {}),
       requested_at: req.createdAt,
     }));
 
@@ -524,7 +538,7 @@ const acceptFollowRequest = async (req, res) => {
     notifyFollowAccepted(currentUserId, requesterId);
 
     const requester = await User.findByPk(requesterId, {
-      attributes: ['id', 'username', 'profile_pic_url'],
+      attributes: ['id', 'username', 'fullName', 'profile_pic_url'],
     });
 
     console.log(
@@ -543,29 +557,6 @@ const acceptFollowRequest = async (req, res) => {
   } catch (error) {
     console.error('❌ Accept follow request error:', error);
     return errorResponse(res, 500, 'Failed to accept follow request.');
-  }
-};
-
-const cancelFollowRequest = async (req, res) => {
-  // Logic is essentially the same as unfollowUser for a pending state
-  return unfollowUser(req, res); 
-};
-
-const blockUser = async (req, res) => {
-  try {
-    // Placeholder for block logic
-    return successResponse(res, 200, 'User blocked successfully.');
-  } catch (error) {
-    return errorResponse(res, 500, 'Failed to block user.');
-  }
-};
-
-const unblockUser = async (req, res) => {
-  try {
-    // Placeholder for unblock logic
-    return successResponse(res, 200, 'User unblocked successfully.');
-  } catch (error) {
-    return errorResponse(res, 500, 'Failed to unblock user.');
   }
 };
 
@@ -610,6 +601,102 @@ const rejectFollowRequest = async (req, res) => {
   }
 };
 
+// ─────────────────────────────────────────────────────────────
+// @route   POST /api/v1/users/:id/block
+// @desc    Block a user
+// @access  Private
+// ─────────────────────────────────────────────────────────────
+const blockUser = async (req, res) => {
+  const t = await sequelize.transaction();
+  try {
+    const userIdToBlock = req.params.id;
+    const currentUserId = req.user.id;
+
+    if (userIdToBlock === currentUserId) {
+      return errorResponse(res, 400, 'You cannot block yourself.');
+    }
+
+    const userToBlock = await User.findByPk(userIdToBlock);
+    if (!userToBlock) {
+      return errorResponse(res, 404, 'User to block not found.');
+    }
+
+    // Check if already blocked
+    const existingBlock = await Block.findOne({
+      where: {
+        blocker_id: currentUserId,
+        blocked_id: userIdToBlock,
+      },
+    });
+
+    if (existingBlock) {
+      await t.rollback();
+      return successResponse(res, 200, 'User is already blocked.');
+    }
+
+    // Create block
+    await Block.create({
+      blocker_id: currentUserId,
+      blocked_id: userIdToBlock,
+    }, { transaction: t });
+
+    // Remove any existing follows (both ways)
+    await Follower.destroy({
+      where: {
+        [Op.or]: [
+          { followerId: currentUserId, followingId: userIdToBlock },
+          { followerId: userIdToBlock, followingId: currentUserId },
+        ],
+      },
+      transaction: t,
+    });
+
+    await t.commit();
+    console.log(`🚫 User blocked: ${currentUserId} → ${userIdToBlock}`);
+    return successResponse(res, 200, 'User blocked successfully.');
+
+  } catch (error) {
+    await t.rollback();
+    console.error('❌ Block user error:', error);
+    return errorResponse(res, 500, 'Failed to block user.');
+  }
+};
+
+// ─────────────────────────────────────────────────────────────
+// @route   POST /api/v1/users/:id/unblock
+// @desc    Unblock a user
+// @access  Private
+// ─────────────────────────────────────────────────────────────
+const unblockUser = async (req, res) => {
+  try {
+    const userIdToUnblock = req.params.id;
+    const currentUserId = req.user.id;
+
+    const result = await Block.destroy({
+      where: {
+        blocker_id: currentUserId,
+        blocked_id: userIdToUnblock,
+      },
+    });
+
+    if (result === 0) {
+      return errorResponse(res, 404, 'Block relationship not found.');
+    }
+
+    console.log(`🔓 User unblocked: ${currentUserId} → ${userIdToUnblock}`);
+    return successResponse(res, 200, 'User unblocked successfully.');
+
+  } catch (error) {
+    console.error('❌ Unblock user error:', error);
+    return errorResponse(res, 500, 'Failed to unblock user.');
+  }
+};
+
+const cancelFollowRequest = async (req, res) => {
+  // Logic is essentially the same as unfollowUser for a pending state
+  return unfollowUser(req, res); 
+};
+
 module.exports = {
   followUser,
   unfollowUser,
@@ -620,9 +707,7 @@ module.exports = {
   getFollowRequests,
   acceptFollowRequest,
   rejectFollowRequest,
-  blockUser,   // Add this
-  unblockUser, // Add this
-  cancelFollowRequest, // Added this
-  blockUser,          // Added this
-  unblockUser,        // Added this
+  blockUser,
+  unblockUser,
+  cancelFollowRequest,
 };

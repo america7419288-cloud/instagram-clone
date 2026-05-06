@@ -1,7 +1,8 @@
 // server/src/controllers/notification.controller.js
 
-const { Notification, User, Post, PostMedia, Comment } =
+const { Notification, User, Post, PostMedia, Comment, Block } =
   require('../models');
+const { getBlockedUserIds } = require('../utils/block.utils');
 const {
   successResponse,
   errorResponse,
@@ -50,11 +51,11 @@ const formatNotification = async (notification) => {
     created_at: n.created_at || n.createdAt,
 
     // Who sent the notification
-    sender: n.sender
+        sender: n.sender
       ? {
           id: n.sender.id,
           username: n.sender.username,
-          full_name: n.sender.full_name,
+          full_name: n.sender.fullName || n.sender.full_name,
           profile_pic_url: n.sender.profile_pic_url,
           is_verified: n.sender.is_verified,
         }
@@ -82,8 +83,11 @@ const getNotifications = async (req, res) => {
     const offset = (page - 1) * limit;
     const type = req.query.type || null; // Filter by type
 
+    const blockedUserIds = await getBlockedUserIds(userId);
+
     const whereClause = {
       recipientId: userId,
+      senderId: { [Op.notIn]: blockedUserIds },
       ...(type && { type }),
     };
 
@@ -95,7 +99,7 @@ const getNotifications = async (req, res) => {
             model: User,
             as: 'sender',
             attributes: [
-              'id', 'username', 'full_name',
+              'id', 'username', 'fullName',
               'profile_pic_url', 'is_verified',
             ],
           },

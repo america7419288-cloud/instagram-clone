@@ -1,4 +1,6 @@
 import 'package:flutter/material.dart';
+import 'package:phosphor_flutter/phosphor_flutter.dart';
+import 'spring_widget.dart';
 
 class ErrorView extends StatelessWidget {
   const ErrorView({
@@ -24,7 +26,7 @@ class ErrorView extends StatelessWidget {
           mainAxisSize: MainAxisSize.min,
           children: [
             Icon(
-              Icons.cloud_off_outlined,
+              PhosphorIcons.cloudSlash(),
               size: 56,
               color: isDark
                   ? const Color(0xFF555555)
@@ -56,19 +58,31 @@ class ErrorView extends StatelessWidget {
             ),
             if (onRetry != null) ...[
               const SizedBox(height: 20),
-              OutlinedButton.icon(
-                onPressed: onRetry,
-                icon: const Icon(Icons.refresh, size: 16),
-                label: const Text('Try again'),
-                style: OutlinedButton.styleFrom(
-                  foregroundColor: const Color(0xFF0095F6),
-                  side: const BorderSide(color: Color(0xFF0095F6)),
+              BouncyTap(
+                onTap: onRetry,
+                child: Container(
                   padding: const EdgeInsets.symmetric(
                     horizontal: 20,
                     vertical: 10,
                   ),
-                  shape: RoundedRectangleBorder(
+                  decoration: BoxDecoration(
+                    border: Border.all(color: const Color(0xFF0095F6)),
                     borderRadius: BorderRadius.circular(8),
+                  ),
+                  child: Row(
+                    mainAxisSize: MainAxisSize.min,
+                    children: [
+                      Icon(PhosphorIcons.arrowsClockwise(),
+                          size: 16, color: const Color(0xFF0095F6)),
+                      const SizedBox(width: 8),
+                      const Text(
+                        'Try again',
+                        style: TextStyle(
+                          color: Color(0xFF0095F6),
+                          fontWeight: FontWeight.w600,
+                        ),
+                      ),
+                    ],
                   ),
                 ),
               ),

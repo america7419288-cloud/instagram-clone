@@ -1,15 +1,19 @@
 // lib/features/story/presentation/widgets/stories_bar.dart
 
 import 'package:cached_network_image/cached_network_image.dart';
+import 'package:flutter/cupertino.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
+import 'package:phosphor_flutter/phosphor_flutter.dart';
 
-import '../../../../core/theme/app_theme.dart';
+import '../../../../core/router/app_router.dart';
+
 import '../../../../features/auth/presentation/providers/auth_provider.dart';
+import '../../../../shared/widgets/spring_widget.dart';
+import '../../../../shared/widgets/story_ring.dart';
 import '../../data/models/story_model.dart';
 import '../providers/story_provider.dart';
-import 'story_viewer.dart';
 
 class StoriesBar extends ConsumerWidget {
   const StoriesBar({super.key});
@@ -19,185 +23,109 @@ class StoriesBar extends ConsumerWidget {
     final storyState = ref.watch(storyFeedProvider);
     final currentUser = ref.watch(currentUserProvider);
 
-    if (storyState.isLoading) {
-      return const _StoriesBarSkeleton();
-    }
-
-    if (storyState.isEmpty && currentUser == null) {
-      return const SizedBox.shrink();
-    }
-
-    return SizedBox(
-      height: 108,
+    return Container(
+      height: 88,
+      decoration: const BoxDecoration(
+        color: Colors.transparent,
+      ),
       child: ListView(
         scrollDirection: Axis.horizontal,
-        padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 8),
+        physics: const BouncingScrollPhysics(),
+        padding: const EdgeInsets.symmetric(horizontal: 11),
         children: [
           if (currentUser != null)
             _YourStoryItem(
+              userId: currentUser.id,
               profilePicUrl: currentUser.profilePicUrl,
-              username: currentUser.username,
               hasStory: storyState.userGroups.any((g) => g.isOwn),
+              hasUnseen: storyState.userGroups.any((g) => g.isOwn && g.hasUnseen),
               onTap: () {
-                final ownGroup =
-                    storyState.userGroups.where((g) => g.isOwn).firstOrNull;
-
+                final ownGroup = storyState.userGroups.where((g) => g.isOwn).firstOrNull;
                 if (ownGroup != null && ownGroup.stories.isNotEmpty) {
-                  _openStoryViewer(
-                    context,
-                    ref,
-                    storyState.userGroups,
-                    storyState.userGroups.indexOf(ownGroup),
-                  );
+                  context.push('/story/${currentUser.id}');
                 } else {
-                  context.push('/create-story');
+                  context.push(AppRoutes.createStory);
                 }
               },
             ),
           ...storyState.userGroups.where((g) => !g.isOwn).map(
-                (group) => _StoryItem(
-                  group: group,
-                  onTap: () {
-                    final index = storyState.userGroups.indexOf(group);
-                    _openStoryViewer(
-                      context,
-                      ref,
-                      storyState.userGroups,
-                      index,
-                    );
-                  },
-                ),
-              ),
-        ],
-      ),
-    );
-  }
-
-  void _openStoryViewer(
-    BuildContext context,
-    WidgetRef ref,
-    List<StoryFeedModel> groups,
-    int initialGroupIndex,
-  ) {
-    final nonEmptyGroups = groups.where((g) => g.stories.isNotEmpty).toList();
-    if (nonEmptyGroups.isEmpty) return;
-
-    Navigator.of(context).push(
-      PageRouteBuilder(
-        pageBuilder: (context, animation, secondaryAnimation) {
-          return StoryViewer(
-            groups: nonEmptyGroups,
-            initialGroupIndex: initialGroupIndex.clamp(
-              0,
-              nonEmptyGroups.length - 1,
+            (group) => _StoryItem(
+              group: group,
+              onTap: () => context.push('/story/${group.user.id}'),
             ),
-          );
-        },
-        transitionsBuilder: (context, animation, secondary, child) {
-          return FadeTransition(opacity: animation, child: child);
-        },
-        transitionDuration: const Duration(milliseconds: 200),
+          ),
+        ],
       ),
     );
   }
 }
 
 class _YourStoryItem extends StatelessWidget {
+  final String userId;
   final String? profilePicUrl;
-  final String username;
   final bool hasStory;
+  final bool hasUnseen;
   final VoidCallback onTap;
 
   const _YourStoryItem({
+    required this.userId,
     required this.profilePicUrl,
-    required this.username,
     required this.hasStory,
+    required this.hasUnseen,
     required this.onTap,
   });
 
   @override
   Widget build(BuildContext context) {
-    return GestureDetector(
+    final isDark = CupertinoTheme.of(context).brightness == Brightness.dark;
+
+    return BouncyTap(
       onTap: onTap,
       child: Padding(
-        padding: const EdgeInsets.only(right: 12),
+        padding: const EdgeInsets.symmetric(horizontal: 11),
         child: Column(
-          mainAxisSize: MainAxisSize.min,
           children: [
             Stack(
               children: [
-                Container(
-                  width: 64,
-                  height: 64,
-                  padding: const EdgeInsets.all(2),
-                  decoration: BoxDecoration(
-                    shape: BoxShape.circle,
-                    gradient: hasStory ? AppColors.storyRingGradient : null,
-                    color: hasStory ? null : AppColors.border,
-                  ),
-                  child: Container(
-                    padding: const EdgeInsets.all(2),
-                    decoration: const BoxDecoration(
-                      color: Colors.white,
-                      shape: BoxShape.circle,
-                    ),
-                    child: ClipOval(
-                      child: profilePicUrl != null
-                          ? CachedNetworkImage(
-                              imageUrl: profilePicUrl!,
-                              fit: BoxFit.cover,
-                              errorWidget: (_, __, ___) =>
-                                  _defaultAvatar(username),
-                            )
-                          : _defaultAvatar(username),
-                    ),
-                  ),
+                StoryRing(
+                  hasUnseen: hasUnseen,
+                  child: (profilePicUrl != null && profilePicUrl!.isNotEmpty)
+                      ? CachedNetworkImage(
+                          imageUrl: profilePicUrl!,
+                          fit: BoxFit.cover,
+                          placeholder: (_, __) => Container(color: const Color(0xFFDBDBDB)),
+                        )
+                      : Container(
+                          color: const Color(0xFFDBDBDB),
+                          child: Icon(PhosphorIcons.user(), color: Colors.white, size: 32),
+                        ),
                 ),
                 if (!hasStory)
                   Positioned(
-                    bottom: 0,
-                    right: 0,
+                    bottom: 2,
+                    right: 2,
                     child: Container(
-                      width: 22,
-                      height: 22,
+                      width: 18,
+                      height: 18,
                       decoration: BoxDecoration(
-                        color: AppColors.primary,
+                        color: const Color(0xFF0095F6),
                         shape: BoxShape.circle,
-                        border: Border.all(color: Colors.white, width: 2),
+                        border: Border.all(color: isDark ? Colors.black : Colors.white, width: 2),
                       ),
-                      child: const Icon(Icons.add, color: Colors.white, size: 14),
+                      child: const Icon(Icons.add, color: Colors.white, size: 12),
                     ),
                   ),
               ],
             ),
-            const SizedBox(height: 4),
-            const SizedBox(
-              width: 64,
-              child: Text(
-                'Your story',
-                textAlign: TextAlign.center,
-                maxLines: 1,
-                overflow: TextOverflow.ellipsis,
-                style: TextStyle(fontSize: 12, color: AppColors.textPrimary),
+            const SizedBox(height: 6),
+            Text(
+              'Your story',
+              style: TextStyle(
+                fontSize: 11,
+                color: isDark ? Colors.white70 : const Color(0xFF262626),
               ),
             ),
           ],
-        ),
-      ),
-    );
-  }
-
-  Widget _defaultAvatar(String username) {
-    return Container(
-      color: AppColors.border,
-      child: Center(
-        child: Text(
-          username.isNotEmpty ? username[0].toUpperCase() : '?',
-          style: const TextStyle(
-            fontSize: 22,
-            fontWeight: FontWeight.bold,
-            color: AppColors.textSecondary,
-          ),
         ),
       ),
     );
@@ -208,44 +136,35 @@ class _StoryItem extends StatelessWidget {
   final StoryFeedModel group;
   final VoidCallback onTap;
 
-  const _StoryItem({required this.group, required this.onTap});
+  const _StoryItem({
+    required this.group,
+    required this.onTap,
+  });
 
   @override
   Widget build(BuildContext context) {
-    return GestureDetector(
+    final isDark = CupertinoTheme.of(context).brightness == Brightness.dark;
+
+    return BouncyTap(
       onTap: onTap,
       child: Padding(
-        padding: const EdgeInsets.only(right: 12),
+        padding: const EdgeInsets.symmetric(horizontal: 11),
         child: Column(
-          mainAxisSize: MainAxisSize.min,
           children: [
-            Container(
-              width: 68,
-              height: 68,
-              padding: const EdgeInsets.all(2),
-              decoration: BoxDecoration(
-                shape: BoxShape.circle,
-                gradient: group.hasUnseen ? AppColors.storyRingGradient : null,
-                color: group.hasUnseen ? null : AppColors.border,
-              ),
-              child: Container(
-                padding: const EdgeInsets.all(2),
-                decoration: const BoxDecoration(
-                  color: Colors.white,
-                  shape: BoxShape.circle,
-                ),
-                child: ClipOval(
-                  child: group.user.profilePicUrl != null
-                      ? CachedNetworkImage(
-                          imageUrl: group.user.profilePicUrl!,
-                          fit: BoxFit.cover,
-                          errorWidget: (_, __, ___) => _defaultAvatar(),
-                        )
-                      : _defaultAvatar(),
-                ),
-              ),
+            StoryRing(
+              hasUnseen: group.hasUnseen,
+              child: (group.user.profilePicUrl != null && group.user.profilePicUrl!.isNotEmpty)
+                  ? CachedNetworkImage(
+                      imageUrl: group.user.profilePicUrl!,
+                      fit: BoxFit.cover,
+                      placeholder: (_, __) => Container(color: const Color(0xFFDBDBDB)),
+                    )
+                  : Container(
+                      color: const Color(0xFFDBDBDB),
+                      child: Icon(PhosphorIcons.user(), color: Colors.white, size: 32),
+                    ),
             ),
-            const SizedBox(height: 4),
+            const SizedBox(height: 6),
             SizedBox(
               width: 64,
               child: Text(
@@ -254,74 +173,12 @@ class _StoryItem extends StatelessWidget {
                 maxLines: 1,
                 overflow: TextOverflow.ellipsis,
                 style: TextStyle(
-                  fontSize: 12,
-                  fontWeight:
-                      group.hasUnseen ? FontWeight.w600 : FontWeight.normal,
-                  color: group.hasUnseen
-                      ? AppColors.textPrimary
-                      : AppColors.textSecondary,
+                  fontSize: 11,
+                  color: isDark ? Colors.white : const Color(0xFF262626),
                 ),
               ),
             ),
           ],
-        ),
-      ),
-    );
-  }
-
-  Widget _defaultAvatar() {
-    final username = group.user.username;
-    return Container(
-      color: AppColors.border,
-      child: Center(
-        child: Text(
-          username.isNotEmpty ? username[0].toUpperCase() : '?',
-          style: const TextStyle(
-            fontSize: 22,
-            fontWeight: FontWeight.bold,
-            color: AppColors.textSecondary,
-          ),
-        ),
-      ),
-    );
-  }
-}
-
-class _StoriesBarSkeleton extends StatelessWidget {
-  const _StoriesBarSkeleton();
-
-  @override
-  Widget build(BuildContext context) {
-    return SizedBox(
-      height: 108,
-      child: ListView.builder(
-        scrollDirection: Axis.horizontal,
-        padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
-        itemCount: 6,
-        itemBuilder: (_, __) => Padding(
-          padding: const EdgeInsets.only(right: 12),
-          child: Column(
-            mainAxisSize: MainAxisSize.min,
-            children: [
-              Container(
-                width: 64,
-                height: 64,
-                decoration: const BoxDecoration(
-                  color: AppColors.border,
-                  shape: BoxShape.circle,
-                ),
-              ),
-              const SizedBox(height: 4),
-              Container(
-                width: 48,
-                height: 10,
-                decoration: BoxDecoration(
-                  color: AppColors.border,
-                  borderRadius: BorderRadius.circular(5),
-                ),
-              ),
-            ],
-          ),
         ),
       ),
     );

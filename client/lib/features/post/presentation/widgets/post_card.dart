@@ -1,18 +1,21 @@
 // lib/features/post/presentation/widgets/post_card.dart
 
-import 'dart:async';
-
+import 'dart:math' as math;
 import 'package:cached_network_image/cached_network_image.dart';
 import 'package:flutter/material.dart';
+import 'package:flutter/cupertino.dart';
+import 'package:flutter/gestures.dart';
 import 'package:flutter/services.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
+import 'package:phosphor_flutter/phosphor_flutter.dart';
 import 'package:go_router/go_router.dart';
 import 'package:timeago/timeago.dart' as timeago;
 
-import '../../../../core/router/app_router.dart';
 import '../../../../core/theme/app_theme.dart';
 import '../../data/models/post_model.dart';
-import '../providers/feed_provider.dart';
+import 'package:instagram_clinet/features/post/presentation/providers/feed_provider.dart';
+import '../../../../shared/widgets/spring_widget.dart';
+import '../../../../shared/widgets/story_ring.dart';
 import 'video_player_widget.dart';
 
 class PostCard extends ConsumerStatefulWidget {
@@ -26,26 +29,29 @@ class PostCard extends ConsumerStatefulWidget {
 
 class _PostCardState extends ConsumerState<PostCard>
     with TickerProviderStateMixin {
-  // ─── Like animation ──────────────────────────────────
-  late AnimationController _heartController;
+  
+  // ─── Animations ───────────────────────────────────────
+  late AnimationController _heartOverlayController;
   late Animation<double> _heartScale;
   late Animation<double> _heartOpacity;
 
-  // ─── Like button bounce ──────────────────────────────
-  late AnimationController _likeButtonController;
-  late Animation<double> _likeButtonScale;
+  late AnimationController _likeBounceController;
+  late Animation<double> _likeBounceScale;
 
-  // ─── State ───────────────────────────────────────────
-  bool _captionExpanded = false;
-  late PageController _pageController;
-  int _currentPage = 0;
-  Offset _tapPosition = Offset.zero;
+  late AnimationController _saveBounceController;
+  late Animation<double> _saveBounceScale;
+
+  // ─── State ────────────────────────────────────────────
+  bool _isLiked = false;
+  int _likeCount = 0;
+  bool _isSaved = false;
   bool _showHeartOverlay = false;
+  Offset _tapPosition = Offset.zero;
+  int _currentPage = 0;
+  bool _captionExpanded = false;
 
-  // ─── Optimistic state ─────────────────────────────────
-  late bool _isLiked;
-  late int _likeCount;
-  late bool _isSaved;
+  final PageController _pageController = PageController();
+  final TransformationController _transformationController = TransformationController();
 
   @override
   void initState() {
@@ -53,671 +59,568 @@ class _PostCardState extends ConsumerState<PostCard>
     _isLiked = widget.post.isLiked;
     _likeCount = widget.post.likesCount;
     _isSaved = widget.post.isSaved;
-    _pageController = PageController();
 
-    // Heart overlay animation
-    _heartController = AnimationController(
+    // Heart overlay (double tap)
+    _heartOverlayController = AnimationController(
       vsync: this,
-      duration: const Duration(milliseconds: 700),
+      duration: const Duration(milliseconds: 700), // 300ms up, 200ms hold, 200ms down
     );
+    
     _heartScale = TweenSequence<double>([
       TweenSequenceItem(
-        tween: Tween(begin: 0.0, end: 1.3),
-        weight: 30,
+        tween: Tween(begin: 0.0, end: 1.3).chain(CurveTween(curve: Curves.elasticOut)), 
+        weight: 300, // 300ms
       ),
       TweenSequenceItem(
-        tween: Tween(begin: 1.3, end: 1.0),
-        weight: 20,
+        tween: ConstantTween(1.0), 
+        weight: 200, // 200ms hold
       ),
       TweenSequenceItem(
-        tween: Tween(begin: 1.0, end: 1.0),
-        weight: 30,
+        tween: Tween(begin: 1.0, end: 0.0).chain(CurveTween(curve: Curves.easeIn)), 
+        weight: 200, // 200ms fade
       ),
-      TweenSequenceItem(
-        tween: Tween(begin: 1.0, end: 0.0),
-        weight: 20,
-      ),
-    ]).animate(_heartController);
+    ]).animate(_heartOverlayController);
 
     _heartOpacity = TweenSequence<double>([
-      TweenSequenceItem(
-        tween: Tween(begin: 0.0, end: 1.0),
-        weight: 15,
-      ),
-      TweenSequenceItem(
-        tween: Tween(begin: 1.0, end: 1.0),
-        weight: 65,
-      ),
-      TweenSequenceItem(
-        tween: Tween(begin: 1.0, end: 0.0),
-        weight: 20,
-      ),
-    ]).animate(_heartController);
+      TweenSequenceItem(tween: Tween(begin: 0.0, end: 1.0), weight: 100),
+      TweenSequenceItem(tween: ConstantTween(1.0), weight: 400),
+      TweenSequenceItem(tween: Tween(begin: 1.0, end: 0.0), weight: 200),
+    ]).animate(_heartOverlayController);
 
-    // Like button scale
-    _likeButtonController = AnimationController(
+    // Like button bounce
+    _likeBounceController = AnimationController(
       vsync: this,
-      duration: const Duration(milliseconds: 200),
+      duration: const Duration(milliseconds: 400),
     );
-    _likeButtonScale = TweenSequence<double>([
+    _likeBounceScale = TweenSequence<double>([
       TweenSequenceItem(
-        tween: Tween(begin: 1.0, end: 1.35),
+        tween: Tween(begin: 1.0, end: 1.3).chain(CurveTween(curve: Curves.elasticOut)), 
         weight: 50,
       ),
       TweenSequenceItem(
-        tween: Tween(begin: 1.35, end: 1.0),
+        tween: Tween(begin: 1.3, end: 1.0).chain(CurveTween(curve: Curves.easeIn)), 
         weight: 50,
       ),
-    ]).animate(
-      CurvedAnimation(
-        parent: _likeButtonController,
-        curve: Curves.easeInOut,
-      ),
+    ]).animate(_likeBounceController);
+
+    // Save button bounce
+    _saveBounceController = AnimationController(
+      vsync: this,
+      duration: const Duration(milliseconds: 300),
     );
+    _saveBounceScale = TweenSequence<double>([
+      TweenSequenceItem(tween: Tween(begin: 1.0, end: 0.8), weight: 20),
+      TweenSequenceItem(tween: Tween(begin: 0.8, end: 1.1), weight: 50),
+      TweenSequenceItem(tween: Tween(begin: 1.1, end: 1.0), weight: 30),
+    ]).animate(_saveBounceController);
   }
 
   @override
   void dispose() {
-    _heartController.dispose();
-    _likeButtonController.dispose();
+    _heartOverlayController.dispose();
+    _likeBounceController.dispose();
     _pageController.dispose();
+    _transformationController.dispose();
     super.dispose();
   }
 
-  // ─── Like ─────────────────────────────────────────────
-  Future<void> _handleLike() async {
-    HapticFeedback.lightImpact();
-    final wasLiked = _isLiked;
+  // ─── Logic ───────────────────────────────────────────
+  bool _showParticles = false;
 
-    setState(() {
-      _isLiked = !_isLiked;
-      _likeCount += _isLiked ? 1 : -1;
-    });
-
-    _likeButtonController.forward(from: 0);
-
-    try {
-      await ref.read(feedProvider.notifier).toggleLike(widget.post.id);
-    } catch (_) {
-
-      if (mounted) {
-        setState(() {
-          _isLiked = wasLiked;
-          _likeCount += wasLiked ? 1 : -1;
-        });
-      }
+  void _handleLike({bool isDoubleTap = false}) {
+    if (!isDoubleTap || (isDoubleTap && !_isLiked)) {
+      HapticFeedback.lightImpact();
+      _likeBounceController.forward(from: 0);
+      setState(() {
+        _isLiked = !_isLiked;
+        _likeCount += _isLiked ? 1 : -1;
+      });
+      ref.read(feedProvider.notifier).toggleLike(widget.post.id);
+    }
+    
+    if (isDoubleTap) {
+      HapticFeedback.mediumImpact();
+      setState(() {
+        _showHeartOverlay = true;
+        _showParticles = true;
+      });
+      _heartOverlayController.forward(from: 0).then((_) {
+        if (mounted) setState(() => _showHeartOverlay = false);
+      });
+      // Particles reset after a while
+      Future.delayed(const Duration(milliseconds: 1000), () {
+        if (mounted) setState(() => _showParticles = false);
+      });
     }
   }
 
-  // ─── Double tap to like ───────────────────────────────
-  void _handleDoubleTap(Offset position) {
-    _tapPosition = position;
-    if (!_isLiked) _handleLike();
-
-    setState(() => _showHeartOverlay = true);
-    _heartController.forward(from: 0).then((_) {
-      if (mounted) setState(() => _showHeartOverlay = false);
-    });
-  }
-
-  // ─── Save ─────────────────────────────────────────────
-  Future<void> _handleSave() async {
+  void _handleSave() {
     HapticFeedback.lightImpact();
-    final wasSaved = _isSaved;
+    _saveBounceController.forward(from: 0);
     setState(() => _isSaved = !_isSaved);
-    try {
-      if (wasSaved) {
-        await ref.read(feedProvider.notifier).unsavePost(widget.post.id);
-      } else {
-        await ref.read(feedProvider.notifier).savePost(widget.post.id);
-      }
-    } catch (_) {
-      if (mounted) setState(() => _isSaved = wasSaved);
+    if (_isSaved) {
+      ref.read(feedProvider.notifier).savePost(widget.post.id);
+    } else {
+      ref.read(feedProvider.notifier).unsavePost(widget.post.id);
     }
   }
 
   @override
   Widget build(BuildContext context) {
-    final isDark = Theme.of(context).brightness == Brightness.dark;
-
-    return Column(
-      crossAxisAlignment: CrossAxisAlignment.start,
-      children: [
-        _buildHeader(isDark),
-        _buildMediaSection(isDark),
-        _buildActions(isDark),
-        _buildLikeCount(isDark),
-        _buildCaption(isDark),
-        _buildCommentPreview(isDark),
-        _buildTimestamp(isDark),
-        const SizedBox(height: 4),
-      ],
+    final isDark = CupertinoTheme.of(context).brightness == Brightness.dark;
+    
+    return Container(
+      color: isDark ? Colors.black : Colors.white,
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          _buildHeader(isDark),
+          _buildMedia(isDark),
+          _buildActionRow(isDark),
+          _buildLikes(isDark),
+          _buildCaption(isDark),
+          _buildCommentsPreview(isDark),
+          _buildTimestamp(isDark),
+          const SizedBox(height: 12),
+        ],
+      ),
     );
   }
 
-  // ─────────────────────────────────────────────────────
-  // HEADER
-  // ─────────────────────────────────────────────────────
+  // ─── Header (56pt) ────────────────────────────────────
   Widget _buildHeader(bool isDark) {
-    return Padding(
-      padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
-      child: Row(
-        children: [
-          // Avatar
-          GestureDetector(
-            onTap: () =>
-                context.push('/profile/${widget.post.username}'),
-            child: CircleAvatar(
-              radius: 18,
-              backgroundColor:
-                  isDark ? AppColors.darkDivider : AppColors.divider,
-              backgroundImage: widget.post.userAvatar != null
-                  ? CachedNetworkImageProvider(widget.post.userAvatar!)
-                  : null,
-              child: widget.post.userAvatar == null
-                  ? Icon(
-                      Icons.person,
-                      size: 18,
-                      color: isDark
-                          ? AppColors.darkTextSecondary
-                          : AppColors.textSecondary,
-                    )
-                  : null,
+    return SizedBox(
+      height: 56,
+      child: Padding(
+        padding: const EdgeInsets.symmetric(horizontal: 12),
+        child: Row(
+          children: [
+            // Avatar with story ring if active
+            BouncyTap(
+              onTap: () {
+                if (widget.post.hasActiveStory) {
+                  context.push('/story/${widget.post.userId}');
+                } else {
+                  context.push('/profile/${widget.post.username}');
+                }
+              },
+              child: StoryRing(
+                size: 36,
+                hasUnseen: widget.post.hasActiveStory, // Assuming active means unseen for this UI
+                child: CircleAvatar(
+                  radius: 16,
+                  backgroundColor: AppColors.border,
+                  backgroundImage: widget.post.userAvatar != null 
+                    ? CachedNetworkImageProvider(widget.post.userAvatar!) : null,
+                  child: widget.post.userAvatar == null
+                    ? Icon(PhosphorIcons.user(), color: Colors.white, size: 16)
+                    : null,
+                ),
+              ),
             ),
-          ),
-          const SizedBox(width: 10),
-
-          // Username + location
-          Expanded(
-            child: GestureDetector(
-              onTap: () =>
-                  context.push('/profile/${widget.post.username}'),
+            const SizedBox(width: 10),
+            Expanded(
               child: Column(
+                mainAxisAlignment: MainAxisAlignment.center,
                 crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
                   Row(
                     children: [
-                      Text(
-                        widget.post.username,
-                        style: TextStyle(
-                          fontSize: 14,
-                          fontWeight: FontWeight.w700,
-                          color: isDark
-                              ? AppColors.darkTextPrimary
-                              : AppColors.textPrimary,
+                      BouncyTap(
+                        onTap: () => context.push('/profile/${widget.post.username}'),
+                        child: Text(
+                          widget.post.username,
+                          style: TextStyle(
+                            fontSize: 13,
+                            fontWeight: FontWeight.w600,
+                            color: isDark ? Colors.white : const Color(0xFF262626),
+                          ),
                         ),
                       ),
                       if (widget.post.isVerified) ...[
                         const SizedBox(width: 4),
-                        const Icon(
-                          Icons.verified,
-                          size: 14,
-                          color: AppColors.verified,
-                        ),
+                        Icon(PhosphorIcons.sealCheck(PhosphorIconsStyle.fill), size: 14, color: const Color(0xFF0095F6)),
                       ],
                     ],
                   ),
-                  if (widget.post.location != null &&
-                      widget.post.location!.isNotEmpty)
+                  if (widget.post.location != null)
                     Text(
                       widget.post.location!,
                       style: TextStyle(
                         fontSize: 11,
-                        color: isDark
-                            ? AppColors.darkTextSecondary
-                            : AppColors.textSecondary,
+                        color: isDark ? Colors.white70 : const Color(0xFF262626),
                       ),
-                      maxLines: 1,
-                      overflow: TextOverflow.ellipsis,
                     ),
                 ],
               ),
             ),
-          ),
-
-          // More options
-          IconButton(
-            icon: Icon(
-              Icons.more_horiz,
-              color: isDark
-                  ? AppColors.darkIconPrimary
-                  : AppColors.iconPrimary,
+            BouncyTap(
+              onTap: () => _showPostOptions(context),
+              child: Padding(
+                padding: const EdgeInsets.all(8.0),
+                child: Icon(
+                  PhosphorIcons.dotsThree(PhosphorIconsStyle.bold),
+                  color: isDark ? Colors.white : Colors.black,
+                ),
+              ),
             ),
-            onPressed: () => _showPostOptions(context, isDark),
-            padding: EdgeInsets.zero,
-            constraints: const BoxConstraints(
-              minWidth: 36,
-              minHeight: 36,
-            ),
-          ),
-        ],
+          ],
+        ),
       ),
     );
   }
 
-  // ─────────────────────────────────────────────────────
-  // MEDIA SECTION (image or video carousel)
-  // ─────────────────────────────────────────────────────
-  Widget _buildMediaSection(bool isDark) {
-    final size = MediaQuery.of(context).size.width;
+  // ─── Media Section ───────────────────────────────────
+  Widget _buildMedia(bool isDark) {
+    final width = MediaQuery.of(context).size.width;
 
-    return SizedBox(
-      width: size,
-      height: size,
+    return GestureDetector(
+      onDoubleTapDown: (details) => _tapPosition = details.localPosition,
+      onDoubleTap: () => _handleLike(isDoubleTap: true),
       child: Stack(
+        alignment: Alignment.center,
         children: [
-          // ─── PageView carousel ─────────────────────────
-          PageView.builder(
-            controller: _pageController,
-            itemCount: widget.post.mediaFiles.length,
-            onPageChanged: (i) => setState(() => _currentPage = i),
-            itemBuilder: (context, index) {
-              final media = widget.post.mediaFiles[index];
-
-              if (media.isVideo) {
-                // ─── VIDEO ────────────────────────────────
-                return VideoPlayerWidget(
-                  videoUrl: media.url,
-                  thumbnailUrl: media.thumbnailUrl,
-                  duration: media.duration,
-                  autoPlay: index == _currentPage,
-                  showControls: true,
-                  looping: true,
-                  fit: BoxFit.cover,
-                );
-              } else {
-                // ─── IMAGE ────────────────────────────────
-                return GestureDetector(
-                  onDoubleTapDown: (d) =>
-                      _handleDoubleTap(d.localPosition),
-                  onDoubleTap: () {}, // required for onDoubleTapDown
+          // Media content
+          AspectRatio(
+            aspectRatio: 1, // Defaulting to 1:1 for simplicity in this demo
+            child: PageView.builder(
+              controller: _pageController,
+              itemCount: widget.post.mediaFiles.length,
+              onPageChanged: (i) => setState(() => _currentPage = i),
+              itemBuilder: (context, index) {
+                final media = widget.post.mediaFiles[index];
+                if (media.isVideo) {
+                  return VideoPlayerWidget(videoUrl: media.url);
+                }
+                return InteractiveViewer(
+                  transformationController: _transformationController,
+                  clipBehavior: Clip.none,
+                  minScale: 1.0,
+                  maxScale: 4.0,
+                  onInteractionEnd: (_) => _transformationController.value = Matrix4.identity(),
                   child: CachedNetworkImage(
                     imageUrl: media.url,
                     fit: BoxFit.cover,
-                    width: size,
-                    height: size,
-                    placeholder: (_, __) => Container(
-                      color: isDark
-                          ? AppColors.darkShimmerBase
-                          : AppColors.shimmerBase,
-                    ),
-                    errorWidget: (_, __, ___) => Container(
-                      color: isDark
-                          ? AppColors.darkDivider
-                          : AppColors.divider,
-                      child: const Icon(
-                        Icons.broken_image_outlined,
-                        size: 40,
-                        color: Colors.white54,
-                      ),
-                    ),
+                    width: width,
                   ),
                 );
-              }
-            },
+              },
+            ),
           ),
+          
+          // Particles
+          if (_showParticles)
+            Positioned.fill(
+              child: IgnorePointer(
+                child: LikeParticles(position: _tapPosition),
+              ),
+            ),
 
-          // ─── Double-tap heart overlay (images only) ────
+          // Heart Overlay
           if (_showHeartOverlay)
             Positioned(
               left: _tapPosition.dx - 45,
               top: _tapPosition.dy - 45,
-              child: IgnorePointer(
-                child: AnimatedBuilder(
-                  animation: _heartController,
-                  builder: (_, __) => Opacity(
-                    opacity: _heartOpacity.value,
-                    child: Transform.scale(
-                      scale: _heartScale.value,
-                      child: const Icon(
-                        Icons.favorite,
-                        color: Colors.white,
-                        size: 90,
-                        shadows: [
-                          Shadow(
-                            color: Colors.black38,
-                            blurRadius: 20,
-                          ),
-                        ],
-                      ),
+              child: AnimatedBuilder(
+                animation: _heartOverlayController,
+                builder: (context, child) => Opacity(
+                  opacity: _heartOpacity.value,
+                  child: Transform.scale(
+                    scale: _heartScale.value,
+                    child: Icon(
+                      PhosphorIcons.heart(PhosphorIconsStyle.fill),
+                      color: Colors.white,
+                      size: 90,
+                      shadows: [Shadow(color: Colors.black26, blurRadius: 20)],
                     ),
                   ),
                 ),
               ),
             ),
 
-          // ─── Page indicator dots ───────────────────────
+          // Pagination Dots
           if (widget.post.mediaFiles.length > 1)
             Positioned(
               bottom: 12,
-              left: 0,
-              right: 0,
               child: Row(
                 mainAxisAlignment: MainAxisAlignment.center,
                 children: List.generate(
                   widget.post.mediaFiles.length,
-                  (i) => AnimatedContainer(
-                    duration: const Duration(milliseconds: 200),
-                    width: _currentPage == i ? 6 : 4,
-                    height: _currentPage == i ? 6 : 4,
+                  (index) => Container(
+                    width: 6,
+                    height: 6,
                     margin: const EdgeInsets.symmetric(horizontal: 2),
                     decoration: BoxDecoration(
                       shape: BoxShape.circle,
-                      color: _currentPage == i
-                          ? AppColors.primary
-                          : Colors.white.withOpacity(0.6),
+                      color: _currentPage == index ? const Color(0xFF0095F6) : const Color(0xFFA8A8A8),
                     ),
                   ),
                 ),
               ),
             ),
-
-          // ─── Multi-image icon (top right) ─────────────
-          if (widget.post.hasMultiple &&
-              !widget.post.mediaFiles[_currentPage].isVideo)
-            Positioned(
-              top: 10,
-              right: 10,
-              child: Container(
-                padding: const EdgeInsets.all(4),
-                decoration: BoxDecoration(
-                  color: Colors.black.withOpacity(0.5),
-                  borderRadius: BorderRadius.circular(6),
-                ),
-                child: const Icon(
-                  Icons.collections,
-                  color: Colors.white,
-                  size: 16,
-                ),
-              ),
-            ),
         ],
       ),
     );
   }
 
-  // ─────────────────────────────────────────────────────
-  // ACTION BUTTONS
-  // ─────────────────────────────────────────────────────
-  Widget _buildActions(bool isDark) {
-    final iconColor =
-        isDark ? AppColors.darkIconPrimary : AppColors.iconPrimary;
+  // ─── Action Row (40pt) ────────────────────────────────
+  Widget _buildActionRow(bool isDark) {
+    final iconColor = isDark ? Colors.white : Colors.black;
 
-    return Padding(
-      padding: const EdgeInsets.fromLTRB(8, 4, 8, 0),
-      child: Row(
-        children: [
-          // ─── Like ──────────────────────────────────────
-          AnimatedBuilder(
-            animation: _likeButtonController,
-            builder: (_, child) => Transform.scale(
-              scale: _likeButtonScale.value,
-              child: child,
-            ),
-            child: IconButton(
-              icon: AnimatedSwitcher(
-                duration: const Duration(milliseconds: 150),
-                transitionBuilder: (child, anim) => ScaleTransition(
-                  scale: anim,
-                  child: child,
-                ),
-                child: Icon(
-                  _isLiked
-                      ? Icons.favorite
-                      : Icons.favorite_border,
-                  key: ValueKey(_isLiked),
-                  color: _isLiked ? AppColors.like : iconColor,
-                  size: 26,
-                ),
-              ),
-              onPressed: _handleLike,
-              padding: const EdgeInsets.all(4),
-            ),
-          ),
-
-          // ─── Comment ───────────────────────────────────
-          IconButton(
-            icon: Icon(
-              Icons.chat_bubble_outline,
-              color: iconColor,
-              size: 24,
-            ),
-            onPressed: () =>
-                context.push('/post/${widget.post.id}'),
-            padding: const EdgeInsets.all(4),
-          ),
-
-          // ─── Share ─────────────────────────────────────
-          IconButton(
-            icon: Icon(
-              Icons.near_me_outlined,
-              color: iconColor,
-              size: 24,
-            ),
-            onPressed: () {},
-            padding: const EdgeInsets.all(4),
-          ),
-
-          const Spacer(),
-
-          // ─── Save ──────────────────────────────────────
-          IconButton(
-            icon: AnimatedSwitcher(
-              duration: const Duration(milliseconds: 150),
-              transitionBuilder: (child, anim) => ScaleTransition(
-                scale: anim,
-                child: child,
-              ),
-              child: Icon(
-                _isSaved ? Icons.bookmark : Icons.bookmark_border,
-                key: ValueKey(_isSaved),
-                color: iconColor,
-                size: 24,
-              ),
-            ),
-            onPressed: _handleSave,
-            padding: const EdgeInsets.all(4),
-          ),
-        ],
-      ),
-    );
-  }
-
-  // ─────────────────────────────────────────────────────
-  // LIKE COUNT
-  // ─────────────────────────────────────────────────────
-  Widget _buildLikeCount(bool isDark) {
-    if (_likeCount == 0) return const SizedBox.shrink();
-
-    return Padding(
-      padding: const EdgeInsets.symmetric(horizontal: 14),
-      child: GestureDetector(
-        onTap: () => context.push('/post/${widget.post.id}/likes'),
-        child: Text(
-          _likeCount == 1
-              ? '1 like'
-              : '${_formatCount(_likeCount)} likes',
-          style: TextStyle(
-            fontSize: 14,
-            fontWeight: FontWeight.w700,
-            color: isDark
-                ? AppColors.darkTextPrimary
-                : AppColors.textPrimary,
-          ),
-        ),
-      ),
-    );
-  }
-
-  // ─────────────────────────────────────────────────────
-  // CAPTION
-  // ─────────────────────────────────────────────────────
-  Widget _buildCaption(bool isDark) {
-    final caption = widget.post.caption;
-    if (caption == null || caption.isEmpty) {
-      return const SizedBox.shrink();
-    }
-
-    final isLong = caption.length > 125;
-    final displayText = isLong && !_captionExpanded
-        ? '${caption.substring(0, 125)}...'
-        : caption;
-
-    return Padding(
-      padding: const EdgeInsets.fromLTRB(14, 6, 14, 2),
-      child: GestureDetector(
-        onTap: isLong && !_captionExpanded
-            ? () => setState(() => _captionExpanded = true)
-            : null,
-        child: RichText(
-          text: TextSpan(
-            style: TextStyle(
-              fontSize: 14,
-              height: 1.4,
-              color: isDark
-                  ? AppColors.darkTextPrimary
-                  : AppColors.textPrimary,
-            ),
-            children: [
-              // Username
-              TextSpan(
-                text: '${widget.post.username} ',
-                style: const TextStyle(fontWeight: FontWeight.w700),
-              ),
-              // Caption text
-              TextSpan(text: displayText),
-              // "more" link
-              if (isLong && !_captionExpanded)
-                TextSpan(
-                  text: ' more',
-                  style: TextStyle(
-                    color: isDark
-                        ? AppColors.darkTextSecondary
-                        : AppColors.textSecondary,
-                    fontWeight: FontWeight.w500,
+    return SizedBox(
+      height: 40,
+      child: Padding(
+        padding: const EdgeInsets.symmetric(horizontal: 4),
+        child: Row(
+          children: [
+            // Like
+            BouncyTap(
+              onTap: () => _handleLike(),
+              child: Padding(
+                padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
+                child: ScaleTransition(
+                  scale: _likeBounceScale,
+                  child: Icon(
+                    _isLiked ? PhosphorIcons.heart(PhosphorIconsStyle.fill) : PhosphorIcons.heart(PhosphorIconsStyle.bold),
+                    color: _isLiked ? const Color(0xFFFF3040) : iconColor,
+                    size: 26,
                   ),
                 ),
-            ],
-          ),
+              ),
+            ),
+            // Comment
+            BouncyTap(
+              onTap: () => context.push('/post/${widget.post.id}/comments', extra: widget.post),
+              child: Padding(
+                padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
+                child: Icon(PhosphorIcons.chatCircle(PhosphorIconsStyle.bold), color: iconColor, size: 26),
+              ),
+            ),
+            // Share
+            BouncyTap(
+              onTap: () {},
+              child: Padding(
+                padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
+                child: Icon(PhosphorIcons.paperPlaneTilt(PhosphorIconsStyle.bold), color: iconColor, size: 26),
+              ),
+            ),
+            const Spacer(),
+            // Save
+            BouncyTap(
+              onTap: _handleSave,
+              child: Padding(
+                padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
+                child: ScaleTransition(
+                  scale: _saveBounceScale,
+                  child: Icon(
+                    _isSaved ? PhosphorIcons.bookmark(PhosphorIconsStyle.fill) : PhosphorIcons.bookmark(PhosphorIconsStyle.bold),
+                    color: iconColor,
+                    size: 26,
+                  ),
+                ),
+              ),
+            ),
+          ],
         ),
       ),
     );
   }
 
-  // ─────────────────────────────────────────────────────
-  // COMMENT PREVIEW
-  // ─────────────────────────────────────────────────────
-  Widget _buildCommentPreview(bool isDark) {
-    if (widget.post.commentsCount == 0) return const SizedBox.shrink();
-
+  // ─── Likes Count ─────────────────────────────────────
+  Widget _buildLikes(bool isDark) {
+    if (_likeCount == 0) return const SizedBox.shrink();
     return Padding(
-      padding: const EdgeInsets.fromLTRB(14, 2, 14, 0),
-      child: GestureDetector(
-        onTap: () => context.push('/post/${widget.post.id}'),
-        child: Text(
-          'View all ${widget.post.commentsCount} comments',
-          style: TextStyle(
-            fontSize: 14,
-            color: isDark
-                ? AppColors.darkTextSecondary
-                : AppColors.textSecondary,
+      padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 2),
+      child: Text(
+        '$_likeCount likes',
+        style: TextStyle(
+          fontSize: 13,
+          fontWeight: FontWeight.w600,
+          color: isDark ? Colors.white : const Color(0xFF262626),
+        ),
+      ),
+    );
+  }
+
+  // ─── Caption ─────────────────────────────────────────
+  Widget _buildCaption(bool isDark) {
+    final caption = widget.post.caption ?? '';
+    if (caption.isEmpty) return const SizedBox.shrink();
+
+    final showMore = !_captionExpanded && caption.length > 100;
+    final displayCaption = showMore ? '${caption.substring(0, 100)}' : caption;
+
+    return AnimatedSize(
+      duration: const Duration(milliseconds: 200),
+      curve: Curves.easeOut,
+      alignment: Alignment.topLeft,
+      child: Padding(
+        padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 4),
+        child: GestureDetector(
+          onTap: () {
+            if (caption.length > 100) {
+              setState(() => _captionExpanded = !_captionExpanded);
+            }
+          },
+          child: RichText(
+            text: TextSpan(
+              style: TextStyle(
+                fontSize: 13,
+                color: isDark ? Colors.white : const Color(0xFF262626),
+                fontFamily: 'SF-Pro',
+              ),
+              children: [
+                TextSpan(
+                  text: '${widget.post.username} ',
+                  style: const TextStyle(fontWeight: FontWeight.w600),
+                  recognizer: TapGestureRecognizer()
+                    ..onTap = () => context.push('/profile/${widget.post.username}'),
+                ),
+                TextSpan(text: displayCaption),
+                if (showMore)
+                  TextSpan(
+                    text: '... more',
+                    style: TextStyle(
+                      color: isDark ? Colors.white54 : const Color(0xFF8E8E8E),
+                      fontWeight: FontWeight.w400,
+                    ),
+                  ),
+              ],
+            ),
           ),
         ),
       ),
     );
   }
 
-  // ─────────────────────────────────────────────────────
-  // TIMESTAMP
-  // ─────────────────────────────────────────────────────
+  // ─── Comments Preview ────────────────────────────────
+  Widget _buildCommentsPreview(bool isDark) {
+    if (widget.post.commentsCount == 0) return const SizedBox.shrink();
+    return Padding(
+      padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 2),
+      child: BouncyTap(
+        onTap: () => context.push('/post/${widget.post.id}/comments', extra: widget.post),
+        child: Padding(
+          padding: const EdgeInsets.symmetric(vertical: 4),
+          child: Text(
+            'View all ${widget.post.commentsCount} comments',
+            style: const TextStyle(fontSize: 13, color: Color(0xFF8E8E8E), decoration: TextDecoration.none),
+          ),
+        ),
+      ),
+    );
+  }
+
+  // ─── Timestamp ───────────────────────────────────────
   Widget _buildTimestamp(bool isDark) {
     return Padding(
-      padding: const EdgeInsets.fromLTRB(14, 4, 14, 0),
+      padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 2),
       child: Text(
         timeago.format(widget.post.createdAt).toUpperCase(),
-        style: TextStyle(
-          fontSize: 10,
-          fontWeight: FontWeight.w500,
-          letterSpacing: 0.5,
-          color: isDark
-              ? AppColors.darkTextTertiary
-              : AppColors.textTertiary,
-        ),
+        style: const TextStyle(fontSize: 10, color: Color(0xFF8E8E8E), letterSpacing: 0.5),
       ),
     );
   }
 
-  // ─────────────────────────────────────────────────────
-  // POST OPTIONS SHEET
-  // ─────────────────────────────────────────────────────
-  void _showPostOptions(BuildContext context, bool isDark) {
-    showModalBottomSheet(
+  void _showPostOptions(BuildContext context) {
+    showCupertinoModalPopup(
       context: context,
-      backgroundColor:
-          isDark ? AppColors.darkSurface : AppColors.background,
-      shape: const RoundedRectangleBorder(
-        borderRadius: BorderRadius.vertical(top: Radius.circular(16)),
-      ),
-      builder: (_) => SafeArea(
-        child: Padding(
-          padding: const EdgeInsets.symmetric(vertical: 8),
-          child: Column(
-            mainAxisSize: MainAxisSize.min,
-            children: [
-              // Handle bar
-              Container(
-                width: 36,
-                height: 4,
-                margin: const EdgeInsets.only(bottom: 12),
-                decoration: BoxDecoration(
-                  color: isDark
-                      ? AppColors.darkDivider
-                      : AppColors.divider,
-                  borderRadius: BorderRadius.circular(2),
-                ),
-              ),
-              ListTile(
-                leading: const Icon(Icons.share_outlined),
-                title: const Text('Share'),
-                onTap: () {
-                  Navigator.pop(context);
-                },
-              ),
-              ListTile(
-                leading: const Icon(Icons.link),
-                title: const Text('Copy link'),
-                onTap: () {
-                  Navigator.pop(context);
-                },
-              ),
-              ListTile(
-                leading: const Icon(
-                  Icons.flag_outlined,
-                  color: AppColors.error,
-                ),
-                title: const Text(
-                  'Report',
-                  style: TextStyle(color: AppColors.error),
-                ),
-                onTap: () {
-                  Navigator.pop(context);
-                },
-              ),
-            ],
+      builder: (context) => CupertinoActionSheet(
+        actions: [
+          CupertinoActionSheetAction(onPressed: () => Navigator.pop(context), child: const Text('Share')),
+          CupertinoActionSheetAction(onPressed: () => Navigator.pop(context), child: const Text('Link')),
+          CupertinoActionSheetAction(
+            isDestructiveAction: true,
+            onPressed: () => Navigator.pop(context),
+            child: const Text('Report'),
           ),
+        ],
+        cancelButton: CupertinoActionSheetAction(
+          onPressed: () => Navigator.pop(context),
+          child: const Text('Cancel'),
         ),
       ),
     );
   }
+}
 
-  // ─── Helpers ──────────────────────────────────────────
-  String _formatCount(int count) {
-    if (count >= 1000000) {
-      return '${(count / 1000000).toStringAsFixed(1)}M';
+class LikeParticles extends StatefulWidget {
+  final Offset position;
+
+  const LikeParticles({super.key, required this.position});
+
+  @override
+  State<LikeParticles> createState() => _LikeParticlesState();
+}
+
+class _LikeParticlesState extends State<LikeParticles> with SingleTickerProviderStateMixin {
+  late AnimationController _controller;
+  final List<_ParticleData> _particles = [];
+
+  @override
+  void initState() {
+    super.initState();
+    _controller = AnimationController(
+      vsync: this,
+      duration: const Duration(milliseconds: 1000),
+    );
+
+    final random = math.Random();
+    for (int i = 0; i < 6; i++) {
+      _particles.add(_ParticleData(
+        angle: (random.nextDouble() * 2 - 1) * 0.5 - 1.57, // Upwards range
+        velocity: 2.0 + random.nextDouble() * 2.0,
+        size: 10.0 + random.nextDouble() * 10.0,
+      ));
     }
-    if (count >= 1000) {
-      return '${(count / 1000).toStringAsFixed(1)}K';
-    }
-    return count.toString();
+
+    _controller.forward();
   }
+
+  @override
+  void dispose() {
+    _controller.dispose();
+    super.dispose();
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    return AnimatedBuilder(
+      animation: _controller,
+      builder: (context, child) {
+        return Stack(
+          children: _particles.map((p) {
+            final t = _controller.value;
+            final dx = p.velocity * 100 * t * math.cos(p.angle);
+            final dy = p.velocity * 100 * t * math.sin(p.angle);
+            final opacity = (1.0 - t).clamp(0.0, 1.0);
+            
+            return Positioned(
+              left: widget.position.dx + dx,
+              top: widget.position.dy + dy,
+              child: Opacity(
+                opacity: opacity,
+                child: Transform.scale(
+                  scale: 0.5 + t * 0.5,
+                  child: Icon(
+                    PhosphorIcons.heart(PhosphorIconsStyle.fill),
+                    color: Colors.white.withAlpha(204), // 0.8 * 255
+                    size: p.size,
+                  ),
+                ),
+              ),
+            );
+          }).toList(),
+        );
+      },
+    );
+  }
+}
+
+class _ParticleData {
+  final double angle;
+  final double velocity;
+  final double size;
+
+  _ParticleData({required this.angle, required this.velocity, required this.size});
 }
