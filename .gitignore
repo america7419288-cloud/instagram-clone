@@ -2,6 +2,10 @@
 node_modules/
 .env
 *.env
+**/build/
+*.apk
+*.so
+*.bin
 server/uploads/
 npm-debug.log*
 server/serviceAccountKey.json
