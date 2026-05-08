@@ -39,7 +39,15 @@ const { emitToUser } = require('../services/socket.service');
 const createPost = async (req, res) => {
   try {
     const userId = req.user.id;
-    const { caption, location } = req.body;
+    const { 
+      caption, 
+      location,
+      music_id,
+      music_title,
+      music_artist,
+      music_start_time,
+      music_duration
+    } = req.body;
     const filters = req.body.filters || [];
     const files = req.files;
 
@@ -104,6 +112,11 @@ const createPost = async (req, res) => {
       userId,
       caption: caption?.trim() || null,
       location: location?.trim() || null,
+      musicId: music_id || null,
+      musicTitle: music_title || null,
+      musicArtist: music_artist || null,
+      musicStartTime: music_start_time ? parseInt(music_start_time) : null,
+      musicDuration: music_duration ? parseInt(music_duration) : null,
     });
 
     // ─── Create PostMedia records ──────────────────────
@@ -175,29 +188,42 @@ const getFeed = async (req, res) => {
     const followingIds = following.map((f) => f.followingId);
 
     // ─── Include own posts in feed ────────────────────
-    const feedUserIds = [userId, ...followingIds];
-
-    if (feedUserIds.length === 1) {
-      // Only self → return empty (no following yet)
-      return successResponse(res, 200, 'Feed loaded', []);
-    }
-
+    let feedUserIds = [userId, ...followingIds];
     const blockedUserIds = await getBlockedUserIds(userId);
 
-    // ─── Fetch posts ──────────────────────────────────
-    const posts = await Post.findAll({
-      where: {
-        userId: { 
-          [Op.in]: feedUserIds,
-          [Op.notIn]: blockedUserIds
+    let posts;
+    if (feedUserIds.length === 1) {
+      // ─── FALLBACK: Discover Mode ────────────────────
+      // If user follows no one, show recent global posts
+      posts = await Post.findAll({
+        where: {
+          userId: { 
+            [Op.ne]: userId, // Don't show only self
+            [Op.notIn]: blockedUserIds
+          },
+          isArchived: { [Op.or]: [false, null] },
         },
-        isArchived: { [Op.or]: [false, null] },
-      },
-      include: _postIncludes(userId),
-      order: [['createdAt', 'DESC']],
-      limit,
-      offset,
-    });
+        include: _postIncludes(userId),
+        order: [['createdAt', 'DESC']],
+        limit,
+        offset,
+      });
+    } else {
+      // ─── STANDARD: Following Feed ───────────────────
+      posts = await Post.findAll({
+        where: {
+          userId: { 
+            [Op.in]: feedUserIds,
+            [Op.notIn]: blockedUserIds
+          },
+          isArchived: { [Op.or]: [false, null] },
+        },
+        include: _postIncludes(userId),
+        order: [['createdAt', 'DESC']],
+        limit,
+        offset,
+      });
+    }
 
     const formatted = posts.map((p) => _formatPost(p, userId));
 
@@ -822,6 +848,15 @@ const _formatPost = (post, userId) => {
     updatedAt: post.updatedAt,
     mediaFiles,
 
+    // ─── Music Metadata ──────────────────────────────
+    music: post.musicId ? {
+      id: post.musicId,
+      title: post.musicTitle,
+      artist: post.musicArtist,
+      startTime: post.musicStartTime,
+      duration: post.musicDuration,
+    } : null,
+
     // ─── Legacy snake_case fields ────────────────────
     media: mediaFiles,
     thumbnail_url: mediaFiles.length > 0 ? (mediaFiles[0].thumbnailUrl || mediaFiles[0].url) : null,
@@ -840,6 +875,13 @@ const _formatPost = (post, userId) => {
     is_saved: userId ? (post.saves?.length > 0) : false,
     is_own_post: userId === post.userId,
     created_at: post.createdAt,
+    music_info: post.musicId ? {
+      id: post.musicId,
+      title: post.musicTitle,
+      artist: post.musicArtist,
+      start_time: post.musicStartTime,
+      duration: post.musicDuration,
+    } : null,
   };
 };
 

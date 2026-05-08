@@ -3,15 +3,15 @@ import 'package:flutter_secure_storage/flutter_secure_storage.dart';
 import 'package:pretty_dio_logger/pretty_dio_logger.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
-
 import '../constants/app_constants.dart';
+import '../providers/server_config_provider.dart';
 
 class DioClient {
   factory DioClient() => _instance;
 
   DioClient._internal() {
-    _dio = Dio(_buildOptions());
-    _refreshDio = Dio(_buildOptions());
+    _dio = Dio(_buildOptions('http://10.126.0.227:5000/api/v1'));
+    _refreshDio = Dio(_buildOptions('http://10.126.0.227:5000/api/v1'));
 
     _dio.interceptors.addAll([
       _AuthInterceptor(
@@ -19,6 +19,7 @@ class DioClient {
         refreshDio: _refreshDio,
         onRefreshStateChanged: _setRefreshing,
         isRefreshing: () => _isRefreshing,
+        updateBaseUrl: _updateBaseUrl,
       ),
       _loggerInterceptor(),
     ]);
@@ -34,9 +35,9 @@ class DioClient {
 
   bool _isRefreshing = false;
 
-  BaseOptions _buildOptions() {
+  BaseOptions _buildOptions(String baseUrl) {
     return BaseOptions(
-      baseUrl: AppConstants.baseUrl,
+      baseUrl: baseUrl,
       connectTimeout: const Duration(seconds: 30),
       receiveTimeout: const Duration(seconds: 30),
       sendTimeout: const Duration(seconds: 30),
@@ -45,6 +46,11 @@ class DioClient {
         'Accept': 'application/json',
       },
     );
+  }
+
+  void _updateBaseUrl(String baseUrl) {
+    _dio.options.baseUrl = baseUrl;
+    _refreshDio.options.baseUrl = baseUrl;
   }
 
   void _setRefreshing(bool value) {
@@ -136,15 +142,18 @@ class _AuthInterceptor extends Interceptor {
     required Dio refreshDio,
     required void Function(bool value) onRefreshStateChanged,
     required bool Function() isRefreshing,
+    required void Function(String) updateBaseUrl,
   }) : _storage = storage,
        _refreshDio = refreshDio,
        _onRefreshStateChanged = onRefreshStateChanged,
-       _isRefreshing = isRefreshing;
+       _isRefreshing = isRefreshing,
+       _updateBaseUrl = updateBaseUrl;
 
   final FlutterSecureStorage _storage;
   final Dio _refreshDio;
   final void Function(bool value) _onRefreshStateChanged;
   final bool Function() _isRefreshing;
+  final void Function(String) _updateBaseUrl;
 
   static const _skipInterceptorKey = 'skipAuthInterceptor';
   static const _retryKey = 'authRetryAttempted';
@@ -291,5 +300,10 @@ class _AuthInterceptor extends Interceptor {
   }
 }
 
-final dioClientProvider = Provider<DioClient>((ref) => DioClient());
+final dioClientProvider = Provider<DioClient>((ref) {
+  final client = DioClient();
+  final config = ref.watch(serverConfigProvider);
+  client._updateBaseUrl(config.baseUrl);
+  return client;
+});
 

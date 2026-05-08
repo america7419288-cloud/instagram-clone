@@ -3,7 +3,7 @@
 import 'package:cached_network_image/cached_network_image.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
-import 'package:phosphor_flutter/phosphor_flutter.dart';
+import 'package:flutter_lucide/flutter_lucide.dart';
 
 import '../../../../core/theme/app_theme.dart';
 import '../../../../shared/widgets/spring_widget.dart';
@@ -78,19 +78,19 @@ class _ReelActionButtonsState extends State<ReelActionButtons>
         _buildLikeButton(),
         const SizedBox(height: 20),
         _buildActionButton(
-          icon: PhosphorIcons.chatCircle(),
+          icon: LucideIcons.message_circle,
           label: _formatCount(widget.reel.commentsCount),
           onTap: widget.onComment,
         ),
         const SizedBox(height: 20),
         _buildActionButton(
-          icon: PhosphorIcons.paperPlaneTilt(),
+          icon: LucideIcons.send,
           label: 'Send',
           onTap: widget.onShare,
         ),
         const SizedBox(height: 20),
         _buildActionButton(
-          icon: PhosphorIcons.dotsThreeOutline(PhosphorIconsStyle.fill),
+          icon: LucideIcons.eclipse,
           label: '',
           onTap: () {},
         ),
@@ -113,9 +113,10 @@ class _ReelActionButtonsState extends State<ReelActionButtons>
               child: child,
             ),
             child: Icon(
-              widget.reel.isLiked ? Icons.favorite : Icons.favorite_border,
+              LucideIcons.heart,
               color: widget.reel.isLiked ? Colors.red : Colors.white,
-              size: 28,
+              size: 24, // Consistent size
+              fill: widget.reel.isLiked ? 1.0 : 0.0,
               shadows: const [Shadow(blurRadius: 8, color: Colors.black38)],
             ),
           ),
@@ -147,7 +148,7 @@ class _ReelActionButtonsState extends State<ReelActionButtons>
           Icon(
             icon,
             color: Colors.white,
-            size: 28,
+            size: 24, // Consistent size
             shadows: const [Shadow(blurRadius: 8, color: Colors.black38)],
           ),
           if (label.isNotEmpty) ...[

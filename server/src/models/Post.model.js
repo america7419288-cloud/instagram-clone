@@ -55,6 +55,33 @@ const Post = sequelize.define(
       defaultValue: false,
       field: 'is_archived',
     },
+
+    // ─── Music Metadata ──────────────────────────────
+    musicId: {
+      type: DataTypes.STRING,
+      allowNull: true,
+      field: 'music_id',
+    },
+    musicTitle: {
+      type: DataTypes.STRING,
+      allowNull: true,
+      field: 'music_title',
+    },
+    musicArtist: {
+      type: DataTypes.STRING,
+      allowNull: true,
+      field: 'music_artist',
+    },
+    musicStartTime: {
+      type: DataTypes.INTEGER,
+      allowNull: true,
+      field: 'music_start_time',
+    },
+    musicDuration: {
+      type: DataTypes.INTEGER,
+      allowNull: true,
+      field: 'music_duration',
+    },
   },
   {
     tableName: 'posts',

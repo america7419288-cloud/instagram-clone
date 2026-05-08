@@ -72,6 +72,7 @@ class StoryService {
     String audience = 'followers',
     Map<String, dynamic>? pollData,
     Map<String, dynamic>? questionData,
+    Map<String, dynamic>? musicData,
     void Function(double)? onProgress,
   }) async {
     final fileName = mediaFile.path.split('/').last;
@@ -146,6 +147,15 @@ class StoryService {
       formData.fields.add(MapEntry('stickerRotation', questionData['rotation']?.toString() ?? '0'));
     }
 
+    if (musicData != null) {
+      formData.fields.add(MapEntry('musicId', musicData['id'] ?? ''));
+      formData.fields.add(MapEntry('musicTitle', musicData['title'] ?? ''));
+      formData.fields.add(MapEntry('musicArtist', musicData['artist'] ?? ''));
+      formData.fields.add(MapEntry('musicThumbnail', musicData['thumbnail'] ?? ''));
+      formData.fields.add(MapEntry('musicStartTime', musicData['startTime']?.toString() ?? '0'));
+      formData.fields.add(MapEntry('musicDuration', musicData['duration']?.toString() ?? '15'));
+    }
+
     await _client.dio.post(
       AppConstants.storiesUrl,
       data: formData,
@@ -159,6 +169,16 @@ class StoryService {
         }
       },
     );
+  }
+
+  // ─── Music search ──────────────────────────────────────
+  Future<List<Map<String, dynamic>>> searchMusic(String query) async {
+    final response = await _client.get('/api/v1/music/search', queryParameters: {'query': query});
+    if (response.data['success'] == true) {
+      final List<dynamic> data = response.data['data'] ?? [];
+      return data.cast<Map<String, dynamic>>();
+    }
+    throw Exception(response.data['message'] ?? 'Failed to search music');
   }
 
   // ─── Poll vote ────────────────────────────────────────

@@ -1,6 +1,7 @@
 // lib/features/messages/presentation/pages/new_message_page.dart
 
 import 'package:flutter/material.dart';
+import 'package:flutter_lucide/flutter_lucide.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:cached_network_image/cached_network_image.dart';
 import 'package:go_router/go_router.dart';
@@ -41,7 +42,7 @@ class _NewMessagePageState extends ConsumerState<NewMessagePage> {
           child: const Center(
             child: Padding(
               padding: EdgeInsets.all(12),
-              child: Icon(Icons.close, color: AppColors.textPrimary),
+              child: Icon(LucideIcons.x, color: AppColors.textPrimary),
             ),
           ),
         ),
@@ -168,7 +169,10 @@ class _NewMessagePageState extends ConsumerState<NewMessagePage> {
                 // Pop loading
                 Navigator.pop(context);
                 // Navigate to chat
-                context.pushReplacement('/chat/${conversation.id}');
+                context.pushReplacement(
+                  '/chat/${conversation.id}',
+                  extra: conversation,
+                );
               } else {
                 Navigator.pop(context); // Pop loading
                 // Handle null case if needed, but error is usually in catch

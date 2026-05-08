@@ -5,7 +5,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter/cupertino.dart';
 import 'package:flutter/services.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
-import 'package:phosphor_flutter/phosphor_flutter.dart';
+import 'package:flutter_lucide/flutter_lucide.dart';
 import 'package:timeago/timeago.dart' as timeago;
 
 import '../../../../core/router/navigation_extensions.dart';
@@ -124,7 +124,7 @@ class _NotificationsPageState extends ConsumerState<NotificationsPage> {
                 const CircleAvatar(
                   radius: 22,
                   backgroundColor: AppColors.border,
-                  child: Icon(Icons.person_add_outlined, color: AppColors.textPrimary),
+                  child: Icon(LucideIcons.user_plus, color: AppColors.textPrimary),
                 ),
                 Positioned(
                   top: 0,
@@ -154,7 +154,7 @@ class _NotificationsPageState extends ConsumerState<NotificationsPage> {
                 color: AppColors.textSecondary,
               ),
             ),
-            trailing: const Icon(Icons.chevron_right, color: AppColors.border),
+            trailing: const Icon(LucideIcons.chevron_right, color: AppColors.border, size: 20),
           ),
         ),
         const Divider(height: 1, indent: 72),
@@ -234,7 +234,7 @@ class _NotificationRow extends StatelessWidget {
         alignment: Alignment.centerRight,
         padding: const EdgeInsets.only(right: 20),
         color: Colors.red,
-        child: const Icon(Icons.delete, color: Colors.white),
+        child: const Icon(LucideIcons.trash_2, color: Colors.white),
       ),
       child: BouncyTap(
         onTap: onTap,
@@ -285,7 +285,7 @@ class _NotificationRow extends StatelessWidget {
   Widget _defaultAvatar() {
     return Container(
       color: AppColors.border,
-      child: const Icon(Icons.person, color: Colors.white, size: 24),
+      child: const Icon(LucideIcons.user, color: Colors.white, size: 24),
     );
   }
 

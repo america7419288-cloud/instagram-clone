@@ -92,19 +92,48 @@ class AuthNotifier extends StateNotifier<AuthState> {
         return;
       }
 
-      final user = await _authService.getMe();
+      // Try to get user from server, but don't hang
+      UserModel? user;
+      try {
+        user = await _authService.getMe().timeout(const Duration(seconds: 5));
+      } catch (_) {
+        // If getMe() fails, try to get user data from local storage
+        final userId = await _storage.read(key: '${AppConstants.userKey}_id');
+        final username = await _storage.read(key: '${AppConstants.userKey}_username');
+        final email = await _storage.read(key: '${AppConstants.userKey}_email');
+        
+        if (userId != null && username != null && email != null) {
+          user = UserModel(
+            id: userId,
+            username: username,
+            email: email,
+            fullName: username,
+            profilePicUrl: null,
+            bio: null,
+            followersCount: 0,
+            followingCount: 0,
+            postCount: 0,
+            isVerified: false,
+            isPrivate: false,
+            isActive: true,
+            createdAt: DateTime.now(),
+          );
+        }
+      }
+
       state = state.copyWith(
-        isAuthenticated: true,
+        isAuthenticated: user != null,
         isLoading:       false,
         user:            user,
         savedAccounts:   accounts,
       );
 
-      _connectSocket(token);
-      
-      // ─── Register FCM token on app init ────────────────
-      _registerPushToken();
-    } catch (_) {
+      if (user != null) {
+        _connectSocket(token);
+        // ─── Register FCM token on app init ────────────────
+        _registerPushToken();
+      }
+    } catch (e) {
       state = state.copyWith(isLoading: false);
     }
   }

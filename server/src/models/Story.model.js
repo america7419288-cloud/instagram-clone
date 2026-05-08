@@ -100,6 +100,34 @@ const Story = sequelize.define(
       type: DataTypes.FLOAT,
       allowNull: true,
     },
+
+    // ─── Music Integration ──────────────────────────────
+    music_id: {
+      type: DataTypes.STRING(255),
+      allowNull: true,
+    },
+    music_title: {
+      type: DataTypes.STRING(255),
+      allowNull: true,
+    },
+    music_artist: {
+      type: DataTypes.STRING(255),
+      allowNull: true,
+    },
+    music_thumbnail: {
+      type: DataTypes.STRING(500),
+      allowNull: true,
+    },
+    music_start_time: {
+      type: DataTypes.INTEGER,
+      allowNull: true,
+      defaultValue: 0,
+    },
+    music_duration: {
+      type: DataTypes.INTEGER,
+      allowNull: true,
+      defaultValue: 15,
+    },
   },
   {
     tableName: 'stories',

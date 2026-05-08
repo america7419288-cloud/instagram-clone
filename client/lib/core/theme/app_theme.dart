@@ -7,54 +7,58 @@ class AppColors {
   AppColors._();
 
   // ─── PRIMARY COLORS ────────────────────────────────────
-  static const Color primary = Color(0xFF0095F6);
-  static const Color secondary = Color(0xFFED4956);
+  static const Color primary = Color(0xFF0095F6); // igds_prism_blue_05
+  static const Color secondary = Color(0xFFED4956); // fbpay_error_or_destructive
   static const Color error = Color(0xFFED4956);
   static const Color accent = Color(0xFF0095F6);
 
   // ─── UTILITY COLORS ────────────────────────────────────
-  static const Color like = Color(0xFFFF3040);
-  static const Color verified = Color(0xFF0095F6);
-  static const Color link = Color(0xFF00376B);
+  static const Color like = Color(0xFFFF3040); // bds_red_5
+  static const Color verified = Color(0xFF0095F6); // badge_color
+  static const Color link = Color(0xFF00376B); // bds_blue_8
   static const Color textLink = Color(0xFF0095F6);
   static const Color iosBlue = Color(0xFF0095F6);
 
-  // ─── LIGHT MODE (iOS Pure White) ────────────────────────
+  // ─── LIGHT MODE (Instagram Standard) ───────────────────
   static const Color background = Color(0xFFFFFFFF);
   static const Color white = Color(0xFFFFFFFF);
-  static const Color textPrimary = Color(0xFF262626);
-  static const Color textSecondary = Color(0xFF8E8E8E);
-  static const Color textTertiary = Color(0xFFC7C7CC);
-  static const Color separator = Color(0xFFDBDBDB);
+  static const Color textPrimary = Color(0xFF000000); // igds_primary_text
+  static const Color textSecondary = Color(0xFF737373); // bds_grey_6
+  static const Color textTertiary = Color(0xFFC7C7C7); // bds_grey_3
+  static const Color separator = Color(0xFFDBDBDB); // igds_separator
   static const Color divider = Color(0xFFDBDBDB);
   static const Color border = Color(0xFFDBDBDB);
   static const Color cardBackground = Color(0xFFFFFFFF);
   static const Color inputBackground = Color(0xFFFAFAFA);
   static const Color shimmerBase = Color(0xFFEBEBEB);
 
-  // ─── DARK MODE (iOS True Black) ─────────────────────────
+  // ─── DARK MODE (Instagram Prism) ───────────────────────
   static const Color darkBackground = Color(0xFF000000);
-  static const Color darkSurface = Color(0xFF121212);
-  static const Color darkTextPrimary = Color(0xFFFFFFFF);
-  static const Color darkTextSecondary = Color(0xFF8E8E8E);
-  static const Color darkTextTertiary = Color(0xFF3A3A3C);
-  static const Color darkSeparator = Color(0xFF2C2C2C);
-  static const Color darkDivider = Color(0xFF2C2C2C);
+  static const Color darkSurface = Color(0xFF121212); // design_dark_default_color_background
+  static const Color darkTextPrimary = Color(0xFFF5F5F5); // bds_grey_0
+  static const Color darkTextSecondary = Color(0xFFA8A8A8); // bds_grey_4
+  static const Color darkTextTertiary = Color(0xFF363636); // bds_grey_8
+  static const Color darkSeparator = Color(0xFF262626); // bds_grey_9
+  static const Color darkDivider = Color(0xFF262626);
   static const Color darkCardBackground = Color(0xFF121212);
   static const Color darkInputBackground = Color(0xFF262626);
   static const Color darkShimmerBase = Color(0xFF262626);
 
-  // ─── GRADIENTS ─────────────────────────────────────────
-  static const Color storyStart = Color(0xFFF58529);
-  static const Color storyMid = Color(0xFFDD2A7B);
-  static const Color storyEnd = Color(0xFF8134AF);
+  // ─── PRISM SPECIFIC ────────────────────────────────────
+  static const Color prismBlack = Color(0xFF0C1014); // igds_prism_black
+  static const Color prismGray10 = Color(0xFF212328); // igds_prism_gray_10
+  static const Color prismBlue05 = Color(0xFF0095F6);
+
+  // ─── GRADIENTS (Official Camera) ───────────────────────
+  static const Color storyStart = Color(0xFFA307BA); // camera_gradient_start
+  static const Color storyMid = Color(0xFFD73889); // camera_gradient_center
+  static const Color storyEnd = Color(0xFFFD8D32); // camera_gradient_end
 
   static const LinearGradient instagramGradient = LinearGradient(
     colors: [
-      Color(0xFFF58529),
-      Color(0xFFDD2A7B),
-      Color(0xFF8134AF),
-      Color(0xFF515BD4),
+      Color(0xFFA307BA),
+      Color(0xFFD73889),
+      Color(0xFFFD8D32),
     ],
     begin: Alignment.bottomLeft,
     end: Alignment.topRight,
@@ -62,11 +66,10 @@ class AppColors {
 
   static const SweepGradient storyRingGradient = SweepGradient(
     colors: [
-      Color(0xFFF58529),
-      Color(0xFFDD2A7B),
-      Color(0xFF8134AF),
-      Color(0xFF515BD4),
-      Color(0xFFF58529), // Wrap around
+      Color(0xFFA307BA),
+      Color(0xFFD73889),
+      Color(0xFFFD8D32),
+      Color(0xFFA307BA), // Wrap around
     ],
   );
 }
@@ -74,7 +77,7 @@ class AppColors {
 class AppTheme {
   AppTheme._();
 
-  static const String _fontFamily = 'SF-Pro';
+  static const String _fontFamily = 'Instagram-Sans';
 
   // ─── LIGHT THEME ───────────────────────────────────────
   static ThemeData lightTheme = ThemeData(

@@ -22,6 +22,7 @@ class StoryModel {
   // Interactive features
   final StoryPollModel? poll;
   final StoryQuestionModel? question;
+  final StoryMusicModel? music;
 
   const StoryModel({
     required this.id,
@@ -42,6 +43,7 @@ class StoryModel {
     this.user,
     this.poll,
     this.question,
+    this.music,
   });
 
   factory StoryModel.fromJson(Map<String, dynamic> json) {
@@ -72,6 +74,9 @@ class StoryModel {
       question: json['question'] != null
           ? StoryQuestionModel.fromJson(json['question'])
           : null,
+      music: json['music'] != null
+          ? StoryMusicModel.fromJson(json['music'])
+          : null,
     );
   }
 
@@ -96,11 +101,42 @@ class StoryModel {
       user: user,
       poll: poll,
       question: question,
+      music: music,
     );
   }
 
   bool get isVideo => mediaType == 'video';
   bool get isImage => mediaType == 'image';
+}
+
+// ─── STORY MUSIC ───────────────────────────────────────────
+class StoryMusicModel {
+  final String id;
+  final String title;
+  final String artist;
+  final String? thumbnail;
+  final int startTime;
+  final int duration;
+
+  const StoryMusicModel({
+    required this.id,
+    required this.title,
+    required this.artist,
+    this.thumbnail,
+    required this.startTime,
+    required this.duration,
+  });
+
+  factory StoryMusicModel.fromJson(Map<String, dynamic> json) {
+    return StoryMusicModel(
+      id: json['id'] ?? '',
+      title: json['title'] ?? '',
+      artist: json['artist'] ?? '',
+      thumbnail: json['thumbnail'],
+      startTime: json['start_time'] ?? 0,
+      duration: json['duration'] ?? 15,
+    );
+  }
 }
 
 // ─── STORY USER ────────────────────────────────────────────

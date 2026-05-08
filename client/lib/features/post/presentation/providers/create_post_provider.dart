@@ -1,6 +1,7 @@
 // lib/features/post/presentation/providers/create_post_provider.dart
 
 import 'dart:io';
+import 'package:flutter/widgets.dart';
 
 import 'package:dio/dio.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
@@ -10,6 +11,7 @@ import 'package:image_picker/image_picker.dart';
 import '../../../../core/network/dio_client.dart';
 import '../../../../core/constants/app_constants.dart';
 import '../../data/models/post_model.dart';
+import '../../data/models/music_track.dart';
 import '../providers/feed_provider.dart';
 
 // Upload step enum
@@ -26,6 +28,8 @@ class CreatePostState {
   final String? errorMessage;
   final bool success;
   final PostModel? createdPost;
+  final MusicTrack? selectedMusic;
+  final String? lastPostId;
 
   const CreatePostState({
     this.selectedImages = const [],
@@ -37,6 +41,8 @@ class CreatePostState {
     this.errorMessage,
     this.success = false,
     this.createdPost,
+    this.selectedMusic,
+    this.lastPostId,
   });
 
   CreatePostState copyWith({
@@ -49,6 +55,8 @@ class CreatePostState {
     String? errorMessage,
     bool? success,
     PostModel? createdPost,
+    MusicTrack? selectedMusic,
+    String? lastPostId,
     bool clearError = false,
   }) {
     return CreatePostState(
@@ -61,6 +69,8 @@ class CreatePostState {
       errorMessage: clearError ? null : (errorMessage ?? this.errorMessage),
       success: success ?? this.success,
       createdPost: createdPost ?? this.createdPost,
+      selectedMusic: selectedMusic ?? this.selectedMusic,
+      lastPostId: lastPostId ?? this.lastPostId,
     );
   }
 
@@ -100,6 +110,10 @@ class CreatePostNotifier extends StateNotifier<CreatePostState> {
     state = state.copyWith(caption: caption);
   }
 
+  void setSelectedMusic(MusicTrack? music) {
+    state = state.copyWith(selectedMusic: music);
+  }
+
   void setLocation(String location) {
     state = state.copyWith(location: location);
   }
@@ -120,6 +134,7 @@ class CreatePostNotifier extends StateNotifier<CreatePostState> {
     String? caption,
     String? location,
     List<List<double>>? filterMatrices,
+    List<Matrix4>? transformations,
   }) async {
     final uploadFiles = files != null 
         ? files.map((f) => File(f.path)).toList() 
@@ -151,6 +166,16 @@ class CreatePostNotifier extends StateNotifier<CreatePostState> {
       }
       formData.fields.add(MapEntry('comments_disabled', state.commentsDisabled.toString()));
 
+      // Add Music Data
+      if (state.selectedMusic != null) {
+        final music = state.selectedMusic!;
+        formData.fields.add(MapEntry('music_id', music.id));
+        formData.fields.add(MapEntry('music_title', music.title));
+        formData.fields.add(MapEntry('music_artist', music.artist));
+        formData.fields.add(MapEntry('music_start_time', music.startTime.inSeconds.toString()));
+        formData.fields.add(MapEntry('music_duration', '30'));
+      }
+
       // Add each file and its corresponding filter
       for (int i = 0; i < uploadFiles.length; i++) {
         final file = uploadFiles[i];
@@ -173,6 +198,10 @@ class CreatePostNotifier extends StateNotifier<CreatePostState> {
         
         if (filterMatrices != null && i < filterMatrices.length) {
           formData.fields.add(MapEntry('filters[$i]', filterMatrices[i].join(',')));
+        }
+
+        if (transformations != null && i < transformations.length) {
+          formData.fields.add(MapEntry('transforms[$i]', transformations[i].storage.join(',')));
         }
       }
 
@@ -209,6 +238,7 @@ class CreatePostNotifier extends StateNotifier<CreatePostState> {
           uploadProgress: 1.0,
           success: true,
           createdPost: post,
+          lastPostId: post.id,
         );
 
         // Add to feed

@@ -5,7 +5,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter/cupertino.dart';
 import 'package:flutter/services.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
-import 'package:phosphor_flutter/phosphor_flutter.dart';
+import 'package:flutter_lucide/flutter_lucide.dart';
 import 'package:go_router/go_router.dart';
 import 'package:timeago/timeago.dart' as timeago;
 import '../../../../shared/widgets/spring_widget.dart';
@@ -66,7 +66,7 @@ class _MessagesPageState extends ConsumerState<MessagesPage>
                 child: Padding(
                   padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 10),
                   child: Icon(
-                    PhosphorIcons.caretLeft(),
+                    LucideIcons.chevron_left,
                     color: AppColors.textPrimary,
                     size: 24,
                   ),
@@ -87,7 +87,7 @@ class _MessagesPageState extends ConsumerState<MessagesPage>
             ),
             const SizedBox(width: 4),
             Icon(
-              PhosphorIcons.caretDown(),
+              LucideIcons.chevron_down,
               color: AppColors.textPrimary,
               size: 16,
             ),
@@ -96,7 +96,7 @@ class _MessagesPageState extends ConsumerState<MessagesPage>
         trailing: BouncyTap(
           onTap: () => context.push(AppRoutes.newMessage),
           child: Icon(
-            PhosphorIcons.notePencil(),
+            LucideIcons.square_pen,
             color: AppColors.textPrimary,
             size: 24,
           ),
@@ -124,7 +124,7 @@ class _MessagesPageState extends ConsumerState<MessagesPage>
                     children: [
                       const SizedBox(width: 12),
                       Icon(
-                        PhosphorIcons.magnifyingGlass(),
+                        LucideIcons.search,
                         color: AppColors.textSecondary,
                         size: 18,
                       ),
@@ -243,7 +243,10 @@ class _MessagesPageState extends ConsumerState<MessagesPage>
           currentUserId: currentUserId,
           onTap: () {
             final conv = conversations[index];
-            context.push('/chat/${conv.id}');
+            context.push(
+              '/chat/${conv.id}',
+              extra: conv,
+            );
           },
         );
       },
@@ -281,7 +284,7 @@ class _ConversationTile extends StatelessWidget {
             Column(
               mainAxisSize: MainAxisSize.min,
               children: [
-                Icon(PhosphorIcons.pushPin(), color: Colors.white),
+                Icon(LucideIcons.pin, color: Colors.white),
                 const SizedBox(height: 4),
                 const Text(
                   'Pin',
@@ -301,7 +304,7 @@ class _ConversationTile extends StatelessWidget {
             Column(
               mainAxisSize: MainAxisSize.min,
               children: [
-                Icon(PhosphorIcons.dotsThree(), color: Colors.white),
+                Icon(LucideIcons.eclipse, color: Colors.white),
                 const SizedBox(height: 4),
                 const Text(
                   'More',
@@ -317,7 +320,7 @@ class _ConversationTile extends StatelessWidget {
               child: Column(
                 mainAxisSize: MainAxisSize.min,
                 children: [
-                  Icon(PhosphorIcons.trash(), color: Colors.white),
+                  Icon(LucideIcons.trash_2, color: Colors.white),
                   const SizedBox(height: 4),
                   const Text(
                     'Delete',
@@ -409,7 +412,7 @@ class _ConversationTile extends StatelessWidget {
                   // TODO: Open camera
                 },
                 child: Icon(
-                  PhosphorIcons.camera(),
+                  LucideIcons.camera,
                   color: AppColors.textPrimary,
                   size: 24,
                 ),

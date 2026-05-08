@@ -123,6 +123,13 @@ class PostModel {
   // Extra fields used in UI
   final bool hasStory;
 
+  // Music Metadata
+  final String? musicId;
+  final String? musicTitle;
+  final String? musicArtist;
+  final int? musicStartTime;
+  final int? musicDuration;
+
   const PostModel({
     required this.id,
     required this.userId,
@@ -143,6 +150,11 @@ class PostModel {
     required this.createdAt,
     required this.updatedAt,
     this.hasStory = false,
+    this.musicId,
+    this.musicTitle,
+    this.musicArtist,
+    this.musicStartTime,
+    this.musicDuration,
   });
 
   // ─── Compatibility Getters (Backward Compatibility) ───────
@@ -223,6 +235,17 @@ class PostModel {
           : DateTime.now(),
       isOwnPost: json['isOwnPost'] == true || json['is_own_post'] == true,
       hasStory: json['hasStory'] == true,
+      
+      // Music Metadata (Nested object from server)
+      musicId: json['music']?['id']?.toString() ?? json['music_id']?.toString() ?? json['musicId']?.toString(),
+      musicTitle: json['music']?['title']?.toString() ?? json['music_title']?.toString() ?? json['musicTitle']?.toString(),
+      musicArtist: json['music']?['artist']?.toString() ?? json['music_artist']?.toString() ?? json['musicArtist']?.toString(),
+      musicStartTime: json['music']?['startTime'] != null 
+          ? int.tryParse(json['music']['startTime'].toString()) 
+          : (json['music_start_time'] != null ? int.tryParse(json['music_start_time'].toString()) : null),
+      musicDuration: json['music']?['duration'] != null 
+          ? int.tryParse(json['music']['duration'].toString()) 
+          : (json['music_duration'] != null ? int.tryParse(json['music_duration'].toString()) : null),
     );
   }
 
@@ -246,6 +269,11 @@ class PostModel {
         'updatedAt': updatedAt.toIso8601String(),
         'isOwnPost': isOwnPost,
         'hasStory': hasStory,
+        'musicId': musicId,
+        'musicTitle': musicTitle,
+        'musicArtist': musicArtist,
+        'musicStartTime': musicStartTime,
+        'musicDuration': musicDuration,
       };
 
   PostModel copyWith({
@@ -290,6 +318,11 @@ class PostModel {
       updatedAt: updatedAt ?? this.updatedAt,
       isOwnPost: isOwnPost ?? this.isOwnPost,
       hasStory: hasStory ?? this.hasStory,
+      musicId: musicId ?? this.musicId,
+      musicTitle: musicTitle ?? this.musicTitle,
+      musicArtist: musicArtist ?? this.musicArtist,
+      musicStartTime: musicStartTime ?? this.musicStartTime,
+      musicDuration: musicDuration ?? this.musicDuration,
     );
   }
 }

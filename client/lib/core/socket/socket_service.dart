@@ -27,6 +27,7 @@ class SocketEvents {
 class SocketService {
   io.Socket? _socket;
   final FlutterSecureStorage _storage = const FlutterSecureStorage();
+  String _socketUrl = 'http://10.126.0.227:5000';
 
   bool _isConnected = false;
 
@@ -49,6 +50,13 @@ class SocketService {
     return null;
   }
 
+  void updateSocketUrl(String url) {
+    _socketUrl = url;
+    if (_isConnected) {
+      disconnect();
+    }
+  }
+
   Future<void> connect() async {
     if (_isConnected) {
       print('Socket already connected');
@@ -66,10 +74,10 @@ class SocketService {
       _socket?.dispose();
       _socket = null;
 
-      print('Connecting to socket: ${AppConstants.socketUrl}');
+      print('Connecting to socket: $_socketUrl');
 
       _socket = io.io(
-        AppConstants.socketUrl,
+        _socketUrl,
         io.OptionBuilder()
             .setPath('/socket.io')
             .setTransports(['websocket', 'polling'])

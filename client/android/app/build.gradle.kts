@@ -1,6 +1,6 @@
 plugins {
     id("com.android.application")
-    id("kotlin-android")
+    id("org.jetbrains.kotlin.android")
     // The Flutter Gradle Plugin must be applied after the Android and Kotlin Gradle plugins.
     id("dev.flutter.flutter-gradle-plugin")
     id("com.google.gms.google-services")
@@ -9,7 +9,7 @@ plugins {
 android {
     namespace = "com.example.client"
     compileSdk = 36
-    ndkVersion = flutter.ndkVersion
+    ndkVersion = "28.2.13676358"
 
     compileOptions {
         sourceCompatibility = JavaVersion.VERSION_17
@@ -30,7 +30,7 @@ android {
         targetSdk = 36
         versionCode = flutter.versionCode
         versionName = flutter.versionName
-        multiDexEnabled = true
+        // multiDexEnabled = true
     }
 
     buildTypes {
@@ -47,9 +47,21 @@ flutter {
 }
 
 dependencies {
-    implementation(platform("com.google.firebase:firebase-bom:32.7.4"))
+    implementation(platform("com.google.firebase:firebase-bom:33.1.1"))
     implementation("com.google.firebase:firebase-analytics")
     implementation("com.google.firebase:firebase-messaging")
     implementation("androidx.multidex:multidex:2.0.1")
     coreLibraryDesugaring("com.android.tools:desugar_jdk_libs:2.1.4")
 }
+
+tasks.register<Copy>("copyApkForFlutter") {
+    val buildDir = layout.buildDirectory.get().asFile
+    from("$buildDir/outputs/apk/debug/app-debug.apk")
+    into(file("${projectDir}/../../build/app/outputs/flutter-apk"))
+}
+
+afterEvaluate {
+    tasks.findByName("assembleDebug")?.finalizedBy("copyApkForFlutter")
+}
+
+

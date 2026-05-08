@@ -2,6 +2,7 @@
 
 import 'package:flutter/material.dart';
 import 'package:flutter/cupertino.dart';
+import 'package:flutter_lucide/flutter_lucide.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:cached_network_image/cached_network_image.dart';
 import 'package:go_router/go_router.dart';
@@ -183,8 +184,8 @@ class _PostDetailPageState extends ConsumerState<PostDetailPage> {
             child: Padding(
               padding: const EdgeInsets.all(8.0),
               child: Icon(
-                CupertinoIcons.ellipsis,
-                size: 20,
+                LucideIcons.eclipse,
+                size: 24,
                 color: isDark ? Colors.white : Colors.black,
               ),
             ),
@@ -254,9 +255,10 @@ class _PostDetailPageState extends ConsumerState<PostDetailPage> {
             child: Padding(
               padding: const EdgeInsets.all(8.0),
               child: Icon(
-                post.isLiked ? CupertinoIcons.heart_fill : CupertinoIcons.heart,
+                LucideIcons.heart,
                 color: post.isLiked ? Colors.red : (isDark ? Colors.white : Colors.black),
                 size: 26,
+                fill: post.isLiked ? 1.0 : 0.0,
               ),
             ),
           ),
@@ -265,7 +267,7 @@ class _PostDetailPageState extends ConsumerState<PostDetailPage> {
             child: Padding(
               padding: const EdgeInsets.all(8.0),
               child: Icon(
-                CupertinoIcons.chat_bubble,
+                LucideIcons.message_circle,
                 size: 24,
                 color: isDark ? Colors.white : Colors.black,
               ),
@@ -276,7 +278,7 @@ class _PostDetailPageState extends ConsumerState<PostDetailPage> {
             child: Padding(
               padding: const EdgeInsets.all(8.0),
               child: Icon(
-                CupertinoIcons.paperplane,
+                LucideIcons.send,
                 size: 24,
                 color: isDark ? Colors.white : Colors.black,
               ),
@@ -290,9 +292,10 @@ class _PostDetailPageState extends ConsumerState<PostDetailPage> {
             child: Padding(
               padding: const EdgeInsets.all(8.0),
               child: Icon(
-                post.isSaved ? CupertinoIcons.bookmark_fill : CupertinoIcons.bookmark,
+                LucideIcons.bookmark,
                 size: 24,
                 color: isDark ? Colors.white : Colors.black,
+                fill: post.isSaved ? 1.0 : 0.0,
               ),
             ),
           ),

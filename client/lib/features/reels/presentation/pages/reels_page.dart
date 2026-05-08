@@ -4,7 +4,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter/cupertino.dart';
 import 'package:flutter/services.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
-import 'package:phosphor_flutter/phosphor_flutter.dart';
+import 'package:flutter_lucide/flutter_lucide.dart';
 
 import '../../../../core/theme/app_theme.dart';
 import '../../../../shared/widgets/empty_state.dart';
@@ -110,7 +110,7 @@ class _ReelsPageState extends ConsumerState<ReelsPage>
             mainAxisAlignment: MainAxisAlignment.center,
             children: [
               Icon(
-                PhosphorIcons.playCircle(),
+                LucideIcons.play,
                 color: Colors.white54,
                 size: 64,
               ),

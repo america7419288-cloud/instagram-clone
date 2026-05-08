@@ -6,8 +6,10 @@ import 'package:flutter/cupertino.dart';
 import 'package:flutter/services.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:phosphor_flutter/phosphor_flutter.dart';
+import 'package:just_audio/just_audio.dart';
 
-
+import '../../../../core/network/audio_stream_source.dart';
+import '../../../../core/network/dio_client.dart';
 import '../../../../core/theme/app_theme.dart';
 import '../../../../shared/widgets/app_snackbar.dart';
 import '../../../../features/auth/presentation/providers/auth_provider.dart';
@@ -50,6 +52,10 @@ class _StoryViewerState extends ConsumerState<StoryViewer>
   // For 3D transition
   double _pageOffset = 0.0;
 
+  // Audio
+  AudioPlayer? _audioPlayer;
+  bool _isAudioInitializing = false;
+
   @override
   void initState() {
     super.initState();
@@ -77,6 +83,7 @@ class _StoryViewerState extends ConsumerState<StoryViewer>
 
   @override
   void dispose() {
+    _audioPlayer?.dispose();
     _groupPageController.dispose();
     _progressController.dispose();
     _replyController.dispose();
@@ -110,6 +117,35 @@ class _StoryViewerState extends ConsumerState<StoryViewer>
       ..reset()
       ..forward();
     _markCurrentStoryViewed();
+    _playStoryAudio();
+  }
+
+  Future<void> _playStoryAudio() async {
+    final music = _currentStory.music;
+    if (music == null) {
+      await _audioPlayer?.stop();
+      return;
+    }
+
+    if (_isAudioInitializing) return;
+    _isAudioInitializing = true;
+
+    try {
+      _audioPlayer ??= AudioPlayer();
+      final dio = ref.read(dioClientProvider).dio;
+      final source = BackendStreamAudioSource(dio, music.id);
+      
+      await _audioPlayer!.setAudioSource(source);
+      await _audioPlayer!.seek(Duration(seconds: music.startTime));
+      
+      if (!_isPaused) {
+        await _audioPlayer!.play();
+      }
+    } catch (e) {
+      debugPrint('Story Audio Error: $e');
+    } finally {
+      _isAudioInitializing = false;
+    }
   }
 
   void _markCurrentStoryViewed() {
@@ -206,12 +242,14 @@ class _StoryViewerState extends ConsumerState<StoryViewer>
   void _pauseStory() {
     if (_isPaused) return;
     _progressController.stop();
+    _audioPlayer?.pause();
     setState(() => _isPaused = true);
   }
 
   void _resumeStory() {
     if (!_isPaused || _isTyping) return;
     _progressController.forward();
+    _audioPlayer?.play();
     setState(() => _isPaused = false);
   }
 
@@ -472,63 +510,90 @@ class _StoryViewerState extends ConsumerState<StoryViewer>
 
     return Padding(
       padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
-      child: Row(
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          // 32x32 Avatar
-          Container(
-            width: 32,
-            height: 32,
-            decoration: const BoxDecoration(shape: BoxShape.circle),
-            child: ClipOval(
-              child: group.user.profilePicUrl != null
-                  ? CachedNetworkImage(
-                      imageUrl: group.user.profilePicUrl!,
-                      fit: BoxFit.cover,
-                    )
-                  : Container(
-                      color: AppColors.border,
-                      child: Center(
-                        child: Text(
-                          group.user.username[0].toUpperCase(),
-                          style: const TextStyle(
-                            color: Colors.white,
-                            fontWeight: FontWeight.bold,
-                            fontSize: 14,
+          Row(
+            children: [
+              // 32x32 Avatar
+              Container(
+                width: 32,
+                height: 32,
+                decoration: const BoxDecoration(shape: BoxShape.circle),
+                child: ClipOval(
+                  child: group.user.profilePicUrl != null
+                      ? CachedNetworkImage(
+                          imageUrl: group.user.profilePicUrl!,
+                          fit: BoxFit.cover,
+                        )
+                      : Container(
+                          color: AppColors.border,
+                          child: Center(
+                            child: Text(
+                              group.user.username[0].toUpperCase(),
+                              style: const TextStyle(
+                                color: Colors.white,
+                                fontWeight: FontWeight.bold,
+                                fontSize: 14,
+                              ),
+                            ),
                           ),
                         ),
+                ),
+              ),
+              const SizedBox(width: 8),
+              Text(
+                group.user.username,
+                style: const TextStyle(
+                  color: Colors.white,
+                  fontWeight: FontWeight.w600,
+                  fontSize: 13,
+                  fontFamily: 'SF-Pro',
+                ),
+              ),
+              const SizedBox(width: 8),
+              Text(
+                timeText,
+                style: TextStyle(
+                  color: Colors.white.withValues(alpha: 0.6),
+                  fontSize: 13,
+                  fontFamily: 'SF-Pro',
+                ),
+              ),
+              const Spacer(),
+              if (isOwnStory)
+                IconButton(
+                  onPressed: _showStoryOptions,
+                  icon: Icon(PhosphorIcons.dotsThreeVertical(), color: Colors.white, size: 24),
+                ),
+              IconButton(
+                onPressed: () => Navigator.of(context).pop(),
+                icon: Icon(PhosphorIcons.x(), color: Colors.white, size: 20),
+              ),
+            ],
+          ),
+          if (story.music != null)
+            Padding(
+              padding: const EdgeInsets.only(left: 40, top: 4),
+              child: Row(
+                children: [
+                  const Icon(PhosphorIconsFill.musicNotes, color: Colors.white, size: 12),
+                  const SizedBox(width: 4),
+                  Expanded(
+                    child: Text(
+                      '${story.music!.title} • ${story.music!.artist}',
+                      style: const TextStyle(
+                        color: Colors.white,
+                        fontSize: 12,
+                        fontFamily: 'SF-Pro',
                       ),
+                      maxLines: 1,
+                      overflow: TextOverflow.ellipsis,
                     ),
+                  ),
+                ],
+              ),
             ),
-          ),
-          const SizedBox(width: 8),
-          Text(
-            group.user.username,
-            style: const TextStyle(
-              color: Colors.white,
-              fontWeight: FontWeight.w600,
-              fontSize: 13,
-              fontFamily: 'SF-Pro',
-            ),
-          ),
-          const SizedBox(width: 8),
-          Text(
-            timeText,
-            style: TextStyle(
-              color: Colors.white.withValues(alpha: 0.6),
-              fontSize: 13,
-              fontFamily: 'SF-Pro',
-            ),
-          ),
-          const Spacer(),
-          if (isOwnStory)
-            IconButton(
-              onPressed: _showStoryOptions,
-              icon: Icon(PhosphorIcons.dotsThreeVertical(), color: Colors.white, size: 24),
-            ),
-          IconButton(
-            onPressed: () => Navigator.of(context).pop(),
-            icon: Icon(PhosphorIcons.x(), color: Colors.white, size: 20),
-          ),
         ],
       ),
     );

@@ -35,11 +35,12 @@ class _CreatePostPageState extends ConsumerState<CreatePostPage> {
 
   @override
   Widget build(BuildContext context) {
+    final isDark = Theme.of(context).brightness == Brightness.dark;
     final pickerState = ref.watch(mediaPickerProvider);
     final pickerNotifier = ref.read(mediaPickerProvider.notifier);
 
     if (pickerState.error != null) {
-      return _buildErrorState(pickerState.error!);
+      return _buildErrorState(pickerState.error!, isDark);
     }
 
     String title = "New post";
@@ -55,20 +56,24 @@ class _CreatePostPageState extends ConsumerState<CreatePostPage> {
       actionText = "Go Live";
     }
 
+    final Color bgColor = isDark ? Colors.black : Colors.white;
+    final Color textColor = isDark ? Colors.white : Colors.black;
+    final Color subTextColor = isDark ? Colors.grey[400]! : Colors.grey[600]!;
+
     return Scaffold(
-      backgroundColor: Colors.black,
+      backgroundColor: bgColor,
       appBar: AppBar(
-        backgroundColor: Colors.black,
+        backgroundColor: bgColor,
         elevation: 0,
         centerTitle: true,
         leading: IconButton(
-          icon: const Icon(Icons.close, color: Colors.white, size: 28),
+          icon: Icon(Icons.close, color: textColor, size: 28),
           onPressed: () => context.pop(),
         ),
         title: Text(
           title,
-          style: const TextStyle(
-            color: Colors.white,
+          style: TextStyle(
+            color: textColor,
             fontSize: 17,
             fontWeight: FontWeight.w600,
           ),
@@ -102,7 +107,7 @@ class _CreatePostPageState extends ConsumerState<CreatePostPage> {
               child: Stack(
                 fit: StackFit.expand,
                 children: [
-                  _buildSelectedPreview(pickerState.selectedAsset),
+                  _buildSelectedPreview(pickerState.selectedAsset, isDark),
                   
                   // Top Overlay Buttons
                   Positioned(
@@ -150,12 +155,19 @@ class _CreatePostPageState extends ConsumerState<CreatePostPage> {
                       child: Container(
                         padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 6),
                         decoration: BoxDecoration(
-                          color: Colors.black.withValues(alpha: 0.6),
+                          color: isDark 
+                              ? Colors.black.withValues(alpha: 0.6) 
+                              : Colors.white.withValues(alpha: 0.8),
                           borderRadius: BorderRadius.circular(20),
+                          border: isDark ? null : Border.all(color: Colors.grey[300]!, width: 0.5),
                         ),
                         child: Text(
                           _getAspectRatioText(),
-                          style: const TextStyle(color: Colors.white, fontSize: 12, fontWeight: FontWeight.bold),
+                          style: TextStyle(
+                            color: isDark ? Colors.white : Colors.black, 
+                            fontSize: 12, 
+                            fontWeight: FontWeight.bold
+                          ),
                         ),
                       ),
                     ),
@@ -165,28 +177,31 @@ class _CreatePostPageState extends ConsumerState<CreatePostPage> {
             ),
 
             // ─── RECENTS HEADER ──────────────────────────────
-            _buildRecentsHeader(pickerState, pickerNotifier),
+            _buildRecentsHeader(pickerState, pickerNotifier, isDark),
 
             // ─── MEDIA GRID ──────────────────────────────────
             Expanded(
-              child: _buildMediaGrid(pickerState, pickerNotifier),
+              child: _buildMediaGrid(pickerState, pickerNotifier, isDark),
             ),
 
             // ─── MODE SWITCHER ───────────────────────────────
-            _buildModeSwitcher(pickerState, pickerNotifier),
+            _buildModeSwitcher(pickerState, pickerNotifier, isDark),
           ],
         ),
       ),
     );
   }
 
-  Widget _buildErrorState(String error) {
+  Widget _buildErrorState(String error, bool isDark) {
+    final Color bgColor = isDark ? Colors.black : Colors.white;
+    final Color textColor = isDark ? Colors.white : Colors.black;
+
     return Scaffold(
-      backgroundColor: Colors.black,
+      backgroundColor: bgColor,
       appBar: AppBar(
-        backgroundColor: Colors.black,
+        backgroundColor: bgColor,
         leading: IconButton(
-          icon: const Icon(Icons.close, color: Colors.white),
+          icon: Icon(Icons.close, color: textColor),
           onPressed: () => context.pop(),
         ),
       ),
@@ -196,17 +211,17 @@ class _CreatePostPageState extends ConsumerState<CreatePostPage> {
           child: Column(
             mainAxisAlignment: MainAxisAlignment.center,
             children: [
-              Icon(PhosphorIcons.warningCircle(), color: Colors.white, size: 60),
+              Icon(PhosphorIcons.warningCircle(), color: textColor, size: 60),
               const SizedBox(height: 20),
-              const Text(
+              Text(
                 'Permission Denied',
-                style: TextStyle(color: Colors.white, fontSize: 20, fontWeight: FontWeight.bold),
+                style: TextStyle(color: textColor, fontSize: 20, fontWeight: FontWeight.bold),
               ),
               const SizedBox(height: 12),
               Text(
                 error,
                 textAlign: TextAlign.center,
-                style: TextStyle(color: Colors.grey[400], fontSize: 14),
+                style: TextStyle(color: isDark ? Colors.grey[400] : Colors.grey[600], fontSize: 14),
               ),
               const SizedBox(height: 30),
               ElevatedButton(
@@ -229,9 +244,12 @@ class _CreatePostPageState extends ConsumerState<CreatePostPage> {
     );
   }
 
-  Widget _buildSelectedPreview(AssetEntity? asset) {
+  Widget _buildSelectedPreview(AssetEntity? asset, bool isDark) {
     if (asset == null) {
-      return Container(color: Colors.black, child: const Center(child: CupertinoActivityIndicator(color: Colors.white)));
+      return Container(
+        color: isDark ? Colors.black : Colors.grey[200], 
+        child: Center(child: CupertinoActivityIndicator(color: isDark ? Colors.white : Colors.black))
+      );
     }
 
     if (asset.type == AssetType.video) {
@@ -245,22 +263,23 @@ class _CreatePostPageState extends ConsumerState<CreatePostPage> {
     );
   }
 
-  Widget _buildRecentsHeader(MediaPickerState state, MediaPickerNotifier notifier) {
+  Widget _buildRecentsHeader(MediaPickerState state, MediaPickerNotifier notifier, bool isDark) {
+    final Color textColor = isDark ? Colors.white : Colors.black;
     return Container(
       padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
-      color: Colors.black,
+      color: isDark ? Colors.black : Colors.white,
       child: Row(
         mainAxisAlignment: MainAxisAlignment.spaceBetween,
         children: [
           BouncyTap(
-            onTap: () => _showAlbumPicker(state, notifier),
+            onTap: () => _showAlbumPicker(state, notifier, isDark),
             child: Row(
               children: [
                 Text(
                   state.selectedAlbum?.name ?? 'Recents',
-                  style: const TextStyle(color: Colors.white, fontSize: 16, fontWeight: FontWeight.bold),
+                  style: TextStyle(color: textColor, fontSize: 16, fontWeight: FontWeight.bold),
                 ),
-                const Icon(Icons.keyboard_arrow_down, color: Colors.white, size: 20),
+                Icon(Icons.keyboard_arrow_down, color: textColor, size: 20),
               ],
             ),
           ),
@@ -269,6 +288,7 @@ class _CreatePostPageState extends ConsumerState<CreatePostPage> {
               _HeaderCircleButton(
                 icon: PhosphorIcons.camera(PhosphorIconsStyle.bold),
                 onTap: () {},
+                isDark: isDark,
               ),
             ],
           ),
@@ -277,9 +297,9 @@ class _CreatePostPageState extends ConsumerState<CreatePostPage> {
     );
   }
 
-  Widget _buildMediaGrid(MediaPickerState state, MediaPickerNotifier notifier) {
+  Widget _buildMediaGrid(MediaPickerState state, MediaPickerNotifier notifier, bool isDark) {
     if (state.isLoading && state.assets.isEmpty) {
-      return const Center(child: CupertinoActivityIndicator(color: Colors.white));
+      return Center(child: CupertinoActivityIndicator(color: isDark ? Colors.white : Colors.black));
     }
 
     return GridView.builder(
@@ -335,7 +355,7 @@ class _CreatePostPageState extends ConsumerState<CreatePostPage> {
                 )
               else if (isPrimary)
                 Container(
-                  color: Colors.white.withValues(alpha: 0.3),
+                  color: (isDark ? Colors.white : Colors.black).withValues(alpha: 0.3),
                 ),
             ],
           ),
@@ -344,10 +364,10 @@ class _CreatePostPageState extends ConsumerState<CreatePostPage> {
     );
   }
 
-  Widget _buildModeSwitcher(MediaPickerState state, MediaPickerNotifier notifier) {
+  Widget _buildModeSwitcher(MediaPickerState state, MediaPickerNotifier notifier, bool isDark) {
     return Container(
       height: 70 + MediaQuery.of(context).padding.bottom,
-      color: Colors.black,
+      color: isDark ? Colors.black : Colors.white,
       child: Column(
         children: [
           Expanded(
@@ -369,7 +389,9 @@ class _CreatePostPageState extends ConsumerState<CreatePostPage> {
                         child: Text(
                           mode.name.toUpperCase(),
                           style: TextStyle(
-                            color: isActive ? Colors.white : Colors.grey[600],
+                            color: isActive 
+                              ? (isDark ? Colors.white : Colors.black)
+                              : (isDark ? Colors.grey[600] : Colors.grey[400]),
                             fontSize: 14,
                             fontWeight: isActive ? FontWeight.bold : FontWeight.w600,
                             letterSpacing: 0.5,
@@ -403,29 +425,43 @@ class _CreatePostPageState extends ConsumerState<CreatePostPage> {
     return "16:9";
   }
 
-  void _showAlbumPicker(MediaPickerState state, MediaPickerNotifier notifier) {
+  void _showAlbumPicker(MediaPickerState state, MediaPickerNotifier notifier, bool isDark) {
     showCupertinoModalPopup(
       context: context,
       builder: (context) => Container(
         height: MediaQuery.of(context).size.height * 0.4,
-        color: const Color(0xFF1C1C1E),
+        color: isDark ? const Color(0xFF1C1C1E) : Colors.white,
         child: Column(
           children: [
             Container(
               padding: const EdgeInsets.all(16),
-              child: const Text('Select Album', style: TextStyle(color: Colors.white, fontSize: 17, fontWeight: FontWeight.bold)),
+              child: Text(
+                'Select Album', 
+                style: TextStyle(
+                  color: isDark ? Colors.white : Colors.black, 
+                  fontSize: 17, 
+                  fontWeight: FontWeight.bold,
+                  decoration: TextDecoration.none,
+                ),
+              ),
             ),
             Expanded(
               child: ListView.builder(
                 itemCount: state.albums.length,
                 itemBuilder: (context, index) {
                   final album = state.albums[index];
-                  return ListTile(
-                    title: Text(album.name, style: const TextStyle(color: Colors.white)),
-                    onTap: () {
-                      notifier.loadAssets(album);
-                      Navigator.pop(context);
-                    },
+                  return Material(
+                    color: Colors.transparent,
+                    child: ListTile(
+                      title: Text(
+                        album.name, 
+                        style: TextStyle(color: isDark ? Colors.white : Colors.black),
+                      ),
+                      onTap: () {
+                        notifier.loadAssets(album);
+                        Navigator.pop(context);
+                      },
+                    ),
                   );
                 },
               ),
@@ -450,8 +486,13 @@ class _CreatePostPageState extends ConsumerState<CreatePostPage> {
 class _HeaderCircleButton extends StatelessWidget {
   final IconData icon;
   final VoidCallback onTap;
+  final bool isDark;
 
-  const _HeaderCircleButton({required this.icon, required this.onTap});
+  const _HeaderCircleButton({
+    required this.icon, 
+    required this.onTap,
+    required this.isDark,
+  });
 
   @override
   Widget build(BuildContext context) {
@@ -460,10 +501,10 @@ class _HeaderCircleButton extends StatelessWidget {
       child: Container(
         padding: const EdgeInsets.all(8),
         decoration: BoxDecoration(
-          color: const Color(0xFF262626),
+          color: isDark ? const Color(0xFF262626) : const Color(0xFFF2F2F2),
           shape: BoxShape.circle,
         ),
-        child: Icon(icon, color: Colors.white, size: 20),
+        child: Icon(icon, color: isDark ? Colors.white : Colors.black, size: 20),
       ),
     );
   }
@@ -478,15 +519,23 @@ class _OverlayButton extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final isDark = Theme.of(context).brightness == Brightness.dark;
     return BouncyTap(
       onTap: onTap,
       child: Container(
         padding: const EdgeInsets.all(8),
         decoration: BoxDecoration(
-          color: isActive ? const Color(0xFF0095F6) : Colors.black.withValues(alpha: 0.6),
+          color: isActive 
+              ? const Color(0xFF0095F6) 
+              : (isDark ? Colors.black.withValues(alpha: 0.6) : Colors.white.withValues(alpha: 0.8)),
           shape: BoxShape.circle,
+          border: (!isActive && !isDark) ? Border.all(color: Colors.grey[300]!, width: 0.5) : null,
         ),
-        child: Icon(icon, color: Colors.white, size: 20),
+        child: Icon(
+          icon, 
+          color: isActive ? Colors.white : (isDark ? Colors.white : Colors.black), 
+          size: 20
+        ),
       ),
     );
   }

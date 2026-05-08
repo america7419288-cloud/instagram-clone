@@ -11,6 +11,8 @@ import 'package:phosphor_flutter/phosphor_flutter.dart';
 import 'package:go_router/go_router.dart';
 import 'package:image_picker/image_picker.dart';
 import 'package:video_player/video_player.dart';
+import '../widgets/music_picker.dart';
+
 
 import '../../../../core/theme/app_theme.dart';
 import '../../../../shared/widgets/app_snackbar.dart';
@@ -41,18 +43,21 @@ class _StoryCreatorPageState extends ConsumerState<StoryCreatorPage>
 
   // ─── Text overlay ─────────────────────────────────────
   String _textOverlay = '';
-  Color  _textColor   = Colors.white;
-  double _textSize    = 28;
-  bool   _showTextInput = false;
+  Color _textColor = Colors.white;
+  double _textSize = 28;
+  bool _showTextInput = false;
   late final TextEditingController _textController;
   late final FocusNode _textFocus;
 
   // ─── Audience ─────────────────────────────────────────
   StoryAudience _audience = StoryAudience.everyone;
 
+  // ─── Music ─────────────────────────────────────────────
+  Map<String, dynamic>? _selectedMusic;
+
   // ─── Upload ───────────────────────────────────────────
   double _uploadProgress = 0;
-  bool   _isUploading    = false;
+  bool _isUploading = false;
 
   // ─── Picker ───────────────────────────────────────────
   final ImagePicker _picker = ImagePicker();
@@ -84,7 +89,7 @@ class _StoryCreatorPageState extends ConsumerState<StoryCreatorPage>
   // ─── Take photo ───────────────────────────────────────
   Future<void> _takePhoto() async {
     final picked = await _picker.pickImage(
-      source:       ImageSource.camera,
+      source: ImageSource.camera,
       imageQuality: 90,
     );
     if (picked == null) return;
@@ -94,11 +99,27 @@ class _StoryCreatorPageState extends ConsumerState<StoryCreatorPage>
   // ─── Record video ─────────────────────────────────────
   Future<void> _recordVideo() async {
     final picked = await _picker.pickVideo(
-      source:      ImageSource.camera,
+      source: ImageSource.camera,
       maxDuration: const Duration(seconds: 15),
     );
     if (picked == null) return;
     await _setMedia(File(picked.path), 'video/mp4');
+  }
+
+  // ─── Pick music ───────────────────────────────────────
+  Future<void> _pickMusic() async {
+    final song = await showModalBottomSheet<Map<String, dynamic>>(
+      context: context,
+      isScrollControlled: true,
+      backgroundColor: Colors.transparent,
+      builder: (context) => const MusicPicker(),
+    );
+
+    if (song != null) {
+      setState(() {
+        _selectedMusic = song;
+      });
+    }
   }
 
   // ─── Set media ────────────────────────────────────────
@@ -111,9 +132,9 @@ class _StoryCreatorPageState extends ConsumerState<StoryCreatorPage>
     _videoController = null;
 
     if (isVideo) {
-      final ctrl = kIsWeb 
-        ? VideoPlayerController.networkUrl(Uri.parse(file.path))
-        : VideoPlayerController.file(file);
+      final ctrl = kIsWeb
+          ? VideoPlayerController.networkUrl(Uri.parse(file.path))
+          : VideoPlayerController.file(file);
       await ctrl.initialize();
       ctrl.setLooping(true);
       ctrl.setVolume(1);
@@ -129,29 +150,27 @@ class _StoryCreatorPageState extends ConsumerState<StoryCreatorPage>
     setState(() {
       _mediaFile = file;
       _textOverlay = '';
-      _step      = 1;
+      _step = 1;
     });
   }
 
 
-  Widget _darkField(
-    TextEditingController ctrl,
-    String label,
-    String hint,
-  ) {
+  Widget _darkField(TextEditingController ctrl,
+      String label,
+      String hint,) {
     return TextField(
       controller: ctrl,
       style: const TextStyle(color: Colors.white),
       decoration: InputDecoration(
-        labelText:   label,
-        labelStyle:  const TextStyle(color: Colors.white54),
-        hintText:    hint,
-        hintStyle:   const TextStyle(color: Colors.white24),
-        filled:      true,
-        fillColor:   Colors.white12,
-        border:      OutlineInputBorder(
+        labelText: label,
+        labelStyle: const TextStyle(color: Colors.white54),
+        hintText: hint,
+        hintStyle: const TextStyle(color: Colors.white24),
+        filled: true,
+        fillColor: Colors.white12,
+        border: OutlineInputBorder(
           borderRadius: BorderRadius.circular(8),
-          borderSide:   BorderSide.none,
+          borderSide: BorderSide.none,
         ),
       ),
     );
@@ -163,9 +182,9 @@ class _StoryCreatorPageState extends ConsumerState<StoryCreatorPage>
 
     HapticFeedback.lightImpact();
     setState(() {
-      _isUploading    = true;
+      _isUploading = true;
       _uploadProgress = 0;
-      _step           = 2;
+      _step = 2;
     });
 
     try {
@@ -173,16 +192,17 @@ class _StoryCreatorPageState extends ConsumerState<StoryCreatorPage>
       Map<String, dynamic>? questionData;
 
       await ref.read(storyServiceProvider).createStory(
-            mediaFile:    _mediaFile!,
-            mediaType:    _isVideo ? 'video' : 'image',
-            caption:      _textOverlay.isNotEmpty ? _textOverlay : null,
-            audience:     _audience == StoryAudience.closeFriends
-                ? 'close_friends'
-                : 'followers',
-            pollData:     pollData,
-            questionData: questionData,
-            onProgress:   (p) => setState(() => _uploadProgress = p),
-          );
+        mediaFile: _mediaFile!,
+        mediaType: _isVideo ? 'video' : 'image',
+        caption: _textOverlay.isNotEmpty ? _textOverlay : null,
+        audience: _audience == StoryAudience.closeFriends
+            ? 'close_friends'
+            : 'followers',
+        pollData: pollData,
+        questionData: questionData,
+        musicData: _selectedMusic,
+        onProgress: (p) => setState(() => _uploadProgress = p),
+      );
 
       // ─── Refresh story feed ───────────────────────
       ref.invalidate(storyFeedProvider);
@@ -196,7 +216,7 @@ class _StoryCreatorPageState extends ConsumerState<StoryCreatorPage>
       if (mounted) {
         setState(() {
           _isUploading = false;
-          _step        = 1;
+          _step = 1;
         });
         AppSnackbar.error(
           context,
@@ -235,8 +255,8 @@ class _StoryCreatorPageState extends ConsumerState<StoryCreatorPage>
       body: _step == 0
           ? _buildPickerStep()
           : _step == 2
-              ? _buildUploadingStep()
-              : _buildEditorStep(),
+          ? _buildUploadingStep()
+          : _buildEditorStep(),
     );
   }
 
@@ -263,8 +283,8 @@ class _StoryCreatorPageState extends ConsumerState<StoryCreatorPage>
                 const Text(
                   'New Story',
                   style: TextStyle(
-                    color:      Colors.white,
-                    fontSize:   17,
+                    color: Colors.white,
+                    fontSize: 17,
                     fontWeight: FontWeight.w700,
                   ),
                 ),
@@ -281,24 +301,24 @@ class _StoryCreatorPageState extends ConsumerState<StoryCreatorPage>
             mainAxisAlignment: MainAxisAlignment.center,
             children: [
               Container(
-                width:  90,
+                width: 90,
                 height: 90,
                 decoration: BoxDecoration(
-                  color:  Colors.white.withValues(alpha: 0.1),
-                  shape:  BoxShape.circle,
+                  color: Colors.white.withValues(alpha: 0.1),
+                  shape: BoxShape.circle,
                 ),
                 child: Icon(
                   PhosphorIcons.bookOpen(),
                   color: Colors.white,
-                  size:  48,
+                  size: 48,
                 ),
               ),
               const SizedBox(height: 24),
               const Text(
                 'Create Your Story',
                 style: TextStyle(
-                  color:      Colors.white,
-                  fontSize:   22,
+                  color: Colors.white,
+                  fontSize: 22,
                   fontWeight: FontWeight.w700,
                 ),
               ),
@@ -343,17 +363,17 @@ class _StoryCreatorPageState extends ConsumerState<StoryCreatorPage>
 
   Widget _buildPickerOption({
     required IconData icon,
-    required String   label,
+    required String label,
     required VoidCallback onTap,
     bool isPrimary = true,
   }) {
     return GestureDetector(
       onTap: onTap,
       child: Container(
-        margin:  const EdgeInsets.symmetric(horizontal: 48),
+        margin: const EdgeInsets.symmetric(horizontal: 48),
         padding: const EdgeInsets.symmetric(horizontal: 24, vertical: 14),
         decoration: BoxDecoration(
-          color:  isPrimary
+          color: isPrimary
               ? AppColors.primary
               : Colors.white.withValues(alpha: 0.12),
           borderRadius: BorderRadius.circular(12),
@@ -369,8 +389,8 @@ class _StoryCreatorPageState extends ConsumerState<StoryCreatorPage>
             Text(
               label,
               style: const TextStyle(
-                color:      Colors.white,
-                fontSize:   15,
+                color: Colors.white,
+                fontSize: 15,
                 fontWeight: FontWeight.w600,
               ),
             ),
@@ -384,7 +404,9 @@ class _StoryCreatorPageState extends ConsumerState<StoryCreatorPage>
   // STEP 1: EDITOR
   // ─────────────────────────────────────────────────────
   Widget _buildEditorStep() {
-    final size = MediaQuery.of(context).size;
+    final size = MediaQuery
+        .of(context)
+        .size;
 
     return SizedBox.expand(
       child: Stack(
@@ -401,8 +423,8 @@ class _StoryCreatorPageState extends ConsumerState<StoryCreatorPage>
                 child: Text(
                   _textOverlay,
                   style: TextStyle(
-                    color:      _textColor,
-                    fontSize:   _textSize,
+                    color: _textColor,
+                    fontSize: _textSize,
                     fontWeight: FontWeight.w700,
                     shadows: const [
                       Shadow(blurRadius: 8, color: Colors.black54),
@@ -425,9 +447,9 @@ class _StoryCreatorPageState extends ConsumerState<StoryCreatorPage>
           // ─── Bottom bar ────────────────────────────────
           Positioned(
             bottom: 0,
-            left:   0,
-            right:  0,
-            child:  SafeArea(child: _buildEditorBottomBar()),
+            left: 0,
+            right: 0,
+            child: SafeArea(child: _buildEditorBottomBar()),
           ),
 
           // ─── Text input overlay ────────────────────────
@@ -447,9 +469,9 @@ class _StoryCreatorPageState extends ConsumerState<StoryCreatorPage>
       return FittedBox(
         fit: BoxFit.cover,
         child: SizedBox(
-          width:  _videoController!.value.size.width,
+          width: _videoController!.value.size.width,
           height: _videoController!.value.size.height,
-          child:  VideoPlayer(_videoController!),
+          child: VideoPlayer(_videoController!),
         ),
       );
     }
@@ -483,7 +505,7 @@ class _StoryCreatorPageState extends ConsumerState<StoryCreatorPage>
             _videoController?.dispose();
             _videoController = null;
             setState(() {
-              _step      = 0;
+              _step = 0;
               _mediaFile = null;
               _textOverlay = '';
             });
@@ -493,6 +515,10 @@ class _StoryCreatorPageState extends ConsumerState<StoryCreatorPage>
 
           // Text tool
           _glassBtn(PhosphorIcons.textT(), _toggleTextTool),
+          const SizedBox(width: 8),
+
+          // Music tool
+          _glassBtn(PhosphorIcons.musicNotes(), _pickMusic),
           const SizedBox(width: 8),
 
 
@@ -505,11 +531,11 @@ class _StoryCreatorPageState extends ConsumerState<StoryCreatorPage>
                 vertical: 6,
               ),
               decoration: BoxDecoration(
-                color:        _audience == StoryAudience.closeFriends
+                color: _audience == StoryAudience.closeFriends
                     ? Colors.green.withValues(alpha: 0.85)
                     : Colors.black.withValues(alpha: 0.45),
                 borderRadius: BorderRadius.circular(20),
-                border:       Border.all(
+                border: Border.all(
                   color: Colors.white.withValues(alpha: 0.3),
                   width: 0.5,
                 ),
@@ -530,8 +556,8 @@ class _StoryCreatorPageState extends ConsumerState<StoryCreatorPage>
                         ? 'Close Friends'
                         : 'Everyone',
                     style: const TextStyle(
-                      color:      Colors.white,
-                      fontSize:   12,
+                      color: Colors.white,
+                      fontSize: 12,
                       fontWeight: FontWeight.w600,
                     ),
                   ),
@@ -549,8 +575,8 @@ class _StoryCreatorPageState extends ConsumerState<StoryCreatorPage>
     return Container(
       decoration: BoxDecoration(
         gradient: LinearGradient(
-          begin:  Alignment.bottomCenter,
-          end:    Alignment.topCenter,
+          begin: Alignment.bottomCenter,
+          end: Alignment.topCenter,
           colors: [
             Colors.black.withValues(alpha: 0.85),
             Colors.transparent,
@@ -566,7 +592,7 @@ class _StoryCreatorPageState extends ConsumerState<StoryCreatorPage>
               _videoController?.dispose();
               _videoController = null;
               setState(() {
-                _step      = 0;
+                _step = 0;
                 _mediaFile = null;
               });
             },
@@ -576,13 +602,13 @@ class _StoryCreatorPageState extends ConsumerState<StoryCreatorPage>
                 vertical: 10,
               ),
               decoration: BoxDecoration(
-                color:        Colors.white.withValues(alpha: 0.15),
+                color: Colors.white.withValues(alpha: 0.15),
                 borderRadius: BorderRadius.circular(24),
               ),
               child: const Text(
                 'Discard',
                 style: TextStyle(
-                  color:      Colors.white,
+                  color: Colors.white,
                   fontWeight: FontWeight.w600,
                 ),
               ),
@@ -600,7 +626,7 @@ class _StoryCreatorPageState extends ConsumerState<StoryCreatorPage>
                 vertical: 12,
               ),
               decoration: BoxDecoration(
-                color:        AppColors.primary,
+                color: AppColors.primary,
                 borderRadius: BorderRadius.circular(24),
               ),
               child: Row(
@@ -609,13 +635,14 @@ class _StoryCreatorPageState extends ConsumerState<StoryCreatorPage>
                   const Text(
                     'Share to Story',
                     style: TextStyle(
-                      color:      Colors.white,
-                      fontSize:   15,
+                      color: Colors.white,
+                      fontSize: 15,
                       fontWeight: FontWeight.w700,
                     ),
                   ),
                   const SizedBox(width: 6),
-                  Icon(PhosphorIcons.arrowRight(), color: Colors.white, size: 18),
+                  Icon(PhosphorIcons.arrowRight(), color: Colors.white,
+                      size: 18),
                 ],
               ),
             ),
@@ -734,7 +761,8 @@ class _StoryCreatorPageState extends ConsumerState<StoryCreatorPage>
       ),
     );
   }
-              // ─── Uploading step ───────────────────────────────────
+
+  // ─── Uploading step ───────────────────────────────────
   Widget _buildUploadingStep() {
     final pct = (_uploadProgress * 100).toInt();
     return Center(
@@ -742,26 +770,26 @@ class _StoryCreatorPageState extends ConsumerState<StoryCreatorPage>
         mainAxisSize: MainAxisSize.min,
         children: [
           SizedBox(
-            width:  100,
+            width: 100,
             height: 100,
             child: Stack(
               alignment: Alignment.center,
               children: [
                 SizedBox(
-                  width:  100,
+                  width: 100,
                   height: 100,
                   child: CircularProgressIndicator(
-                    value:           _uploadProgress > 0 ? _uploadProgress : null,
-                    strokeWidth:     4,
-                    color:           AppColors.primary,
+                    value: _uploadProgress > 0 ? _uploadProgress : null,
+                    strokeWidth: 4,
+                    color: AppColors.primary,
                     backgroundColor: Colors.white24,
                   ),
                 ),
                 Text(
                   '$pct%',
                   style: const TextStyle(
-                    color:      Colors.white,
-                    fontSize:   22,
+                    color: Colors.white,
+                    fontSize: 22,
                     fontWeight: FontWeight.w700,
                   ),
                 ),
@@ -772,8 +800,8 @@ class _StoryCreatorPageState extends ConsumerState<StoryCreatorPage>
           const Text(
             'Sharing your story...',
             style: TextStyle(
-              color:      Colors.white,
-              fontSize:   16,
+              color: Colors.white,
+              fontSize: 16,
               fontWeight: FontWeight.w600,
             ),
           ),
@@ -792,11 +820,11 @@ class _StoryCreatorPageState extends ConsumerState<StoryCreatorPage>
     return GestureDetector(
       onTap: onTap,
       child: Container(
-        width:  40,
+        width: 40,
         height: 40,
         decoration: BoxDecoration(
-          color:  Colors.black.withValues(alpha: 0.45),
-          shape:  BoxShape.circle,
+          color: Colors.black.withValues(alpha: 0.45),
+          shape: BoxShape.circle,
           border: Border.all(
             color: Colors.white.withValues(alpha: 0.15),
             width: 0.5,
@@ -806,4 +834,5 @@ class _StoryCreatorPageState extends ConsumerState<StoryCreatorPage>
       ),
     );
   }
+
 }

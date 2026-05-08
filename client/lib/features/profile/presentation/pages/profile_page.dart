@@ -5,10 +5,10 @@ import 'package:flutter/cupertino.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:cached_network_image/cached_network_image.dart';
 import 'package:go_router/go_router.dart';
+import 'package:flutter_lucide/flutter_lucide.dart';
 import 'package:url_launcher/url_launcher.dart';
 import '../../../../core/router/app_router.dart';
 import '../../../../core/router/main_shell.dart';
-import '../../../../shared/widgets/spring_widget.dart';
 import '../../../../shared/widgets/app_snackbar.dart';
 import '../../../follow/data/repositories/presentation/providers/follow_provider.dart';
 import '../../../follow/data/repositories/presentation/providers/widgets/follow_button.dart';
@@ -18,6 +18,11 @@ import '../../data/models/profile_model.dart';
 import '../../../messages/data/repositories/message_service.dart';
 import '../../../messages/presentation/providers/message_provider.dart';
 import '../../../../core/theme/app_theme.dart';
+import '../../../post/data/repositories/post_tag_service.dart';
+import '../../../../core/design/design_tokens.dart';
+import '../../../../shared/widgets/verified_badge.dart';
+import '../../../../core/constants/app_assets.dart';
+import 'package:flutter_svg/flutter_svg.dart';
 
 class ProfilePage extends ConsumerStatefulWidget {
   final String username;
@@ -80,44 +85,53 @@ class _ProfilePageState extends ConsumerState<ProfilePage>
         transitionBetweenRoutes: false,
         backgroundColor: isDark ? Colors.black : Colors.white,
         border: null,
-        leading: Navigator.canPop(context)
-            ? BouncyTap(
-                onTap: () => context.pop(),
-                child: const Padding(
-                  padding: EdgeInsets.only(left: 8.0),
-                  child: Icon(CupertinoIcons.chevron_back, size: 28),
-                ),
-              )
-            : null,
-        middle: Text(
-          widget.username,
-          style: const TextStyle(fontSize: 17, fontWeight: FontWeight.w600, fontFamily: 'SF-Pro'),
+        automaticallyImplyLeading: false,
+        middle: Row(
+          children: [
+            const SizedBox(width: 16),
+            Text(
+              widget.username,
+              style: TextStyle(
+                fontSize: 20, // Modern Instagram size
+                fontWeight: FontWeight.w700, // Semi-bold/bold
+                fontFamily: 'Instagram-Sans',
+                color: isDark ? Colors.white : Colors.black,
+              ),
+            ),
+            if (profileState.profile?.isVerified ?? false)
+              const Padding(
+                padding: EdgeInsets.only(left: 4, top: 0),
+                child: VerifiedBadge(size: 15),
+              ),
+          ],
         ),
-        trailing: profileState.profile?.isOwnProfile == true
-            ? Row(
-                mainAxisSize: MainAxisSize.min,
-                children: [
-                  BouncyTap(
-                    onTap: () => _showCreateMenu(context),
-                    child: const Icon(CupertinoIcons.plus_app, size: 24),
-                  ),
-                  const SizedBox(width: 12),
-                  BouncyTap(
-                    onTap: () => context.push(AppRoutes.settings),
-                    child: const Padding(
-                      padding: EdgeInsets.only(right: 8.0),
-                      child: Icon(CupertinoIcons.line_horizontal_3, size: 24),
-                    ),
-                  ),
-                ],
-              )
-            : BouncyTap(
-                onTap: () => _showMoreOptions(context),
-                child: const Padding(
-                  padding: EdgeInsets.only(right: 8.0),
-                  child: Icon(CupertinoIcons.ellipsis, size: 22),
+        trailing: Row(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            CupertinoButton(
+              padding: EdgeInsets.zero,
+              onPressed: () => _showCreateMenu(context),
+              child: Icon(
+                LucideIcons.plus,
+                size: 24,
+                color: isDark ? Colors.white : Colors.black,
+              ),
+            ),
+            const SizedBox(width: 16),
+            CupertinoButton(
+              padding: EdgeInsets.zero,
+              onPressed: () => context.push(AppRoutes.settings),
+              child: Padding(
+                padding: const EdgeInsets.only(right: 8.0),
+                child: Icon(
+                  LucideIcons.menu,
+                  size: 24,
+                  color: isDark ? Colors.white : Colors.black,
                 ),
               ),
+            ),
+          ],
+        ),
       ),
       body: profileState.isLoading
           ? const Center(child: CupertinoActivityIndicator())
@@ -155,10 +169,10 @@ class _ProfilePageState extends ConsumerState<ProfilePage>
                   indicatorWeight: 1,
                   labelColor: isDark ? Colors.white : Colors.black,
                   unselectedLabelColor: Colors.grey,
-                  tabs: const [
-                    Tab(icon: Icon(CupertinoIcons.square_on_square, size: 22)),
-                    Tab(icon: Icon(CupertinoIcons.play_circle, size: 22)),
-                    Tab(icon: Icon(CupertinoIcons.person_crop_circle, size: 22)),
+                  tabs: [
+                    Tab(icon: Icon(LucideIcons.layout_grid, size: 24, color: isDark ? Colors.white : Colors.black)),
+                    Tab(icon: Icon(LucideIcons.clapperboard, size: 24, color: isDark ? Colors.white : Colors.black)),
+                    Tab(icon: Icon(LucideIcons.contact, size: 24, color: isDark ? Colors.white : Colors.black)),
                   ],
                 ),
                 isDark: isDark,
@@ -173,7 +187,7 @@ class _ProfilePageState extends ConsumerState<ProfilePage>
               children: [
                 _buildPostsGrid(state, profile, followState),
                 const Center(child: Text('Reels')),
-                const Center(child: Text('Tagged')),
+                _TaggedGrid(username: profile.username),
               ],
             ),
     );
@@ -181,19 +195,23 @@ class _ProfilePageState extends ConsumerState<ProfilePage>
 
   Widget _buildHeader(ProfileModel profile, FollowState followState) {
     return Padding(
-      padding: const EdgeInsets.fromLTRB(16, 12, 16, 0),
+      padding: const EdgeInsets.fromLTRB(16, 12, 24, 0),
       child: Row(
-        mainAxisAlignment: MainAxisAlignment.spaceBetween,
         children: [
           _buildAvatar(profile),
-          _buildStatItem(followState.isBlocked ? '-' : profile.postCount.toString(), 'Posts'),
-          BouncyTap(
-            onTap: followState.isBlocked ? null : () => context.push('/followers/${profile.id}/${profile.username}'),
-            child: _buildStatItem(followState.isBlocked ? '-' : profile.formatCount(profile.followersCount), 'Followers'),
+          const Spacer(),
+          _buildStatItem(followState.isBlocked ? '-' : profile.postCount.toString(), 'post'),
+          const SizedBox(width: 24),
+          CupertinoButton(
+            padding: EdgeInsets.zero,
+            onPressed: followState.isBlocked ? null : () => context.push('/followers/${profile.id}/${profile.username}'),
+            child: _buildStatItem(followState.isBlocked ? '-' : profile.formatCount(profile.followersCount), 'follower'),
           ),
-          BouncyTap(
-            onTap: followState.isBlocked ? null : () => context.push('/following/${profile.id}/${profile.username}'),
-            child: _buildStatItem(followState.isBlocked ? '-' : profile.formatCount(profile.followingCount), 'Following'),
+          const SizedBox(width: 24),
+          CupertinoButton(
+            padding: EdgeInsets.zero,
+            onPressed: followState.isBlocked ? null : () => context.push('/following/${profile.id}/${profile.username}'),
+            child: _buildStatItem(followState.isBlocked ? '-' : profile.formatCount(profile.followingCount), 'following'),
           ),
         ],
       ),
@@ -202,46 +220,97 @@ class _ProfilePageState extends ConsumerState<ProfilePage>
 
   Widget _buildAvatar(ProfileModel profile) {
     return Container(
-      width: 77,
-      height: 77,
+      width: 79, // Match profile_header_avatar_size_new
+      height: 79,
       padding: const EdgeInsets.all(3),
       decoration: BoxDecoration(
         shape: BoxShape.circle,
-        border: Border.all(color: Colors.grey.withValues(alpha: 0.2), width: 1),
+        border: Border.all(
+          color: Colors.grey.withValues(alpha: 0.1),
+          width: 1,
+        ),
       ),
       child: CircleAvatar(
-        radius: 35,
         backgroundColor: AppColors.border,
-        backgroundImage: profile.profilePicUrl != null ? NetworkImage(profile.profilePicUrl!) : null,
+        backgroundImage: profile.profilePicUrl != null 
+          ? NetworkImage(profile.profilePicUrl!) : null,
         child: profile.profilePicUrl == null
-            ? const Icon(CupertinoIcons.person_fill, color: Colors.white, size: 35)
+            ? Icon(LucideIcons.user, color: Colors.white, size: 36)
             : null,
       ),
     );
   }
 
   Widget _buildStatItem(String count, String label) {
+    final isDark = Theme.of(context).brightness == Brightness.dark;
     return Column(
+      mainAxisSize: MainAxisSize.min,
       children: [
-        Text(count, style: const TextStyle(fontSize: 16, fontWeight: FontWeight.bold)),
-        Text(label, style: const TextStyle(fontSize: 13, fontWeight: FontWeight.w400)),
+        Text(
+          count, 
+          style: TextStyle(
+            fontSize: 16, 
+            fontWeight: FontWeight.w700,
+            fontFamily: 'Instagram-Sans',
+            color: isDark ? Colors.white : Colors.black,
+          ),
+        ),
+        Text(
+          label, 
+          style: TextStyle(
+            fontSize: 14, 
+            fontWeight: FontWeight.w400,
+            fontFamily: 'Instagram-Sans',
+            color: isDark ? Colors.white : Colors.black,
+          ),
+        ),
       ],
     );
   }
 
   Widget _buildBio(ProfileModel profile) {
+    final isDark = Theme.of(context).brightness == Brightness.dark;
     return Padding(
       padding: const EdgeInsets.fromLTRB(16, 8, 16, 12),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          Text(profile.fullName, style: const TextStyle(fontWeight: FontWeight.w600, fontSize: 13)),
+          Text(
+            profile.fullName, 
+            style: TextStyle(
+              fontWeight: FontWeight.bold, 
+              fontSize: 14,
+              fontFamily: 'Instagram-Sans',
+              color: isDark ? Colors.white : Colors.black,
+            ),
+          ),
+          const SizedBox(height: 2),
           if (profile.bio != null)
-            Text(profile.bio!, style: const TextStyle(fontSize: 13, height: 1.2)),
+            Text(
+              profile.bio!, 
+              style: TextStyle(
+                fontSize: 14, 
+                height: 1.3,
+                fontFamily: 'Instagram-Sans',
+                color: isDark ? Colors.white : Colors.black,
+              ),
+            ),
           if (profile.website != null)
-            BouncyTap(
-              onTap: () => launchUrl(Uri.parse(profile.website!)),
-              child: Text(profile.website!, style: const TextStyle(color: AppColors.link, fontSize: 13, fontWeight: FontWeight.w500)),
+            Padding(
+              padding: const EdgeInsets.only(top: 2),
+              child: CupertinoButton(
+                padding: EdgeInsets.zero,
+                onPressed: () => launchUrl(Uri.parse(profile.website!)),
+                child: Text(
+                  profile.website!.replaceAll('https://', '').replaceAll('http://', ''), 
+                  style: const TextStyle(
+                    color: Color(0xFF00376B), 
+                    fontSize: 14, 
+                    fontWeight: FontWeight.w500,
+                    fontFamily: 'SF-Pro',
+                  ),
+                ),
+              ),
             ),
         ],
       ),
@@ -258,13 +327,13 @@ class _ProfilePageState extends ConsumerState<ProfilePage>
         child: Row(
           children: [
             Expanded(
-              child: BouncyTap(
-                onTap: () => _handleUnblock(profile.id),
-                child: _CupertinoButton(
-                  onPressed: () {},
+              child: CupertinoButton(
+                padding: EdgeInsets.zero,
+                onPressed: () => _handleUnblock(profile.id),
+                child: _CustomProfileButton(
                   text: 'Unblock',
                   backgroundColor: AppColors.primary,
-                  textStyle: const TextStyle(color: Colors.white, fontWeight: FontWeight.w600, fontSize: 13),
+                  textColor: Colors.white,
                 ),
               ),
             ),
@@ -279,62 +348,81 @@ class _ProfilePageState extends ConsumerState<ProfilePage>
           ? Row(
               children: [
                 Expanded(
-                  child: BouncyTap(
-                    onTap: () => context.push(AppRoutes.editProfile),
-                    child: _CupertinoButton(
-                      onPressed: () {}, // Handled by BouncyTap
+                  child: CupertinoButton(
+                    padding: EdgeInsets.zero,
+                    onPressed: () => context.push(AppRoutes.editProfile),
+                    child: _CustomProfileButton(
                       text: 'Edit Profile',
                       backgroundColor: btnBg,
-                      textStyle: textStyle,
+                      textColor: isDark ? Colors.white : Colors.black,
                     ),
                   ),
                 ),
                 const SizedBox(width: 8),
                 Expanded(
-                  child: BouncyTap(
-                    onTap: () {},
-                    child: _CupertinoButton(
-                      onPressed: () {},
+                  child: CupertinoButton(
+                    padding: EdgeInsets.zero,
+                    onPressed: () {},
+                    child: _CustomProfileButton(
                       text: 'Share Profile',
                       backgroundColor: btnBg,
-                      textStyle: textStyle,
+                      textColor: isDark ? Colors.white : Colors.black,
                     ),
                   ),
                 ),
                 const SizedBox(width: 8),
-                BouncyTap(
-                  onTap: () {},
-                  child: _CupertinoButton(
-                    onPressed: () {},
-                    icon: CupertinoIcons.person_add,
+                CupertinoButton(
+                  padding: EdgeInsets.zero,
+                  onPressed: () {},
+                  child: _CustomProfileButton(
+                    icon: LucideIcons.user_plus,
                     backgroundColor: btnBg,
+                    textColor: isDark ? Colors.white : Colors.black,
                   ),
                 ),
               ],
             )
           : Row(
               children: [
-                Expanded(flex: 3, child: FollowButton(targetUserId: profile.id)),
-                const SizedBox(width: 8),
                 Expanded(
-                  flex: 3,
-                  child: BouncyTap(
-                    onTap: () => _messageUser(profile.id),
-                    child: _CupertinoButton(
-                      onPressed: () {},
-                      text: 'Message',
-                      backgroundColor: btnBg,
-                      textStyle: textStyle,
+                  flex: 5,
+                  child: CupertinoButton(
+                    padding: EdgeInsets.zero,
+                    onPressed: () => _handleFollowToggle(profile.id, followState),
+                    child: _CustomProfileButton(
+                      text: followState.isFollowing 
+                        ? 'Following' 
+                        : (followState.isPending ? 'Requested' : 'Follow'),
+                      backgroundColor: followState.isFollowing || followState.isPending
+                        ? btnBg
+                        : const Color(0xFF0095F6),
+                      textColor: followState.isFollowing || followState.isPending
+                        ? (isDark ? Colors.white : Colors.black)
+                        : Colors.white,
                     ),
                   ),
                 ),
                 const SizedBox(width: 8),
-                BouncyTap(
-                  onTap: () {},
-                  child: _CupertinoButton(
-                    onPressed: () {},
-                    icon: CupertinoIcons.person_add,
+                Expanded(
+                  flex: 5,
+                  child: CupertinoButton(
+                    padding: EdgeInsets.zero,
+                    onPressed: () => _messageUser(profile.id),
+                    child: _CustomProfileButton(
+                      text: 'Message',
+                      backgroundColor: btnBg,
+                      textColor: isDark ? Colors.white : Colors.black,
+                    ),
+                  ),
+                ),
+                const SizedBox(width: 8),
+                CupertinoButton(
+                  padding: EdgeInsets.zero,
+                  onPressed: () {},
+                  child: _CustomProfileButton(
+                    icon: LucideIcons.chevron_down,
                     backgroundColor: btnBg,
+                    textColor: isDark ? Colors.white : Colors.black,
                   ),
                 ),
               ],
@@ -373,16 +461,17 @@ class _ProfilePageState extends ConsumerState<ProfilePage>
       itemCount: state.posts.length,
       itemBuilder: (context, index) {
         final post = state.posts[index];
-        return BouncyTap(
-          onTap: () => context.push('/post/${post.id}'),
+        return CupertinoButton(
+          padding: EdgeInsets.zero,
+          onPressed: () => context.push('/post/${post.id}'),
           child: Stack(
             fit: StackFit.expand,
             children: [
               CachedNetworkImage(imageUrl: post.thumbnailUrl ?? '', fit: BoxFit.cover),
               if (post.isCarousel)
-                const Positioned(top: 8, right: 8, child: Icon(CupertinoIcons.layers_fill, size: 16, color: Colors.white)),
+                const Positioned(top: 8, right: 8, child: Icon(LucideIcons.layers, size: 16, color: Colors.white)),
               if (post.isVideo)
-                const Positioned(top: 8, right: 8, child: Icon(CupertinoIcons.play_fill, size: 16, color: Colors.white)),
+                const Positioned(top: 8, right: 8, child: Icon(LucideIcons.play, size: 16, color: Colors.white)),
             ],
           ),
         );
@@ -401,7 +490,7 @@ class _ProfilePageState extends ConsumerState<ProfilePage>
               shape: BoxShape.circle,
               border: Border.all(color: Colors.grey, width: 2),
             ),
-            child: const Icon(CupertinoIcons.lock_fill, size: 40),
+            child: const Icon(LucideIcons.lock, size: 40),
           ),
           const SizedBox(height: 16),
           const Text('This account is private', style: TextStyle(fontWeight: FontWeight.bold, fontSize: 18)),
@@ -526,6 +615,38 @@ class _ProfilePageState extends ConsumerState<ProfilePage>
     );
   }
 
+  Future<void> _handleFollowToggle(String userId, FollowState followState) async {
+    if (followState.isFollowing) {
+      final confirmed = await showCupertinoDialog<bool>(
+        context: context,
+        builder: (ctx) => CupertinoAlertDialog(
+          title: const Text('Unfollow?'),
+          content: const Text('Are you sure you want to unfollow this person?'),
+          actions: [
+            CupertinoDialogAction(
+              child: const Text('Cancel'),
+              onPressed: () => Navigator.pop(ctx, false),
+            ),
+            CupertinoDialogAction(
+              isDestructiveAction: true,
+              onPressed: () => Navigator.pop(ctx, true),
+              child: const Text('Unfollow'),
+            ),
+          ],
+        ),
+      );
+      if (confirmed != true) return;
+    }
+
+    try {
+      await ref.read(followProvider(userId).notifier).toggleFollow();
+    } catch (e) {
+      if (mounted) {
+        AppSnackbar.error(context, e.toString().replaceAll('Exception: ', ''));
+      }
+    }
+  }
+
   Future<void> _handleBlock(String userId) async {
     try {
       await ref.read(followProvider(userId).notifier).blockUser();
@@ -553,33 +674,40 @@ class _ProfilePageState extends ConsumerState<ProfilePage>
   }
 }
 
-class _CupertinoButton extends StatelessWidget {
-  final VoidCallback onPressed;
+class _CustomProfileButton extends StatelessWidget {
   final String? text;
   final IconData? icon;
   final Color backgroundColor;
-  final TextStyle? textStyle;
+  final Color textColor;
 
-  const _CupertinoButton({
-    required this.onPressed,
+  const _CustomProfileButton({
     this.text,
     this.icon,
     required this.backgroundColor,
-    this.textStyle,
+    required this.textColor,
   });
 
   @override
   Widget build(BuildContext context) {
     return Container(
-      height: 32,
+      height: 32, // Standard IG button height
       decoration: BoxDecoration(
         borderRadius: BorderRadius.circular(8),
         color: backgroundColor,
       ),
       alignment: Alignment.center,
+      padding: const EdgeInsets.symmetric(horizontal: 12),
       child: text != null
-          ? Text(text!, style: textStyle)
-          : Icon(icon, color: textStyle?.color ?? Colors.black, size: 18),
+          ? Text(
+              text!, 
+              style: TextStyle(
+                color: textColor, 
+                fontWeight: FontWeight.bold, 
+                fontSize: 14,
+                fontFamily: 'Instagram-Sans',
+              ),
+            )
+          : Icon(icon, color: textColor, size: 18),
     );
   }
 }
@@ -591,14 +719,146 @@ class _ProfileTabDelegate extends SliverPersistentHeaderDelegate {
 
   @override
   Widget build(BuildContext context, double shrinkOffset, bool overlapsContent) {
-    return Container(color: isDark ? Colors.black : Colors.white, child: tabBar);
+    return Container(
+      height: 48,
+      color: isDark ? Colors.black : Colors.white,
+      child: tabBar,
+    );
   }
 
   @override
-  double get maxExtent => 44;
+  double get maxExtent => 48; // Match tab_bar_height_whiteout
   @override
-  double get minExtent => 44;
+  double get minExtent => 48;
   @override
   bool shouldRebuild(covariant SliverPersistentHeaderDelegate oldDelegate) => false;
+}
+
+// ─────────────────────────────────────────────────────
+// TAGGED POSTS GRID
+// ─────────────────────────────────────────────────────
+class _TaggedGrid extends ConsumerWidget {
+  final String username;
+  const _TaggedGrid({required this.username});
+
+  @override
+  Widget build(BuildContext context, WidgetRef ref) {
+    final isDark = Theme.of(context).brightness == Brightness.dark;
+
+    return FutureBuilder<List<dynamic>>(
+      future: ref.read(postTagServiceProvider).getTaggedPosts(
+        username: username,
+      ),
+      builder: (context, snapshot) {
+        if (snapshot.connectionState == ConnectionState.waiting) {
+          return const Center(child: CupertinoActivityIndicator());
+        }
+
+        if (snapshot.hasError) {
+          return Center(
+            child: Text(
+              'Failed to load tagged posts',
+              style: TextStyle(
+                color: isDark ? Colors.white54 : Colors.grey,
+                fontSize: 14,
+              ),
+            ),
+          );
+        }
+
+        final posts = snapshot.data ?? [];
+
+        if (posts.isEmpty) {
+          return Center(
+            child: Padding(
+              padding: const EdgeInsets.all(Spacing.xl),
+              child: Column(
+                mainAxisAlignment: MainAxisAlignment.center,
+                children: [
+                  Container(
+                    padding: const EdgeInsets.all(20),
+                    decoration: BoxDecoration(
+                      shape: BoxShape.circle,
+                      border: Border.all(
+                        color: isDark ? Colors.white24 : Colors.black12,
+                        width: 2,
+                      ),
+                    ),
+                    child: Icon(
+                      LucideIcons.user_round_plus,
+                      size:  48,
+                      color: isDark ? Colors.white : Colors.black,
+                    ),
+                  ),
+                  const SizedBox(height: Spacing.lg),
+                  Text(
+                    'Photos of you',
+                    style: IgText.h2.copyWith(color: isDark ? Colors.white : Colors.black),
+                  ),
+                  const SizedBox(height: Spacing.sm),
+                  Text(
+                    'When people tag you in photos,\nthey\'ll appear here.',
+                    style: TextStyle(
+                      color: isDark ? Colors.white54 : Colors.grey,
+                      fontSize: 14,
+                    ),
+                    textAlign: TextAlign.center,
+                  ),
+                ],
+              ),
+            ),
+          );
+        }
+
+        return GridView.builder(
+          padding:         EdgeInsets.zero,
+          gridDelegate: const SliverGridDelegateWithFixedCrossAxisCount(
+            crossAxisCount:   3,
+            crossAxisSpacing: 1,
+            mainAxisSpacing:  1,
+          ),
+          itemCount: posts.length,
+          itemBuilder: (context, index) {
+            final post = posts[index] as Map<String, dynamic>;
+            final cover = post['media_url']?.toString() ?? post['coverUrl']?.toString();
+            final postId = post['id']?.toString() ?? '';
+
+            return CupertinoButton(
+              padding: EdgeInsets.zero,
+              onPressed: () => context.push('/post/$postId'),
+              child: Stack(
+                fit: StackFit.expand,
+                children: [
+                  cover != null
+                      ? CachedNetworkImage(
+                          imageUrl:   cover,
+                          fit:        BoxFit.cover,
+                          placeholder: (_, __) => Container(
+                            color: isDark ? Colors.grey[900] : Colors.grey[200],
+                          ),
+                        )
+                      : Container(color: isDark ? Colors.grey[900] : Colors.grey[200]),
+
+                  // Tag icon overlay
+                  const Positioned(
+                    top:   8,
+                    right: 8,
+                    child: Icon(
+                      LucideIcons.contact,
+                      color: Colors.white,
+                      size:  18,
+                      shadows: [
+                        Shadow(blurRadius: 4, color: Colors.black45),
+                      ],
+                    ),
+                  ),
+                ],
+              ),
+            );
+          },
+        );
+      },
+    );
+  }
 }
 

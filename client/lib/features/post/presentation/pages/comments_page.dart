@@ -4,6 +4,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter/cupertino.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:cached_network_image/cached_network_image.dart';
+import 'package:flutter_lucide/flutter_lucide.dart';
 import 'package:go_router/go_router.dart';
 import 'package:intl/intl.dart';
 import '../../../../core/theme/app_theme.dart';
@@ -12,6 +13,7 @@ import '../../data/models/comment_model.dart';
 import '../providers/comment_provider.dart';
 import '../../../../features/auth/presentation/providers/auth_provider.dart';
 import '../../../../shared/widgets/spring_widget.dart';
+import '../../../../shared/widgets/verified_badge.dart';
 
 
 class CommentsPage extends ConsumerStatefulWidget {
@@ -87,7 +89,7 @@ class _CommentsPageState extends ConsumerState<CommentsPage> {
           onTap: () => context.pop(),
           child: const Padding(
             padding: EdgeInsets.only(left: 8.0),
-            child: Icon(CupertinoIcons.chevron_back, color: AppColors.primary),
+            child: Icon(LucideIcons.chevron_left, color: AppColors.primary),
           ),
         ),
         middle: const Text(
@@ -98,7 +100,7 @@ class _CommentsPageState extends ConsumerState<CommentsPage> {
           onTap: () {},
           child: const Padding(
             padding: EdgeInsets.only(right: 8.0),
-            child: Icon(CupertinoIcons.paperplane, size: 24, color: AppColors.primary),
+            child: Icon(LucideIcons.send, size: 24, color: AppColors.primary),
           ),
         ),
       ),
@@ -194,7 +196,7 @@ class _CommentsPageState extends ConsumerState<CommentsPage> {
                   Expanded(child: Text('Replying to ${state.replyingTo!.user?.username}', style: const TextStyle(fontSize: 12, color: Colors.grey))),
                   BouncyTap(
                     onTap: () => ref.read(commentProvider(widget.postId).notifier).setReplyingTo(null),
-                    child: const Icon(CupertinoIcons.xmark, size: 14),
+                    child: const Icon(LucideIcons.x, size: 14),
                   ),
                 ],
               ),
@@ -278,6 +280,13 @@ class _CaptionItem extends StatelessWidget {
                     style: TextStyle(color: isDark ? Colors.white : Colors.black, fontSize: 13, fontFamily: 'SF Pro Text'),
                     children: [
                       TextSpan(text: '${post.user?.username} ', style: const TextStyle(fontWeight: FontWeight.w600)),
+                      if (post.user?.isVerified ?? false)
+                        const WidgetSpan(
+                          alignment: PlaceholderAlignment.middle,
+                          child: VerifiedBadge(size: 11),
+                        ),
+                      if (post.user?.isVerified ?? false)
+                        const TextSpan(text: ' '),
                       TextSpan(text: post.caption ?? ''),
                     ],
                   ),
@@ -384,6 +393,13 @@ class _CommentRow extends StatelessWidget {
                     style: TextStyle(color: isDark ? Colors.white : Colors.black, fontSize: 13, fontFamily: 'SF Pro Text'),
                     children: [
                       TextSpan(text: '${comment.user?.username} ', style: const TextStyle(fontWeight: FontWeight.w600)),
+                      if (comment.user?.isVerified ?? false)
+                        const WidgetSpan(
+                          alignment: PlaceholderAlignment.middle,
+                          child: VerifiedBadge(size: 11),
+                        ),
+                      if (comment.user?.isVerified ?? false)
+                        const TextSpan(text: ' '),
                       TextSpan(text: comment.content),
                     ],
                   ),
@@ -404,11 +420,12 @@ class _CommentRow extends StatelessWidget {
             onTap: onLike,
             child: Column(
               children: [
-                Icon(
-                  comment.isLiked ? CupertinoIcons.heart_fill : CupertinoIcons.heart,
-                  size: 14,
-                  color: comment.isLiked ? Colors.red : Colors.grey,
-                ),
+                  Icon(
+                    comment.isLiked ? LucideIcons.heart : LucideIcons.heart,
+                    size: 14,
+                    fill: comment.isLiked ? 1.0 : 0.0,
+                    color: comment.isLiked ? Colors.red : Colors.grey,
+                  ),
                 if (comment.likeCount > 0)
                   Text('${comment.likeCount}', style: const TextStyle(fontSize: 10, color: Colors.grey)),
               ],

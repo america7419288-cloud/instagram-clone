@@ -30,6 +30,7 @@ const StoryAnswer = require('./StoryAnswer.model');
 const StoryReaction = require('./StoryReaction.model');
 const StoryHighlight = require('./StoryHighlight.model');
 const StoryHighlightItem = require('./StoryHighlightItem.model');
+const PostTag = require('./PostTag.model');
 
 // ─── ALL ASSOCIATIONS ──────────────────────────────────────
 
@@ -93,6 +94,23 @@ User.hasMany(SavedPost, {
   onDelete: 'CASCADE',
 });
 SavedPost.belongsTo(User, { foreignKey: 'userId', as: 'user' });
+
+// ─── Post → PostTag ───────────────────────────────────
+Post.hasMany(PostTag, {
+  foreignKey: 'postId',
+  as: 'tags',
+  onDelete: 'CASCADE',
+});
+PostTag.belongsTo(Post, { foreignKey: 'postId', as: 'post' });
+PostTag.belongsTo(User, {
+  foreignKey: 'userId',
+  as: 'user',
+});
+User.hasMany(PostTag, {
+  foreignKey: 'userId',
+  as: 'taggedIn',
+  onDelete: 'CASCADE',
+});
 
 // COMMENTS
 Post.hasMany(Comment, {
@@ -390,6 +408,7 @@ const syncDatabase = async () => {
     console.log('   → conversations');              // ⭐ NEW
     console.log('   → conversation_participants');  // ⭐ NEW
     console.log('   → messages');                   // ⭐ NEW
+    console.log('   → post_tags');                  // ⭐ NEW
   } catch (error) {
     console.error('❌ Database sync failed:', error.message);
     throw error;
@@ -425,4 +444,5 @@ module.exports = {
   StoryReaction,
   StoryHighlight,
   StoryHighlightItem,
+  PostTag,
 };

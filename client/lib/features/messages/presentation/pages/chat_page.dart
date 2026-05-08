@@ -4,7 +4,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter/cupertino.dart';
 import 'package:flutter/services.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
-import 'package:phosphor_flutter/phosphor_flutter.dart';
+import 'package:flutter_lucide/flutter_lucide.dart';
 import 'package:cached_network_image/cached_network_image.dart';
 import 'package:go_router/go_router.dart';
 import 'package:intl/intl.dart';
@@ -137,7 +137,7 @@ class _ChatPageState extends ConsumerState<ChatPage> {
       titleSpacing: 0,
       leading: BouncyTap(
         onTap: () => context.pop(),
-        child: const Icon(CupertinoIcons.chevron_back, size: 28),
+        child: const Icon(LucideIcons.chevron_left, size: 28),
       ),
       title: Row(
         children: [
@@ -146,7 +146,7 @@ class _ChatPageState extends ConsumerState<ChatPage> {
             backgroundImage: avatarUrl != null ? NetworkImage(avatarUrl) : null,
             backgroundColor: AppColors.border,
             child: avatarUrl == null
-                ? const Icon(CupertinoIcons.person_fill,
+                ? const Icon(LucideIcons.user,
                     size: 16, color: Colors.white)
                 : null,
           ),
@@ -160,7 +160,8 @@ class _ChatPageState extends ConsumerState<ChatPage> {
                   title,
                   style: const TextStyle(
                     fontSize: 15,
-                    fontWeight: FontWeight.w600,
+                    fontWeight: FontWeight.bold,
+                    fontFamily: 'Instagram-Sans',
                   ),
                 ),
                 _buildActiveStatus(conv),
@@ -174,21 +175,21 @@ class _ChatPageState extends ConsumerState<ChatPage> {
           onTap: () {},
           child: const Padding(
             padding: EdgeInsets.all(8.0),
-            child: Icon(CupertinoIcons.phone, size: 24),
+            child: Icon(LucideIcons.phone, size: 24),
           ),
         ),
         BouncyTap(
           onTap: () {},
           child: const Padding(
             padding: EdgeInsets.all(8.0),
-            child: Icon(CupertinoIcons.videocam, size: 28),
+            child: Icon(LucideIcons.video, size: 24),
           ),
         ),
         BouncyTap(
           onTap: () {},
           child: const Padding(
             padding: EdgeInsets.all(8.0),
-            child: Icon(CupertinoIcons.info, size: 24),
+            child: Icon(LucideIcons.info, size: 24),
           ),
         ),
         const SizedBox(width: 4),
@@ -203,9 +204,10 @@ class _ChatPageState extends ConsumerState<ChatPage> {
         final isOnline =
             ref.watch(socketProvider).isUserOnline(conv!.otherUser!.id);
         return Text(
-          isOnline ? 'Active now' : 'Active 5m ago', // Mocked duration
+          isOnline ? 'Active now' : 'Active 5m ago', 
           style: TextStyle(
             fontSize: 11,
+            fontFamily: 'Instagram-Sans',
             color: isOnline ? const Color(0xFF4BB543) : AppColors.textSecondary,
           ),
         );
@@ -342,9 +344,10 @@ class _ChatPageState extends ConsumerState<ChatPage> {
                 message.content ?? '',
                 style: TextStyle(
                   fontSize: 15,
+                  fontFamily: 'Instagram-Sans',
                   color: isOwn
                       ? Colors.white
-                      : (isDark ? Colors.white : AppColors.darkShimmerBase),
+                      : (isDark ? Colors.white : Colors.black),
                 ),
               ),
             ),
@@ -379,7 +382,7 @@ class _ChatPageState extends ConsumerState<ChatPage> {
                 color: AppColors.primary,
                 shape: BoxShape.circle,
               ),
-              child: const Icon(CupertinoIcons.camera_fill,
+              child: const Icon(LucideIcons.camera,
                   color: Colors.white, size: 18),
             ),
           ),
@@ -403,7 +406,7 @@ class _ChatPageState extends ConsumerState<ChatPage> {
                       focusNode: _messageFocus,
                       maxLines: 5,
                       minLines: 1,
-                      style: const TextStyle(fontSize: 15),
+                      style: const TextStyle(fontSize: 15, fontFamily: 'Instagram-Sans'),
                       decoration: const InputDecoration(
                         hintText: 'Message...',
                         border: InputBorder.none,
@@ -411,7 +414,7 @@ class _ChatPageState extends ConsumerState<ChatPage> {
                       ),
                     ),
                   ),
-                  const Icon(CupertinoIcons.smiley, size: 24),
+                  const Icon(LucideIcons.smile, size: 24),
                 ],
               ),
             ),
@@ -433,12 +436,12 @@ class _ChatPageState extends ConsumerState<ChatPage> {
                   children: [
                     BouncyTap(
                       onTap: () {},
-                      child: const Icon(CupertinoIcons.mic, size: 24),
+                      child: const Icon(LucideIcons.mic, size: 24),
                     ),
                     const SizedBox(width: 16),
                     BouncyTap(
                       onTap: () {},
-                      child: const Icon(CupertinoIcons.photo, size: 24),
+                      child: const Icon(LucideIcons.image, size: 24),
                     ),
                   ],
                 ),

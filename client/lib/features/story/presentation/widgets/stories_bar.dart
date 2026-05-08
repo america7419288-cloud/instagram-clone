@@ -5,7 +5,7 @@ import 'package:flutter/cupertino.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
-import 'package:phosphor_flutter/phosphor_flutter.dart';
+import 'package:flutter_lucide/flutter_lucide.dart';
 
 import '../../../../core/router/app_router.dart';
 
@@ -24,7 +24,8 @@ class StoriesBar extends ConsumerWidget {
     final currentUser = ref.watch(currentUserProvider);
 
     return Container(
-      height: 88,
+      height: 102,
+      padding: const EdgeInsets.only(top: 8, bottom: 4),
       decoration: const BoxDecoration(
         color: Colors.transparent,
       ),
@@ -88,6 +89,7 @@ class _YourStoryItem extends StatelessWidget {
             Stack(
               children: [
                 StoryRing(
+                  size: 68, // Increased from 62
                   hasUnseen: hasUnseen,
                   child: (profilePicUrl != null && profilePicUrl!.isNotEmpty)
                       ? CachedNetworkImage(
@@ -97,7 +99,7 @@ class _YourStoryItem extends StatelessWidget {
                         )
                       : Container(
                           color: const Color(0xFFDBDBDB),
-                          child: Icon(PhosphorIcons.user(), color: Colors.white, size: 32),
+                          child: const Icon(LucideIcons.user, color: Colors.white, size: 24),
                         ),
                 ),
                 if (!hasStory)
@@ -112,7 +114,7 @@ class _YourStoryItem extends StatelessWidget {
                         shape: BoxShape.circle,
                         border: Border.all(color: isDark ? Colors.black : Colors.white, width: 2),
                       ),
-                      child: const Icon(Icons.add, color: Colors.white, size: 12),
+                      child: const Icon(LucideIcons.plus, color: Colors.white, size: 12),
                     ),
                   ),
               ],
@@ -121,7 +123,9 @@ class _YourStoryItem extends StatelessWidget {
             Text(
               'Your story',
               style: TextStyle(
-                fontSize: 11,
+                fontSize: 12,
+                fontWeight: FontWeight.w400,
+                fontFamily: 'Instagram-Sans',
                 color: isDark ? Colors.white70 : const Color(0xFF262626),
               ),
             ),
@@ -152,6 +156,7 @@ class _StoryItem extends StatelessWidget {
         child: Column(
           children: [
             StoryRing(
+              size: 68, // Increased from 62
               hasUnseen: group.hasUnseen,
               child: (group.user.profilePicUrl != null && group.user.profilePicUrl!.isNotEmpty)
                   ? CachedNetworkImage(
@@ -161,12 +166,12 @@ class _StoryItem extends StatelessWidget {
                     )
                   : Container(
                       color: const Color(0xFFDBDBDB),
-                      child: Icon(PhosphorIcons.user(), color: Colors.white, size: 32),
+                      child: const Icon(LucideIcons.user, color: Colors.white, size: 24),
                     ),
             ),
             const SizedBox(height: 6),
             SizedBox(
-              width: 64,
+              width: 72,
               child: Text(
                 group.user.username,
                 textAlign: TextAlign.center,
@@ -174,6 +179,8 @@ class _StoryItem extends StatelessWidget {
                 overflow: TextOverflow.ellipsis,
                 style: TextStyle(
                   fontSize: 11,
+                  fontWeight: FontWeight.w400,
+                  fontFamily: 'Instagram-Sans',
                   color: isDark ? Colors.white : const Color(0xFF262626),
                 ),
               ),

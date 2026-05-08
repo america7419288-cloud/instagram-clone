@@ -8,9 +8,11 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:cached_network_image/cached_network_image.dart';
 import 'package:video_player/video_player.dart';
 import 'package:flutter_staggered_grid_view/flutter_staggered_grid_view.dart';
+import 'package:flutter_lucide/flutter_lucide.dart';
 import 'package:go_router/go_router.dart';
 import '../../../../core/theme/app_theme.dart';
 import '../../../../shared/widgets/spring_widget.dart';
+import '../../../../shared/widgets/verified_badge.dart';
 import '../../../follow/data/repositories/presentation/providers/widgets/follow_button.dart';
 import 'providers/search_provider.dart';
 
@@ -88,7 +90,7 @@ class _SearchPageState extends ConsumerState<SearchPage> {
                           decoration: InputDecoration(
                             hintText: 'Search',
                             hintStyle: const TextStyle(color: AppColors.textSecondary),
-                            prefixIcon: const Icon(CupertinoIcons.search, size: 18, color: AppColors.textSecondary),
+                            prefixIcon: const Icon(LucideIcons.search, size: 18, color: AppColors.textSecondary),
                             border: InputBorder.none,
                             contentPadding: const EdgeInsets.symmetric(vertical: 8),
                           ),
@@ -222,9 +224,9 @@ class _SearchPageState extends ConsumerState<SearchPage> {
         ...state.recentSearches.map((s) => BouncyTap(
               onTap: () => _searchController.text = s,
               child: ListTile(
-                leading: const CircleAvatar(radius: 22, backgroundColor: AppColors.border, child: Icon(CupertinoIcons.search, size: 20, color: Colors.grey)),
+                leading: const CircleAvatar(radius: 22, backgroundColor: AppColors.border, child: Icon(LucideIcons.search, size: 20, color: Colors.grey)),
                 title: Text(s, style: const TextStyle(fontSize: 15, fontWeight: FontWeight.w500)),
-                trailing: const Icon(CupertinoIcons.xmark, size: 14, color: Colors.grey),
+                trailing: const Icon(LucideIcons.x, size: 14, color: Colors.grey),
               ),
             )),
       ],
@@ -240,7 +242,7 @@ class _SearchPageState extends ConsumerState<SearchPage> {
         child: Column(
           mainAxisAlignment: MainAxisAlignment.center,
           children: [
-            Icon(CupertinoIcons.search, size: 48, color: AppColors.textSecondary.withValues(alpha: 0.5)),
+            Icon(LucideIcons.search, size: 48, color: AppColors.textSecondary.withValues(alpha: 0.5)),
             const SizedBox(height: 16),
             Text(
               'Search for ${tabs[_selectedTabIndex]}',
@@ -288,7 +290,7 @@ class _ExploreItem extends StatelessWidget {
             placeholder: (context, url) => Container(color: Colors.grey[200]),
           ),
           if (post['media_type'] == 'video')
-            const Positioned(top: 8, right: 8, child: Icon(CupertinoIcons.play_fill, color: Colors.white, size: 18)),
+            const Positioned(top: 8, right: 8, child: Icon(LucideIcons.play, color: Colors.white, size: 18)),
         ],
       ),
     );
@@ -324,10 +326,10 @@ class _ExploreItem extends StatelessWidget {
                       child: Row(
                         mainAxisAlignment: MainAxisAlignment.spaceAround,
                         children: [
-                          Icon(CupertinoIcons.heart, size: 24),
-                          Icon(CupertinoIcons.person_circle, size: 24),
-                          Icon(CupertinoIcons.paperplane, size: 24),
-                          Icon(CupertinoIcons.ellipsis, size: 24),
+                          Icon(LucideIcons.heart, size: 24),
+                          Icon(LucideIcons.user_round, size: 24),
+                          Icon(LucideIcons.send, size: 24),
+                          Icon(LucideIcons.eclipse, size: 24),
                         ],
                       ),
                     ),
@@ -364,7 +366,7 @@ class _UserResultTile extends StatelessWidget {
             Text(user['username'] ?? '', style: const TextStyle(fontWeight: FontWeight.w600, fontSize: 14)),
             if (user['is_verified'] == true) ...[
               const SizedBox(width: 4),
-              const Icon(CupertinoIcons.checkmark_seal_fill, color: AppColors.verified, size: 14),
+              VerifiedBadge(size: 14),
             ],
           ],
         ),

@@ -2,6 +2,7 @@
 
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_riverpod/legacy.dart';
+import 'package:instagram_clinet/core/providers/server_config_provider.dart';
 import 'socket_service.dart';
 
 // ─── SOCKET STATE ────────────────────────────────────────────
@@ -198,7 +199,10 @@ class SocketNotifier extends StateNotifier<SocketState> {
 
 // ─── PROVIDERS ──────────────────────────────────────────────
 final socketServiceProvider = Provider<SocketService>((ref) {
-  return SocketService();
+  final service = SocketService();
+  final config = ref.watch(serverConfigProvider);
+  service.updateSocketUrl(config.socketUrl);
+  return service;
 });
 
 final socketProvider = StateNotifierProvider<SocketNotifier, SocketState>((

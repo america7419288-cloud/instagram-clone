@@ -19,14 +19,16 @@ import '../../features/notifications/presentation/pages/notifications_page.dart'
 import '../../features/profile/presentation/pages/profile_page.dart';
 import '../../features/profile/presentation/pages/edit_profile_page.dart';
 import '../../features/messages/presentation/pages/messages_page.dart';
-import '../../features/messages/presentation/pages/chat_page.dart';
+import '../../features/chat/presentation/chat_screen.dart';
 import '../../features/messages/presentation/pages/new_message_page.dart';
+import '../../features/messages/data/models/conversation_model.dart';
 import '../../features/reels/presentation/pages/reel_detail_page.dart';
 import '../../features/story/presentation/pages/story_viewer_page.dart';
 import '../../features/follow/data/repositories/presentation/pages/followers_page.dart';
 import '../../features/follow/data/repositories/presentation/pages/follow_requests_page.dart';
 import 'main_shell.dart';
 import '../../features/settings/presentation/pages/settings_page.dart';
+import '../../features/settings/presentation/pages/server_settings_page.dart';
 import '../../features/auth/presentation/pages/add_account_page.dart';
 import '../../features/post/data/models/post_model.dart';
 import '../../features/post/presentation/pages/finalize_post_page.dart';
@@ -67,6 +69,7 @@ class AppRoutes {
   static const String followers = '/followers/:userId/:username';
   static const String following = '/following/:userId/:username';
   static const String followRequests = '/follow-requests';
+  static const String serverSettings = '/settings/server';
 }
 
 final appRouterProvider = Provider<GoRouter>((ref) {
@@ -130,7 +133,29 @@ final appRouterProvider = Provider<GoRouter>((ref) {
         path: AppRoutes.chat,
         builder: (context, state) {
           final id = state.pathParameters['conversationId'] ?? '';
-          return ChatPage(conversationId: id);
+          final extra = state.extra;
+          
+          String username = 'User';
+          String? avatarUrl;
+          bool isVerified = false;
+          
+          if (extra is ConversationModel) {
+            username = extra.displayName;
+            avatarUrl = extra.displayAvatarUrl;
+            isVerified = extra.otherUser?.isVerified ?? false;
+          } else if (extra is Map<String, dynamic>) {
+            username = extra['username'] ?? 'User';
+            avatarUrl = extra['avatarUrl'];
+            isVerified = extra['isVerified'] ?? false;
+          }
+
+          return ChatScreen(
+            conversationId: id,
+            username: username,
+            avatarUrl: avatarUrl,
+            isVerified: isVerified,
+            isOnline: true, // Fallback
+          );
         },
       ),
       GoRoute(
@@ -200,6 +225,10 @@ final appRouterProvider = Provider<GoRouter>((ref) {
       GoRoute(
         path: AppRoutes.settings,
         builder: (context, state) => const SettingsPage(),
+      ),
+      GoRoute(
+        path: AppRoutes.serverSettings,
+        builder: (context, state) => const ServerSettingsPage(),
       ),
       GoRoute(
         path: AppRoutes.addAccount,

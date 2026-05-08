@@ -4,7 +4,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter/cupertino.dart';
 import 'package:flutter/services.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
-import 'package:phosphor_flutter/phosphor_flutter.dart';
+import 'package:flutter_lucide/flutter_lucide.dart';
 import 'package:go_router/go_router.dart';
 import 'package:video_player/video_player.dart';
 
@@ -12,6 +12,8 @@ import '../../../../core/theme/app_theme.dart';
 import '../../data/models/reel_model.dart';
 import '../providers/reel_provider.dart';
 import '../../../../shared/widgets/spring_widget.dart';
+import '../../../../shared/widgets/verified_badge.dart';
+import '../../../../core/widgets/instagram_heart_animation.dart';
 import 'reel_action_buttons.dart';
 
 class ReelCard extends ConsumerStatefulWidget {
@@ -270,12 +272,7 @@ class _ReelCardState extends ConsumerState<ReelCard>
             opacity: opacity,
             child: Transform.scale(
               scale: scale,
-              child: const Icon(
-                Icons.favorite,
-                color: Colors.white,
-                size: 100,
-                shadows: [Shadow(blurRadius: 20, color: Colors.black45)],
-              ),
+              child: const BrandedHeartIcon(size: 100),
             ),
           );
         },
@@ -354,7 +351,7 @@ class _ReelCardState extends ConsumerState<ReelCard>
             shape: BoxShape.circle,
           ),
           child: Icon(
-            _isPaused ? PhosphorIcons.play() : PhosphorIcons.pause(),
+            _isPaused ? LucideIcons.play : LucideIcons.pause,
             color: Colors.white,
             size: 40,
           ),
@@ -385,10 +382,7 @@ class _ReelCardState extends ConsumerState<ReelCard>
               ),
               BouncyTap(
                 onTap: () {},
-                child: const Padding(
-                  padding: EdgeInsets.all(8.0),
-                  child: Icon(Icons.camera_alt_outlined, color: Colors.white, size: 26),
-                ),
+                  child: Icon(LucideIcons.camera, color: Colors.white, size: 24),
               ),
             ],
           ),
@@ -423,7 +417,7 @@ class _ReelCardState extends ConsumerState<ReelCard>
                 ),
                 if (widget.reel.isVerified) ...[
                   const SizedBox(width: 4),
-                  const Icon(Icons.verified, color: Colors.blue, size: 14),
+                  VerifiedBadge(size: 14),
                 ],
               ],
             ),
@@ -534,7 +528,7 @@ class _ReelCardState extends ConsumerState<ReelCard>
       child: Column(
         mainAxisSize: MainAxisSize.min,
         children: [
-          Icon(PhosphorIcons.warningCircle(), color: Colors.white54, size: 40),
+          Icon(LucideIcons.circle_alert, color: Colors.white54, size: 40),
           const SizedBox(height: 8),
           const Text(
             'Reel unavailable',
@@ -587,7 +581,7 @@ class _AudioTickerState extends State<_AudioTicker>
       mainAxisSize: MainAxisSize.min,
       children: [
         Icon(
-          PhosphorIcons.musicNote(),
+          LucideIcons.music,
           color: Colors.white,
           size: 14,
           shadows: [Shadow(blurRadius: 4, color: Colors.black45)],
@@ -706,17 +700,17 @@ class _ShareSheet extends StatelessWidget {
             ),
           ),
           ListTile(
-            leading: Icon(PhosphorIcons.link()),
+            leading: Icon(LucideIcons.link),
             title: const Text('Copy link'),
             onTap: () => Navigator.pop(context),
           ),
           ListTile(
-            leading: Icon(PhosphorIcons.paperPlaneTilt()),
+            leading: Icon(LucideIcons.send),
             title: const Text('Send to...'),
             onTap: () => Navigator.pop(context),
           ),
           ListTile(
-            leading: Icon(PhosphorIcons.shareNetwork()),
+            leading: Icon(LucideIcons.share_2),
             title: const Text('Share to...'),
             onTap: () => Navigator.pop(context),
           ),

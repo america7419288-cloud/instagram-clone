@@ -139,44 +139,46 @@ class IgColors {
 class IgText {
   IgText._();
 
+  static const String sfPro = 'SF-Pro';
+
   static const TextStyle display = TextStyle(
-    fontSize: 28, fontWeight: FontWeight.w700, letterSpacing: -0.5,
+    fontFamily: sfPro, fontSize: 30, fontWeight: FontWeight.w700, letterSpacing: -0.5,
   );
   static const TextStyle h1 = TextStyle(
-    fontSize: 22, fontWeight: FontWeight.w700, letterSpacing: -0.3,
+    fontFamily: sfPro, fontSize: 24, fontWeight: FontWeight.w700, letterSpacing: -0.3,
   );
   static const TextStyle h2 = TextStyle(
-    fontSize: 18, fontWeight: FontWeight.w600, letterSpacing: -0.2,
+    fontFamily: sfPro, fontSize: 20, fontWeight: FontWeight.w600, letterSpacing: -0.2,
   );
   static const TextStyle h3 = TextStyle(
-    fontSize: 16, fontWeight: FontWeight.w600, letterSpacing: -0.1,
+    fontFamily: sfPro, fontSize: 18, fontWeight: FontWeight.w600, letterSpacing: -0.1,
   );
   static const TextStyle bodyLg = TextStyle(
-    fontSize: 15, fontWeight: FontWeight.w400, height: 1.5,
+    fontFamily: sfPro, fontSize: 16, fontWeight: FontWeight.w400, height: 1.5,
   );
   static const TextStyle body = TextStyle(
-    fontSize: 14, fontWeight: FontWeight.w400, height: 1.5,
+    fontFamily: sfPro, fontSize: 15, fontWeight: FontWeight.w400, height: 1.5,
   );
   static const TextStyle bodySm = TextStyle(
-    fontSize: 13, fontWeight: FontWeight.w400, height: 1.4,
+    fontFamily: sfPro, fontSize: 14, fontWeight: FontWeight.w400, height: 1.4,
   );
   static const TextStyle labelLg = TextStyle(
-    fontSize: 15, fontWeight: FontWeight.w600,
+    fontFamily: sfPro, fontSize: 16, fontWeight: FontWeight.w600,
   );
   static const TextStyle label = TextStyle(
-    fontSize: 13, fontWeight: FontWeight.w600,
+    fontFamily: sfPro, fontSize: 14, fontWeight: FontWeight.w600,
   );
   static const TextStyle labelSm = TextStyle(
-    fontSize: 11, fontWeight: FontWeight.w600, letterSpacing: 0.3,
+    fontFamily: sfPro, fontSize: 12, fontWeight: FontWeight.w600, letterSpacing: 0.3,
   );
   static const TextStyle caption = TextStyle(
-    fontSize: 12, fontWeight: FontWeight.w400,
+    fontFamily: sfPro, fontSize: 13, fontWeight: FontWeight.w400,
   );
   static const TextStyle micro = TextStyle(
-    fontSize: 10, fontWeight: FontWeight.w500, letterSpacing: 0.2,
+    fontFamily: sfPro, fontSize: 11, fontWeight: FontWeight.w500, letterSpacing: 0.2,
   );
   static const TextStyle username = TextStyle(
-    fontSize: 14, fontWeight: FontWeight.w700,
+    fontFamily: sfPro, fontSize: 15, fontWeight: FontWeight.w700,
   );
   static const TextStyle billabong = TextStyle(
     fontFamily: 'Billabong', fontSize: 32,

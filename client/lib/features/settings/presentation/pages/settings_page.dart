@@ -3,6 +3,7 @@
 import 'package:flutter/cupertino.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
+import 'package:flutter_lucide/flutter_lucide.dart';
 import 'package:go_router/go_router.dart';
 
 import '../../../../core/router/app_router.dart';
@@ -66,7 +67,7 @@ class SettingsPage extends ConsumerWidget {
               backgroundColor: Colors.transparent,
               children: [
                 CupertinoListTile(
-                  leading: const Icon(CupertinoIcons.person_crop_circle_fill, color: Color(0xFF0095F6), size: 28),
+                  leading: const Icon(LucideIcons.user_round, color: Color(0xFF0095F6), size: 28),
                   title: Row(
                     children: [
                       const Text('Meta', style: TextStyle(fontWeight: FontWeight.bold, fontSize: 14)),
@@ -87,12 +88,12 @@ class SettingsPage extends ConsumerWidget {
               margin: const EdgeInsets.symmetric(horizontal: 16, vertical: 0),
               backgroundColor: Colors.transparent,
               children: [
-                _buildTile(CupertinoIcons.bookmark, 'Saved', () {}),
-                _buildTile(CupertinoIcons.bell, 'Notifications', () {}),
-                _buildTile(CupertinoIcons.time, 'Time spent', () {}),
-                _buildTile(CupertinoIcons.lock_shield, 'Close Friends', () {}),
-                _buildTile(CupertinoIcons.star, 'Favorites', () {}),
-                _buildTile(CupertinoIcons.speaker_slash, 'Muted', () {}),
+                _buildTile(LucideIcons.bookmark, 'Saved', () {}),
+                _buildTile(LucideIcons.bell, 'Notifications', () {}),
+                _buildTile(LucideIcons.clock, 'Time spent', () {}),
+                _buildTile(LucideIcons.shield_check, 'Close Friends', () {}),
+                _buildTile(LucideIcons.star, 'Favorites', () {}),
+                _buildTile(LucideIcons.volume_x, 'Muted', () {}),
               ],
             ),
 
@@ -102,10 +103,10 @@ class SettingsPage extends ConsumerWidget {
               margin: const EdgeInsets.symmetric(horizontal: 16, vertical: 0),
               backgroundColor: Colors.transparent,
               children: [
-                _buildTile(CupertinoIcons.lock, 'Account Privacy', () {}),
-                _buildTile(CupertinoIcons.group, 'Close Friends', () {}),
-                _buildTile(CupertinoIcons.slash_circle, 'Blocked', () {}),
-                _buildTile(CupertinoIcons.play_circle, 'Story', () {}),
+                _buildTile(LucideIcons.lock, 'Account Privacy', () {}),
+                _buildTile(LucideIcons.users, 'Close Friends', () {}),
+                _buildTile(LucideIcons.circle_slash, 'Blocked', () {}),
+                _buildTile(LucideIcons.circle_play, 'Story', () {}),
               ],
             ),
 
@@ -115,10 +116,10 @@ class SettingsPage extends ConsumerWidget {
               margin: const EdgeInsets.symmetric(horizontal: 16, vertical: 0),
               backgroundColor: Colors.transparent,
               children: [
-                _buildTile(CupertinoIcons.chat_bubble_2, 'Messages and story replies', () {}),
-                _buildTile(CupertinoIcons.at, 'Tags and mentions', () {}),
-                _buildTile(CupertinoIcons.bubble_left, 'Comments', () {}),
-                _buildTile(CupertinoIcons.arrow_2_squarepath, 'Sharing and remixes', () {}),
+                _buildTile(LucideIcons.message_circle, 'Messages and story replies', () {}),
+                _buildTile(LucideIcons.at_sign, 'Tags and mentions', () {}),
+                _buildTile(LucideIcons.message_square, 'Comments', () {}),
+                _buildTile(LucideIcons.repeat, 'Sharing and remixes', () {}),
               ],
             ),
 
@@ -128,10 +129,10 @@ class SettingsPage extends ConsumerWidget {
               margin: const EdgeInsets.symmetric(horizontal: 16, vertical: 0),
               backgroundColor: Colors.transparent,
               children: [
-                _buildTile(CupertinoIcons.star, 'Favorites', () {}),
-                _buildTile(CupertinoIcons.speaker_slash, 'Muted accounts', () {}),
-                _buildTile(CupertinoIcons.lightbulb, 'Suggested content', () {}),
-                _buildTile(CupertinoIcons.heart, 'Like and share counts', () {}),
+                _buildTile(LucideIcons.star, 'Favorites', () {}),
+                _buildTile(LucideIcons.volume_x, 'Muted accounts', () {}),
+                _buildTile(LucideIcons.lightbulb, 'Suggested content', () {}),
+                _buildTile(LucideIcons.heart, 'Like and share counts', () {}),
               ],
             ),
 
@@ -141,11 +142,12 @@ class SettingsPage extends ConsumerWidget {
               margin: const EdgeInsets.symmetric(horizontal: 16, vertical: 0),
               backgroundColor: Colors.transparent,
               children: [
-                _buildTile(CupertinoIcons.settings, 'Device permissions', () {}),
-                _buildTile(CupertinoIcons.globe, 'Language', () {}),
-                _buildTile(CupertinoIcons.person_fill, 'Accessibility', () {}),
-                _buildTile(CupertinoIcons.chart_bar, 'Data usage', () {}),
-                _buildTile(CupertinoIcons.square_arrow_down, 'Original posts', () {}),
+                _buildTile(LucideIcons.settings, 'Device permissions', () {}),
+                _buildTile(LucideIcons.globe, 'Language', () {}),
+                _buildTile(LucideIcons.user, 'Accessibility', () {}),
+                _buildTile(LucideIcons.chart_bar, 'Data usage', () {}),
+                _buildTile(LucideIcons.download, 'Original posts', () {}),
+                _buildTile(LucideIcons.server, 'Server Settings', () => context.push(AppRoutes.serverSettings)),
               ],
             ),
 
@@ -156,7 +158,7 @@ class SettingsPage extends ConsumerWidget {
               backgroundColor: Colors.transparent,
               children: [
                 CupertinoListTile(
-                  leading: const Icon(CupertinoIcons.moon),
+                  leading: const Icon(LucideIcons.moon),
                   title: const Text('Dark mode', style: TextStyle(fontSize: 16)),
                   trailing: CupertinoSwitch(
                     value: isDark,
@@ -172,9 +174,9 @@ class SettingsPage extends ConsumerWidget {
               margin: const EdgeInsets.symmetric(horizontal: 16, vertical: 0),
               backgroundColor: Colors.transparent,
               children: [
-                _buildTile(CupertinoIcons.question_circle, 'Help', () {}),
-                _buildTile(CupertinoIcons.person_crop_square, 'Account Status', () {}),
-                _buildTile(CupertinoIcons.info, 'About', () {}),
+                _buildTile(LucideIcons.hand_helping, 'Help', () {}),
+                _buildTile(LucideIcons.square_user, 'Account Status', () {}),
+                _buildTile(LucideIcons.info, 'About', () {}),
               ],
             ),
 

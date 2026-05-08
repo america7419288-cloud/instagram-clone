@@ -1,25 +1,20 @@
-// lib/features/create/presentation/pages/media_picker_page.dart
-
 import 'dart:io';
-
+import 'dart:ui';
 import 'package:flutter/cupertino.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:image_picker/image_picker.dart';
-import 'package:phosphor_flutter/phosphor_flutter.dart';
+import 'package:flutter_lucide/flutter_lucide.dart';
 import 'package:photo_manager/photo_manager.dart';
-
 import '../../../../core/design/design_tokens.dart';
 import 'post_editor_page.dart';
 import 'reel_editor_page.dart';
 import 'story_editor_page.dart';
 
-// ─── Create type ──────────────────────────────────────
 enum CreateType { post, reel, story }
 
 class MediaPickerPage extends StatefulWidget {
   final CreateType createType;
-
   const MediaPickerPage({super.key, required this.createType});
 
   @override
@@ -28,86 +23,79 @@ class MediaPickerPage extends StatefulWidget {
 
 class _MediaPickerPageState extends State<MediaPickerPage>
     with SingleTickerProviderStateMixin {
-  // ─── Tab controller (Recents / Photos / Videos) ───────
-  late TabController _tabController;
+  // ── State ──────────────────────────────────────────────
+  late CreateType _createType;
+  bool _isLoading = true;
+  bool _isLoadingMore = false;
+  bool _isMultiple = false;
 
-  // ─── Media assets ─────────────────────────────────────
-  List<AssetEntity> _assets      = [];
-  AssetEntity?      _selected;
-  Uint8List?        _selectedThumb;
-  bool              _isLoading   = true;
-  bool              _isMultiple  = false; // multi-select for posts
-
-  // ─── Multiple selection (posts only) ──────────────────
+  // ── Assets ─────────────────────────────────────────────
+  List<AssetEntity> _assets = [];
+  AssetEntity? _selected;
+  Uint8List? _selectedThumb;
   final List<AssetEntity> _multiSelected = [];
 
-  // ─── Pagination ───────────────────────────────────────
-  int  _currentPage = 0;
-  bool _hasMore     = true;
-  bool _isLoadingMore = false;
+  // ── Albums ─────────────────────────────────────────────
+  List<AssetPathEntity> _albums = [];
+  AssetPathEntity? _selectedAlbum;
+
+  // ── Pagination ─────────────────────────────────────────
+  int _page = 0;
+  bool _hasMore = true;
   static const int _pageSize = 80;
 
-  // ─── Camera ───────────────────────────────────────────
+  // ── Transform ──────────────────────────────────────────
+  late TransformationController _tx;
   final ImagePicker _picker = ImagePicker();
 
-  // ─── Tabs ─────────────────────────────────────────────
-  static const List<String> _tabs = ['Recents', 'Photo', 'Video'];
+  // ── Filter tabs ────────────────────────────────────────
+  int _filterTab = 0; // 0=All 1=Photo 2=Video
 
   @override
   void initState() {
     super.initState();
-    _tabController = TabController(length: _tabs.length, vsync: this);
-    _tabController.addListener(_onTabChanged);
+    _createType = widget.createType;
+    _tx = TransformationController();
     _loadAssets();
   }
 
   @override
   void dispose() {
-    _tabController
-      ..removeListener(_onTabChanged)
-      ..dispose();
+    _tx.dispose();
     super.dispose();
   }
 
-  void _onTabChanged() {
-    if (_tabController.indexIsChanging) return;
-    final type = [RequestType.common, RequestType.image, RequestType.video]
-        [_tabController.index];
-    _loadAssets(type: type);
-  }
+  RequestType get _requestType =>
+      [RequestType.common, RequestType.image, RequestType.video][_filterTab];
 
-  Future<void> _loadAssets({RequestType type = RequestType.common, bool loadMore = false}) async {
+  Future<void> _loadAssets({bool loadMore = false}) async {
     if (_isLoadingMore) return;
-    
+    if (loadMore && !_hasMore) return;
+
     if (loadMore) {
-      if (!_hasMore) return;
       setState(() => _isLoadingMore = true);
     } else {
       setState(() {
         _isLoading = true;
-        _currentPage = 0;
-        _hasMore = true;
         _assets.clear();
+        _page = 0;
+        _hasMore = true;
       });
     }
 
-    final permission = await PhotoManager.requestPermissionExtend();
-    if (!permission.isAuth) {
-      setState(() => _isLoading = false);
-      if (mounted) _showPermissionDenied();
+    final perm = await PhotoManager.requestPermissionExtend();
+    if (!perm.isAuth) {
+      setState(() { _isLoading = false; _isLoadingMore = false; });
+      if (mounted) _showPermDenied();
       return;
     }
 
-    final albums = await PhotoManager.getAssetPathList(
-      type:         type,
-      onlyAll:      true,
+    _albums = await PhotoManager.getAssetPathList(
+      type: _requestType,
       filterOption: FilterOptionGroup(
-        imageOption: const FilterOption(
-          sizeConstraint: SizeConstraint(ignoreSize: true),
-        ),
         videoOption: FilterOption(
           durationConstraint: DurationConstraint(
-            max: widget.createType == CreateType.reel
+            max: _createType == CreateType.reel
                 ? const Duration(minutes: 2)
                 : const Duration(hours: 1),
           ),
@@ -116,46 +104,41 @@ class _MediaPickerPageState extends State<MediaPickerPage>
       ),
     );
 
-    if (albums.isEmpty) {
-      setState(() {
-        _isLoading = false;
-        _isLoadingMore = false;
-      });
+    if (_albums.isEmpty) {
+      setState(() { _isLoading = false; _isLoadingMore = false; });
       return;
     }
 
-    final assetCount = await albums.first.assetCountAsync;
-    final start = _currentPage * _pageSize;
-    final end   = start + _pageSize;
+    _selectedAlbum ??= _albums.first;
+    final count = await _selectedAlbum!.assetCountAsync;
+    final start = _page * _pageSize;
+    final batch = await _selectedAlbum!.getAssetListRange(
+        start: start, end: start + _pageSize);
 
-    final newAssets = await albums.first.getAssetListRange(start: start, end: end);
     if (!mounted) return;
-
     setState(() {
-      _assets.addAll(newAssets);
+      if (loadMore) {
+        _assets.addAll(batch);
+      } else {
+        _assets = batch;
+      }
+      _page++;
+      _hasMore = batch.length == _pageSize && _assets.length < count;
       _isLoading = false;
       _isLoadingMore = false;
-      _currentPage++;
-      if (newAssets.length < _pageSize || _assets.length >= assetCount) {
-        _hasMore = false;
-      }
     });
 
     if (!loadMore && _assets.isNotEmpty) _selectAsset(_assets.first);
   }
 
-  // ─── Select preview ───────────────────────────────────
   Future<void> _selectAsset(AssetEntity asset) async {
-    setState(() => _selected = asset);
-    final thumb = await asset.thumbnailDataWithSize(
-      const ThumbnailSize(800, 800),
-    );
+    _tx.value = Matrix4.identity();
+    setState(() { _selected = asset; _selectedThumb = null; });
+    final thumb = await asset.thumbnailDataWithSize(const ThumbnailSize(900, 900));
     if (mounted) setState(() => _selectedThumb = thumb);
   }
 
-  // ─── Toggle multi-select ──────────────────────────────
-  void _toggleMultiSelect(AssetEntity asset) {
-    if (!_isMultiple) return;
+  void _toggleMulti(AssetEntity asset) {
     HapticFeedback.selectionClick();
     setState(() {
       if (_multiSelected.contains(asset)) {
@@ -166,235 +149,182 @@ class _MediaPickerPageState extends State<MediaPickerPage>
     });
   }
 
-  // ─── Navigate to editor ───────────────────────────────
-  Future<void> _navigateToEditor() async {
-    if (_selected == null && _multiSelected.isEmpty) return;
-    HapticFeedback.lightImpact();
-
+  Future<void> _goNext() async {
     final assets = _isMultiple && _multiSelected.isNotEmpty
         ? _multiSelected
-        : [_selected!];
-
+        : (_selected != null ? [_selected!] : []);
+    if (assets.isEmpty) return;
+    HapticFeedback.lightImpact();
     final files = <File>[];
     for (final a in assets) {
-      final file = await a.file;
-      if (file != null) files.add(file);
+      final f = await a.file;
+      if (f != null) files.add(f);
     }
-
     if (files.isEmpty || !mounted) return;
-
-    switch (widget.createType) {
+    switch (_createType) {
       case CreateType.post:
-        Navigator.push(context, _buildIosRoute(PostEditorPage(files: files)));
-        break;
+        Navigator.push(context, _iosRoute(PostEditorPage(files: files)));
       case CreateType.reel:
-        Navigator.push(context, _buildIosRoute(ReelEditorPage(file: files.first)));
-        break;
+        Navigator.push(context, _iosRoute(ReelEditorPage(file: files.first)));
       case CreateType.story:
-        Navigator.push(context, _buildIosRoute(StoryEditorPage(file: files.first)));
-        break;
+        Navigator.push(context, _iosRoute(StoryEditorPage(file: files.first)));
     }
   }
 
-  // ─── Open camera ──────────────────────────────────────
   Future<void> _openCamera() async {
     HapticFeedback.lightImpact();
-    final isVideo = widget.createType == CreateType.reel;
-
     XFile? picked;
-    if (isVideo) {
+    if (_createType == CreateType.reel) {
       picked = await _picker.pickVideo(
-        source:      ImageSource.camera,
-        maxDuration: const Duration(minutes: 2),
-      );
+          source: ImageSource.camera, maxDuration: const Duration(minutes: 2));
     } else {
-      picked = await _picker.pickImage(
-        source:       ImageSource.camera,
-        imageQuality: 90,
-      );
+      picked = await _picker.pickImage(source: ImageSource.camera, imageQuality: 90);
     }
-
     if (picked == null || !mounted) return;
     final file = File(picked.path);
-
-    switch (widget.createType) {
+    switch (_createType) {
       case CreateType.post:
-        Navigator.push(context, _buildIosRoute(PostEditorPage(files: [file])));
-        break;
+        Navigator.push(context, _iosRoute(PostEditorPage(files: [file])));
       case CreateType.reel:
-        Navigator.push(context, _buildIosRoute(ReelEditorPage(file: file)));
-        break;
+        Navigator.push(context, _iosRoute(ReelEditorPage(file: file)));
       case CreateType.story:
-        Navigator.push(context, _buildIosRoute(StoryEditorPage(file: file)));
-        break;
+        Navigator.push(context, _iosRoute(StoryEditorPage(file: file)));
     }
   }
 
-  void _showPermissionDenied() {
+  void _showAlbumSheet() {
+    HapticFeedback.mediumImpact();
+    showCupertinoModalPopup(
+      context: context,
+      builder: (_) => _AlbumSheet(
+        albums: _albums,
+        selected: _selectedAlbum,
+        onSelect: (album) {
+          setState(() {
+            _selectedAlbum = album;
+            _assets.clear();
+            _page = 0;
+            _hasMore = true;
+          });
+          _loadAssets();
+        },
+      ),
+    );
+  }
+
+  void _showPermDenied() {
     showCupertinoDialog(
       context: context,
       builder: (_) => CupertinoAlertDialog(
-        title:   const Text('Permission Required'),
-        content: const Text('Please allow access to your photos in Settings.'),
+        title: const Text('Photos Access Required'),
+        content: const Text('Allow access to your photos in Settings.'),
         actions: [
           CupertinoDialogAction(
-            child:     const Text('Cancel'),
-            onPressed: () => Navigator.pop(context),
-          ),
+              onPressed: () => Navigator.pop(context),
+              child: const Text('Cancel')),
           CupertinoDialogAction(
-            isDefaultAction: true,
-            child:           const Text('Open Settings'),
-            onPressed: () {
-              Navigator.pop(context);
-              PhotoManager.openSetting();
-            },
-          ),
+              isDefaultAction: true,
+              onPressed: () { Navigator.pop(context); PhotoManager.openSetting(); },
+              child: const Text('Settings')),
         ],
       ),
     );
   }
 
-  String get _title {
-    switch (widget.createType) {
-      case CreateType.post:  return 'New Post';
-      case CreateType.reel:  return 'New Reel';
-      case CreateType.story: return 'New Story';
-    }
-  }
-
-  // ─────────────────────────────────────────────────────
+  // ── BUILD ───────────────────────────────────────────────
   @override
   Widget build(BuildContext context) {
-    final isDark = Theme.of(context).brightness == Brightness.dark;
-    final bg     = IgColors.bg_(isDark);
-    final text   = IgColors.text_(isDark);
-    final sub    = IgColors.textSub_(isDark);
-    final div    = IgColors.divider_(isDark);
+    final safeTop = MediaQuery.of(context).padding.top;
+    final safeBot = MediaQuery.of(context).padding.bottom;
+    final screenW = MediaQuery.of(context).size.width;
+    final previewH = screenW; // 1:1 square preview
 
-    return Scaffold(
-      backgroundColor: bg,
-      body: SafeArea(
-        child: Column(
+    final hasSelection = _selected != null || _multiSelected.isNotEmpty;
+
+    return AnnotatedRegion<SystemUiOverlayStyle>(
+      value: SystemUiOverlayStyle.light,
+      child: Scaffold(
+        backgroundColor: Colors.black,
+        body: Column(
           children: [
-            _buildTopBar(isDark, text, sub),
-            _buildPreview(isDark),
-            _buildToolbar(isDark, text, sub, div),
-            _buildTabBar(isDark, text, div),
-            Expanded(
-              child: TabBarView(
-                controller: _tabController,
+            // ── Navigation Bar ────────────────────────────
+            _NavBar(
+              safeTop: safeTop,
+              albumName: _selectedAlbum?.name ?? 'Recents',
+              onClose: () => Navigator.pop(context),
+              onAlbum: _showAlbumSheet,
+              isMultiSelect: _isMultiple,
+              hasSelection: hasSelection,
+              selectedCount: _isMultiple ? _multiSelected.length : (_selected != null ? 1 : 0),
+              onNext: _goNext,
+            ),
+
+            // ── Preview ───────────────────────────────────
+            SizedBox(
+              width: screenW,
+              height: previewH,
+              child: Stack(
+                fit: StackFit.expand,
                 children: [
-                  _buildGrid(isDark, RequestType.common),
-                  _buildGrid(isDark, RequestType.image),
-                  _buildGrid(isDark, RequestType.video),
+                  // Preview image
+                  _selectedThumb != null
+                      ? InteractiveViewer(
+                          transformationController: _tx,
+                          minScale: 1.0,
+                          maxScale: 4.0,
+                          child: Image.memory(_selectedThumb!, fit: BoxFit.cover),
+                        )
+                      : Container(color: const Color(0xFF1C1C1C)),
+
+                  // Bottom-left: expand icon
+                  Positioned(
+                    bottom: 12, left: 12,
+                    child: _PreviewIconBtn(
+                      icon: LucideIcons.maximize_2,
+                      onTap: () {
+                        HapticFeedback.selectionClick();
+                        _tx.value = Matrix4.identity();
+                      },
+                    ),
+                  ),
+
+                  // Bottom-right: multi-select + camera
+                  Positioned(
+                    bottom: 12, right: 12,
+                    child: Row(
+                      children: [
+                        if (_createType == CreateType.post) ...[
+                          _PreviewIconBtn(
+                            icon: LucideIcons.layout_grid,
+                            active: _isMultiple,
+                            onTap: () {
+                              HapticFeedback.selectionClick();
+                              setState(() {
+                                _isMultiple = !_isMultiple;
+                                _multiSelected.clear();
+                              });
+                            },
+                          ),
+                          const SizedBox(width: 8),
+                        ],
+                        _PreviewIconBtn(
+                          icon: LucideIcons.camera,
+                          onTap: _openCamera,
+                        ),
+                      ],
+                    ),
+                  ),
                 ],
               ),
             ),
-          ],
-        ),
-      ),
-    );
-  }
 
-  // ─── TOP BAR ──────────────────────────────────────────
-  Widget _buildTopBar(bool isDark, Color text, Color sub) {
-    return Padding(
-      padding: const EdgeInsets.symmetric(
-        horizontal: Spacing.lg,
-        vertical:   Spacing.sm,
-      ),
-      child: Row(
-        children: [
-          _IgIconBtn(
-            icon:   PhosphorIcons.x(),
-            onTap:  () => Navigator.pop(context),
-            isDark: isDark,
-          ),
-          const Spacer(),
-          Text(_title, style: IgText.h3.copyWith(color: text)),
-          const Spacer(),
-          GestureDetector(
-            onTap: _navigateToEditor,
-            child: Text(
-              'Next',
-              style: IgText.labelLg.copyWith(
-                color: _selected != null || _multiSelected.isNotEmpty
-                    ? IgColors.primary
-                    : sub,
-              ),
-            ),
-          ),
-        ],
-      ),
-    );
-  }
-
-  // ─── PREVIEW ──────────────────────────────────────────
-  Widget _buildPreview(bool isDark) {
-    final width = MediaQuery.of(context).size.width;
-    final height = width * 1.25; // 4:5 aspect ratio
-
-    if (_selectedThumb == null) {
-      return Container(
-        width:  width,
-        height: height,
-        color:  isDark ? IgColors.darkBgAlt : IgColors.bgAlt,
-        child: Center(
-          child: PhosphorIcon(
-            PhosphorIcons.image(),
-            size:  48,
-            color: IgColors.textSub_(isDark),
-          ),
-        ),
-      );
-    }
-
-    return SizedBox(
-      width:  width,
-      height: height,
-      child: Stack(
-        fit: StackFit.expand,
-        children: [
-          Image.memory(_selectedThumb!, fit: BoxFit.cover),
-          if (_selected?.type == AssetType.video)
-            Positioned(
-              bottom: Spacing.sm,
-              left:   Spacing.sm,
-              child:  _VideoDuration(asset: _selected!),
-            ),
-        ],
-      ),
-    );
-  }
-
-  // ─── TOOLBAR ──────────────────────────────────────────
-  Widget _buildToolbar(bool isDark, Color text, Color sub, Color div) {
-    return Container(
-      padding: const EdgeInsets.symmetric(
-        horizontal: Spacing.lg,
-        vertical:   Spacing.xs,
-      ),
-      decoration: BoxDecoration(
-        border: Border(bottom: BorderSide(color: div, width: 0.5)),
-      ),
-      child: Row(
-        children: [
-          Row(
-            mainAxisSize: MainAxisSize.min,
-            children: [
-              Text('Recents', style: IgText.label.copyWith(color: text)),
-              const SizedBox(width: Spacing.xs),
-              PhosphorIcon(PhosphorIcons.caretDown(), size: 14, color: text),
-            ],
-          ),
-          const Spacer(),
-          if (widget.createType == CreateType.post) ...[
-            _ToolbarChip(
-              icon:   PhosphorIcons.squaresFour(),
-              label:  'Select',
-              active: _isMultiple,
-              isDark: isDark,
-              onTap: () {
+            // ── Album row ─────────────────────────────────
+            _AlbumRow(
+              albumName: _selectedAlbum?.name ?? 'All Photos',
+              onAlbum: _showAlbumSheet,
+              createType: _createType,
+              isMultiple: _isMultiple,
+              onToggleMultiple: () {
                 HapticFeedback.selectionClick();
                 setState(() {
                   _isMultiple = !_isMultiple;
@@ -402,331 +332,538 @@ class _MediaPickerPageState extends State<MediaPickerPage>
                 });
               },
             ),
-            const SizedBox(width: Spacing.sm),
+
+            // ── Filter tab ────────────────────────────────
+            _FilterTabBar(
+              selected: _filterTab,
+              onSelect: (i) {
+                if (_filterTab == i) return;
+                setState(() => _filterTab = i);
+                _loadAssets();
+              },
+            ),
+
+            // ── Grid ──────────────────────────────────────
+            Expanded(
+              child: _isLoading
+                  ? _ShimmerGrid()
+                  : _assets.isEmpty
+                      ? const Center(
+                          child: Text('No media',
+                              style: TextStyle(color: Colors.white54,
+                                  fontFamily: 'SF-Pro')))
+                      : NotificationListener<ScrollNotification>(
+                          onNotification: (s) {
+                            if (!_isLoadingMore && _hasMore &&
+                                s.metrics.pixels >=
+                                    s.metrics.maxScrollExtent - 300) {
+                              _loadAssets(loadMore: true);
+                            }
+                            return false;
+                          },
+                          child: GridView.builder(
+                            padding: EdgeInsets.only(bottom: safeBot + 8),
+                            gridDelegate:
+                                const SliverGridDelegateWithFixedCrossAxisCount(
+                              crossAxisCount: 4,
+                              mainAxisSpacing: 1.5,
+                              crossAxisSpacing: 1.5,
+                              childAspectRatio: 1,
+                            ),
+                            itemCount: _assets.length,
+                            itemBuilder: (ctx, i) {
+                              final asset = _assets[i];
+                              final isPreview = _selected == asset && !_isMultiple;
+                              final multiIdx = _multiSelected.indexOf(asset);
+                              return GestureDetector(
+                                onTap: () => _isMultiple
+                                    ? _toggleMulti(asset)
+                                    : _selectAsset(asset),
+                                child: _GridTile(
+                                  asset: asset,
+                                  isPreview: isPreview,
+                                  isMultiple: _isMultiple,
+                                  multiIndex: multiIdx >= 0 ? multiIdx + 1 : null,
+                                ),
+                              );
+                            },
+                          ),
+                        ),
+            ),
           ],
-          _ToolbarChip(
-            icon:   PhosphorIcons.camera(),
-            label:  'Camera',
-            isDark: isDark,
-            onTap:  _openCamera,
+        ),
+      ),
+    );
+  }
+}
+
+// ── Navigation Bar ────────────────────────────────────────
+class _NavBar extends StatelessWidget {
+  final double safeTop;
+  final String albumName;
+  final VoidCallback onClose, onAlbum, onNext;
+  final bool isMultiSelect, hasSelection;
+  final int selectedCount;
+
+  const _NavBar({
+    required this.safeTop,
+    required this.albumName,
+    required this.onClose,
+    required this.onAlbum,
+    required this.onNext,
+    required this.isMultiSelect,
+    required this.hasSelection,
+    required this.selectedCount,
+  });
+
+  @override
+  Widget build(BuildContext context) {
+    return Container(
+      color: Colors.black,
+      padding: EdgeInsets.only(top: safeTop, left: 4, right: 4),
+      height: safeTop + 50,
+      child: Row(
+        children: [
+          CupertinoButton(
+            padding: const EdgeInsets.symmetric(horizontal: 12),
+            onPressed: onClose,
+            child: const Icon(LucideIcons.x, color: Colors.white, size: 26),
+          ),
+          const Spacer(),
+          CupertinoButton(
+            padding: EdgeInsets.zero,
+            onPressed: onAlbum,
+            child: Row(
+              mainAxisSize: MainAxisSize.min,
+              children: [
+                Text(albumName,
+                    style: const TextStyle(
+                        color: Colors.white,
+                        fontSize: 17,
+                        fontWeight: FontWeight.w600,
+                        fontFamily: 'SF-Pro')),
+                const SizedBox(width: 4),
+                const Icon(LucideIcons.chevron_down,
+                    color: Colors.white, size: 16),
+              ],
+            ),
+          ),
+          const Spacer(),
+          CupertinoButton(
+            padding: const EdgeInsets.symmetric(horizontal: 12),
+            onPressed: hasSelection ? onNext : null,
+            child: Text(
+              selectedCount > 1 ? 'Next ($selectedCount)' : 'Next',
+              style: TextStyle(
+                color: hasSelection
+                    ? const Color(0xFF0095F6)
+                    : Colors.white38,
+                fontSize: 17,
+                fontWeight: FontWeight.w600,
+                fontFamily: 'SF-Pro',
+              ),
+            ),
           ),
         ],
       ),
     );
   }
-
-  // ─── TAB BAR ──────────────────────────────────────────
-  Widget _buildTabBar(bool isDark, Color text, Color div) {
-    return Container(
-      decoration: BoxDecoration(
-        border: Border(bottom: BorderSide(color: div, width: 0.5)),
-      ),
-      child: TabBar(
-        controller:          _tabController,
-        indicatorColor:      text,
-        indicatorWeight:     1.5,
-        labelColor:          text,
-        unselectedLabelColor: IgColors.textSub_(isDark),
-        labelStyle:          IgText.label,
-        unselectedLabelStyle: IgText.label,
-        tabs:                _tabs.map((t) => Tab(text: t)).toList(),
-      ),
-    );
-  }
-
-  // ─── ASSET GRID ──────────────────────────────────────
-  Widget _buildGrid(bool isDark, RequestType type) {
-    if (_isLoading && _assets.isEmpty) {
-      return GridView.builder(
-        gridDelegate: const SliverGridDelegateWithFixedCrossAxisCount(
-          crossAxisCount: 4, mainAxisSpacing: 1.5, crossAxisSpacing: 1.5,
-        ),
-        itemCount: 24,
-        itemBuilder: (_, idx) => Container(color: IgColors.shimBase_(isDark)),
-      );
-    }
-
-    final filtered = type == RequestType.common
-        ? _assets
-        : _assets.where((a) {
-            return type == RequestType.image
-                ? a.type == AssetType.image
-                : a.type == AssetType.video;
-          }).toList();
-
-    if (filtered.isEmpty) {
-      return Center(
-        child: Column(
-          mainAxisSize: MainAxisSize.min,
-          children: [
-            PhosphorIcon(
-              PhosphorIcons.imageSquare(),
-              size:  48,
-              color: IgColors.textSub_(isDark),
-            ),
-            const SizedBox(height: Spacing.md),
-            Text(
-              'No media found',
-              style: IgText.bodySm.copyWith(color: IgColors.textSub_(isDark)),
-            ),
-          ],
-        ),
-      );
-    }
-
-    return NotificationListener<ScrollNotification>(
-      onNotification: (scrollInfo) {
-        if (!_isLoadingMore && _hasMore &&
-            scrollInfo.metrics.pixels >= scrollInfo.metrics.maxScrollExtent - 200) {
-          _loadAssets(
-            type: type == RequestType.common
-                ? RequestType.common
-                : (type == RequestType.image ? RequestType.image : RequestType.video),
-            loadMore: true,
-          );
-        }
-        return false;
-      },
-      child: GridView.builder(
-        padding:      EdgeInsets.zero,
-        gridDelegate: const SliverGridDelegateWithFixedCrossAxisCount(
-          crossAxisCount: 4, mainAxisSpacing: 1.5, crossAxisSpacing: 1.5,
-        ),
-        itemCount: filtered.length,
-        itemBuilder: (context, index) {
-          final asset     = filtered[index];
-          final isSelected = _selected == asset;
-          final multiIdx  = _multiSelected.indexOf(asset);
-          final inMulti   = multiIdx >= 0;
-
-          return GestureDetector(
-            onTap: () {
-              if (_isMultiple) {
-                _toggleMultiSelect(asset);
-              } else {
-                _selectAsset(asset);
-              }
-            },
-            child: _AssetThumbnail(
-              asset:      asset,
-              isSelected: isSelected && !_isMultiple,
-              multiIndex: inMulti ? multiIdx + 1 : null,
-              isDark:     isDark,
-              isMultiple: _isMultiple,
-            ),
-          );
-        },
-      ),
-    );
-  }
 }
 
-// ─────────────────────────────────────────────────────
-// ASSET THUMBNAIL TILE
-// ─────────────────────────────────────────────────────
-class _AssetThumbnail extends StatefulWidget {
-  final AssetEntity asset;
-  final bool        isSelected;
-  final int?        multiIndex;
-  final bool        isDark;
-  final bool        isMultiple;
+// ── Album Row ─────────────────────────────────────────────
+class _AlbumRow extends StatelessWidget {
+  final String albumName;
+  final VoidCallback onAlbum, onToggleMultiple;
+  final CreateType createType;
+  final bool isMultiple;
 
-  const _AssetThumbnail({
-    required this.asset,
-    required this.isSelected,
-    required this.isDark,
+  const _AlbumRow({
+    required this.albumName,
+    required this.onAlbum,
+    required this.onToggleMultiple,
+    required this.createType,
     required this.isMultiple,
-    this.multiIndex,
   });
 
   @override
-  State<_AssetThumbnail> createState() => _AssetThumbnailState();
-}
-
-class _AssetThumbnailState extends State<_AssetThumbnail> {
-  Uint8List? _thumb;
-
-  @override
-  void initState() {
-    super.initState();
-    _loadThumb();
-  }
-
-  Future<void> _loadThumb() async {
-    final data = await widget.asset.thumbnailDataWithSize(
-      const ThumbnailSize(300, 300),
-    );
-    if (mounted) setState(() => _thumb = data);
-  }
-
-  @override
   Widget build(BuildContext context) {
-    return Stack(
-      fit: StackFit.expand,
-      children: [
-        // ─── Image ─────────────────────────────────────
-        _thumb != null
-            ? Image.memory(_thumb!, fit: BoxFit.cover)
-            : Container(color: IgColors.shimBase_(widget.isDark)),
-
-        // ─── Selected dim overlay ───────────────────────
-        if (widget.isSelected)
-          Container(color: Colors.black.withValues(alpha: 0.3)),
-
-        // ─── Video duration badge ───────────────────────
-        if (widget.asset.type == AssetType.video)
-          Positioned(
-            bottom: 4, left: 4,
-            child: _VideoDuration(asset: widget.asset),
-          ),
-
-        // ─── Multi-select badge / empty circle ─────────
-        if (widget.isMultiple)
-          Positioned(
-            top: 6, right: 6,
-            child: widget.multiIndex != null
-                ? Container(
-                    width: 24, height: 24,
-                    decoration: const BoxDecoration(
-                      color: IgColors.primary,
-                      shape: BoxShape.circle,
-                    ),
-                    child: Center(
-                      child: Text(
-                        '${widget.multiIndex}',
-                        style: IgText.micro.copyWith(
-                          color: Colors.white,
-                          fontWeight: FontWeight.w700,
-                        ),
-                      ),
-                    ),
-                  )
-                : Container(
-                    width: 22, height: 22,
-                    decoration: BoxDecoration(
-                      shape: BoxShape.circle,
-                      border: Border.all(color: Colors.white70, width: 1.5),
-                      color: Colors.transparent,
-                    ),
-                  ),
-          ),
-      ],
-    );
-  }
-}
-
-// ─────────────────────────────────────────────────────
-// VIDEO DURATION BADGE
-// ─────────────────────────────────────────────────────
-class _VideoDuration extends StatelessWidget {
-  final AssetEntity asset;
-  const _VideoDuration({required this.asset});
-
-  @override
-  Widget build(BuildContext context) {
-    final dur = asset.videoDuration;
-    final mm  = dur.inMinutes.toString();
-    final ss  = (dur.inSeconds % 60).toString().padLeft(2, '0');
     return Container(
-      padding: const EdgeInsets.symmetric(horizontal: 5, vertical: 2),
-      decoration: BoxDecoration(
-        color:        Colors.black.withValues(alpha: 0.6),
-        borderRadius: Radii.xsAll,
-      ),
-      child: Text(
-        '$mm:$ss',
-        style: IgText.micro.copyWith(color: Colors.white),
+      height: 44,
+      color: Colors.black,
+      padding: const EdgeInsets.symmetric(horizontal: 16),
+      child: Row(
+        children: [
+          GestureDetector(
+            onTap: onAlbum,
+            child: Row(
+              children: [
+                Text(albumName,
+                    style: const TextStyle(
+                        color: Colors.white,
+                        fontSize: 14,
+                        fontWeight: FontWeight.w500,
+                        fontFamily: 'SF-Pro')),
+                const SizedBox(width: 4),
+                const Icon(LucideIcons.chevron_down,
+                    color: Colors.white54, size: 14),
+              ],
+            ),
+          ),
+          const Spacer(),
+          if (createType == CreateType.story)
+            GestureDetector(
+              onTap: onToggleMultiple,
+              child: AnimatedContainer(
+                duration: const Duration(milliseconds: 200),
+                padding:
+                    const EdgeInsets.symmetric(horizontal: 12, vertical: 5),
+                decoration: BoxDecoration(
+                  color: isMultiple
+                      ? Colors.white
+                      : Colors.white.withOpacity(0.18),
+                  borderRadius: BorderRadius.circular(14),
+                ),
+                child: Text(
+                  'MULTIPLE',
+                  style: TextStyle(
+                    color: isMultiple ? Colors.black : Colors.white,
+                    fontSize: 11,
+                    fontWeight: FontWeight.w600,
+                    fontFamily: 'SF-Pro',
+                    letterSpacing: 0.3,
+                  ),
+                ),
+              ),
+            ),
+        ],
       ),
     );
   }
 }
 
-// ─────────────────────────────────────────────────────
-// TOOLBAR CHIP
-// ─────────────────────────────────────────────────────
-class _ToolbarChip extends StatelessWidget {
-  final PhosphorIconData icon;
-  final String           label;
-  final bool             isDark;
-  final VoidCallback     onTap;
-  final bool             active;
+// ── Filter Tab Bar ────────────────────────────────────────
+class _FilterTabBar extends StatelessWidget {
+  final int selected;
+  final ValueChanged<int> onSelect;
 
-  const _ToolbarChip({
-    required this.icon,
-    required this.label,
-    required this.isDark,
-    required this.onTap,
-    this.active = false,
-  });
+  const _FilterTabBar({required this.selected, required this.onSelect});
+
+  static const _labels = ['Recents', 'Photo', 'Video'];
+
+  @override
+  Widget build(BuildContext context) {
+    return Container(
+      height: 36,
+      color: Colors.black,
+      child: Row(
+        children: List.generate(_labels.length, (i) {
+          final active = selected == i;
+          return GestureDetector(
+            onTap: () => onSelect(i),
+            child: AnimatedContainer(
+              duration: const Duration(milliseconds: 180),
+              margin: EdgeInsets.only(left: i == 0 ? 16 : 8),
+              padding:
+                  const EdgeInsets.symmetric(horizontal: 16, vertical: 6),
+              decoration: BoxDecoration(
+                color: active
+                    ? Colors.white
+                    : Colors.white.withOpacity(0.12),
+                borderRadius: BorderRadius.circular(20),
+              ),
+              child: Text(
+                _labels[i],
+                style: TextStyle(
+                  color: active ? Colors.black : Colors.white70,
+                  fontSize: 13,
+                  fontWeight:
+                      active ? FontWeight.w600 : FontWeight.w400,
+                  fontFamily: 'SF-Pro',
+                ),
+              ),
+            ),
+          );
+        }),
+      ),
+    );
+  }
+}
+
+// ── Preview Icon Button ───────────────────────────────────
+class _PreviewIconBtn extends StatelessWidget {
+  final IconData icon;
+  final VoidCallback onTap;
+  final bool active;
+
+  const _PreviewIconBtn(
+      {required this.icon, required this.onTap, this.active = false});
 
   @override
   Widget build(BuildContext context) {
     return GestureDetector(
       onTap: onTap,
       child: Container(
-        padding: const EdgeInsets.symmetric(
-          horizontal: Spacing.md,
-          vertical:   Spacing.xs,
-        ),
+        width: 34,
+        height: 34,
         decoration: BoxDecoration(
           color: active
-              ? IgColors.text_(isDark)
-              : IgColors.inputBg_(isDark),
-          borderRadius: Radii.fullAll,
+              ? Colors.white.withOpacity(0.9)
+              : Colors.black.withOpacity(0.58),
+          shape: BoxShape.circle,
         ),
-        child: Row(
-          mainAxisSize: MainAxisSize.min,
-          children: [
-            PhosphorIcon(
-              icon,
-              size:  14,
-              color: active ? IgColors.bg_(isDark) : IgColors.text_(isDark),
-            ),
-            const SizedBox(width: Spacing.xs),
-            Text(
-              label,
-              style: IgText.labelSm.copyWith(
-                color: active ? IgColors.bg_(isDark) : IgColors.text_(isDark),
-              ),
-            ),
-          ],
-        ),
+        child: Icon(icon,
+            color: active ? Colors.black : Colors.white, size: 17),
       ),
     );
   }
 }
 
-// ─────────────────────────────────────────────────────
-// ICON BUTTON
-// ─────────────────────────────────────────────────────
-class _IgIconBtn extends StatelessWidget {
-  final PhosphorIconData icon;
-  final VoidCallback     onTap;
-  final bool             isDark;
+// ── Grid Tile ─────────────────────────────────────────────
+class _GridTile extends StatefulWidget {
+  final AssetEntity asset;
+  final bool isPreview, isMultiple;
+  final int? multiIndex;
 
-  const _IgIconBtn({
-    required this.icon,
-    required this.onTap,
-    required this.isDark,
+  const _GridTile({
+    required this.asset,
+    required this.isPreview,
+    required this.isMultiple,
+    this.multiIndex,
   });
 
   @override
+  State<_GridTile> createState() => _GridTileState();
+}
+
+class _GridTileState extends State<_GridTile> {
+  Uint8List? _thumb;
+
+  @override
+  void initState() {
+    super.initState();
+    _load();
+  }
+
+  Future<void> _load() async {
+    final d = await widget.asset.thumbnailDataWithSize(
+        const ThumbnailSize(300, 300));
+    if (mounted) setState(() => _thumb = d);
+  }
+
+  @override
   Widget build(BuildContext context) {
-    return GestureDetector(
-      onTap:    onTap,
-      behavior: HitTestBehavior.opaque,
-      child: Padding(
-        padding: const EdgeInsets.all(Spacing.xs),
-        child: PhosphorIcon(
-          icon,
-          size:  24,
-          color: IgColors.icon_(isDark),
-        ),
+    final isVideo = widget.asset.type == AssetType.video;
+    final dur = widget.asset.videoDuration;
+    final mm = dur.inMinutes.toString();
+    final ss = (dur.inSeconds % 60).toString().padLeft(2, '0');
+
+    return Stack(
+      fit: StackFit.expand,
+      children: [
+        // Thumbnail
+        _thumb != null
+            ? Image.memory(_thumb!, fit: BoxFit.cover)
+            : Container(color: const Color(0xFF2A2A2A)),
+
+        // Blue border when currently previewed
+        if (widget.isPreview)
+          Container(
+            decoration: BoxDecoration(
+              border: Border.all(color: const Color(0xFF0095F6), width: 3),
+            ),
+          ),
+
+        // Dim selected
+        if (widget.multiIndex != null)
+          Container(color: Colors.black.withOpacity(0.25)),
+
+        // Video duration
+        if (isVideo)
+          Positioned(
+            bottom: 0,
+            left: 0,
+            right: 0,
+            child: Container(
+              height: 26,
+              decoration: BoxDecoration(
+                gradient: LinearGradient(
+                  begin: Alignment.bottomCenter,
+                  end: Alignment.topCenter,
+                  colors: [
+                    Colors.black.withOpacity(0.55),
+                    Colors.transparent
+                  ],
+                ),
+              ),
+            ),
+          ),
+        if (isVideo)
+          Positioned(
+            bottom: 4,
+            left: 5,
+            child: Row(
+              children: [
+                const Icon(LucideIcons.play,
+                    color: Colors.white, size: 10),
+                const SizedBox(width: 2),
+                Text('$mm:$ss',
+                    style: const TextStyle(
+                        color: Colors.white,
+                        fontSize: 11,
+                        fontWeight: FontWeight.w500,
+                        fontFamily: 'SF-Pro')),
+              ],
+            ),
+          ),
+
+        // Multi-select badge
+        if (widget.isMultiple)
+          Positioned(
+            top: 6,
+            right: 6,
+            child: AnimatedContainer(
+              duration: const Duration(milliseconds: 150),
+              width: 24,
+              height: 24,
+              decoration: BoxDecoration(
+                shape: BoxShape.circle,
+                color: widget.multiIndex != null
+                    ? const Color(0xFF0095F6)
+                    : Colors.transparent,
+                border: Border.all(
+                  color: widget.multiIndex != null
+                      ? const Color(0xFF0095F6)
+                      : Colors.white,
+                  width: 1.5,
+                ),
+              ),
+              child: widget.multiIndex != null
+                  ? Center(
+                      child: Text(
+                        '${widget.multiIndex}',
+                        style: const TextStyle(
+                            color: Colors.white,
+                            fontSize: 11,
+                            fontWeight: FontWeight.w700,
+                            fontFamily: 'SF-Pro'),
+                      ),
+                    )
+                  : null,
+            ),
+          ),
+      ],
+    );
+  }
+}
+
+// ── Album Sheet ───────────────────────────────────────────
+class _AlbumSheet extends StatelessWidget {
+  final List<AssetPathEntity> albums;
+  final AssetPathEntity? selected;
+  final ValueChanged<AssetPathEntity> onSelect;
+
+  const _AlbumSheet(
+      {required this.albums, required this.selected, required this.onSelect});
+
+  @override
+  Widget build(BuildContext context) {
+    final safeBot = MediaQuery.of(context).padding.bottom;
+    return Container(
+      height: MediaQuery.of(context).size.height * 0.6,
+      decoration: const BoxDecoration(
+        color: Color(0xFF1C1C1E),
+        borderRadius: BorderRadius.vertical(top: Radius.circular(14)),
+      ),
+      child: Column(
+        children: [
+          // Drag handle
+          Container(
+            margin: const EdgeInsets.only(top: 10, bottom: 4),
+            width: 36,
+            height: 4,
+            decoration: BoxDecoration(
+              color: Colors.white.withOpacity(0.3),
+              borderRadius: BorderRadius.circular(2),
+            ),
+          ),
+          const Padding(
+            padding: EdgeInsets.symmetric(vertical: 10),
+            child: Text('Albums',
+                style: TextStyle(
+                    color: Colors.white,
+                    fontSize: 17,
+                    fontWeight: FontWeight.w600,
+                    fontFamily: 'SF-Pro')),
+          ),
+          const Divider(color: Color(0xFF3A3A3C), height: 0.5),
+          Expanded(
+            child: ListView.builder(
+              itemCount: albums.length,
+              itemBuilder: (ctx, i) {
+                final album = albums[i];
+                final isSel = selected?.id == album.id;
+                return CupertinoButton(
+                  padding: const EdgeInsets.symmetric(
+                      horizontal: 16, vertical: 12),
+                  onPressed: () {
+                    Navigator.pop(ctx);
+                    onSelect(album);
+                  },
+                  child: Row(
+                    children: [
+                      const Icon(LucideIcons.image,
+                          color: Color(0xFF3A3A3C), size: 20),
+                      const SizedBox(width: 14),
+                      Expanded(
+                        child: Text(album.name,
+                            style: const TextStyle(
+                                color: Colors.white,
+                                fontSize: 16,
+                                fontFamily: 'SF-Pro')),
+                      ),
+                      FutureBuilder<int>(
+                        future: album.assetCountAsync,
+                        builder: (_, snap) => Text(
+                          snap.data?.toString() ?? '',
+                          style: const TextStyle(
+                              color: Colors.white38,
+                              fontSize: 14,
+                              fontFamily: 'SF-Pro'),
+                        ),
+                      ),
+                      const SizedBox(width: 12),
+                      if (isSel)
+                        const Icon(LucideIcons.check,
+                            color: Color(0xFF0095F6), size: 20),
+                    ],
+                  ),
+                );
+              },
+            ),
+          ),
+          SizedBox(height: safeBot),
+        ],
       ),
     );
   }
 }
 
-// ─── iOS-style page route ─────────────────────────────
-PageRoute _buildIosRoute(Widget page) =>
+// ── Shimmer Grid ──────────────────────────────────────────
+class _ShimmerGrid extends StatelessWidget {
+  @override
+  Widget build(BuildContext context) {
+    return GridView.builder(
+      gridDelegate: const SliverGridDelegateWithFixedCrossAxisCount(
+        crossAxisCount: 4,
+        mainAxisSpacing: 1.5,
+        crossAxisSpacing: 1.5,
+      ),
+      itemCount: 24,
+      itemBuilder: (_, __) => Container(color: const Color(0xFF2A2A2A)),
+    );
+  }
+}
+
+// ── iOS Page Route ────────────────────────────────────────
+PageRoute _iosRoute(Widget page) =>
     CupertinoPageRoute(builder: (_) => page);

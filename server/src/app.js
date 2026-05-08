@@ -9,6 +9,8 @@ app.use(helmet());
 
 const normalizeOrigin = (origin) => origin?.trim().replace(/\/$/, '');
 const reelRoutes = require('./routes/reel.routes');
+const postTagRoutes = require('./routes/post_tag.routes');
+const userTagRoutes = require('./routes/user_tagged.routes');
 
 
 const allowedOrigins = [
@@ -72,8 +74,10 @@ app.get('/health', (req, res) => {
 });
 
 app.use('/api/v1/auth', require('./routes/auth.routes'));
-app.use('/api/v1/users', require('./routes/user.routes'));
+app.use('/api/v1/posts', postTagRoutes);
+app.use('/api/v1/users', userTagRoutes);
 app.use('/api/v1/posts', require('./routes/post.routes'));
+app.use('/api/v1/users', require('./routes/user.routes'));
 app.use('/api/v1/users', require('./routes/follow.routes'));
 app.use('/api/v1/comments', require('./routes/comment.routes'));
 app.use('/api/v1/stories', require('./routes/story.routes'));
@@ -83,6 +87,7 @@ app.use('/api/v1/messages', require('./routes/message.routes'));
 app.use('/api/v1/stories', storyAdvancedRoutes);
 app.use('/api/v1/highlights', highlightRoutes);
 app.use('/api/v1/reels', reelRoutes);
+app.use('/api/v1/music', require('./routes/music.routes'));
 
 
 app.get('/api/v1/test', (req, res) => {

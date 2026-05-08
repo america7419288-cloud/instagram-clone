@@ -7,16 +7,29 @@ import 'package:flutter/cupertino.dart';
 import 'package:flutter/gestures.dart';
 import 'package:flutter/services.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
-import 'package:phosphor_flutter/phosphor_flutter.dart';
+import 'package:flutter_lucide/flutter_lucide.dart';
+import 'package:flutter_svg/flutter_svg.dart';
+import '../../../../core/constants/app_assets.dart';
 import 'package:go_router/go_router.dart';
 import 'package:timeago/timeago.dart' as timeago;
+import 'package:visibility_detector/visibility_detector.dart';
+import 'package:just_audio/just_audio.dart';
 
 import '../../../../core/theme/app_theme.dart';
 import '../../data/models/post_model.dart';
-import 'package:instagram_clinet/features/post/presentation/providers/feed_provider.dart';
+import '../providers/feed_provider.dart';
 import '../../../../shared/widgets/spring_widget.dart';
 import '../../../../shared/widgets/story_ring.dart';
 import 'video_player_widget.dart';
+import '../../../../core/network/audio_stream_source.dart';
+import '../../../../core/network/dio_client.dart';
+import '../providers/audio_playback_provider.dart';
+import '../../data/models/post_tag_model.dart';
+import '../../data/repositories/post_tag_service.dart';
+import 'tag_view_overlay.dart';
+import '../../../../core/design/design_tokens.dart';
+import '../../../../shared/widgets/verified_badge.dart';
+import '../../../../core/widgets/instagram_heart_animation.dart';
 
 class PostCard extends ConsumerStatefulWidget {
   final PostModel post;
@@ -30,11 +43,6 @@ class PostCard extends ConsumerStatefulWidget {
 class _PostCardState extends ConsumerState<PostCard>
     with TickerProviderStateMixin {
   
-  // ─── Animations ───────────────────────────────────────
-  late AnimationController _heartOverlayController;
-  late Animation<double> _heartScale;
-  late Animation<double> _heartOpacity;
-
   late AnimationController _likeBounceController;
   late Animation<double> _likeBounceScale;
 
@@ -46,12 +54,25 @@ class _PostCardState extends ConsumerState<PostCard>
   int _likeCount = 0;
   bool _isSaved = false;
   bool _showHeartOverlay = false;
+  int _heartTrigger = 0;
   Offset _tapPosition = Offset.zero;
   int _currentPage = 0;
   bool _captionExpanded = false;
 
+  // ─── Tags ───────────────────────────────────────────
+  List<PostTagModel> _tags = [];
+  bool _showTags = false;
+  bool _tagsLoaded = false;
+  bool _isInitializingAudio = false;
+
   final PageController _pageController = PageController();
   final TransformationController _transformationController = TransformationController();
+
+  // ─── Audio ────────────────────────────────────────────
+  AudioPlayer? _audioPlayer;
+  bool _isPlaying = false;
+  bool _isVisible = false;
+  bool _isMuted = false;
 
   @override
   void initState() {
@@ -60,32 +81,7 @@ class _PostCardState extends ConsumerState<PostCard>
     _likeCount = widget.post.likesCount;
     _isSaved = widget.post.isSaved;
 
-    // Heart overlay (double tap)
-    _heartOverlayController = AnimationController(
-      vsync: this,
-      duration: const Duration(milliseconds: 700), // 300ms up, 200ms hold, 200ms down
-    );
-    
-    _heartScale = TweenSequence<double>([
-      TweenSequenceItem(
-        tween: Tween(begin: 0.0, end: 1.3).chain(CurveTween(curve: Curves.elasticOut)), 
-        weight: 300, // 300ms
-      ),
-      TweenSequenceItem(
-        tween: ConstantTween(1.0), 
-        weight: 200, // 200ms hold
-      ),
-      TweenSequenceItem(
-        tween: Tween(begin: 1.0, end: 0.0).chain(CurveTween(curve: Curves.easeIn)), 
-        weight: 200, // 200ms fade
-      ),
-    ]).animate(_heartOverlayController);
-
-    _heartOpacity = TweenSequence<double>([
-      TweenSequenceItem(tween: Tween(begin: 0.0, end: 1.0), weight: 100),
-      TweenSequenceItem(tween: ConstantTween(1.0), weight: 400),
-      TweenSequenceItem(tween: Tween(begin: 1.0, end: 0.0), weight: 200),
-    ]).animate(_heartOverlayController);
+    // Remove direct calls to _initAudio and _loadTags from initState
 
     // Like button bounce
     _likeBounceController = AnimationController(
@@ -115,10 +111,67 @@ class _PostCardState extends ConsumerState<PostCard>
     ]).animate(_saveBounceController);
   }
 
+  Future<void> _loadTags({bool force = false}) async {
+    if (_tagsLoaded && !force) return;
+    try {
+      final tags = await ref
+          .read(postTagServiceProvider)
+          .getPostTags(widget.post.id);
+      if (mounted) {
+        setState(() {
+          _tags      = tags;
+          _tagsLoaded = true;
+        });
+      }
+    } catch (_) {}
+  }
+
+  Future<void> _initAudio() async {
+    if (_isInitializingAudio || _audioPlayer != null) return;
+    _isInitializingAudio = true;
+    
+    _audioPlayer = AudioPlayer();
+    final dio = ref.read(dioClientProvider).dio;
+    
+    try {
+      final source = BackendStreamAudioSource(dio, widget.post.musicId!);
+      await _audioPlayer!.setAudioSource(source);
+      
+      // Loop the 30s clip
+      await _audioPlayer!.setLoopMode(LoopMode.one);
+      
+      // Set start time
+      if (widget.post.musicStartTime != null) {
+        await _audioPlayer!.seek(Duration(seconds: widget.post.musicStartTime!));
+      }
+
+      // Clip listener: reset if it goes beyond 30s from start
+      _audioPlayer!.positionStream.listen((pos) {
+        if (widget.post.musicStartTime != null) {
+          final start = Duration(seconds: widget.post.musicStartTime!);
+          final end = start + const Duration(seconds: 30);
+          if (pos >= end) {
+            _audioPlayer!.seek(start);
+          }
+        }
+      });
+
+      if (_isVisible) {
+        _audioPlayer!.play();
+        setState(() => _isPlaying = true);
+      }
+    } catch (e) {
+      print('❌ PostCard Audio Error: $e');
+    } finally {
+      _isInitializingAudio = false;
+    }
+  }
+
   @override
   void dispose() {
-    _heartOverlayController.dispose();
+    _audioPlayer?.dispose();
     _likeBounceController.dispose();
+    _saveBounceController.dispose();
     _pageController.dispose();
     _transformationController.dispose();
     super.dispose();
@@ -127,9 +180,16 @@ class _PostCardState extends ConsumerState<PostCard>
   // ─── Logic ───────────────────────────────────────────
   bool _showParticles = false;
 
+  int _lastHeartTime = 0;
+
   void _handleLike({bool isDoubleTap = false}) {
+    if (isDoubleTap) {
+      final now = DateTime.now().millisecondsSinceEpoch;
+      if (now - _lastHeartTime < 1000) return;
+      _lastHeartTime = now;
+    }
+
     if (!isDoubleTap || (isDoubleTap && !_isLiked)) {
-      HapticFeedback.lightImpact();
       _likeBounceController.forward(from: 0);
       setState(() {
         _isLiked = !_isLiked;
@@ -139,13 +199,11 @@ class _PostCardState extends ConsumerState<PostCard>
     }
     
     if (isDoubleTap) {
-      HapticFeedback.mediumImpact();
+      if (_showHeartOverlay) return;
       setState(() {
         _showHeartOverlay = true;
+        _heartTrigger++;
         _showParticles = true;
-      });
-      _heartOverlayController.forward(from: 0).then((_) {
-        if (mounted) setState(() => _showHeartOverlay = false);
       });
       // Particles reset after a while
       Future.delayed(const Duration(milliseconds: 1000), () {
@@ -165,24 +223,74 @@ class _PostCardState extends ConsumerState<PostCard>
     }
   }
 
+  void _onVisibilityChanged(VisibilityInfo info) {
+    if (!mounted) return;
+
+    final wasVisible = _isVisible;
+    _isVisible = info.visibleFraction > 0.7; // Higher threshold for auto-play
+    
+    // Lazy load tags and audio when reasonably visible
+    if (info.visibleFraction > 0.1) {
+      if (!_tagsLoaded) _loadTags();
+      if (widget.post.musicId != null && _audioPlayer == null && !_isInitializingAudio) {
+        _initAudio();
+      }
+    }
+    
+    if (_isVisible && !wasVisible && widget.post.musicId != null) {
+      // This post became prominently visible, take over audio
+      ref.read(playingPostIdProvider.notifier).setPlaying(widget.post.id);
+    } else if (!_isVisible && wasVisible && ref.read(playingPostIdProvider) == widget.post.id) {
+      // This post was playing but is now scrolled away
+      ref.read(playingPostIdProvider.notifier).setPlaying(null);
+    }
+
+    if (_audioPlayer != null) {
+      if (_isVisible && ref.read(playingPostIdProvider) == widget.post.id) {
+        _audioPlayer!.play();
+        _isPlaying = true;
+      } else {
+        _audioPlayer!.pause();
+        _isPlaying = false;
+      }
+    }
+  }
+
   @override
   Widget build(BuildContext context) {
     final isDark = CupertinoTheme.of(context).brightness == Brightness.dark;
+
+    // Listen for global audio changes to pause if another post starts playing
+    ref.listen(playingPostIdProvider, (previous, next) {
+      if (next != widget.post.id && _isPlaying) {
+        _audioPlayer?.pause();
+        setState(() => _isPlaying = false);
+      } else if (next == widget.post.id && _isVisible && !_isPlaying) {
+        _audioPlayer?.play();
+        setState(() => _isPlaying = true);
+      }
+    });
     
-    return Container(
-      color: isDark ? Colors.black : Colors.white,
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
-          _buildHeader(isDark),
-          _buildMedia(isDark),
-          _buildActionRow(isDark),
-          _buildLikes(isDark),
-          _buildCaption(isDark),
-          _buildCommentsPreview(isDark),
-          _buildTimestamp(isDark),
-          const SizedBox(height: 12),
-        ],
+    return VisibilityDetector(
+      key: Key('post-${widget.post.id}'),
+      onVisibilityChanged: _onVisibilityChanged,
+      child: Container(
+        color: isDark ? Colors.black : Colors.white,
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            _buildHeader(isDark),
+            _buildMedia(isDark),
+            _buildActionRow(isDark),
+            if (_tags.isNotEmpty)
+              TaggedUsersRow(tags: _tags, isDark: isDark),
+            _buildLikes(isDark),
+            _buildCaption(isDark),
+            _buildCommentsPreview(isDark),
+            _buildTimestamp(isDark),
+            const SizedBox(height: 12), // Reduced for a tighter feed
+          ],
+        ),
       ),
     );
   }
@@ -205,15 +313,14 @@ class _PostCardState extends ConsumerState<PostCard>
                 }
               },
               child: StoryRing(
-                size: 36,
-                hasUnseen: widget.post.hasActiveStory, // Assuming active means unseen for this UI
+                size: 32, // Standard IG header avatar size
+                hasUnseen: widget.post.hasActiveStory,
                 child: CircleAvatar(
-                  radius: 16,
                   backgroundColor: AppColors.border,
                   backgroundImage: widget.post.userAvatar != null 
                     ? CachedNetworkImageProvider(widget.post.userAvatar!) : null,
                   child: widget.post.userAvatar == null
-                    ? Icon(PhosphorIcons.user(), color: Colors.white, size: 16)
+                    ? const Icon(LucideIcons.user, color: Colors.white, size: 14)
                     : null,
                 ),
               ),
@@ -231,16 +338,15 @@ class _PostCardState extends ConsumerState<PostCard>
                         child: Text(
                           widget.post.username,
                           style: TextStyle(
-                            fontSize: 13,
+                            fontSize: 14,
                             fontWeight: FontWeight.w600,
+                            fontFamily: 'Instagram-Sans',
                             color: isDark ? Colors.white : const Color(0xFF262626),
                           ),
                         ),
                       ),
-                      if (widget.post.isVerified) ...[
-                        const SizedBox(width: 4),
-                        Icon(PhosphorIcons.sealCheck(PhosphorIconsStyle.fill), size: 14, color: const Color(0xFF0095F6)),
-                      ],
+                      if (widget.post.isVerified)
+                        const VerifiedBadge(size: 12),
                     ],
                   ),
                   if (widget.post.location != null)
@@ -251,6 +357,27 @@ class _PostCardState extends ConsumerState<PostCard>
                         color: isDark ? Colors.white70 : const Color(0xFF262626),
                       ),
                     ),
+                  if (widget.post.musicId != null) ...[
+                    const SizedBox(height: 1),
+                    Row(
+                      children: [
+                        Icon(LucideIcons.music, size: 10, color: isDark ? Colors.white70 : Colors.black54),
+                        const SizedBox(width: 4),
+                        Expanded(
+                          child: Text(
+                            '${widget.post.musicTitle} • ${widget.post.musicArtist}',
+                            style: TextStyle(
+                              fontSize: 11,
+                              fontWeight: FontWeight.w400,
+                              color: isDark ? Colors.white70 : const Color(0xFF262626),
+                            ),
+                            maxLines: 1,
+                            overflow: TextOverflow.ellipsis,
+                          ),
+                        ),
+                      ],
+                    ),
+                  ],
                 ],
               ),
             ),
@@ -259,7 +386,7 @@ class _PostCardState extends ConsumerState<PostCard>
               child: Padding(
                 padding: const EdgeInsets.all(8.0),
                 child: Icon(
-                  PhosphorIcons.dotsThree(PhosphorIconsStyle.bold),
+                  LucideIcons.ellipsis,
                   color: isDark ? Colors.white : Colors.black,
                 ),
               ),
@@ -282,7 +409,11 @@ class _PostCardState extends ConsumerState<PostCard>
         children: [
           // Media content
           AspectRatio(
-            aspectRatio: 1, // Defaulting to 1:1 for simplicity in this demo
+            aspectRatio: widget.post.mediaFiles.isNotEmpty && 
+                        widget.post.mediaFiles.first.width != null && 
+                        widget.post.mediaFiles.first.height != null
+                ? (widget.post.mediaFiles.first.width! / widget.post.mediaFiles.first.height!)
+                : 1.0, // Default to square if no dimensions
             child: PageView.builder(
               controller: _pageController,
               itemCount: widget.post.mediaFiles.length,
@@ -290,7 +421,10 @@ class _PostCardState extends ConsumerState<PostCard>
               itemBuilder: (context, index) {
                 final media = widget.post.mediaFiles[index];
                 if (media.isVideo) {
-                  return VideoPlayerWidget(videoUrl: media.url);
+                  return VideoPlayerWidget(
+                    videoUrl: media.url,
+                    fit: BoxFit.contain, // Show full video without cropping
+                  );
                 }
                 return InteractiveViewer(
                   transformationController: _transformationController,
@@ -300,13 +434,67 @@ class _PostCardState extends ConsumerState<PostCard>
                   onInteractionEnd: (_) => _transformationController.value = Matrix4.identity(),
                   child: CachedNetworkImage(
                     imageUrl: media.url,
-                    fit: BoxFit.cover,
+                    fit: BoxFit.contain, // Show full image without cropping
                     width: width,
                   ),
                 );
               },
             ),
           ),
+          
+          // Tap detector for tags
+          Positioned.fill(
+            child: GestureDetector(
+              onTap: () {
+                if (_tags.isNotEmpty) {
+                  setState(() => _showTags = !_showTags);
+                  if (_showTags) {
+                    Future.delayed(const Duration(seconds: 3), () {
+                      if (mounted) setState(() => _showTags = false);
+                    });
+                  }
+                }
+              },
+              behavior: HitTestBehavior.translucent,
+            ),
+          ),
+
+          // TagViewOverlay
+          if (_showTags && _tags.isNotEmpty)
+            Positioned.fill(
+              child: TagViewOverlay(
+                tags:       _tags,
+                imgWidth:   width,
+                imgHeight:  width, // assuming 1:1
+                mediaIndex: _currentPage,
+                onRefresh:  () => _loadTags(force: true),
+              ),
+            ),
+
+          // Tag indicator (bottom left)
+          if (_tags.isNotEmpty && !_showTags)
+            Positioned(
+              bottom: 12,
+              left:   12,
+              child:  GestureDetector(
+                onTap: () => setState(() => _showTags = true),
+                child: Container(
+                  padding: const EdgeInsets.symmetric(
+                    horizontal: 8,
+                    vertical:   4,
+                  ),
+                  decoration: BoxDecoration(
+                    color:        Colors.black.withOpacity(0.6),
+                    shape: BoxShape.circle,
+                  ),
+                  child: const Icon(
+                    LucideIcons.user,
+                    color: Colors.white,
+                    size:  14,
+                  ),
+                ),
+              ),
+            ),
           
           // Particles
           if (_showParticles)
@@ -316,25 +504,17 @@ class _PostCardState extends ConsumerState<PostCard>
               ),
             ),
 
-          // Heart Overlay
+          // Instagram Heart Animation Wrapper (Positioned at tap location)
           if (_showHeartOverlay)
             Positioned(
-              left: _tapPosition.dx - 45,
-              top: _tapPosition.dy - 45,
-              child: AnimatedBuilder(
-                animation: _heartOverlayController,
-                builder: (context, child) => Opacity(
-                  opacity: _heartOpacity.value,
-                  child: Transform.scale(
-                    scale: _heartScale.value,
-                    child: Icon(
-                      PhosphorIcons.heart(PhosphorIconsStyle.fill),
-                      color: Colors.white,
-                      size: 90,
-                      shadows: [Shadow(color: Colors.black26, blurRadius: 20)],
-                    ),
-                  ),
-                ),
+              left: _tapPosition.dx - 40, // Half of heart size (80)
+              top: _tapPosition.dy - 40,
+              child: InstagramHeartAnimation(
+                key: ValueKey('heart-$_heartTrigger'),
+                isAnimating: _showHeartOverlay,
+                duration: const Duration(milliseconds: 1200),
+                onEnd: () => setState(() => _showHeartOverlay = false),
+                child: const SizedBox.shrink(),
               ),
             ),
 
@@ -358,6 +538,33 @@ class _PostCardState extends ConsumerState<PostCard>
                 ),
               ),
             ),
+          // Mute Button (Bottom Right)
+          if (widget.post.musicId != null)
+            Positioned(
+              right: 12,
+              bottom: 12,
+              child: GestureDetector(
+                onTap: () {
+                  setState(() => _isMuted = !_isMuted);
+                  _audioPlayer?.setVolume(_isMuted ? 0 : 1);
+                  HapticFeedback.lightImpact();
+                },
+                child: Container(
+                  padding: const EdgeInsets.all(6),
+                  decoration: BoxDecoration(
+                    color: Colors.black.withOpacity(0.5),
+                    shape: BoxShape.circle,
+                  ),
+                  child: Icon(
+                    _isMuted 
+                        ? LucideIcons.volume_x
+                        : LucideIcons.volume_2,
+                    color: Colors.white,
+                    size: 14,
+                  ),
+                ),
+              ),
+            ),
         ],
       ),
     );
@@ -368,9 +575,9 @@ class _PostCardState extends ConsumerState<PostCard>
     final iconColor = isDark ? Colors.white : Colors.black;
 
     return SizedBox(
-      height: 40,
+      height: 46, // Standard IG action row height
       child: Padding(
-        padding: const EdgeInsets.symmetric(horizontal: 4),
+        padding: const EdgeInsets.symmetric(horizontal: 8),
         child: Row(
           children: [
             // Like
@@ -380,10 +587,12 @@ class _PostCardState extends ConsumerState<PostCard>
                 padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
                 child: ScaleTransition(
                   scale: _likeBounceScale,
-                  child: Icon(
-                    _isLiked ? PhosphorIcons.heart(PhosphorIconsStyle.fill) : PhosphorIcons.heart(PhosphorIconsStyle.bold),
-                    color: _isLiked ? const Color(0xFFFF3040) : iconColor,
-                    size: 26,
+                  child: SvgPicture.asset(
+                    AppAssets.getIcon('Name=Like', isDark: isDark, state: _isLiked ? 'Active' : 'Default'),
+                    width: 27,
+                    height: 27,
+                    // If active, we use the original color (red) from the SVG, otherwise we tint it.
+                    colorFilter: _isLiked ? null : ColorFilter.mode(iconColor, BlendMode.srcIn),
                   ),
                 ),
               ),
@@ -393,7 +602,12 @@ class _PostCardState extends ConsumerState<PostCard>
               onTap: () => context.push('/post/${widget.post.id}/comments', extra: widget.post),
               child: Padding(
                 padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
-                child: Icon(PhosphorIcons.chatCircle(PhosphorIconsStyle.bold), color: iconColor, size: 26),
+                child: SvgPicture.asset(
+                  AppAssets.getIcon('Name=Comment', isDark: isDark, state: 'Default'),
+                  width: 27,
+                  height: 27,
+                  colorFilter: ColorFilter.mode(iconColor, BlendMode.srcIn),
+                ),
               ),
             ),
             // Share
@@ -401,7 +615,12 @@ class _PostCardState extends ConsumerState<PostCard>
               onTap: () {},
               child: Padding(
                 padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
-                child: Icon(PhosphorIcons.paperPlaneTilt(PhosphorIconsStyle.bold), color: iconColor, size: 26),
+                child: SvgPicture.asset(
+                  AppAssets.getIcon('Name=Share', isDark: isDark, state: 'Default'),
+                  width: 27,
+                  height: 27,
+                  colorFilter: ColorFilter.mode(iconColor, BlendMode.srcIn),
+                ),
               ),
             ),
             const Spacer(),
@@ -413,9 +632,9 @@ class _PostCardState extends ConsumerState<PostCard>
                 child: ScaleTransition(
                   scale: _saveBounceScale,
                   child: Icon(
-                    _isSaved ? PhosphorIcons.bookmark(PhosphorIconsStyle.fill) : PhosphorIcons.bookmark(PhosphorIconsStyle.bold),
+                    _isSaved ? Icons.bookmark : LucideIcons.bookmark,
                     color: iconColor,
-                    size: 26,
+                    size: 27,
                   ),
                 ),
               ),
@@ -436,6 +655,7 @@ class _PostCardState extends ConsumerState<PostCard>
         style: TextStyle(
           fontSize: 13,
           fontWeight: FontWeight.w600,
+          fontFamily: 'Instagram-Sans',
           color: isDark ? Colors.white : const Color(0xFF262626),
         ),
       ),
@@ -455,7 +675,7 @@ class _PostCardState extends ConsumerState<PostCard>
       curve: Curves.easeOut,
       alignment: Alignment.topLeft,
       child: Padding(
-        padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 4),
+        padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
         child: GestureDetector(
           onTap: () {
             if (caption.length > 100) {
@@ -465,17 +685,23 @@ class _PostCardState extends ConsumerState<PostCard>
           child: RichText(
             text: TextSpan(
               style: TextStyle(
-                fontSize: 13,
+                fontSize: 14,
                 color: isDark ? Colors.white : const Color(0xFF262626),
-                fontFamily: 'SF-Pro',
+                fontFamily: 'Instagram-Sans',
               ),
               children: [
                 TextSpan(
                   text: '${widget.post.username} ',
-                  style: const TextStyle(fontWeight: FontWeight.w600),
+                  style: const TextStyle(fontWeight: FontWeight.w700),
                   recognizer: TapGestureRecognizer()
                     ..onTap = () => context.push('/profile/${widget.post.username}'),
                 ),
+                if (widget.post.isVerified)
+                  const WidgetSpan(
+                    alignment: PlaceholderAlignment.middle,
+                    child: VerifiedBadge(size: 11),
+                  ),
+                const TextSpan(text: ' '),
                 TextSpan(text: displayCaption),
                 if (showMore)
                   TextSpan(
@@ -602,10 +828,13 @@ class _LikeParticlesState extends State<LikeParticles> with SingleTickerProvider
                 opacity: opacity,
                 child: Transform.scale(
                   scale: 0.5 + t * 0.5,
-                  child: Icon(
-                    PhosphorIcons.heart(PhosphorIconsStyle.fill),
-                    color: Colors.white.withAlpha(204), // 0.8 * 255
-                    size: p.size,
+                  child: Container(
+                    width: p.size,
+                    height: p.size,
+                    decoration: BoxDecoration(
+                      color: Colors.white.withAlpha(204),
+                      shape: BoxShape.circle,
+                    ),
                   ),
                 ),
               ),

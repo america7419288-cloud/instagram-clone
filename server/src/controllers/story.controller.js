@@ -56,6 +56,18 @@ const formatStory = (story, viewerId = null) => {
     is_viewed: s.is_viewed || false,
     is_own_story: viewerId ? s.user_id === viewerId : false,
 
+    // Music
+    music: s.music_id
+      ? {
+          id: s.music_id,
+          title: s.music_title,
+          artist: s.music_artist,
+          thumbnail: s.music_thumbnail,
+          start_time: s.music_start_time,
+          duration: s.music_duration,
+        }
+      : null,
+
     // Stickers
     poll: s.poll
       ? {
@@ -112,6 +124,13 @@ const createStory = async (req, res) => {
       stickerWidth,
       stickerHeight,
       stickerRotation,
+      // Music
+      musicId,
+      musicTitle,
+      musicArtist,
+      musicThumbnail,
+      musicStartTime,
+      musicDuration,
     } = req.body;
 
     // Normalize audience: 'all' -> 'followers'
@@ -155,6 +174,14 @@ const createStory = async (req, res) => {
       duration:             uploadResult.duration || null,
       // Auto-set expiry 24 hours from now
       expires_at:           new Date(Date.now() + 24 * 60 * 60 * 1000),
+
+      // Music
+      music_id:             musicId || null,
+      music_title:          musicTitle || null,
+      music_artist:         musicArtist || null,
+      music_thumbnail:      musicThumbnail || null,
+      music_start_time:     musicStartTime ? parseInt(musicStartTime) : 0,
+      music_duration:       musicDuration ? parseInt(musicDuration) : 15,
     });
 
     // 4.1 CREATE STICKERS IF PROVIDED
