@@ -24,8 +24,8 @@ class ServerConfig {
 class ServerConfigNotifier extends Notifier<ServerConfig> {
   static const String _baseUrlKey = 'server_base_url';
   static const String _socketUrlKey = 'server_socket_url';
-  static const String _defaultBaseUrl = 'http://10.126.0.227:5000/api/v1';
-  static const String _defaultSocketUrl = 'http://10.126.0.227:5000';
+  static const String _defaultBaseUrl = 'https://instagram-clone-im0x.onrender.com/api/v1';
+  static const String _defaultSocketUrl = 'https://instagram-clone-im0x.onrender.com';
 
   @override
   ServerConfig build() {

@@ -27,7 +27,7 @@ class SocketEvents {
 class SocketService {
   io.Socket? _socket;
   final FlutterSecureStorage _storage = const FlutterSecureStorage();
-  String _socketUrl = 'http://10.126.0.227:5000';
+  String _socketUrl = AppConstants.socketUrl;
 
   bool _isConnected = false;
 

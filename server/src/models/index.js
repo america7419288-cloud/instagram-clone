@@ -393,10 +393,11 @@ Conversation.belongsTo(User, {
 const syncDatabase = async () => {
   try {
     const isProduction = process.env.NODE_ENV === 'production';
-
-    // Temporarily force alter: true in production so Render creates the new columns
-    await sequelize.sync({ alter: true });
-    console.log(`✅ Database synced (alter: true) in ${isProduction ? 'production' : 'development'} mode`);
+    const shouldAlter = !isProduction || process.env.DB_SYNC_ALTER === 'true';
+    await sequelize.sync({ alter: shouldAlter });
+    console.log(
+      `✅ Database synced (alter: ${shouldAlter}) in ${isProduction ? 'production' : 'development'} mode`
+    );
 
     console.log('✅ Database tables synced!');
     console.log('   → users, posts, post_media');

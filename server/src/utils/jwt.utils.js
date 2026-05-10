@@ -15,7 +15,7 @@ const generateRefreshToken = (userId) => {
     return jwt.sign(
         { id: userId },
         process.env.JWT_REFRESH_SECRET,
-        { expiresIn: process.env.JWT_REFERESH_EXPIRES_IN || '30d' }
+        { expiresIn: process.env.JWT_REFRESH_EXPIRES_IN || '30d' }
     );
 };
 
@@ -29,7 +29,7 @@ const verifyAccessToken = (token) => {
 };
 const verifyRefreshToken = (token) => {
     try {
-        return jwt.verify(token, process.env.JWT_REFERESH_SECRET);
+        return jwt.verify(token, process.env.JWT_REFRESH_SECRET);
     } catch (error) {
         return null;
     }

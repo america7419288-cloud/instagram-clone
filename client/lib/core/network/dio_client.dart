@@ -10,8 +10,8 @@ class DioClient {
   factory DioClient() => _instance;
 
   DioClient._internal() {
-    _dio = Dio(_buildOptions('http://10.126.0.227:5000/api/v1'));
-    _refreshDio = Dio(_buildOptions('http://10.126.0.227:5000/api/v1'));
+    _dio = Dio(_buildOptions(AppConstants.baseUrl));
+    _refreshDio = Dio(_buildOptions(AppConstants.baseUrl));
 
     _dio.interceptors.addAll([
       _AuthInterceptor(

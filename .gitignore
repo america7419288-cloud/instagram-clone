@@ -7,6 +7,7 @@ node_modules/
 *.so
 *.bin
 server/uploads/
+server/cache/
 npm-debug.log*
 server/serviceAccountKey.json
 

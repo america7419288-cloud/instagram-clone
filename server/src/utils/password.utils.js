@@ -16,16 +16,16 @@ const validatePasswordStrength = (password) => {
 
     if (password.length < 6)
     {
-        error.push('please enter a password longer thann 8 chars.')
+        errors.push('please enter a password longer than 6 chars.')
     }
     if (password.length > 64) {
-        error.push('please enter a password shorter than 64 chars.')
+        errors.push('please enter a password shorter than 64 chars.')
     }
     if (!/[A-Z]/.test(password)) {
-        error.push('must include at least one uppercase letter')
+        errors.push('must include at least one uppercase letter')
     }
     if (!/[a-z]/.test(password)) {
-        error.push('must include at least one lower case letter')
+        errors.push('must include at least one lowercase letter')
     }
 
     return {
