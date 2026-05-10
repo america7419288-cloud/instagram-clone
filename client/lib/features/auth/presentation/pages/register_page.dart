@@ -6,7 +6,6 @@
 
 import 'dart:async';
 import 'package:flutter/material.dart';
-import 'package:flutter/services.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 
@@ -194,36 +193,44 @@ class _EmailStepState extends ConsumerState<_EmailStep> {
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.stretch,
         children: [
-          const SizedBox(height: 40),
-          const Center(child: AuthLogo(width: 170)),
-          const SizedBox(height: 40),
+          const SizedBox(height: 60),
+          const AuthEntrance(
+            child: Center(child: AuthLogo(width: 70)),
+          ),
+          const SizedBox(height: 110),
 
-          AuthStepHeader(
-            title: _usePhone
-                ? "What's your mobile number?"
-                : "What's your email address?",
-            subtitle: _usePhone
-                ? 'Enter the mobile number at which you can be reached.'
-                : 'Enter the email address at which you can be reached.\nNo one will see this on your profile.',
+          AuthEntrance(
+            delay: const Duration(milliseconds: 80),
+            child: AuthStepHeader(
+              title: _usePhone
+                  ? "What's your mobile number?"
+                  : "What's your email address?",
+              subtitle: _usePhone
+                  ? 'Enter the mobile number at which you can be reached.'
+                  : 'Enter the email address at which you can be reached.\nNo one will see this on your profile.',
+            ),
           ),
 
           const SizedBox(height: 24),
 
-          AuthTextField(
-            placeholder:  _usePhone ? 'Mobile number' : 'Email address',
-            controller:   _ctrl,
-            focusNode:    _focus,
-            keyboardType: _usePhone
-                ? TextInputType.phone
-                : TextInputType.emailAddress,
-            textInputAction: TextInputAction.next,
-            errorText:    _errorText,
-            suffixIcon:   _suffixIcon(),
-            onChanged:    _onChanged,
-            onClear: () => setState(() {
-              _isAvailable = null;
-              _errorText   = null;
-            }),
+          AuthEntrance(
+            delay: const Duration(milliseconds: 130),
+            child: AuthTextField(
+              placeholder:  _usePhone ? 'Mobile number' : 'Email address',
+              controller:   _ctrl,
+              focusNode:    _focus,
+              keyboardType: _usePhone
+                  ? TextInputType.phone
+                  : TextInputType.emailAddress,
+              textInputAction: TextInputAction.next,
+              errorText:    _errorText,
+              suffixIcon:   _suffixIcon(),
+              onChanged:    _onChanged,
+              onClear: () => setState(() {
+                _isAvailable = null;
+                _errorText   = null;
+              }),
+            ),
           ),
 
           const SizedBox(height: 40),

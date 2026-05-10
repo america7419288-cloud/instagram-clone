@@ -25,7 +25,7 @@ class _Step4PasswordScreenState extends ConsumerState<Step4PasswordScreen> {
 
   void _onNext() {
     final password = _passwordController.text.trim();
-    if (password.length < 6) return;
+    if (password.length < 8) return;
 
     ref.read(signupProvider.notifier).updateData(password: password);
     Navigator.of(context).push(
@@ -37,7 +37,7 @@ class _Step4PasswordScreenState extends ConsumerState<Step4PasswordScreen> {
   Widget build(BuildContext context) {
     return AuthScaffold(
       title: 'Create a password',
-      subtitle: 'For security, your password must be 6 characters or more.',
+      subtitle: 'For security, your password must be 8 characters or more.',
       body: [
         AuthTextField(
           controller: _passwordController,
@@ -52,7 +52,7 @@ class _Step4PasswordScreenState extends ConsumerState<Step4PasswordScreen> {
       ],
       footer: AuthPrimaryButton(
         text: 'Next',
-        onPressed: _passwordController.text.length >= 6 ? _onNext : null,
+        onPressed: _passwordController.text.length >= 8 ? _onNext : null,
       ),
     );
   }

@@ -14,9 +14,9 @@ const comparePassword = async (plainPassword, hashedPassword) => {
 const validatePasswordStrength = (password) => {
     const errors = [];
 
-    if (password.length < 6)
+    if (password.length < 8)
     {
-        errors.push('please enter a password longer than 6 chars.')
+        errors.push('please enter a password at least 8 chars long.')
     }
     if (password.length > 64) {
         errors.push('please enter a password shorter than 64 chars.')

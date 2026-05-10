@@ -140,6 +140,7 @@ class SignupNotifier extends Notifier<SignupState> {
         email:    state.email,
         password: state.password,
         fullName: state.fullName,
+        profileImage: state.profileImage,
       );
       state = state.copyWith(isLoading: false);
       return true;

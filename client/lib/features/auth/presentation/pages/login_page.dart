@@ -102,40 +102,48 @@ class _LoginPageState extends ConsumerState<LoginPage> {
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.stretch,
         children: [
-          const SizedBox(height: 40),
-          const Center(child: AuthLogo(width: 170)),
-          const SizedBox(height: 40),
+          const SizedBox(height: 60),
+          const AuthEntrance(
+            child: Center(child: AuthLogo(width: 70)),
+          ),
+          const SizedBox(height: 110),
 
           // ─── IDENTIFIER ─────────────────────
-          AuthTextField(
-            placeholder:     'Username, email or mobile number',
-            controller:      _identifierCtrl,
-            focusNode:       _identifierFocus,
-            keyboardType:    TextInputType.emailAddress,
-            textInputAction: TextInputAction.next,
-            errorText:       _identifierError,
-            onChanged: (_) => setState(() {
-              _identifierError = null;
-              _serverError = null;
-            }),
-            onSubmitted: (_) => _passwordFocus.requestFocus(),
+          AuthEntrance(
+            delay: const Duration(milliseconds: 80),
+            child: AuthTextField(
+              placeholder:     'Username, email or mobile number',
+              controller:      _identifierCtrl,
+              focusNode:       _identifierFocus,
+              keyboardType:    TextInputType.emailAddress,
+              textInputAction: TextInputAction.next,
+              errorText:       _identifierError,
+              onChanged: (_) => setState(() {
+                _identifierError = null;
+                _serverError = null;
+              }),
+              onSubmitted: (_) => _passwordFocus.requestFocus(),
+            ),
           ),
 
           const SizedBox(height: 12),
 
           // ─── PASSWORD ───────────────────────
-          AuthTextField(
-            placeholder:     'Password',
-            controller:      _passwordCtrl,
-            focusNode:       _passwordFocus,
-            isPassword:      true,
-            textInputAction: TextInputAction.done,
-            errorText:       _passwordError,
-            onChanged: (_) => setState(() {
-              _passwordError = null;
-              _serverError   = null;
-            }),
-            onSubmitted: (_) => _handleLogin(),
+          AuthEntrance(
+            delay: const Duration(milliseconds: 120),
+            child: AuthTextField(
+              placeholder:     'Password',
+              controller:      _passwordCtrl,
+              focusNode:       _passwordFocus,
+              isPassword:      true,
+              textInputAction: TextInputAction.done,
+              errorText:       _passwordError,
+              onChanged: (_) => setState(() {
+                _passwordError = null;
+                _serverError   = null;
+              }),
+              onSubmitted: (_) => _handleLogin(),
+            ),
           ),
 
           const SizedBox(height: 12),
@@ -165,10 +173,13 @@ class _LoginPageState extends ConsumerState<LoginPage> {
           const SizedBox(height: 8),
 
           // ─── LOGIN BUTTON ───────────────────
-          AuthPrimaryButton(
-            text:      'Log in',
-            isLoading: isLoading,
-            onPressed: isLoading ? null : _handleLogin,
+          AuthEntrance(
+            delay: const Duration(milliseconds: 160),
+            child: AuthPrimaryButton(
+              text:      'Log in',
+              isLoading: isLoading,
+              onPressed: isLoading ? null : _handleLogin,
+            ),
           ),
 
           const SizedBox(height: 16),

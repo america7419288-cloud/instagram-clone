@@ -72,6 +72,20 @@ class AppRoutes {
   static const String serverSettings = '/settings/server';
 }
 
+CustomTransitionPage<void> _fadePage(BuildContext context, GoRouterState state, Widget child) {
+  return CustomTransitionPage<void>(
+    key: state.pageKey,
+    child: child,
+    transitionsBuilder: (context, animation, secondaryAnimation, child) {
+      return FadeTransition(
+        opacity: CurveTween(curve: Curves.easeInOut).animate(animation),
+        child: child,
+      );
+    },
+    transitionDuration: const Duration(milliseconds: 400),
+  );
+}
+
 final appRouterProvider = Provider<GoRouter>((ref) {
   return GoRouter(
     navigatorKey: _rootNavigatorKey,
@@ -103,15 +117,15 @@ final appRouterProvider = Provider<GoRouter>((ref) {
     routes: [
       GoRoute(
         path: AppRoutes.splash,
-        builder: (context, state) => const SplashPage(),
+        pageBuilder: (context, state) => _fadePage(context, state, const SplashPage()),
       ),
       GoRoute(
         path: AppRoutes.login,
-        builder: (context, state) => const LoginPage(),
+        pageBuilder: (context, state) => _fadePage(context, state, const LoginPage()),
       ),
       GoRoute(
         path: AppRoutes.register,
-        builder: (context, state) => const RegisterPage(),
+        pageBuilder: (context, state) => _fadePage(context, state, const RegisterPage()),
       ),
 
       // ⭐ Main App with Tabs

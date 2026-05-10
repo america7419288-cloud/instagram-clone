@@ -1,6 +1,7 @@
 // lib/features/auth/data/repositories/auth_service.dart
 
 import 'dart:developer' as developer;
+import 'dart:io';
 
 import 'package:dio/dio.dart';
 import 'package:flutter_secure_storage/flutter_secure_storage.dart';
@@ -18,16 +19,34 @@ class AuthService {
     required String email,
     required String username,
     required String password,
+    File? profileImage,
   }) async {
     try {
-      final response = await _dioClient.post(
-        AppConstants.registerEndpoint,
-        data: {
+      dynamic data;
+
+      if (profileImage != null) {
+        data = FormData.fromMap({
           'full_name': fullName,
           'email': email,
           'username': username,
           'password': password,
-        },
+          'image': await MultipartFile.fromFile(
+            profileImage.path,
+            filename: 'profile_pic.jpg',
+          ),
+        });
+      } else {
+        data = {
+          'full_name': fullName,
+          'email': email,
+          'username': username,
+          'password': password,
+        };
+      }
+
+      final response = await _dioClient.post(
+        AppConstants.registerEndpoint,
+        data: data,
       );
 
       // Parse response data

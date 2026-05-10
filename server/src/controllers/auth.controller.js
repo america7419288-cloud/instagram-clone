@@ -6,6 +6,7 @@ const {
 } = require('../utils/jwt.utils');
 const { successResponse, errorResponse } = require('../utils/response.utils');
 const { Op } = require('sequelize');
+
 const formatUserResponse = (user) => ({
   id: user.id,
   username: user.username,
@@ -21,6 +22,7 @@ const formatUserResponse = (user) => ({
   last_active_at: user.last_active_at,
   created_at: user.createdAt,
 });
+
 const register = async (req, res) => {
   try {
     const { full_name, email, username, password } = req.body;
@@ -53,6 +55,21 @@ const register = async (req, res) => {
       }
     }
 
+    let profile_pic_url = null;
+    if (req.file) {
+      try {
+        const { uploadProfilePictureToCloudinary } = require('../services/upload.service');
+        console.log('📸 Uploading profile picture during registration...');
+        const uploadResult = await uploadProfilePictureToCloudinary(
+          req.file.buffer,
+          'profile_pics'
+        );
+        profile_pic_url = uploadResult.secure_url;
+      } catch (uploadError) {
+        console.error('❌ Profile pic upload error:', uploadError);
+      }
+    }
+
     const password_hash = await hashPassword(password);
 
     const newUser = await User.create({
@@ -60,6 +77,7 @@ const register = async (req, res) => {
       email: email.toLowerCase(),
       username: username.toLowerCase(),
       password_hash,
+      profile_pic_url,
     });
 
     console.log('✅ New user created:', newUser.id);
@@ -183,11 +201,10 @@ const login = async (req, res) => {
     return errorResponse(res, 500, 'Something went wrong. Please try again.');
   }
 };
+
 const getMe = async (req, res) => {
   try {
-
     const userId = req.user.id;
-
     const user = await User.findByPk(userId);
 
     if (!user) {
@@ -211,7 +228,6 @@ const getMe = async (req, res) => {
 
 const logout = async (req, res) => {
   try {
-
     const userId = req.user.id;
     await User.update(
       { last_active_at: new Date() },
@@ -232,6 +248,7 @@ const logout = async (req, res) => {
     return errorResponse(res, 500, 'Something went wrong.');
   }
 };
+
 const refreshToken = async (req, res) => {
   try {
     const { refreshToken: token } = req.body;

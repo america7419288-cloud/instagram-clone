@@ -1,5 +1,6 @@
 // lib/features/auth/presentation/providers/auth_provider.dart
 
+import 'dart:io';
 import 'package:flutter/foundation.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_riverpod/legacy.dart';
@@ -221,6 +222,7 @@ class AuthNotifier extends StateNotifier<AuthState> {
     required String email,
     required String password,
     required String fullName,
+    File? profileImage,
   }) async {
     state = state.copyWith(isLoading: true, clearError: true);
 
@@ -233,6 +235,7 @@ class AuthNotifier extends StateNotifier<AuthState> {
         email:    email,
         password: password,
         fullName: fullName,
+        profileImage: profileImage,
       );
 
       final accessToken  = result.accessToken;

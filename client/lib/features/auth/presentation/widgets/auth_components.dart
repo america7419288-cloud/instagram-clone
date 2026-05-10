@@ -18,6 +18,8 @@ class AuthColors {
   static const darkText    = Color(0xFF262626);
   static const metaGrey    = Color(0xFF8E8E8E);
   static const white       = Color(0xFFFFFFFF);
+  static const bg          = Color(0xFFFAFAFA);
+  static const fieldFill   = Color(0xFFF2F2F7);
 }
 
 class AuthDimens {
@@ -34,26 +36,94 @@ class AuthDimens {
 // ─────────────────────────────────────────────────────
 // GRADIENT BACKGROUND
 // ─────────────────────────────────────────────────────
-class AuthGradientBackground extends StatelessWidget {
+class AuthGradientBackground extends StatefulWidget {
   final Widget child;
   const AuthGradientBackground({super.key, required this.child});
 
   @override
-  Widget build(BuildContext context) {
-    return Container(
-      decoration: const BoxDecoration(
-        gradient: LinearGradient(
-          begin: Alignment.topLeft,
-          end: Alignment.bottomRight,
-          stops: [0.0, 0.5, 1.0],
-          colors: [
-            Color(0xFFFFF0F5),
-            Color(0xFFF4F0FF),
-            Color(0xFFEFF6FF),
-          ],
-        ),
+  State<AuthGradientBackground> createState() => _AuthGradientBackgroundState();
+}
+
+class _AuthGradientBackgroundState extends State<AuthGradientBackground>
+    with SingleTickerProviderStateMixin {
+  late AnimationController _controller;
+  late Animation<Alignment> _topAlignmentAnimation;
+  late Animation<Alignment> _bottomAlignmentAnimation;
+
+  @override
+  void initState() {
+    super.initState();
+    _controller = AnimationController(
+      duration: const Duration(seconds: 40),
+      vsync: this,
+    )..repeat(reverse: true);
+
+    _topAlignmentAnimation = TweenSequence<Alignment>([
+      TweenSequenceItem(
+        tween: Tween<Alignment>(begin: Alignment.topLeft, end: Alignment.topRight),
+        weight: 1,
       ),
-      child: child,
+      TweenSequenceItem(
+        tween: Tween<Alignment>(begin: Alignment.topRight, end: Alignment.bottomRight),
+        weight: 1,
+      ),
+      TweenSequenceItem(
+        tween: Tween<Alignment>(begin: Alignment.bottomRight, end: Alignment.bottomLeft),
+        weight: 1,
+      ),
+      TweenSequenceItem(
+        tween: Tween<Alignment>(begin: Alignment.bottomLeft, end: Alignment.topLeft),
+        weight: 1,
+      ),
+    ]).animate(_controller);
+
+    _bottomAlignmentAnimation = TweenSequence<Alignment>([
+      TweenSequenceItem(
+        tween: Tween<Alignment>(begin: Alignment.bottomRight, end: Alignment.bottomLeft),
+        weight: 1,
+      ),
+      TweenSequenceItem(
+        tween: Tween<Alignment>(begin: Alignment.bottomLeft, end: Alignment.topLeft),
+        weight: 1,
+      ),
+      TweenSequenceItem(
+        tween: Tween<Alignment>(begin: Alignment.topLeft, end: Alignment.topRight),
+        weight: 1,
+      ),
+      TweenSequenceItem(
+        tween: Tween<Alignment>(begin: Alignment.topRight, end: Alignment.bottomRight),
+        weight: 1,
+      ),
+    ]).animate(_controller);
+  }
+
+  @override
+  void dispose() {
+    _controller.dispose();
+    super.dispose();
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    return AnimatedBuilder(
+      animation: _controller,
+      builder: (context, child) {
+        return Container(
+          decoration: BoxDecoration(
+            gradient: LinearGradient(
+              begin: _topAlignmentAnimation.value,
+              end: _bottomAlignmentAnimation.value,
+              colors: const [
+                Color(0xFFFDF2F4), // Very Light Pink
+                Color(0xFFF5EEF8), // Very Light Purple
+                Color(0xFFFEF9E7), // Very Light Yellow
+                Color(0xFFF0F4FF), // Very Light Blue
+              ],
+            ),
+          ),
+          child: widget.child,
+        );
+      },
     );
   }
 }
@@ -64,7 +134,7 @@ class AuthGradientBackground extends StatelessWidget {
 class AuthLogo extends StatelessWidget {
   final double width;
   final Color? color;
-  const AuthLogo({super.key, this.width = 180, this.color});
+  const AuthLogo({super.key, this.width = 70, this.color});
 
   @override
   Widget build(BuildContext context) {
@@ -196,16 +266,27 @@ class _AuthTextFieldState extends State<AuthTextField> {
 
   @override
   Widget build(BuildContext context) {
+    final shouldElevate = _hasFocus && widget.errorText == null;
     return Column(
       crossAxisAlignment: CrossAxisAlignment.stretch,
       mainAxisSize: MainAxisSize.min,
       children: [
         AnimatedContainer(
           duration: const Duration(milliseconds: 150),
+          curve: Curves.easeOutCubic,
           decoration: BoxDecoration(
-            color: AuthColors.white,
+            color: AuthColors.fieldFill,
             borderRadius: BorderRadius.circular(AuthDimens.fieldRadius),
             border: Border.all(color: _borderColor, width: 1),
+            boxShadow: shouldElevate
+                ? const [
+                    BoxShadow(
+                      color: Color(0x14000000),
+                      blurRadius: 12,
+                      offset: Offset(0, 4),
+                    ),
+                  ]
+                : const [],
           ),
           child: TextField(
             controller:      widget.controller,
@@ -237,6 +318,8 @@ class _AuthTextFieldState extends State<AuthTextField> {
               contentPadding:  const EdgeInsets.symmetric(
                 horizontal: 16, vertical: 14,
               ),
+              filled: true,
+              fillColor: Colors.transparent,
               border:          InputBorder.none,
               suffixIcon:      _buildSuffix(),
             ),
@@ -291,12 +374,12 @@ class AuthScaffold extends StatelessWidget {
         crossAxisAlignment: CrossAxisAlignment.stretch,
         children: [
           if (showLogo) ...[
-            const Center(child: AuthLogo(width: 170)),
-            const SizedBox(height: 32),
+            const Center(child: AuthLogo(width: 70)),
+            const SizedBox(height: 50),
           ],
           const SizedBox(height: 12),
           AuthStepHeader(title: title, subtitle: subtitle),
-          const SizedBox(height: 32),
+          const SizedBox(height: 70),
           ...body,
         ],
       ),
@@ -324,14 +407,19 @@ class AuthPrimaryButton extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final active = !isDisabled && !isLoading && onPressed != null;
-    return SizedBox(
+    return _Pressable(
+      enabled: active,
+      onTap: onPressed,
+      child: SizedBox(
       width: double.infinity,
       height: AuthDimens.btnHeight,
       child: ElevatedButton(
-        onPressed: active ? () {
-          HapticFeedback.lightImpact();
-          onPressed!();
-        } : null,
+        onPressed: active
+            ? () {
+                HapticFeedback.lightImpact();
+                onPressed?.call();
+              }
+            : null,
         style: ElevatedButton.styleFrom(
           backgroundColor: active
               ? AuthColors.blue
@@ -360,7 +448,7 @@ class AuthPrimaryButton extends StatelessWidget {
                 ),
               ),
       ),
-    );
+    ));
   }
 }
 
@@ -381,7 +469,10 @@ class AuthSecondaryButton extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    return SizedBox(
+    return _Pressable(
+      enabled: onPressed != null,
+      onTap: onPressed,
+      child: SizedBox(
       width: double.infinity,
       height: AuthDimens.btnHeight,
       child: OutlinedButton(
@@ -402,7 +493,7 @@ class AuthSecondaryButton extends StatelessWidget {
           ),
         ),
       ),
-    );
+    ));
   }
 }
 
@@ -415,7 +506,8 @@ class AuthAlreadyHaveAccount extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    return GestureDetector(
+    return _Pressable(
+      enabled: true,
       onTap: onTap,
       child: const Padding(
         padding: EdgeInsets.symmetric(vertical: 12),
@@ -467,16 +559,23 @@ class AuthScreenWrapper extends StatelessWidget {
                   ),
                 Expanded(
                   child: SingleChildScrollView(
+                    keyboardDismissBehavior:
+                        ScrollViewKeyboardDismissBehavior.onDrag,
                     padding: const EdgeInsets.symmetric(
                       horizontal: AuthDimens.hPad,
                     ),
                     child: child,
                   ),
                 ),
-                if (bottomWidget != null)
-                  Padding(
+                if (bottomWidget != null && MediaQuery.of(context).viewInsets.bottom == 0)
+                  AnimatedPadding(
+                    duration: const Duration(milliseconds: 180),
+                    curve: Curves.easeOutCubic,
                     padding: const EdgeInsets.fromLTRB(
-                      AuthDimens.hPad, 0, AuthDimens.hPad, 16,
+                      AuthDimens.hPad,
+                      0,
+                      AuthDimens.hPad,
+                      16,
                     ),
                     child: bottomWidget!,
                   ),
@@ -544,5 +643,103 @@ class AuthStepHeader extends StatelessWidget {
         ],
       ],
     );
+  }
+}
+
+class AuthEntrance extends StatefulWidget {
+  final Widget child;
+  final Duration duration;
+  final Duration delay;
+  final double beginOffsetY;
+
+  const AuthEntrance({
+    super.key,
+    required this.child,
+    this.duration = const Duration(milliseconds: 420),
+    this.delay = Duration.zero,
+    this.beginOffsetY = 0.04,
+  });
+
+  @override
+  State<AuthEntrance> createState() => _AuthEntranceState();
+}
+
+class _AuthEntranceState extends State<AuthEntrance> {
+  bool _visible = false;
+
+  @override
+  void initState() {
+    super.initState();
+    Future.delayed(widget.delay, () {
+      if (mounted) {
+        setState(() => _visible = true);
+      }
+    });
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    return AnimatedOpacity(
+      duration: widget.duration,
+      curve: Curves.easeOutCubic,
+      opacity: _visible ? 1 : 0,
+      child: AnimatedSlide(
+        duration: widget.duration,
+        curve: Curves.easeOutCubic,
+        offset: _visible ? Offset.zero : Offset(0, widget.beginOffsetY),
+        child: widget.child,
+      ),
+    );
+  }
+}
+
+class _Pressable extends StatefulWidget {
+  final Widget child;
+  final VoidCallback? onTap;
+  final bool enabled;
+
+  const _Pressable({
+    required this.child,
+    required this.onTap,
+    required this.enabled,
+  });
+
+  @override
+  State<_Pressable> createState() => _PressableState();
+}
+
+class _PressableState extends State<_Pressable> {
+  bool _pressed = false;
+
+  void _setPressed(bool value) {
+    if (!widget.enabled) return;
+    if (_pressed == value) return;
+    setState(() => _pressed = value);
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    return GestureDetector(
+      behavior: HitTestBehavior.opaque,
+      onTap: widget.enabled
+          ? () {
+              HapticFeedback.selectionClick();
+              widget.onTap?.call();
+            }
+          : null,
+      onTapDown: (_) => _setPressed(true),
+      onTapCancel: () => _setPressed(false),
+      onTapUp: (_) => _setPressed(false),
+      child: Listener(
+      onPointerDown: (_) => _setPressed(true),
+      onPointerUp: (_) => _setPressed(false),
+      onPointerCancel: (_) => _setPressed(false),
+      child: AnimatedScale(
+        scale: _pressed ? 0.98 : 1,
+        duration: const Duration(milliseconds: 110),
+        curve: Curves.easeOutCubic,
+        child: widget.child,
+      ),
+    ));
   }
 }

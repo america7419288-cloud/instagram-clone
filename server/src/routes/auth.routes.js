@@ -16,8 +16,23 @@ const {
   refreshTokenValidation,
   handleValidationErrors,
 } = require('../validators/auth.validator');
+const { uploadProfilePicture } = require('../services/upload.service');
+
+const handleUpload = (req, res, next) => {
+  uploadProfilePicture.single('image')(req, res, (err) => {
+    if (err) {
+      return res.status(400).json({
+        success: false,
+        message: err.message || 'File upload error',
+      });
+    }
+    next();
+  });
+};
+
 router.post(
   '/register',
+  handleUpload,
   registerValidation,
   handleValidationErrors,
   register
