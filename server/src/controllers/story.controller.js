@@ -45,7 +45,7 @@ const formatStory = (story, viewerId = null) => {
       ? {
           id: s.user.id,
           username: s.user.username,
-          full_name: s.user.full_name,
+          full_name: s.user.fullName,
           profile_pic_url: s.user.profile_pic_url,
           is_verified: s.user.is_verified,
         }
@@ -339,7 +339,7 @@ const getStoryFeed = async (req, res) => {
           user: {
             id: story.user.id,
             username: story.user.username,
-            full_name: story.user.full_name,
+            full_name: story.user.fullName || story.user.full_name,
             profile_pic_url: story.user.profile_pic_url,
             is_verified: story.user.is_verified,
           },
@@ -518,7 +518,7 @@ const getUserStories = async (req, res) => {
       user: {
         id: targetUser.id,
         username: targetUser.username,
-        full_name: targetUser.full_name,
+        full_name: targetUser.fullName || targetUser.full_name,
         profile_pic_url: targetUser.profile_pic_url,
         is_verified: targetUser.is_verified,
       },
@@ -637,7 +637,7 @@ const getStoryViewers = async (req, res) => {
     const viewers = views.map((view) => ({
       id: view.viewer.id,
       username: view.viewer.username,
-      full_name: view.viewer.full_name,
+      full_name: view.viewer.fullName || view.viewer.full_name,
       profile_pic_url: view.viewer.profile_pic_url,
       is_verified: view.viewer.is_verified,
       viewed_at: view.viewed_at,

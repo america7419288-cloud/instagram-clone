@@ -313,7 +313,7 @@ const setupSocketServer = (httpServer) => {
                   sender: {
                     id: message.sender.id,
                     username: message.sender.username,
-                    full_name: message.sender.full_name,
+                    full_name: message.sender.fullName,
                     profile_pic_url: message.sender.profile_pic_url,
                   },
                   replied_to: null,

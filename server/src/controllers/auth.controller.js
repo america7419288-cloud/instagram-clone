@@ -64,7 +64,7 @@ const register = async (req, res) => {
           req.file.buffer,
           'profile_pics'
         );
-        profile_pic_url = uploadResult.secure_url;
+        profile_pic_url = uploadResult.url;
       } catch (uploadError) {
         console.error('❌ Profile pic upload error:', uploadError);
       }

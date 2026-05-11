@@ -94,8 +94,8 @@ const User = sequelize.define(
             defaultValue: null,
             validate: {
                 len: {
-                    args: [0, 255],
-                    msg: 'Profile picture URL cannot exceed 255 characters'
+                    args: [0, 500],
+                    msg: 'Profile picture URL cannot exceed 500 characters'
                 }
             }
         },

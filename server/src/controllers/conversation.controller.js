@@ -41,7 +41,7 @@ const formatConversation = (conv, currentUserId) => {
     participants: (c.participants || []).map((p) => ({
       id: p.id,
       username: p.username,
-      full_name: p.full_name,
+      full_name: p.fullName || p.full_name,
       profile_pic_url: p.profile_pic_url,
       is_verified: p.is_verified,
     })),
@@ -49,7 +49,7 @@ const formatConversation = (conv, currentUserId) => {
       ? {
           id: otherUser.id,
           username: otherUser.username,
-          full_name: otherUser.full_name,
+          full_name: otherUser.fullName || otherUser.full_name,
           profile_pic_url: otherUser.profile_pic_url,
           is_verified: otherUser.is_verified,
         }
@@ -78,7 +78,7 @@ const formatMessage = (message) => {
       ? {
           id: m.sender.id,
           username: m.sender.username,
-          full_name: m.sender.full_name,
+          full_name: m.sender.fullName || m.sender.full_name,
           profile_pic_url: m.sender.profile_pic_url,
         }
       : null,
