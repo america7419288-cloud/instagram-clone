@@ -19,6 +19,11 @@ const {
 const { emitToUser } = require('../services/socket.service');
 const { Op } = require('sequelize');
 const { createMessageNotification } = require('../services/notification.service');
+const {
+  uploadImageToCloudinary,
+  uploadVideoToCloudinary,
+  getMediaType,
+} = require('../services/upload.service');
 
 // ─── HELPER: Format conversation for inbox ─────────────────
 const formatConversation = (conv, currentUserId) => {
@@ -533,7 +538,7 @@ const sendMessage = async (req, res) => {
     } = req.body;
 
     // 1. VALIDATE
-    if (!content && message_type === 'text') {
+    if (!content && message_type === 'text' && !req.file) {
       return errorResponse(res, 400, 'Message content is required.');
     }
 
@@ -594,12 +599,42 @@ const sendMessage = async (req, res) => {
       }
     }
 
+    // 3.5 UPLOAD MEDIA (if file attached)
+    let mediaUrl = null;
+    let resolvedMessageType = message_type;
+
+    if (req.file) {
+      console.log(`📤 Uploading message media: ${req.file.mimetype}`);
+      const fileMediaType = getMediaType(req.file.mimetype);
+
+      let uploadResult;
+      if (fileMediaType === 'video') {
+        uploadResult = await uploadVideoToCloudinary(
+          req.file.buffer,
+          req.file.mimetype,
+          'instagram-clone/messages'
+        );
+        resolvedMessageType = 'video';
+      } else {
+        uploadResult = await uploadImageToCloudinary(
+          req.file.buffer,
+          req.file.mimetype,
+          'instagram-clone/messages'
+        );
+        resolvedMessageType = 'image';
+      }
+
+      mediaUrl = uploadResult.url;
+      console.log(`✅ Message media uploaded: ${mediaUrl}`);
+    }
+
     // 4. CREATE MESSAGE
     const message = await Message.create({
       conversation_id: conversationId,
       sender_id: senderId,
       content: content || null,
-      message_type,
+      media_url: mediaUrl,
+      message_type: resolvedMessageType,
       reply_to_message_id: reply_to_message_id || null,
       shared_post_id: shared_post_id || null,
       is_deleted: false,
@@ -717,7 +752,10 @@ const sendMessage = async (req, res) => {
 // ─────────────────────────────────────────────────────────────
 const deleteMessage = async (req, res) => {
   try {
-    const { id: messageId } = req.params;
+    // Supports both route shapes:
+    //   DELETE /api/v1/messages/:id  (legacy)
+    //   DELETE /api/v1/conversations/:id/messages/:messageId  (client)
+    const messageId = req.params.messageId || req.params.id;
     const currentUserId = req.user.id;
 
     const message = await Message.findByPk(messageId);

@@ -15,6 +15,7 @@ const {
 } = require('../controllers/conversation.controller');
 
 const { protect } = require('../middleware/auth.middleware');
+const { uploadPostMedia } = require('../services/upload.service');
 
 // ─── ROUTES ────────────────────────────────────────────────
 // ⚠️ Specific routes BEFORE param routes
@@ -37,8 +38,11 @@ router.delete('/:id', protect, leaveConversation);
 // GET messages in conversation
 router.get('/:id/messages', protect, getMessages);
 
-// POST send message
-router.post('/:id/messages', protect, sendMessage);
+// POST send message — support optional media file upload
+router.post('/:id/messages', protect, uploadPostMedia.single('media'), sendMessage);
+
+// DELETE unsend a message (conversation-scoped URL used by the client)
+router.delete('/:id/messages/:messageId', protect, deleteMessage);
 
 // PUT mark as read
 router.put('/:id/read', protect, markAsRead);
