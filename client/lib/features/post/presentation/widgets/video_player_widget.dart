@@ -5,6 +5,7 @@ import 'package:video_player/video_player.dart';
 import 'package:visibility_detector/visibility_detector.dart';
 
 import '../../../../core/theme/app_theme.dart';
+import '../../../../core/services/video_player_manager.dart';
 
 class VideoPlayerWidget extends StatefulWidget {
   final String videoUrl;
@@ -68,19 +69,14 @@ class _VideoPlayerWidgetState extends State<VideoPlayerWidget>
   @override
   void dispose() {
     _iconAnimController.dispose();
-    _controller?.dispose();
+    _pause(); // Ensure video is paused when widget is removed
     super.dispose();
   }
 
   // ─── Initialize video player ──────────────────────────
   Future<void> _initializeVideo() async {
     try {
-      debugPrint('🎬 Initializing video: ${widget.videoUrl}');
-      _controller = VideoPlayerController.networkUrl(
-        Uri.parse(widget.videoUrl),
-      );
-
-      await _controller!.initialize();
+      _controller = await VideoPlayerManager().getController(widget.videoUrl);
 
       if (!mounted) return;
 
@@ -97,8 +93,7 @@ class _VideoPlayerWidgetState extends State<VideoPlayerWidget>
         _play();
       }
     } catch (e, stack) {
-      debugPrint('❌ VideoPlayer init error: $e');
-      debugPrint('StackTrace: $stack');
+      debugPrint('❌ VideoPlayer pool error: $e');
       if (mounted) {
         setState(() => _hasError = true);
       }

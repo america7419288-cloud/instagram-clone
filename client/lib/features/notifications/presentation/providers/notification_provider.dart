@@ -1,8 +1,5 @@
-// lib/features/notifications/presentation/providers/notification_provider.dart
-
 import 'dart:async';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
-import 'package:flutter_riverpod/legacy.dart';
 import '../../data/models/notification_model.dart';
 import '../../data/models/repositories/notification_service.dart';
 
@@ -94,23 +91,30 @@ class NotificationGroup {
 }
 
 // ─── NOTIFICATION NOTIFIER ──────────────────────────────────
-class NotificationNotifier extends StateNotifier<NotificationState> {
-  final NotificationService _service;
+class NotificationNotifier extends Notifier<NotificationState> {
+  late final NotificationService _service;
   Timer? _unreadPollTimer;
 
-  NotificationNotifier(this._service) : super(const NotificationState()) {
-    loadNotifications();
-    loadUnreadCount();
+  @override
+  NotificationState build() {
+    _service = ref.watch(notificationServiceProvider);
+    
+    // Initialize
+    Future.microtask(() {
+      loadNotifications();
+      loadUnreadCount();
+    });
+
     _unreadPollTimer = Timer.periodic(
       const Duration(seconds: 30),
       (_) => loadUnreadCount(),
     );
-  }
 
-  @override
-  void dispose() {
-    _unreadPollTimer?.cancel();
-    super.dispose();
+    ref.onDispose(() {
+      _unreadPollTimer?.cancel();
+    });
+
+    return const NotificationState();
   }
 
   Future<void> loadNotifications() async {
@@ -157,7 +161,6 @@ class NotificationNotifier extends StateNotifier<NotificationState> {
   Future<void> loadUnreadCount() async {
     try {
       final count = await _service.getUnreadCount();
-      if (!mounted) return;
       state = state.copyWith(unreadCount: count);
     } catch (e) {
       // Silent fail
@@ -214,11 +217,12 @@ final notificationServiceProvider = Provider<NotificationService>((ref) {
 });
 
 final notificationProvider =
-    StateNotifierProvider<NotificationNotifier, NotificationState>((ref) {
-  return NotificationNotifier(ref.watch(notificationServiceProvider));
+    NotifierProvider<NotificationNotifier, NotificationState>(() {
+  return NotificationNotifier();
 });
 
 // Used in MainShell for badge count
 final unreadNotificationsCountProvider = Provider<int>((ref) {
   return ref.watch(notificationProvider.select((s) => s.unreadCount));
 });
+

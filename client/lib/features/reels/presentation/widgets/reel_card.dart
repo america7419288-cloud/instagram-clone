@@ -8,13 +8,20 @@ import 'package:flutter_lucide/flutter_lucide.dart';
 import 'package:go_router/go_router.dart';
 import 'package:video_player/video_player.dart';
 
-import '../../../../core/theme/app_theme.dart';
+import 'package:instagram_clinet/core/theme/app_theme.dart';
 import '../../data/models/reel_model.dart';
 import '../providers/reel_provider.dart';
-import '../../../../shared/widgets/spring_widget.dart';
-import '../../../../shared/widgets/verified_badge.dart';
-import '../../../../core/widgets/instagram_heart_animation.dart';
+import 'package:instagram_clinet/shared/widgets/spring_widget.dart';
+import 'package:instagram_clinet/shared/widgets/verified_badge.dart';
+import 'package:instagram_clinet/core/widgets/instagram_heart_animation.dart';
+import 'package:instagram_clinet/core/router/app_router.dart';
+import 'package:instagram_clinet/features/share/models/share_content.dart';
+import 'package:instagram_clinet/features/share/presentation/share_sheet.dart';
 import 'reel_action_buttons.dart';
+import 'package:instagram_clinet/features/menu/presentation/three_dot_menu.dart';
+import 'package:instagram_clinet/features/menu/models/menu_context.dart';
+import 'package:instagram_clinet/features/menu/models/menu_action.dart';
+import 'package:instagram_clinet/features/follow/data/repositories/presentation/providers/follow_provider.dart';
 
 class ReelCard extends ConsumerStatefulWidget {
   final ReelModel reel;
@@ -220,13 +227,137 @@ class _ReelCardState extends ConsumerState<ReelCard>
 
   void _showShareSheet(BuildContext context) {
     _pause();
-    showModalBottomSheet(
-      context: context,
-      backgroundColor: Colors.transparent,
-      builder: (_) => _ShareSheet(),
+    ShareSheet.show(
+      context,
+      content: ShareContent(
+        id: widget.reel.id,
+        type: ShareContentType.reel,
+        thumbnailUrl: widget.reel.thumbnailUrl,
+        authorUsername: widget.reel.username,
+        authorAvatarUrl: widget.reel.userAvatar,
+        caption: widget.reel.caption,
+      ),
     ).then((_) {
       if (widget.isActive) _play();
     });
+  }
+
+  void _showReelOptions(BuildContext context) {
+    _pause();
+    
+    final relationship = widget.reel.isOwnReel
+        ? MenuRelationship.owner
+        : (widget.reel.isFollowing
+            ? MenuRelationship.following
+            : MenuRelationship.notFollowing);
+
+    final menuContext = MenuContext(
+      contentId: widget.reel.id,
+      contentType: MenuContentType.reel,
+      relationship: relationship,
+      authorId: widget.reel.userId,
+      authorUsername: widget.reel.username,
+      authorAvatarUrl: widget.reel.userAvatar,
+      isVerified: widget.reel.isVerified,
+      canDelete: widget.reel.isOwnReel,
+      canEdit: widget.reel.isOwnReel,
+      canDownload: true,
+      canRemix: true,
+    );
+
+    InstagramMenu.show(
+      context,
+      menuContext: menuContext,
+      onAction: _handleMenuAction,
+    ).then((_) {
+      if (widget.isActive) _play();
+    });
+  }
+
+  Future<void> _handleMenuAction(MenuAction action) async {
+    switch (action.type) {
+      case MenuActionType.copyLink:
+        Clipboard.setData(ClipboardData(text: 'https://instagram.com/reels/${widget.reel.id}'));
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(content: Text('Link copied to clipboard')),
+        );
+        break;
+      case MenuActionType.delete:
+        try {
+          await ref.read(reelFeedProvider.notifier).deleteReel(widget.reel.id);
+          if (mounted) {
+            ScaffoldMessenger.of(context).showSnackBar(
+              const SnackBar(content: Text('Reel deleted')),
+            );
+          }
+        } catch (e) {
+          if (mounted) {
+            ScaffoldMessenger.of(context).showSnackBar(
+              SnackBar(content: Text('Failed to delete reel: $e')),
+            );
+          }
+        }
+        break;
+      case MenuActionType.save:
+      case MenuActionType.saveCollection:
+      case MenuActionType.unsave:
+        try {
+          await ref.read(reelFeedProvider.notifier).toggleSave(widget.reel.id);
+          if (mounted) {
+            final isSaved = ref.read(reelFeedProvider).reels
+                .firstWhere((r) => r.id == widget.reel.id).isSaved;
+            ScaffoldMessenger.of(context).showSnackBar(
+              SnackBar(
+                content: Text(isSaved ? 'Reel saved' : 'Reel removed from saved'),
+                duration: const Duration(seconds: 2),
+              ),
+            );
+          }
+        } catch (e) {
+          if (mounted) {
+            ScaffoldMessenger.of(context).showSnackBar(
+              SnackBar(content: Text('Failed to update save: $e')),
+            );
+          }
+        }
+        break;
+      case MenuActionType.remix:
+        context.push(AppRoutes.createReel);
+        break;
+      case MenuActionType.unfollow:
+        try {
+          await ref.read(followProvider(widget.reel.userId).notifier).toggleFollow();
+          if (mounted) {
+            ScaffoldMessenger.of(context).showSnackBar(
+              SnackBar(content: Text('Unfollowed @${widget.reel.username}')),
+            );
+          }
+        } catch (e) {
+          if (mounted) {
+            ScaffoldMessenger.of(context).showSnackBar(
+              SnackBar(content: Text('Failed to unfollow: $e')),
+            );
+          }
+        }
+        break;
+      case MenuActionType.report:
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(content: Text('Report submitted. Thanks for your feedback.')),
+        );
+        break;
+      case MenuActionType.hide:
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(content: Text('Reel hidden')),
+        );
+        break;
+      case MenuActionType.notInterested:
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(content: Text('We\'ll show fewer reels like this')),
+        );
+        break;
+      default:
+        debugPrint('Unhandled menu action: ${action.type}');
+    }
   }
 
   @override
@@ -477,6 +608,7 @@ class _ReelCardState extends ConsumerState<ReelCard>
             onComment: () => _showComments(context),
             onShare: () => _showShareSheet(context),
             onAudio: () {},
+            onMore: () => _showReelOptions(context),
           ),
           const SizedBox(height: 20),
           AnimatedBuilder(
@@ -674,48 +806,3 @@ class _CommentsSheet extends StatelessWidget {
   }
 }
 
-class _ShareSheet extends StatelessWidget {
-  @override
-  Widget build(BuildContext context) {
-    final isDark = Theme.of(context).brightness == Brightness.dark;
-
-    return Container(
-      padding: const EdgeInsets.only(top: 12, bottom: 32),
-      decoration: BoxDecoration(
-        color: isDark ? AppColors.darkSurface : AppColors.background,
-        borderRadius: const BorderRadius.vertical(
-          top: Radius.circular(16),
-        ),
-      ),
-      child: Column(
-        mainAxisSize: MainAxisSize.min,
-        children: [
-          Container(
-            width: 36,
-            height: 4,
-            margin: const EdgeInsets.only(bottom: 16),
-            decoration: BoxDecoration(
-              color: isDark ? AppColors.darkDivider : AppColors.divider,
-              borderRadius: BorderRadius.circular(2),
-            ),
-          ),
-          ListTile(
-            leading: Icon(LucideIcons.link),
-            title: const Text('Copy link'),
-            onTap: () => Navigator.pop(context),
-          ),
-          ListTile(
-            leading: Icon(LucideIcons.send),
-            title: const Text('Send to...'),
-            onTap: () => Navigator.pop(context),
-          ),
-          ListTile(
-            leading: Icon(LucideIcons.share_2),
-            title: const Text('Share to...'),
-            onTap: () => Navigator.pop(context),
-          ),
-        ],
-      ),
-    );
-  }
-}

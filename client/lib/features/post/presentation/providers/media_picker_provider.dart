@@ -1,9 +1,6 @@
-// lib/features/post/presentation/providers/media_picker_provider.dart
-
 import 'package:flutter/widgets.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:photo_manager/photo_manager.dart';
-import 'package:flutter_riverpod/legacy.dart';
 
 enum CreateMode { post, story, reel, live }
 
@@ -55,8 +52,11 @@ class MediaPickerState {
   }
 }
 
-class MediaPickerNotifier extends StateNotifier<MediaPickerState> {
-  MediaPickerNotifier() : super(const MediaPickerState());
+class MediaPickerNotifier extends Notifier<MediaPickerState> {
+  @override
+  MediaPickerState build() {
+    return const MediaPickerState();
+  }
 
   Future<void> initialize() async {
     try {
@@ -172,6 +172,7 @@ class MediaPickerNotifier extends StateNotifier<MediaPickerState> {
 }
 
 final mediaPickerProvider =
-    StateNotifierProvider<MediaPickerNotifier, MediaPickerState>((ref) {
+    NotifierProvider<MediaPickerNotifier, MediaPickerState>(() {
   return MediaPickerNotifier();
 });
+

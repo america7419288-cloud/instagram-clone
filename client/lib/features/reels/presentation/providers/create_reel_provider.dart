@@ -3,7 +3,6 @@
 import 'dart:io';
 
 import 'package:flutter_riverpod/flutter_riverpod.dart';
-import 'package:flutter_riverpod/legacy.dart';
 
 import '../../data/repositories/reel_service.dart';
 
@@ -42,11 +41,14 @@ class CreateReelState {
 // ─────────────────────────────────────────────────────
 // NOTIFIER
 // ─────────────────────────────────────────────────────
-class CreateReelNotifier extends StateNotifier<CreateReelState> {
-  final ReelService _reelService;
+class CreateReelNotifier extends Notifier<CreateReelState> {
+  late final ReelService _reelService;
 
-  CreateReelNotifier(this._reelService)
-      : super(const CreateReelState());
+  @override
+  CreateReelState build() {
+    _reelService = ref.read(reelServiceProvider);
+    return const CreateReelState();
+  }
 
   Future<void> uploadReel({
     required File videoFile,
@@ -99,7 +101,6 @@ class CreateReelNotifier extends StateNotifier<CreateReelState> {
 
 // ─── Provider ─────────────────────────────────────────
 final createReelProvider =
-    StateNotifierProvider<CreateReelNotifier, CreateReelState>((ref) {
-  final reelService = ref.read(reelServiceProvider);
-  return CreateReelNotifier(reelService);
-});
+    NotifierProvider<CreateReelNotifier, CreateReelState>(
+  CreateReelNotifier.new,
+);

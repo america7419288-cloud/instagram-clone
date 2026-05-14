@@ -1,7 +1,6 @@
 // lib/features/follow/presentation/providers/follow_provider.dart
 
 import 'package:flutter_riverpod/flutter_riverpod.dart';
-import 'package:flutter_riverpod/legacy.dart';
 import '../../follow_service.dart';
 
 // ─── FOLLOW STATUS ENUM ─────────────────────────────────────
@@ -55,13 +54,14 @@ class FollowState {
 }
 
 // ─── FOLLOW NOTIFIER (per user) ─────────────────────────────
-class FollowNotifier extends StateNotifier<FollowState> {
-  final FollowService _service;
-  final String targetUserId;
+class FollowNotifier extends Notifier<FollowState> {
+  FollowService get _service => ref.read(followServiceProvider);
+  late String targetUserId;
 
-  FollowNotifier(this._service, this.targetUserId)
-    : super(const FollowState()) {
-    _loadFollowStatus();
+  @override
+  FollowState build() {
+    Future.microtask(_loadFollowStatus);
+    return const FollowState();
   }
 
   Future<void> _loadFollowStatus() async {
@@ -216,11 +216,13 @@ class FollowRequestsState {
 }
 
 // ─── FOLLOW REQUESTS NOTIFIER ────────────────────────────────
-class FollowRequestsNotifier extends StateNotifier<FollowRequestsState> {
-  final FollowService _service;
+class FollowRequestsNotifier extends Notifier<FollowRequestsState> {
+  FollowService get _service => ref.read(followServiceProvider);
 
-  FollowRequestsNotifier(this._service) : super(const FollowRequestsState()) {
-    loadRequests();
+  @override
+  FollowRequestsState build() {
+    Future.microtask(loadRequests);
+    return const FollowRequestsState();
   }
 
   Future<void> loadRequests() async {
@@ -279,15 +281,15 @@ final followServiceProvider = Provider<FollowService>((ref) {
 
 // Per-user follow provider (family)
 final followProvider =
-    StateNotifierProvider.family<FollowNotifier, FollowState, String>(
-      (ref, userId) => FollowNotifier(ref.watch(followServiceProvider), userId),
-    );
+    NotifierProvider.family<FollowNotifier, FollowState, String>(
+  (targetUserId) => FollowNotifier()..targetUserId = targetUserId,
+);
 
 // Follow requests provider
 final followRequestsProvider =
-    StateNotifierProvider<FollowRequestsNotifier, FollowRequestsState>(
-      (ref) => FollowRequestsNotifier(ref.watch(followServiceProvider)),
-    );
+    NotifierProvider<FollowRequestsNotifier, FollowRequestsState>(
+  FollowRequestsNotifier.new,
+);
 
 // Pending requests count (for badge)
 final pendingRequestsCountProvider = Provider<int>((ref) {

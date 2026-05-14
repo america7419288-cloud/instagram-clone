@@ -91,9 +91,17 @@ class _MainShellState extends ConsumerState<MainShell> {
     // IndexedStack pages: 0=Home 1=Search 2=Reels 3=Profile
     final pageIndex = _currentIndex;
 
-    return Scaffold(
+    return AnnotatedRegion<SystemUiOverlayStyle>(
+      value: SystemUiOverlayStyle(
+        statusBarColor: Colors.transparent,
+        statusBarIconBrightness: isDark ? Brightness.light : Brightness.dark,
+        statusBarBrightness: isDark ? Brightness.dark : Brightness.light,
+      ),
+      child: Scaffold(
       backgroundColor: isDark ? Colors.black : Colors.white,
-      body: IndexedStack(
+      body: SafeArea(
+        bottom: false,
+        child: IndexedStack(
         index: pageIndex,
         children: [
           KeyedSubtree(key: _tabKeys[0], child: const HomePage()),
@@ -105,6 +113,7 @@ class _MainShellState extends ConsumerState<MainShell> {
             child: ProfilePage(username: user?.username ?? ''),
           ),
         ],
+        ),
       ),
       bottomNavigationBar: Container(
         decoration: BoxDecoration(
@@ -147,7 +156,7 @@ class _MainShellState extends ConsumerState<MainShell> {
           ],
         ),
       ),
-    );
+      ));
   }
 
   BottomNavigationBarItem _tabItem(

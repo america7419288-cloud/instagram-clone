@@ -84,6 +84,9 @@ class MessageService {
     required String content,
     String messageType = 'text',
     String? replyToMessageId,
+    String? postId,
+    String? reelId,
+    String? storyId,
   }) async {
     try {
       final response = await _dioClient.post(
@@ -93,6 +96,9 @@ class MessageService {
           'message_type': messageType,
           if (replyToMessageId != null)
             'reply_to_message_id': replyToMessageId,
+          if (postId != null) 'post_id': postId,
+          if (reelId != null) 'reel_id': reelId,
+          if (storyId != null) 'story_id': storyId,
         },
       );
       return MessageModel.fromJson(

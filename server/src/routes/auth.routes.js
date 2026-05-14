@@ -9,6 +9,7 @@ const {
   checkUsername,
   checkEmail,
 } = require('../controllers/auth.controller');
+const { authLimiter, strictLimiter } = require('../middleware/rateLimit.middleware');
 const { protect } = require('../middleware/auth.middleware');
 const {
   registerValidation,
@@ -51,6 +52,7 @@ router.post(
 );
 router.post(
   '/change-password',
+  strictLimiter,
   protect,
   async (req, res) => {
     try {

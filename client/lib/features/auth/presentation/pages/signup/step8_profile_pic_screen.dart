@@ -7,6 +7,7 @@ import 'package:image_picker/image_picker.dart';
 import '../../providers/signup_provider.dart';
 import '../../widgets/auth_components.dart';
 import 'step9_welcome_screen.dart';
+import '../../../../../shared/widgets/app_snackbar.dart';
 
 class Step8ProfilePicScreen extends ConsumerStatefulWidget {
   const Step8ProfilePicScreen({super.key});
@@ -38,6 +39,13 @@ class _Step8ProfilePicScreenState extends ConsumerState<Step8ProfilePicScreen> {
         MaterialPageRoute(builder: (_) => const Step9WelcomeScreen()),
         (route) => false,
       );
+    } else if (mounted) {
+      final error = ref.read(signupProvider).error;
+      if (error != null) {
+        AppSnackbar.error(context, error);
+      } else {
+        AppSnackbar.error(context, 'Registration failed. Please try again.');
+      }
     }
   }
 

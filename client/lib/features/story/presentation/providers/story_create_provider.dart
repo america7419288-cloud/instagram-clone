@@ -5,7 +5,6 @@ import 'dart:ui' as ui;
 import 'package:flutter/material.dart';
 import 'package:flutter/rendering.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
-import 'package:flutter_riverpod/legacy.dart';
 import '../../data/models/story_model.dart';
 import '../../data/repositories/story_service.dart';
 import '../providers/story_provider.dart';
@@ -88,15 +87,16 @@ class StoryCreateState {
 }
 
 // ─── STORY CREATE NOTIFIER ───────────────────────────────────
-class StoryCreateNotifier extends StateNotifier<StoryCreateState> {
-  final StoryService _storyService;
-  final Ref _ref;
+class StoryCreateNotifier extends AutoDisposeNotifier<StoryCreateState> {
+  late final StoryService _storyService;
 
-  StoryCreateNotifier(this._storyService, this._ref)
-      : super(const StoryCreateState());
+  @override
+  StoryCreateState build() {
+    _storyService = ref.watch(storyServiceProvider);
+    return const StoryCreateState();
+  }
 
   void setImage(File image) {
-    if (!mounted) return;
     state = state.copyWith(selectedImage: image, errorMessage: null);
   }
 
@@ -106,7 +106,7 @@ class StoryCreateNotifier extends StateNotifier<StoryCreateState> {
     required double fontSize,
     required Offset position,
   }) {
-    if (!mounted || text.trim().isEmpty) return;
+    if (text.trim().isEmpty) return;
     final overlay = StoryTextOverlay(
       id: DateTime.now().millisecondsSinceEpoch.toString(),
       text: text.trim(),
@@ -118,14 +118,12 @@ class StoryCreateNotifier extends StateNotifier<StoryCreateState> {
   }
 
   void removeTextOverlay(String id) {
-    if (!mounted) return;
     state = state.copyWith(
       textOverlays: state.textOverlays.where((t) => t.id != id).toList(),
     );
   }
 
   void updateTextPosition(String id, Offset newPosition) {
-    if (!mounted) return;
     state = state.copyWith(
       textOverlays: state.textOverlays.map((t) {
         if (t.id == id) return t.copyWith(position: newPosition);
@@ -135,14 +133,13 @@ class StoryCreateNotifier extends StateNotifier<StoryCreateState> {
   }
 
   void toggleAudience() {
-    if (!mounted) return;
     state = state.copyWith(
       audience: state.isCloseFriends ? 'followers' : 'close_friends',
     );
   }
 
   Future<bool> uploadStory({String? caption}) async {
-    if (!mounted || state.selectedImage == null) return false;
+    if (state.selectedImage == null) return false;
 
     state = state.copyWith(
       isUploading: true,
@@ -164,20 +161,17 @@ class StoryCreateNotifier extends StateNotifier<StoryCreateState> {
         caption: storyCaption,
         audience: state.audience,
         onProgress: (p) {
-          if (mounted) state = state.copyWith(uploadProgress: p);
+          state = state.copyWith(uploadProgress: p);
         },
       );
-
-      if (!mounted) return false;
 
       state = state.copyWith(uploadProgress: 1.0, isUploading: false, isSuccess: true);
 
       // Refresh story feed
-      _ref.invalidate(storyFeedProvider);
+      ref.invalidate(storyFeedProvider);
 
       return true;
     } catch (e) {
-      if (!mounted) return false;
       state = state.copyWith(
         isUploading: false,
         errorMessage: e.toString().replaceAll('Exception: ', ''),
@@ -187,12 +181,11 @@ class StoryCreateNotifier extends StateNotifier<StoryCreateState> {
   }
 
   void reset() {
-    if (!mounted) return;
     state = const StoryCreateState();
   }
 }
 
 // ─── PROVIDERS ──────────────────────────────────────────────
-final storyCreateProvider = StateNotifierProvider<StoryCreateNotifier, StoryCreateState>((ref) {
-  return StoryCreateNotifier(ref.watch(storyServiceProvider), ref);
+final storyCreateProvider = NotifierProvider.autoDispose<StoryCreateNotifier, StoryCreateState>(() {
+  return StoryCreateNotifier();
 });

@@ -53,9 +53,15 @@ app.use(cors({
 app.use(express.json({ limit: '10mb' }));
 app.use(express.urlencoded({ extended: true, limit: '10mb' }));
 
+const { apiLimiter, authLimiter } = require('./middleware/rateLimit.middleware');
+
 if (process.env.NODE_ENV !== 'production') {
     app.use(morgan('dev'))
 }
+
+// Apply general API limiter to all v1 routes
+app.use('/api/v1', apiLimiter);
+
 app.get('/', (req, res) => {
     res.json({
         success: true,
@@ -73,7 +79,8 @@ app.get('/health', (req, res) => {
     });
 });
 
-app.use('/api/v1/auth', require('./routes/auth.routes'));
+// Auth routes get a stricter limiter
+app.use('/api/v1/auth', authLimiter, require('./routes/auth.routes'));
 app.use('/api/v1/posts', postTagRoutes);
 app.use('/api/v1/users', userTagRoutes);
 app.use('/api/v1/posts', require('./routes/post.routes'));

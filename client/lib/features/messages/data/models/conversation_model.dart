@@ -97,5 +97,10 @@ class ConversationModel {
     if (isGroup) return avatarUrl;
     return otherUser?.profilePicUrl;
   }
+
+  // Aliases for compatibility
+  String get participantName => displayName;
+  String? get participantAvatar => displayAvatarUrl;
+  String get participantUsername => otherUser?.username ?? '';
 }
 

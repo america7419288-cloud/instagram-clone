@@ -2,7 +2,6 @@
 
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
-import 'package:flutter_riverpod/legacy.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 
 // ─── THEME STATE ────────────────────────────────────────────
@@ -40,11 +39,13 @@ class ThemeState {
 }
 
 // ─── THEME NOTIFIER ─────────────────────────────────────────
-class ThemeNotifier extends StateNotifier<ThemeState> {
+class ThemeNotifier extends Notifier<ThemeState> {
   static const String _themeKey = 'app_theme_mode';
 
-  ThemeNotifier() : super(const ThemeState()) {
-    _loadTheme();
+  @override
+  ThemeState build() {
+    Future.microtask(_loadTheme);
+    return const ThemeState();
   }
 
   // ─── LOAD SAVED THEME ────────────────────────────────────
@@ -60,16 +61,12 @@ class ThemeNotifier extends StateNotifier<ThemeState> {
         mode = ThemeMode.system;
       }
 
-      if (mounted) {
-        state = state.copyWith(
-          themeMode: mode,
-          isLoading: false,
-        );
-      }
+      state = state.copyWith(
+        themeMode: mode,
+        isLoading: false,
+      );
     } catch (e) {
-      if (mounted) {
-        state = state.copyWith(isLoading: false);
-      }
+      state = state.copyWith(isLoading: false);
     }
   }
 
@@ -80,18 +77,13 @@ class ThemeNotifier extends StateNotifier<ThemeState> {
         : (state.isDark ? ThemeMode.light : ThemeMode.dark);
 
     await _saveTheme(newMode);
-
-    if (mounted) {
-      state = state.copyWith(themeMode: newMode);
-    }
+    state = state.copyWith(themeMode: newMode);
   }
 
   // ─── SET THEME MODE ──────────────────────────────────────
   Future<void> setThemeMode(ThemeMode mode) async {
     await _saveTheme(mode);
-    if (mounted) {
-      state = state.copyWith(themeMode: mode);
-    }
+    state = state.copyWith(themeMode: mode);
   }
 
   // ─── SAVE THEME TO STORAGE ───────────────────────────────
@@ -109,10 +101,9 @@ class ThemeNotifier extends StateNotifier<ThemeState> {
 }
 
 // ─── PROVIDERS ──────────────────────────────────────────────
-final themeProvider =
-    StateNotifierProvider<ThemeNotifier, ThemeState>((ref) {
-  return ThemeNotifier();
-});
+final themeProvider = NotifierProvider<ThemeNotifier, ThemeState>(
+  ThemeNotifier.new,
+);
 
 // Convenience: just the ThemeMode
 final themeModeProvider = Provider<ThemeMode>((ref) {

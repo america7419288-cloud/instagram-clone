@@ -1,6 +1,7 @@
 // lib/features/post/presentation/widgets/post_card.dart
 
 import 'dart:math' as math;
+import 'dart:async';
 import 'package:cached_network_image/cached_network_image.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter/cupertino.dart';
@@ -9,27 +10,36 @@ import 'package:flutter/services.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_lucide/flutter_lucide.dart';
 import 'package:flutter_svg/flutter_svg.dart';
-import '../../../../core/constants/app_assets.dart';
+import 'package:instagram_clinet/core/constants/app_assets.dart';
 import 'package:go_router/go_router.dart';
 import 'package:timeago/timeago.dart' as timeago;
 import 'package:visibility_detector/visibility_detector.dart';
 import 'package:just_audio/just_audio.dart';
 
-import '../../../../core/theme/app_theme.dart';
+import 'package:instagram_clinet/core/theme/app_theme.dart';
+import 'package:instagram_clinet/features/menu/presentation/three_dot_menu.dart';
+import 'package:instagram_clinet/features/menu/models/menu_context.dart';
+import 'package:instagram_clinet/features/menu/models/menu_action.dart';
+import 'package:instagram_clinet/features/auth/presentation/providers/auth_provider.dart';
+import 'package:instagram_clinet/features/follow/data/repositories/presentation/providers/follow_provider.dart';
+
 import '../../data/models/post_model.dart';
 import '../providers/feed_provider.dart';
-import '../../../../shared/widgets/spring_widget.dart';
-import '../../../../shared/widgets/story_ring.dart';
+import 'package:instagram_clinet/shared/widgets/spring_widget.dart';
+import 'package:instagram_clinet/shared/widgets/story_ring.dart';
 import 'video_player_widget.dart';
-import '../../../../core/network/audio_stream_source.dart';
-import '../../../../core/network/dio_client.dart';
+import '../pages/comments_page.dart';
+import 'package:instagram_clinet/core/network/audio_stream_source.dart';
+import 'package:instagram_clinet/core/network/dio_client.dart';
 import '../providers/audio_playback_provider.dart';
 import '../../data/models/post_tag_model.dart';
 import '../../data/repositories/post_tag_service.dart';
 import 'tag_view_overlay.dart';
-import '../../../../core/design/design_tokens.dart';
-import '../../../../shared/widgets/verified_badge.dart';
-import '../../../../core/widgets/instagram_heart_animation.dart';
+import 'package:instagram_clinet/core/design/design_tokens.dart';
+import 'package:instagram_clinet/shared/widgets/verified_badge.dart';
+import 'package:instagram_clinet/core/widgets/instagram_heart_animation.dart';
+import 'package:instagram_clinet/features/share/presentation/share_sheet.dart';
+import 'package:instagram_clinet/features/share/models/share_content.dart';
 
 class PostCard extends ConsumerStatefulWidget {
   final PostModel post;
@@ -63,16 +73,17 @@ class _PostCardState extends ConsumerState<PostCard>
   List<PostTagModel> _tags = [];
   bool _showTags = false;
   bool _tagsLoaded = false;
-  bool _isInitializingAudio = false;
 
   final PageController _pageController = PageController();
   final TransformationController _transformationController = TransformationController();
 
   // ─── Audio ────────────────────────────────────────────
   AudioPlayer? _audioPlayer;
-  bool _isPlaying = false;
+  StreamSubscription? _audioSubscription;
+  bool _isInitializingAudio = false;
   bool _isVisible = false;
   bool _isMuted = false;
+  bool _isPlaying = false;
 
   @override
   void initState() {
@@ -81,9 +92,6 @@ class _PostCardState extends ConsumerState<PostCard>
     _likeCount = widget.post.likesCount;
     _isSaved = widget.post.isSaved;
 
-    // Remove direct calls to _initAudio and _loadTags from initState
-
-    // Like button bounce
     _likeBounceController = AnimationController(
       vsync: this,
       duration: const Duration(milliseconds: 400),
@@ -99,7 +107,6 @@ class _PostCardState extends ConsumerState<PostCard>
       ),
     ]).animate(_likeBounceController);
 
-    // Save button bounce
     _saveBounceController = AnimationController(
       vsync: this,
       duration: const Duration(milliseconds: 300),
@@ -109,6 +116,29 @@ class _PostCardState extends ConsumerState<PostCard>
       TweenSequenceItem(tween: Tween(begin: 0.8, end: 1.1), weight: 50),
       TweenSequenceItem(tween: Tween(begin: 1.1, end: 1.0), weight: 30),
     ]).animate(_saveBounceController);
+  }
+
+  @override
+  void didUpdateWidget(PostCard oldWidget) {
+    super.didUpdateWidget(oldWidget);
+    if (widget.post.id == oldWidget.post.id) {
+      bool changed = false;
+      if (widget.post.isLiked != oldWidget.post.isLiked) {
+        _isLiked = widget.post.isLiked;
+        changed = true;
+      }
+      if (widget.post.likesCount != oldWidget.post.likesCount) {
+        _likeCount = widget.post.likesCount;
+        changed = true;
+      }
+      if (widget.post.isSaved != oldWidget.post.isSaved) {
+        _isSaved = widget.post.isSaved;
+        changed = true;
+      }
+      if (changed && mounted) {
+        setState(() {});
+      }
+    }
   }
 
   Future<void> _loadTags({bool force = false}) async {
@@ -146,7 +176,7 @@ class _PostCardState extends ConsumerState<PostCard>
       }
 
       // Clip listener: reset if it goes beyond 30s from start
-      _audioPlayer!.positionStream.listen((pos) {
+      _audioSubscription = _audioPlayer!.positionStream.listen((pos) {
         if (widget.post.musicStartTime != null) {
           final start = Duration(seconds: widget.post.musicStartTime!);
           final end = start + const Duration(seconds: 30);
@@ -169,6 +199,7 @@ class _PostCardState extends ConsumerState<PostCard>
 
   @override
   void dispose() {
+    _audioSubscription?.cancel();
     _audioPlayer?.dispose();
     _likeBounceController.dispose();
     _saveBounceController.dispose();
@@ -599,7 +630,7 @@ class _PostCardState extends ConsumerState<PostCard>
             ),
             // Comment
             BouncyTap(
-              onTap: () => context.push('/post/${widget.post.id}/comments', extra: widget.post),
+              onTap: () => _showComments(context),
               child: Padding(
                 padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
                 child: SvgPicture.asset(
@@ -612,7 +643,20 @@ class _PostCardState extends ConsumerState<PostCard>
             ),
             // Share
             BouncyTap(
-              onTap: () {},
+              onTap: () {
+                HapticFeedback.mediumImpact();
+                ShareSheet.show(
+                  context,
+                  content: ShareContent(
+                    id: widget.post.id,
+                    type: ShareContentType.post,
+                    thumbnailUrl: widget.post.mediaFiles.isNotEmpty ? widget.post.mediaFiles.first.url : null,
+                    authorUsername: widget.post.username,
+                    authorAvatarUrl: widget.post.userAvatar,
+                    caption: widget.post.caption,
+                  ),
+                );
+              },
               child: Padding(
                 padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
                 child: SvgPicture.asset(
@@ -725,12 +769,16 @@ class _PostCardState extends ConsumerState<PostCard>
     return Padding(
       padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 2),
       child: BouncyTap(
-        onTap: () => context.push('/post/${widget.post.id}/comments', extra: widget.post),
+        onTap: () => _showComments(context),
         child: Padding(
           padding: const EdgeInsets.symmetric(vertical: 4),
           child: Text(
             'View all ${widget.post.commentsCount} comments',
-            style: const TextStyle(fontSize: 13, color: Color(0xFF8E8E8E), decoration: TextDecoration.none),
+            style: TextStyle(
+              fontSize: 14,
+              color: isDark ? Colors.white54 : const Color(0xFF8E8E8E),
+              decoration: TextDecoration.none,
+            ),
           ),
         ),
       ),
@@ -748,25 +796,134 @@ class _PostCardState extends ConsumerState<PostCard>
     );
   }
 
-  void _showPostOptions(BuildContext context) {
-    showCupertinoModalPopup(
+  void _showComments(BuildContext context) {
+    showModalBottomSheet(
       context: context,
-      builder: (context) => CupertinoActionSheet(
-        actions: [
-          CupertinoActionSheetAction(onPressed: () => Navigator.pop(context), child: const Text('Share')),
-          CupertinoActionSheetAction(onPressed: () => Navigator.pop(context), child: const Text('Link')),
-          CupertinoActionSheetAction(
-            isDestructiveAction: true,
-            onPressed: () => Navigator.pop(context),
-            child: const Text('Report'),
-          ),
-        ],
-        cancelButton: CupertinoActionSheetAction(
-          onPressed: () => Navigator.pop(context),
-          child: const Text('Cancel'),
+      isScrollControlled: true,
+      useSafeArea: true,
+      backgroundColor: Colors.transparent,
+      elevation: 0,
+      builder: (context) => Container(
+        height: MediaQuery.of(context).size.height * 0.75,
+        decoration: BoxDecoration(
+          color: CupertinoTheme.of(context).scaffoldBackgroundColor,
+          borderRadius: const BorderRadius.vertical(top: Radius.circular(20)),
+        ),
+        child: Column(
+          children: [
+            // Handle
+            Container(
+              margin: const EdgeInsets.symmetric(vertical: 10),
+              width: 40,
+              height: 5,
+              decoration: BoxDecoration(
+                color: Colors.grey.withOpacity(0.3),
+                borderRadius: BorderRadius.circular(2.5),
+              ),
+            ),
+            Expanded(
+              child: CommentsPage(
+                postId: widget.post.id,
+                post: widget.post,
+                isBottomSheet: true,
+              ),
+            ),
+          ],
         ),
       ),
     );
+  }
+
+  void _showPostOptions(BuildContext context) async {
+    final currentUser = ref.read(authProvider).user;
+    final isOwner = currentUser?.id == widget.post.userId || widget.post.isOwnPost;
+
+    final menuContext = MenuContext(
+      contentId: widget.post.id,
+      contentType: MenuContentType.post,
+      relationship: isOwner ? MenuRelationship.owner : MenuRelationship.following,
+      authorUsername: widget.post.username,
+      authorId: widget.post.userId,
+      authorAvatarUrl: widget.post.userAvatar,
+      isSaved: _isSaved,
+      isVerified: widget.post.isVerified,
+      commentsEnabled: true, // Assuming enabled for now
+      canDelete: isOwner,
+      canEdit: isOwner,
+    );
+
+    InstagramMenu.show(
+      context,
+      menuContext: menuContext,
+      onAction: _handleMenuAction,
+    );
+  }
+
+  Future<void> _handleMenuAction(MenuAction action) async {
+    switch (action.type) {
+      case MenuActionType.copyLink:
+        Clipboard.setData(ClipboardData(text: 'https://instagram.com/p/${widget.post.id}'));
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(content: Text('Link copied to clipboard')),
+        );
+        break;
+      case MenuActionType.saveCollection:
+      case MenuActionType.unsave:
+        _handleSave();
+        break;
+      case MenuActionType.delete:
+        try {
+          await ref.read(feedProvider.notifier).deletePost(widget.post.id);
+          if (mounted) {
+            ScaffoldMessenger.of(context).showSnackBar(
+              const SnackBar(content: Text('Post deleted')),
+            );
+          }
+        } catch (e) {
+          if (mounted) {
+            ScaffoldMessenger.of(context).showSnackBar(
+              SnackBar(content: Text('Failed to delete post: $e')),
+            );
+          }
+        }
+        break;
+      case MenuActionType.archive:
+        // TODO: Implement archive
+        break;
+      case MenuActionType.unfollow:
+        try {
+          await ref.read(followProvider(widget.post.userId).notifier).toggleFollow();
+          if (mounted) {
+            ScaffoldMessenger.of(context).showSnackBar(
+              SnackBar(content: Text('Unfollowed @${widget.post.username}')),
+            );
+          }
+        } catch (e) {
+          if (mounted) {
+            ScaffoldMessenger.of(context).showSnackBar(
+              SnackBar(content: Text('Failed to unfollow: $e')),
+            );
+          }
+        }
+        break;
+      case MenuActionType.report:
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(content: Text('Report submitted. Thanks for your feedback.')),
+        );
+        break;
+      case MenuActionType.hide:
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(content: Text('Post hidden')),
+        );
+        break;
+      case MenuActionType.notInterested:
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(content: Text('We\'ll show fewer posts like this')),
+        );
+        break;
+      default:
+        break;
+    }
   }
 }
 

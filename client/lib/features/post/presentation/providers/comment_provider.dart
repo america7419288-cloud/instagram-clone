@@ -1,7 +1,6 @@
 // lib/features/post/presentation/providers/comment_provider.dart
 
 import 'package:flutter_riverpod/flutter_riverpod.dart';
-import 'package:flutter_riverpod/legacy.dart';
 import '../../data/models/comment_model.dart';
 import '../../data/repositories/comment_service.dart';
 import 'feed_provider.dart';
@@ -63,14 +62,18 @@ class CommentState {
 }
 
 // ─── COMMENT NOTIFIER ───────────────────────────────────────
-class CommentNotifier extends StateNotifier<CommentState> {
-  final CommentService _commentService;
-  final String postId;
-  final Ref _ref;
+class CommentNotifier extends Notifier<CommentState> {
+  late final CommentService _commentService;
+  late String postId;
 
-  CommentNotifier(this._commentService, this.postId, this._ref)
-    : super(const CommentState()) {
-    loadComments();
+  @override
+  CommentState build() {
+    _commentService = ref.watch(commentServiceProvider);
+    
+    // Schedule initial load
+    Future.microtask(() => loadComments());
+    
+    return const CommentState();
   }
 
   // ─── LOAD COMMENTS ──────────────────────────────────────
@@ -152,7 +155,7 @@ class CommentNotifier extends StateNotifier<CommentState> {
         isSubmitting: false,
         clearReplyingTo: true,
       );
-      _ref.read(feedProvider.notifier).incrementCommentCount(postId);
+      ref.read(feedProvider.notifier).incrementCommentCount(postId);
 
       return true;
     } catch (e) {
@@ -198,7 +201,7 @@ class CommentNotifier extends StateNotifier<CommentState> {
         isSubmitting: false,
         clearReplyingTo: true,
       );
-      _ref.read(feedProvider.notifier).incrementCommentCount(postId);
+      ref.read(feedProvider.notifier).incrementCommentCount(postId);
 
       return true;
     } catch (e) {
@@ -352,7 +355,7 @@ class CommentNotifier extends StateNotifier<CommentState> {
 
       try {
         await _commentService.deleteComment(commentId);
-        _ref.read(feedProvider.notifier).decrementCommentCount(postId);
+        ref.read(feedProvider.notifier).decrementCommentCount(postId);
       } catch (e) {
         final restoredComments = List<CommentModel>.from(state.comments);
         restoredComments.insert(topLevelIndex, removedComment);
@@ -411,7 +414,7 @@ class CommentNotifier extends StateNotifier<CommentState> {
 
     try {
       await _commentService.deleteComment(commentId);
-      _ref.read(feedProvider.notifier).decrementCommentCount(postId);
+      ref.read(feedProvider.notifier).decrementCommentCount(postId);
     } catch (e) {
       final restoredReplies = Map<String, List<CommentModel>>.from(state.replies);
       final parentReplies = List<CommentModel>.from(
@@ -451,9 +454,6 @@ final commentServiceProvider = Provider<CommentService>((ref) {
 
 // Family provider: one per post
 final commentProvider =
-    StateNotifierProvider.family<CommentNotifier, CommentState, String>((
-      ref,
-      postId,
-    ) {
-      return CommentNotifier(ref.watch(commentServiceProvider), postId, ref);
-    });
+    NotifierProvider.family<CommentNotifier, CommentState, String>(
+  (postId) => CommentNotifier()..postId = postId,
+);

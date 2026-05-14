@@ -15,6 +15,7 @@ class ReelActionButtons extends StatefulWidget {
   final VoidCallback onComment;
   final VoidCallback onShare;
   final VoidCallback onAudio;
+  final VoidCallback onMore;
 
   const ReelActionButtons({
     super.key,
@@ -23,6 +24,7 @@ class ReelActionButtons extends StatefulWidget {
     required this.onComment,
     required this.onShare,
     required this.onAudio,
+    required this.onMore,
   });
 
   @override
@@ -90,9 +92,9 @@ class _ReelActionButtonsState extends State<ReelActionButtons>
         ),
         const SizedBox(height: 20),
         _buildActionButton(
-          icon: LucideIcons.eclipse,
+          icon: LucideIcons.ellipsis,
           label: '',
-          onTap: () {},
+          onTap: widget.onMore,
         ),
         const SizedBox(height: 20),
         _buildAudioDisc(),

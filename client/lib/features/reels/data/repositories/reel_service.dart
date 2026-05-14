@@ -169,4 +169,15 @@ class ReelService {
   Future<void> deleteReel(String reelId) async {
     await _client.delete('${AppConstants.reelsUrl}/$reelId');
   }
+
+  // ─── Save reel ────────────────────────────────────────
+  Future<void> saveReel(String reelId) async {
+    await _client.post('${AppConstants.reelsUrl}/$reelId/save');
+  }
+
+  // ─── Unsave reel ──────────────────────────────────────
+  Future<void> unsaveReel(String reelId) async {
+    await _client.delete('${AppConstants.reelsUrl}/$reelId/save');
+  }
 }
+

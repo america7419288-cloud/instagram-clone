@@ -8,15 +8,20 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:phosphor_flutter/phosphor_flutter.dart';
 import 'package:just_audio/just_audio.dart';
 
-import '../../../../core/network/audio_stream_source.dart';
-import '../../../../core/network/dio_client.dart';
-import '../../../../core/theme/app_theme.dart';
-import '../../../../shared/widgets/app_snackbar.dart';
-import '../../../../features/auth/presentation/providers/auth_provider.dart';
+import 'package:instagram_clinet/core/network/audio_stream_source.dart';
+import 'package:instagram_clinet/core/network/dio_client.dart';
+import 'package:instagram_clinet/core/theme/app_theme.dart';
+import 'package:instagram_clinet/shared/widgets/app_snackbar.dart';
+import 'package:instagram_clinet/features/auth/presentation/providers/auth_provider.dart';
 import '../../data/models/story_model.dart';
 import '../../data/repositories/story_service.dart';
+import 'package:instagram_clinet/features/share/models/share_content.dart';
+import 'package:instagram_clinet/features/share/presentation/share_sheet.dart';
 import '../providers/story_provider.dart';
 import 'story_video_player.dart';
+import 'package:instagram_clinet/features/menu/presentation/three_dot_menu.dart';
+import 'package:instagram_clinet/features/menu/models/menu_context.dart';
+import 'package:instagram_clinet/features/menu/models/menu_action.dart';
 
 class StoryViewer extends ConsumerStatefulWidget {
   final List<StoryFeedModel> groups;
@@ -561,11 +566,10 @@ class _StoryViewerState extends ConsumerState<StoryViewer>
                 ),
               ),
               const Spacer(),
-              if (isOwnStory)
-                IconButton(
-                  onPressed: _showStoryOptions,
-                  icon: Icon(PhosphorIcons.dotsThreeVertical(), color: Colors.white, size: 24),
-                ),
+              IconButton(
+                onPressed: _showStoryOptions,
+                icon: Icon(PhosphorIcons.dotsThreeVertical(), color: Colors.white, size: 24),
+              ),
               IconButton(
                 onPressed: () => Navigator.of(context).pop(),
                 icon: Icon(PhosphorIcons.x(), color: Colors.white, size: 20),
@@ -683,7 +687,23 @@ class _StoryViewerState extends ConsumerState<StoryViewer>
                 ),
               ),
               const SizedBox(width: 12),
-              Icon(PhosphorIcons.paperPlaneTilt(), color: Colors.white, size: 24),
+              GestureDetector(
+                onTap: () {
+                  _pauseStory();
+                  ShareSheet.show(
+                    context,
+                    content: ShareContent(
+                      id: _currentStory.id,
+                      type: ShareContentType.story,
+                      thumbnailUrl: _currentStory.mediaUrl,
+                      authorUsername: _currentGroup.user.username,
+                      authorAvatarUrl: _currentGroup.user.profilePicUrl,
+                      caption: _currentStory.caption,
+                    ),
+                  ).then((_) => _resumeStory());
+                },
+                child: Icon(PhosphorIcons.paperPlaneTilt(), color: Colors.white, size: 24),
+              ),
               const SizedBox(width: 12),
               Icon(PhosphorIcons.heart(), color: Colors.white, size: 24),
             ],
@@ -717,48 +737,56 @@ class _StoryViewerState extends ConsumerState<StoryViewer>
   void _showStoryOptions() {
     _pauseStory();
 
-    showModalBottomSheet(
-      context: context,
-      backgroundColor: Colors.grey[900],
-      shape: const RoundedRectangleBorder(
-        borderRadius: BorderRadius.vertical(top: Radius.circular(16)),
-      ),
-      builder: (ctx) => Column(
-        mainAxisSize: MainAxisSize.min,
-        children: [
-          const SizedBox(height: 8),
-          Container(
-            width: 40,
-            height: 4,
-            decoration: BoxDecoration(
-              color: Colors.grey[600],
-              borderRadius: BorderRadius.circular(2),
-            ),
-          ),
-          const SizedBox(height: 16),
-          ListTile(
-            leading: Icon(PhosphorIcons.trash(), color: Colors.red),
-            title: const Text(
-              'Delete Story',
-              style: TextStyle(color: Colors.white),
-            ),
-            onTap: () async {
-              Navigator.pop(ctx);
-              await _deleteCurrentStory();
-            },
-          ),
-          ListTile(
-            leading: Icon(PhosphorIcons.x(), color: Colors.white),
-            title: const Text('Cancel', style: TextStyle(color: Colors.white)),
-            onTap: () {
-              Navigator.pop(ctx);
-              _resumeStory();
-            },
-          ),
-          const SizedBox(height: 16),
-        ],
-      ),
-    ).whenComplete(_resumeStory);
+    final currentUser = ref.read(currentUserProvider);
+    final group = _currentGroup;
+    final story = _currentStory;
+    final isOwnStory = currentUser?.id == group.user.id;
+
+    final relationship = isOwnStory
+        ? MenuRelationship.owner
+        : (group.user.isFollowing
+            ? MenuRelationship.following
+            : MenuRelationship.notFollowing);
+
+    final menuContext = MenuContext(
+      contentId: story.id,
+      contentType: MenuContentType.story,
+      relationship: relationship,
+      authorId: group.user.id,
+      authorUsername: group.user.username,
+      authorAvatarUrl: group.user.profilePicUrl,
+      canDelete: isOwnStory,
+      canEdit: isOwnStory,
+      canDownload: true,
+    );
+
+    InstagramMenu.show(
+      context,
+      menuContext: menuContext,
+      onAction: _handleMenuAction,
+    ).then((_) => _resumeStory());
+  }
+
+  Future<void> _handleMenuAction(MenuAction action) async {
+    switch (action.type) {
+      case MenuActionType.copyLink:
+        Clipboard.setData(ClipboardData(text: 'https://instagram.com/stories/${_currentGroup.user.username}/${_currentStory.id}'));
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(content: Text('Link copied to clipboard')),
+        );
+        break;
+      case MenuActionType.delete:
+        _deleteCurrentStory();
+        break;
+      case MenuActionType.save:
+        // TODO: Implement save
+        break;
+      case MenuActionType.report:
+        // Handled by menu sub-flow
+        break;
+      default:
+        break;
+    }
   }
 
   Future<void> _deleteCurrentStory() async {

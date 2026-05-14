@@ -1,9 +1,6 @@
-// lib/features/auth/presentation/providers/auth_provider.dart
-
 import 'dart:io';
 import 'package:flutter/foundation.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
-import 'package:flutter_riverpod/legacy.dart';
 import 'package:flutter_secure_storage/flutter_secure_storage.dart';
 
 import '../../../../core/constants/app_constants.dart';
@@ -62,17 +59,22 @@ class AuthState {
 // ─────────────────────────────────────────────────────
 // AUTH NOTIFIER
 // ─────────────────────────────────────────────────────
-class AuthNotifier extends StateNotifier<AuthState> {
-  final AuthService      _authService;
-  final AccountManager   _accountManager;
-  final Ref              _ref;
+class AuthNotifier extends Notifier<AuthState> {
+  late AuthService      _authService;
+  late AccountManager   _accountManager;
   final FlutterSecureStorage _storage = const FlutterSecureStorage(
     aOptions: AndroidOptions(encryptedSharedPreferences: true),
   );
 
-  AuthNotifier(this._authService, this._accountManager, this._ref)
-      : super(const AuthState()) {
-    _init();
+  @override
+  AuthState build() {
+    _authService = ref.watch(authServiceProvider);
+    _accountManager = ref.watch(accountManagerProvider);
+    
+    // Initialize state
+    Future.microtask(() => _init());
+    
+    return const AuthState();
   }
 
   // ─── Initialize: check stored token ──────────────────
@@ -463,38 +465,38 @@ class AuthNotifier extends StateNotifier<AuthState> {
   // ─── Socket helpers ───────────────────────────────────
   void _connectSocket(String token) {
     try {
-      _ref.read(socketProvider.notifier).connect();
+      ref.read(socketProvider.notifier).connect();
     } catch (_) {}
   }
 
   void _disconnectSocket() {
     try {
-      _ref.read(socketProvider.notifier).disconnect();
+      ref.read(socketProvider.notifier).disconnect();
     } catch (_) {}
   }
 
   void _clearUserScopedProviders() {
-    _ref.invalidate(feedProvider);
-    _ref.invalidate(storyFeedProvider);
-    _ref.invalidate(notificationProvider);
-    _ref.invalidate(inboxProvider);
-    _ref.invalidate(chatProvider);
-    _ref.invalidate(profileProvider);
+    ref.invalidate(feedProvider);
+    ref.invalidate(storyFeedProvider);
+    ref.invalidate(notificationProvider);
+    ref.invalidate(inboxProvider);
+    ref.invalidate(chatProvider);
+    ref.invalidate(profileProvider);
   }
 
   void _refreshUserScopedProviders() {
     Future.microtask(() {
-      _ref.read(feedProvider.notifier).loadFeed();
-      _ref.read(storyFeedProvider.notifier).loadStories();
-      _ref.read(notificationProvider.notifier).refresh();
-      _ref.read(inboxProvider.notifier).loadUnreadCount();
+      ref.read(feedProvider.notifier).loadFeed();
+      ref.read(storyFeedProvider.notifier).loadStories();
+      ref.read(notificationProvider.notifier).refresh();
+      ref.read(inboxProvider.notifier).loadUnreadCount();
     });
   }
 
   // ─── PUSH NOTIFICATION HELPERS ────────────────────────────
   void _registerPushToken() async {
     try {
-      final pushService = _ref.read(pushNotificationServiceProvider);
+      final pushService = ref.read(pushNotificationServiceProvider);
       await pushService.getAndSendToken();
     } catch (e) {
       debugPrint('⚠️ Could not register push token: $e');
@@ -503,7 +505,7 @@ class AuthNotifier extends StateNotifier<AuthState> {
 
   Future<void> _clearPushToken() async {
     try {
-      final pushService = _ref.read(pushNotificationServiceProvider);
+      final pushService = ref.read(pushNotificationServiceProvider);
       await pushService.clearToken();
     } catch (e) {
       debugPrint('⚠️ Could not clear push token: $e');
@@ -511,15 +513,13 @@ class AuthNotifier extends StateNotifier<AuthState> {
   }
 }
 
-// ─── Provider ─────────────────────────────────────────
+// ─── Providers ─────────────────────────────────────────
 final authServiceProvider = Provider<AuthService>((ref) {
   return AuthService();
 });
 
-final authProvider = StateNotifierProvider<AuthNotifier, AuthState>((ref) {
-  final authService      = ref.read(authServiceProvider);
-  final accountManager   = ref.read(accountManagerProvider);
-  return AuthNotifier(authService, accountManager, ref);
+final authProvider = NotifierProvider<AuthNotifier, AuthState>(() {
+  return AuthNotifier();
 });
 
 final currentUserProvider = Provider<UserModel?>((ref) {
@@ -533,3 +533,4 @@ final isAuthenticatedProvider = Provider<bool>((ref) {
 final authLoadingProvider = Provider<bool>((ref) {
   return ref.watch(authProvider).isLoading;
 });
+

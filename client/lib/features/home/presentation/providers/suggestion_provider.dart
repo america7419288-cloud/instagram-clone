@@ -1,7 +1,4 @@
-// lib/features/home/presentation/providers/suggestion_provider.dart
-
 import 'package:flutter_riverpod/flutter_riverpod.dart';
-import 'package:flutter_riverpod/legacy.dart';
 import '../../../../shared/models/user_model.dart';
 import '../../../follow/data/repositories/follow_service.dart';
 
@@ -29,11 +26,17 @@ class SuggestionState {
   }
 }
 
-class SuggestionNotifier extends StateNotifier<SuggestionState> {
-  final FollowService _service;
+class SuggestionNotifier extends Notifier<SuggestionState> {
+  late FollowService _service;
 
-  SuggestionNotifier(this._service) : super(const SuggestionState()) {
-    loadSuggestions();
+  @override
+  SuggestionState build() {
+    _service = FollowService(); // Or get from provider if available
+    
+    // Initial load
+    Future.microtask(() => loadSuggestions());
+    
+    return const SuggestionState();
   }
 
   Future<void> loadSuggestions() async {
@@ -57,7 +60,7 @@ class SuggestionNotifier extends StateNotifier<SuggestionState> {
   }
 }
 
-final suggestionProvider = StateNotifierProvider<SuggestionNotifier, SuggestionState>((ref) {
-  final service = FollowService();
-  return SuggestionNotifier(service);
+final suggestionProvider = NotifierProvider<SuggestionNotifier, SuggestionState>(() {
+  return SuggestionNotifier();
 });
+

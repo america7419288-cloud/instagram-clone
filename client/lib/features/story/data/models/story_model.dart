@@ -146,6 +146,7 @@ class StoryUserModel {
   final String? fullName;
   final String? profilePicUrl;
   final bool isVerified;
+  final bool isFollowing;
 
   const StoryUserModel({
     required this.id,
@@ -153,6 +154,7 @@ class StoryUserModel {
     this.fullName,
     this.profilePicUrl,
     required this.isVerified,
+    this.isFollowing = false,
   });
 
   factory StoryUserModel.fromJson(Map<String, dynamic> json) {
@@ -162,6 +164,7 @@ class StoryUserModel {
       fullName: json['full_name'],
       profilePicUrl: json['profile_pic_url'],
       isVerified: json['is_verified'] ?? false,
+      isFollowing: json['is_following'] ?? false,
     );
   }
 }

@@ -215,9 +215,9 @@ class PostModel {
       caption: json['caption']?.toString(),
       location: json['location']?.toString(),
       mediaFiles: mediaList,
-      likesCount: int.tryParse((json['likesCount'] ?? json['like_count'] ?? '0').toString()) ?? 0,
+      likesCount: int.tryParse((json['likesCount'] ?? json['like_count'] ?? json['likes_count'] ?? json['likeCount'] ?? '0').toString()) ?? 0,
       commentsCount:
-          int.tryParse((json['commentsCount'] ?? json['comment_count'] ?? '0').toString()) ?? 0,
+          int.tryParse((json['commentsCount'] ?? json['comment_count'] ?? json['comments_count'] ?? json['commentCount'] ?? '0').toString()) ?? 0,
       isLiked: json['isLiked'] == true || json['is_liked'] == true,
       isSaved: json['isSaved'] == true || json['is_saved'] == true,
       hasVideo: json['hasVideo'] == true ||

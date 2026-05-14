@@ -1,7 +1,6 @@
 // lib/core/socket/socket_provider.dart
 
 import 'package:flutter_riverpod/flutter_riverpod.dart';
-import 'package:flutter_riverpod/legacy.dart';
 import 'package:instagram_clinet/core/providers/server_config_provider.dart';
 import 'socket_service.dart';
 
@@ -36,16 +35,21 @@ class SocketState {
 }
 
 // ─── SOCKET NOTIFIER ─────────────────────────────────────────
-class SocketNotifier extends StateNotifier<SocketState> {
-  final SocketService _socketService;
+class SocketNotifier extends Notifier<SocketState> {
+  SocketService get _socketService => ref.read(socketServiceProvider);
 
   // Callbacks for other providers to register
   // When new message arrives, ChatNotifier handles it
   final Map<String, Function(Map<String, dynamic>)> _messageHandlers = {};
   final Map<String, Function(Map<String, dynamic>)> _inboxHandlers = {};
 
-  SocketNotifier(this._socketService) : super(const SocketState()) {
+  @override
+  SocketState build() {
     _setupCallbacks();
+    ref.onDispose(() {
+      _socketService.disconnect();
+    });
+    return const SocketState();
   }
 
   // ─── SETUP CALLBACKS ──────────────────────────────────────
@@ -65,7 +69,6 @@ class SocketNotifier extends StateNotifier<SocketState> {
 
     // User typing
     _socketService.onUserTyping = (conversationId, userId, isTyping) {
-      if (!mounted) return;
       final updatedTyping = Map<String, String?>.from(state.typingUsers);
 
       if (isTyping) {
@@ -79,7 +82,6 @@ class SocketNotifier extends StateNotifier<SocketState> {
 
     // Online users list (received on connect)
     _socketService.onOnlineUsers = (userIds) {
-      if (!mounted) return;
       state = state.copyWith(
         isConnected: true,
         onlineUserIds: Set<String>.from(userIds),
@@ -88,7 +90,6 @@ class SocketNotifier extends StateNotifier<SocketState> {
 
     // User came online
     _socketService.onUserOnlineStatus = (userId, isOnline) {
-      if (!mounted) return;
       final updated = Set<String>.from(state.onlineUserIds);
 
       if (isOnline) {
@@ -102,7 +103,6 @@ class SocketNotifier extends StateNotifier<SocketState> {
 
     // Inbox update (message from someone not in chat right now)
     _socketService.onInboxUpdate = (data) {
-      if (!mounted) return;
       // Notify all inbox handlers
       _inboxHandlers.forEach((_, handler) => handler(data));
     };
@@ -111,17 +111,13 @@ class SocketNotifier extends StateNotifier<SocketState> {
   // ─── CONNECT ──────────────────────────────────────────────
   Future<void> connect() async {
     await _socketService.connect();
-    if (mounted) {
-      state = state.copyWith(isConnected: _socketService.isConnected);
-    }
+    state = state.copyWith(isConnected: _socketService.isConnected);
   }
 
   // ─── DISCONNECT ───────────────────────────────────────────
   void disconnect() {
     _socketService.disconnect();
-    if (mounted) {
-      state = const SocketState();
-    }
+    state = const SocketState();
   }
 
   // ─── JOIN ROOM ────────────────────────────────────────────
@@ -133,11 +129,9 @@ class SocketNotifier extends StateNotifier<SocketState> {
   void leaveRoom(String conversationId) {
     _socketService.leaveRoom(conversationId);
     // Clear typing indicator when leaving
-    if (mounted) {
-      final updated = Map<String, String?>.from(state.typingUsers);
-      updated.remove(conversationId);
-      state = state.copyWith(typingUsers: updated);
-    }
+    final updated = Map<String, String?>.from(state.typingUsers);
+    updated.remove(conversationId);
+    state = state.copyWith(typingUsers: updated);
   }
 
   // ─── EMIT TYPING ──────────────────────────────────────────
@@ -189,12 +183,6 @@ class SocketNotifier extends StateNotifier<SocketState> {
 
   // ─── IS USER ONLINE ───────────────────────────────────────
   bool isUserOnline(String userId) => state.isUserOnline(userId);
-
-  @override
-  void dispose() {
-    _socketService.disconnect();
-    super.dispose();
-  }
 }
 
 // ─── PROVIDERS ──────────────────────────────────────────────
@@ -205,11 +193,9 @@ final socketServiceProvider = Provider<SocketService>((ref) {
   return service;
 });
 
-final socketProvider = StateNotifierProvider<SocketNotifier, SocketState>((
-  ref,
-) {
-  return SocketNotifier(ref.watch(socketServiceProvider));
-});
+final socketProvider = NotifierProvider<SocketNotifier, SocketState>(
+  SocketNotifier.new,
+);
 
 // Convenience: just connection status
 final isSocketConnectedProvider = Provider<bool>((ref) {

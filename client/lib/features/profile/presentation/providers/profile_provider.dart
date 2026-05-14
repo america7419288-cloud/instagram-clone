@@ -1,9 +1,6 @@
-// lib/features/profile/presentation/providers/profile_provider.dart
-
 import 'dart:async';
 import 'package:image_picker/image_picker.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
-import 'package:flutter_riverpod/legacy.dart';
 import '../../data/models/profile_model.dart';
 import '../../data/models/repositories/profile_service.dart';
 
@@ -57,38 +54,40 @@ class ProfileState {
 }
 
 // ─── PROFILE NOTIFIER ────────────────────────────────────────
-class ProfileNotifier extends StateNotifier<ProfileState> {
-  final ProfileService _service;
-  final String username;
+class ProfileNotifier extends Notifier<ProfileState> {
+  late ProfileService _service;
+  late String username;
   Timer? _refreshTimer;
 
-  ProfileNotifier(this._service, this.username) : super(const ProfileState()) {
-    loadProfile();
+  @override
+  ProfileState build() {
+    _service = ref.watch(profileServiceProvider);
+    
+    // Initial load
+    Future.microtask(() => loadProfile());
     
     // ─── PERIODIC REFRESH ─────────────────────────────────────
-    // Refresh profile every 60 seconds to keep stats updated
+    // Refresh profile every 20 seconds to keep stats updated
     _refreshTimer = Timer.periodic(const Duration(seconds: 20), (_) {
-      if (mounted && !state.isLoading) {
+      if (!state.isLoading) {
         refresh();
       }
     });
-  }
 
-  @override
-  void dispose() {
-    _refreshTimer?.cancel();
-    super.dispose();
+    ref.onDispose(() {
+      _refreshTimer?.cancel();
+    });
+
+    return const ProfileState();
   }
 
   // ─── LOAD PROFILE ────────────────────────────────────────
   Future<void> loadProfile() async {
-    if (!mounted) return;
     state = state.copyWith(isLoading: true, errorMessage: null);
 
     try {
       final profile = await _service.getUserProfile(username);
-      if (!mounted) return;
-
+      
       state = state.copyWith(profile: profile, isLoading: false);
 
       // Load posts if not private or own profile
@@ -98,7 +97,6 @@ class ProfileNotifier extends StateNotifier<ProfileState> {
         await loadPosts(profile.id);
       }
     } catch (e) {
-      if (!mounted) return;
       state = state.copyWith(
         isLoading: false,
         errorMessage: e.toString().replaceAll('Exception: ', ''),
@@ -108,13 +106,11 @@ class ProfileNotifier extends StateNotifier<ProfileState> {
 
   // ─── LOAD POSTS ──────────────────────────────────────────
   Future<void> loadPosts(String userId) async {
-    if (!mounted) return;
     state = state.copyWith(isLoadingPosts: true, currentPage: 1);
 
     try {
       final result = await _service.getUserPosts(userId: userId, page: 1);
-      if (!mounted) return;
-
+      
       final posts = result['posts'] as List<ProfilePostModel>;
       final pagination = result['pagination'];
 
@@ -125,15 +121,13 @@ class ProfileNotifier extends StateNotifier<ProfileState> {
         currentPage: 1,
       );
     } catch (e) {
-      if (!mounted) return;
       state = state.copyWith(isLoadingPosts: false);
     }
   }
 
   // ─── LOAD MORE POSTS ─────────────────────────────────────
   Future<void> loadMorePosts() async {
-    if (!mounted ||
-        state.isLoadingMore ||
+    if (state.isLoadingMore ||
         !state.hasMorePosts ||
         state.profile == null)
       return;
@@ -146,8 +140,7 @@ class ProfileNotifier extends StateNotifier<ProfileState> {
         userId: state.profile!.id,
         page: nextPage,
       );
-      if (!mounted) return;
-
+      
       final newPosts = result['posts'] as List<ProfilePostModel>;
       final pagination = result['pagination'];
 
@@ -158,7 +151,6 @@ class ProfileNotifier extends StateNotifier<ProfileState> {
         currentPage: nextPage,
       );
     } catch (e) {
-      if (!mounted) return;
       state = state.copyWith(isLoadingMore: false);
     }
   }
@@ -177,7 +169,6 @@ class ProfileNotifier extends StateNotifier<ProfileState> {
     String? gender,
     bool? isPrivate,
   }) async {
-    if (!mounted) return false;
     state = state.copyWith(isSaving: true, errorMessage: null);
 
     try {
@@ -189,12 +180,10 @@ class ProfileNotifier extends StateNotifier<ProfileState> {
         gender: gender,
         isPrivate: isPrivate,
       );
-      if (!mounted) return false;
-
+      
       state = state.copyWith(profile: updatedProfile, isSaving: false);
       return true;
     } catch (e) {
-      if (!mounted) return false;
       state = state.copyWith(
         isSaving: false,
         errorMessage: e.toString().replaceAll('Exception: ', ''),
@@ -205,20 +194,17 @@ class ProfileNotifier extends StateNotifier<ProfileState> {
 
   // ─── UPDATE PROFILE PICTURE ──────────────────────────────
   Future<bool> updateProfilePicture(XFile imageFile) async {
-    if (!mounted) return false;
     state = state.copyWith(isSaving: true);
 
     try {
       final newUrl = await _service.updateProfilePicture(imageFile);
-      if (!mounted) return false;
-
+      
       state = state.copyWith(
         profile: state.profile?.copyWith(profilePicUrl: newUrl),
         isSaving: false,
       );
       return true;
     } catch (e) {
-      if (!mounted) return false;
       state = state.copyWith(
         isSaving: false,
         errorMessage: e.toString().replaceAll('Exception: ', ''),
@@ -239,7 +225,6 @@ class ProfileNotifier extends StateNotifier<ProfileState> {
 
   // ─── REMOVE POST FROM STATE ──────────────────────────────
   void removePost(String postId) {
-    if (!mounted) return;
     state = state.copyWith(
       posts: state.posts.where((p) => p.id != postId).toList(),
       profile: state.profile?.copyWith(
@@ -256,8 +241,8 @@ final profileServiceProvider = Provider<ProfileService>((ref) {
 
 // Per-username profile provider (family)
 final profileProvider =
-    StateNotifierProvider.family<ProfileNotifier, ProfileState, String>(
-      (ref, username) =>
-          ProfileNotifier(ref.watch(profileServiceProvider), username),
-    );
+    NotifierProvider.family<ProfileNotifier, ProfileState, String>(
+  (username) => ProfileNotifier()..username = username,
+);
+
 

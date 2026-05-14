@@ -1,7 +1,6 @@
 // lib/features/reels/presentation/providers/reel_provider.dart
 
 import 'package:flutter_riverpod/flutter_riverpod.dart';
-import 'package:flutter_riverpod/legacy.dart';
 
 import '../../data/models/reel_model.dart';
 import '../../data/repositories/reel_service.dart';
@@ -49,12 +48,15 @@ class ReelFeedState {
 // ─────────────────────────────────────────────────────
 // NOTIFIER
 // ─────────────────────────────────────────────────────
-class ReelFeedNotifier extends StateNotifier<ReelFeedState> {
-  final ReelService _reelService;
-
-  ReelFeedNotifier(this._reelService) : super(const ReelFeedState()) {
-    loadReels();
+class ReelFeedNotifier extends Notifier<ReelFeedState> {
+  @override
+  ReelFeedState build() {
+    // Load initial reels when the provider is first used
+    Future.microtask(() => loadReels());
+    return const ReelFeedState();
   }
+
+  ReelService get _reelService => ref.read(reelServiceProvider);
 
   // ─── Load initial ─────────────────────────────────────
   Future<void> loadReels() async {
@@ -165,6 +167,41 @@ class ReelFeedNotifier extends StateNotifier<ReelFeedState> {
     }
   }
 
+  // ─── Delete reel ─────────────────────────────────────
+  Future<void> deleteReel(String reelId) async {
+    try {
+      await _reelService.deleteReel(reelId);
+      removeReel(reelId);
+    } catch (e) {
+      rethrow;
+    }
+  }
+
+  // ─── Toggle Save (optimistic) ─────────────────────────
+  Future<void> toggleSave(String reelId) async {
+    final reel = state.reels.firstWhere((r) => r.id == reelId);
+    final isSaving = !reel.isSaved;
+
+    _updateReel(
+      reelId,
+      (r) => r.copyWith(isSaved: isSaving),
+    );
+
+    try {
+      if (isSaving) {
+        await _reelService.saveReel(reelId);
+      } else {
+        await _reelService.unsaveReel(reelId);
+      }
+    } catch (_) {
+      // Revert on failure
+      _updateReel(
+        reelId,
+        (r) => r.copyWith(isSaved: !isSaving),
+      );
+    }
+  }
+
   // ─── Remove deleted reel ─────────────────────────────
   void removeReel(String reelId) {
     state = state.copyWith(
@@ -187,7 +224,7 @@ class ReelFeedNotifier extends StateNotifier<ReelFeedState> {
 
 // ─── Provider ─────────────────────────────────────────
 final reelFeedProvider =
-    StateNotifierProvider<ReelFeedNotifier, ReelFeedState>((ref) {
-  final reelService = ref.read(reelServiceProvider);
-  return ReelFeedNotifier(reelService);
+    NotifierProvider<ReelFeedNotifier, ReelFeedState>(() {
+  return ReelFeedNotifier();
 });
+

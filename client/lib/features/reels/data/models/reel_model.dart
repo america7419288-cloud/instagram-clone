@@ -16,6 +16,7 @@ class ReelModel {
   final int commentsCount;
   final int playsCount;
   final bool isLiked;
+  final bool isSaved;
   final bool isFollowing;
   final bool isOwnReel;
   final DateTime createdAt;
@@ -36,6 +37,7 @@ class ReelModel {
     this.commentsCount = 0,
     this.playsCount = 0,
     this.isLiked = false,
+    this.isSaved = false,
     this.isFollowing = false,
     this.isOwnReel = false,
     required this.createdAt,
@@ -77,6 +79,7 @@ class ReelModel {
           ) ??
           0,
       isLiked: json['isLiked'] == true,
+      isSaved: json['isSaved'] == true,
       isFollowing: json['isFollowing'] == true,
       isOwnReel: json['isOwnReel'] == true,
       createdAt: json['createdAt'] != null
@@ -102,6 +105,7 @@ class ReelModel {
     int? commentsCount,
     int? playsCount,
     bool? isLiked,
+    bool? isSaved,
     bool? isFollowing,
     bool? isOwnReel,
     DateTime? createdAt,
@@ -122,9 +126,11 @@ class ReelModel {
       commentsCount: commentsCount ?? this.commentsCount,
       playsCount: playsCount ?? this.playsCount,
       isLiked: isLiked ?? this.isLiked,
+      isSaved: isSaved ?? this.isSaved,
       isFollowing: isFollowing ?? this.isFollowing,
       isOwnReel: isOwnReel ?? this.isOwnReel,
       createdAt: createdAt ?? this.createdAt,
     );
   }
 }
+

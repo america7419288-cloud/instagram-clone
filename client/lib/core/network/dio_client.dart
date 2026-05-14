@@ -154,6 +154,7 @@ class _AuthInterceptor extends Interceptor {
   final void Function(bool value) _onRefreshStateChanged;
   final bool Function() _isRefreshing;
   final void Function(String) _updateBaseUrl;
+  String? _cachedToken;
 
   static const _skipInterceptorKey = 'skipAuthInterceptor';
   static const _retryKey = 'authRetryAttempted';
@@ -186,9 +187,12 @@ class _AuthInterceptor extends Interceptor {
       return;
     }
 
-    final token = await _storage.read(key: AppConstants.tokenKey);
-    if (token != null && token.isNotEmpty) {
-      options.headers['Authorization'] = 'Bearer $token';
+    if (_cachedToken == null || _cachedToken!.isEmpty) {
+      _cachedToken = await _storage.read(key: AppConstants.tokenKey);
+    }
+
+    if (_cachedToken != null && _cachedToken!.isNotEmpty) {
+      options.headers['Authorization'] = 'Bearer $_cachedToken';
     }
 
     handler.next(options);
@@ -277,6 +281,7 @@ class _AuthInterceptor extends Interceptor {
       }
 
       await _storage.write(key: AppConstants.tokenKey, value: accessToken);
+      _cachedToken = accessToken;
       if (newRefreshToken != null && newRefreshToken.isNotEmpty) {
         await _storage.write(
           key: AppConstants.refreshTokenKey,
@@ -291,6 +296,7 @@ class _AuthInterceptor extends Interceptor {
   }
 
   Future<void> _clearSession() async {
+    _cachedToken = null;
     await _storage.delete(key: AppConstants.tokenKey);
     await _storage.delete(key: AppConstants.refreshTokenKey);
     await _storage.delete(key: AppConstants.userKey);

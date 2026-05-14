@@ -1,11 +1,8 @@
-// lib/features/post/presentation/providers/create_post_provider.dart
-
 import 'dart:io';
 import 'package:flutter/widgets.dart';
 
 import 'package:dio/dio.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
-import 'package:flutter_riverpod/legacy.dart'; // Required for StateNotifier in Riverpod 3.x
 import 'package:image_picker/image_picker.dart';
 
 import '../../../../core/network/dio_client.dart';
@@ -82,12 +79,14 @@ class CreatePostState {
 }
 
 // ─── Notifier ─────────────────────────────────────────
-class CreatePostNotifier extends StateNotifier<CreatePostState> {
-  final DioClient _dioClient;
-  final Ref _ref;
+class CreatePostNotifier extends Notifier<CreatePostState> {
+  late final DioClient _dioClient;
 
-  CreatePostNotifier(this._dioClient, this._ref)
-      : super(const CreatePostState());
+  @override
+  CreatePostState build() {
+    _dioClient = ref.watch(dioClientProvider);
+    return const CreatePostState();
+  }
 
   // Helper methods for CreatePostPage
   void setImages(List<File> images) {
@@ -242,7 +241,7 @@ class CreatePostNotifier extends StateNotifier<CreatePostState> {
         );
 
         // Add to feed
-        _ref.read(feedProvider.notifier).addNewPost(post);
+        ref.read(feedProvider.notifier).addNewPost(post);
         return true;
       } else {
         throw Exception(response.data['message'] ?? 'Failed to create post');
@@ -294,7 +293,7 @@ class CreatePostNotifier extends StateNotifier<CreatePostState> {
 
 // ─── Provider ─────────────────────────────────────────
 final createPostProvider =
-    StateNotifierProvider<CreatePostNotifier, CreatePostState>((ref) {
-  final dioClient = ref.read(dioClientProvider);
-  return CreatePostNotifier(dioClient, ref);
+    NotifierProvider<CreatePostNotifier, CreatePostState>(() {
+  return CreatePostNotifier();
 });
+

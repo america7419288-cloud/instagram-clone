@@ -2,6 +2,7 @@
 
 import 'package:flutter/material.dart';
 import 'package:flutter/cupertino.dart';
+import 'package:flutter/services.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:cached_network_image/cached_network_image.dart';
 import 'package:flutter_lucide/flutter_lucide.dart';
@@ -14,13 +15,23 @@ import '../providers/comment_provider.dart';
 import '../../../../features/auth/presentation/providers/auth_provider.dart';
 import '../../../../shared/widgets/spring_widget.dart';
 import '../../../../shared/widgets/verified_badge.dart';
+import '../../../../features/menu/presentation/three_dot_menu.dart';
+import '../../../../features/menu/models/menu_context.dart';
+import '../../../../features/menu/models/menu_action.dart';
+
 
 
 class CommentsPage extends ConsumerStatefulWidget {
   final String postId;
   final PostModel? post;
+  final bool isBottomSheet;
 
-  const CommentsPage({super.key, required this.postId, this.post});
+  const CommentsPage({
+    super.key,
+    required this.postId,
+    this.post,
+    this.isBottomSheet = false,
+  });
 
   @override
   ConsumerState<CommentsPage> createState() => _CommentsPageState();
@@ -75,14 +86,54 @@ class _CommentsPageState extends ConsumerState<CommentsPage> {
     }
   }
 
+  void _handleMenuAction(CommentModel comment, MenuAction action) {
+    switch (action.type) {
+      case MenuActionType.delete:
+        ref.read(commentProvider(widget.postId).notifier).deleteComment(comment.id);
+        break;
+      case MenuActionType.copyLink:
+        Clipboard.setData(ClipboardData(text: comment.content));
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(content: Text('Copied to clipboard')),
+        );
+        break;
+      case MenuActionType.report:
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(content: Text('Comment reported')),
+        );
+        break;
+      default:
+        break;
+    }
+  }
+
+  void _showCommentMenu(CommentModel comment) {
+    final menuContext = MenuContext(
+      contentId: comment.id,
+      contentType: MenuContentType.comment,
+      relationship: comment.isOwnComment ? MenuRelationship.owner : MenuRelationship.notFollowing,
+      authorUsername: comment.user?.username,
+      authorId: comment.user?.id,
+      authorAvatarUrl: comment.user?.profilePicUrl,
+      canDelete: comment.isOwnComment,
+    );
+
+    InstagramMenu.show(
+      context,
+      menuContext: menuContext,
+      onAction: (action) => _handleMenuAction(comment, action),
+    );
+  }
+
+
   @override
   Widget build(BuildContext context) {
     final commentState = ref.watch(commentProvider(widget.postId));
     final isDark = Theme.of(context).brightness == Brightness.dark;
 
     return Scaffold(
-      backgroundColor: isDark ? Colors.black : Colors.white,
-      appBar: CupertinoNavigationBar(
+      backgroundColor: widget.isBottomSheet ? Colors.transparent : (isDark ? Colors.black : Colors.white),
+      appBar: widget.isBottomSheet ? null : CupertinoNavigationBar(
         backgroundColor: isDark ? Colors.black : Colors.white,
         border: Border(bottom: BorderSide(color: isDark ? Colors.grey[900]! : Colors.grey[300]!, width: 0.5)),
         leading: BouncyTap(
@@ -106,6 +157,20 @@ class _CommentsPageState extends ConsumerState<CommentsPage> {
       ),
       body: Column(
         children: [
+          if (widget.isBottomSheet)
+            Padding(
+              padding: const EdgeInsets.symmetric(vertical: 12),
+              child: Text(
+                'Comments',
+                style: TextStyle(
+                  fontSize: 16,
+                  fontWeight: FontWeight.w600,
+                  color: isDark ? Colors.white : Colors.black,
+                ),
+              ),
+            ),
+          if (widget.isBottomSheet)
+            Divider(height: 0.5, color: isDark ? Colors.grey[900] : Colors.grey[300]),
           Expanded(
             child: CustomScrollView(
               controller: _scrollController,
@@ -140,7 +205,10 @@ class _CommentsPageState extends ConsumerState<CommentsPage> {
                         },
                         onLoadReplies: () => ref.read(commentProvider(widget.postId).notifier).loadReplies(comment.id),
                         onLike: () => ref.read(commentProvider(widget.postId).notifier).toggleCommentLike(comment.id),
+                        onLongPress: () => _showCommentMenu(comment),
+                        onReplyLongPress: (reply) => _showCommentMenu(reply),
                       );
+
                     },
                     childCount: commentState.comments.length,
                   ),
@@ -310,6 +378,8 @@ class _CommentThread extends StatelessWidget {
   final VoidCallback onReply;
   final VoidCallback onLoadReplies;
   final VoidCallback onLike;
+  final VoidCallback onLongPress;
+  final Function(CommentModel) onReplyLongPress;
 
   const _CommentThread({
     required this.comment,
@@ -319,14 +389,24 @@ class _CommentThread extends StatelessWidget {
     required this.onReply,
     required this.onLoadReplies,
     required this.onLike,
+    required this.onLongPress,
+    required this.onReplyLongPress,
   });
+
 
   @override
   Widget build(BuildContext context) {
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
-        _CommentRow(comment: comment, isDark: isDark, onReply: onReply, onLike: onLike),
+        _CommentRow(
+          comment: comment,
+          isDark: isDark,
+          onReply: onReply,
+          onLike: onLike,
+          onLongPress: onLongPress,
+        ),
+
         
         if (comment.replyCount > 0 && !comment.repliesExpanded)
           Padding(
@@ -346,8 +426,16 @@ class _CommentThread extends StatelessWidget {
         if (comment.repliesExpanded)
           ...replies.map((r) => Padding(
             padding: const EdgeInsets.only(left: 54),
-            child: _CommentRow(comment: r, isDark: isDark, isReply: true, onReply: onReply, onLike: onLike),
+            child: _CommentRow(
+              comment: r,
+              isDark: isDark,
+              isReply: true,
+              onReply: onReply,
+              onLike: onLike,
+              onLongPress: () => onReplyLongPress(r),
+            ),
           )),
+
           
         if (comment.repliesExpanded && isLoadingReplies)
            const Padding(
@@ -365,14 +453,27 @@ class _CommentRow extends StatelessWidget {
   final bool isReply;
   final VoidCallback onReply;
   final VoidCallback onLike;
+  final VoidCallback? onLongPress;
 
-  const _CommentRow({required this.comment, required this.isDark, this.isReply = false, required this.onReply, required this.onLike});
+  const _CommentRow({
+    required this.comment,
+    required this.isDark,
+    this.isReply = false,
+    required this.onReply,
+    required this.onLike,
+    this.onLongPress,
+  });
+
 
   @override
   Widget build(BuildContext context) {
-    return Padding(
-      padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
-      child: Row(
+    return GestureDetector(
+      onLongPress: onLongPress,
+      behavior: HitTestBehavior.opaque,
+      child: Padding(
+        padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
+        child: Row(
+
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
           BouncyTap(
@@ -433,6 +534,7 @@ class _CommentRow extends StatelessWidget {
           ),
         ],
       ),
-    );
-  }
+    ),
+  );
+}
 }

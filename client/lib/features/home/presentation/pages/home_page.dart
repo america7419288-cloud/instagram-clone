@@ -101,8 +101,9 @@ class _HomePageContentState extends ConsumerState<HomePageContent> {
         slivers: [
           // ─── Top Navigation Bar ──────────────────────────
           SliverAppBar(
-            pinned: true,
-            floating: false,
+            pinned: false,
+            floating: true,
+            snap: true,
             backgroundColor: isDark ? Colors.black : Colors.white,
             elevation: 0,
             centerTitle: false,

@@ -3,25 +3,29 @@ import 'dart:io';
 
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
-import 'package:flutter_riverpod/legacy.dart';
 
 final connectivityProvider =
-    StateNotifierProvider<ConnectivityNotifier, bool>((ref) {
+    NotifierProvider<ConnectivityNotifier, bool>(() {
       return ConnectivityNotifier();
     });
 
-class ConnectivityNotifier extends StateNotifier<bool> {
-  ConnectivityNotifier() : super(true) {
-    _init();
-  }
-
+class ConnectivityNotifier extends Notifier<bool> {
   Timer? _timer;
 
-  void _init() {
-    unawaited(_checkConnection());
+  @override
+  bool build() {
+    // Initial check
+    Future.microtask(() => _checkConnection());
+    
     _timer = Timer.periodic(const Duration(seconds: 5), (_) {
-      unawaited(_checkConnection());
+      _checkConnection();
     });
+
+    ref.onDispose(() {
+      _timer?.cancel();
+    });
+
+    return true;
   }
 
   Future<void> _checkConnection() async {
@@ -39,12 +43,6 @@ class ConnectivityNotifier extends StateNotifier<bool> {
         state = false;
       }
     }
-  }
-
-  @override
-  void dispose() {
-    _timer?.cancel();
-    super.dispose();
   }
 }
 
@@ -98,3 +96,4 @@ class OfflineBanner extends ConsumerWidget {
     );
   }
 }
+
