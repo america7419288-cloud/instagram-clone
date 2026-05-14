@@ -9,6 +9,7 @@ const {
   getConversation,
   getMessages,
   sendMessage,
+  deleteMessage,
   markAsRead,
   getUnreadCount,
   leaveConversation,
