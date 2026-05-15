@@ -12,6 +12,8 @@ class SocketService {
 
   io.Socket? _socket;
   final FlutterSecureStorage _storage = const FlutterSecureStorage();
+  String _socketUrl = AppConstants.socketUrl;
+  bool _isConnecting = false;
   
   // Streams for external listeners
   final _messageController = StreamController<Map<String, dynamic>>.broadcast();
@@ -29,16 +31,28 @@ class SocketService {
   bool _isConnected = false;
   bool get isConnected => _isConnected;
 
+  void configure({required String socketUrl}) {
+    final normalizedUrl = socketUrl.trim().replaceFirst(RegExp(r'/$'), '');
+    if (normalizedUrl.isEmpty || normalizedUrl == _socketUrl) return;
+
+    _socketUrl = normalizedUrl;
+    if (_socket != null) {
+      disconnect();
+      connect();
+    }
+  }
+
   Future<void> connect() async {
-    if (_isConnected) return;
+    if (_isConnected || _isConnecting) return;
 
     final token = await _storage.read(key: AppConstants.tokenKey);
     if (token == null) return;
 
+    _isConnecting = true;
     _socket?.dispose();
     
     _socket = io.io(
-      AppConstants.socketUrl,
+      _socketUrl,
       io.OptionBuilder()
           .setPath('/socket.io')
           .setTransports(['websocket', 'polling'])
@@ -60,15 +74,29 @@ class SocketService {
 
   void _setupListeners() {
     _socket?.onConnect((_) {
+      _isConnecting = false;
       _isConnected = true;
       _connectionController.add(true);
       print('Socket Connected: ${_socket?.id}');
+
+      // Re-join active rooms on reconnection
+      for (final roomId in _activeRooms) {
+        emit(SocketEvents.joinRoom, {SocketKeys.conversationId: roomId});
+      }
     });
 
     _socket?.onDisconnect((_) {
+      _isConnecting = false;
       _isConnected = false;
       _connectionController.add(false);
       print('Socket Disconnected');
+    });
+
+    _socket?.onConnectError((error) {
+      _isConnecting = false;
+      _isConnected = false;
+      _connectionController.add(false);
+      print('Socket Connect Error: $error');
     });
 
     _socket?.on(SocketEvents.newMessage, (data) => _messageController.add(_asMap(data)));
@@ -77,6 +105,7 @@ class SocketService {
     _socket?.on(SocketEvents.userTyping, (data) => _typingController.add(_asMap(data)));
     _socket?.on(SocketEvents.inboxUpdate, (data) => _inboxController.add(_asMap(data)));
     _socket?.on(SocketEvents.onlineStatus, (data) => _presenceController.add(_asMap(data)));
+    _socket?.on(SocketEvents.onlineUsers, (data) => _presenceController.add(_asMap(data)));
     _socket?.on(SocketEvents.userOnline, (data) => _presenceController.add({..._asMap(data), 'status': 'online'}));
     _socket?.on(SocketEvents.userOffline, (data) => _presenceController.add({..._asMap(data), 'status': 'offline'}));
   }
@@ -88,14 +117,29 @@ class SocketService {
   }
 
   void emit(String event, dynamic data) {
-    if (_isConnected) {
-      _socket?.emit(event, data);
-    }
+    print('📤 Socket Emit: $event - $data');
+    _socket?.emit(event, data);
   }
 
   // Helper methods for specific actions
-  void joinRoom(String conversationId) => emit(SocketEvents.joinRoom, {SocketKeys.conversationId: conversationId});
-  void leaveRoom(String conversationId) => emit(SocketEvents.leaveRoom, {SocketKeys.conversationId: conversationId});
+  void checkOnline(List<String> userIds) {
+    print('📡 Checking online status for: $userIds');
+    emit(SocketEvents.checkOnline, {'user_ids': userIds});
+  }
+
+  final Set<String> _activeRooms = {};
+
+  void joinRoom(String conversationId) {
+    _activeRooms.add(conversationId);
+    if (_isConnected) {
+      emit(SocketEvents.joinRoom, {SocketKeys.conversationId: conversationId});
+    }
+  }
+
+  void leaveRoom(String conversationId) {
+    _activeRooms.remove(conversationId);
+    emit(SocketEvents.leaveRoom, {SocketKeys.conversationId: conversationId});
+  }
   void sendMessage(Map<String, dynamic> message) => emit(SocketEvents.sendMessage, message);
   void setTyping(String conversationId, bool isTyping) {
     emit(isTyping ? SocketEvents.typing : SocketEvents.stopTyping, {SocketKeys.conversationId: conversationId});
@@ -105,6 +149,7 @@ class SocketService {
     _socket?.disconnect();
     _socket?.dispose();
     _socket = null;
+    _isConnecting = false;
     _isConnected = false;
     _connectionController.add(false);
   }

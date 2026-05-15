@@ -1,0 +1,420 @@
+import 'package:flutter/cupertino.dart';
+import 'package:flutter/services.dart';
+import 'package:lucide_icons/lucide_icons.dart';
+import 'chat_ui_constants.dart';
+
+class MessageBubbleWrapper extends StatefulWidget {
+  final Widget child;
+  final bool isSent;
+  final bool isFirstInGroup;
+  final bool isLastInGroup;
+  final String? senderAvatar;
+  final VoidCallback onReply;
+  final VoidCallback onDoubleTap;
+  final VoidCallback onLongPress;
+  final Widget? statusRow;
+  final Widget? reactionsChip;
+  final Widget? replyQuote;
+
+  const MessageBubbleWrapper({
+    super.key,
+    required this.child,
+    required this.isSent,
+    required this.isFirstInGroup,
+    required this.isLastInGroup,
+    this.senderAvatar,
+    required this.onReply,
+    required this.onDoubleTap,
+    required this.onLongPress,
+    this.statusRow,
+    this.reactionsChip,
+    this.replyQuote,
+  });
+
+  @override
+  State<MessageBubbleWrapper> createState() => _MessageBubbleWrapperState();
+}
+
+class _MessageBubbleWrapperState extends State<MessageBubbleWrapper>
+    with SingleTickerProviderStateMixin {
+  double _dragOffset = 0.0;
+  static const double _maxDragOffset = 72.0;
+  static const double _replyThreshold = 50.0;
+  bool _thresholdReached = false;
+
+  @override
+  Widget build(BuildContext context) {
+    return Padding(
+      padding: EdgeInsets.only(
+        left: 8,
+        right: 8,
+        top: widget.isFirstInGroup ? 8 : 2,
+        bottom: widget.isLastInGroup ? 4 : 0,
+      ),
+      child: Stack(
+        clipBehavior: Clip.none,
+        children: [
+          // Reply Icon Indicator
+          if (_dragOffset != 0)
+            Positioned(
+              left: widget.isSent ? null : -40 + (_dragOffset.abs() * 0.5),
+              right: widget.isSent ? -40 + (_dragOffset.abs() * 0.5) : null,
+              top: 0,
+              bottom: 0,
+              child: Center(
+                child: Opacity(
+                  opacity: (_dragOffset.abs() / _maxDragOffset).clamp(0.0, 1.0),
+                  child: Transform.scale(
+                    scale:
+                        0.5 +
+                        ((_dragOffset.abs() / _maxDragOffset).clamp(0.0, 1.0) *
+                            0.5),
+                    child: const Icon(
+                      LucideIcons.cornerUpLeft,
+                      size: 20,
+                      color: ChatUIConstants.textSecondaryLight,
+                    ),
+                  ),
+                ),
+              ),
+            ),
+
+          GestureDetector(
+            onHorizontalDragUpdate: (details) {
+              setState(() {
+                if (widget.isSent) {
+                  // Sent: swipe left (delta.dx < 0)
+                  if (details.delta.dx < 0 || _dragOffset < 0) {
+                    _dragOffset = (_dragOffset + details.delta.dx).clamp(
+                      -_maxDragOffset,
+                      0.0,
+                    );
+                  }
+                } else {
+                  // Received: swipe right (delta.dx > 0)
+                  if (details.delta.dx > 0 || _dragOffset > 0) {
+                    _dragOffset = (_dragOffset + details.delta.dx).clamp(
+                      0.0,
+                      _maxDragOffset,
+                    );
+                  }
+                }
+
+                if (_dragOffset.abs() >= _replyThreshold &&
+                    !_thresholdReached) {
+                  _thresholdReached = true;
+                  HapticFeedback.mediumImpact();
+                } else if (_dragOffset.abs() < _replyThreshold) {
+                  _thresholdReached = false;
+                }
+              });
+            },
+            onHorizontalDragEnd: (details) {
+              if (_thresholdReached) {
+                widget.onReply();
+              }
+              setState(() {
+                _dragOffset = 0.0;
+                _thresholdReached = false;
+              });
+            },
+            onDoubleTap: () {
+              HapticFeedback.lightImpact();
+              widget.onDoubleTap();
+            },
+            onLongPress: () {
+              HapticFeedback.heavyImpact();
+              widget.onLongPress();
+            },
+            child: Transform.translate(
+              offset: Offset(_dragOffset, 0),
+              child: Row(
+                mainAxisAlignment: widget.isSent
+                    ? MainAxisAlignment.end
+                    : MainAxisAlignment.start,
+                crossAxisAlignment: CrossAxisAlignment.end,
+                children: [
+                  if (!widget.isSent) ...[
+                    _buildAvatar(),
+                    const SizedBox(width: 6),
+                  ],
+                  _buildBubbleColumn(),
+                ],
+              ),
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+
+  Widget _buildAvatar() {
+    return SizedBox(
+      width: 28,
+      height: 28,
+      child: widget.isLastInGroup && widget.senderAvatar != null
+          ? Container(
+              width: 28,
+              height: 28,
+              decoration: BoxDecoration(
+                shape: BoxShape.circle,
+                color: ChatUIConstants.separatorLight,
+                image: DecorationImage(
+                  image: NetworkImage(widget.senderAvatar!),
+                  fit: BoxFit.cover,
+                ),
+              ),
+            )
+          : const SizedBox.shrink(),
+    );
+  }
+
+  Widget _buildBubbleColumn() {
+    return Column(
+      crossAxisAlignment: widget.isSent
+          ? CrossAxisAlignment.end
+          : CrossAxisAlignment.start,
+      children: [
+        if (widget.replyQuote != null) widget.replyQuote!,
+        widget.child,
+        if (widget.reactionsChip != null) widget.reactionsChip!,
+        if (widget.isSent && widget.isLastInGroup && widget.statusRow != null)
+          widget.statusRow!,
+      ],
+    );
+  }
+}
+
+class StatusRow extends StatelessWidget {
+  final String status; // 'sending', 'sent', 'delivered', 'seen', 'failed'
+
+  const StatusRow({super.key, required this.status});
+
+  @override
+  Widget build(BuildContext context) {
+    return Padding(
+      padding: const EdgeInsets.only(top: 3, right: 2),
+      child: Row(
+        mainAxisSize: MainAxisSize.min,
+        children: [
+          if (status == 'seen') ...[
+            const Text(
+              "Seen",
+              style: const TextStyle(
+                fontSize: 11,
+                color: ChatUIConstants.verifiedBlue,
+                decoration: TextDecoration.none,
+              ),
+            ),
+            const SizedBox(width: 2),
+          ],
+          if (status == 'failed') ...[
+            const Text(
+              "Failed",
+              style: const TextStyle(
+                fontSize: 11,
+                color: ChatUIConstants.likeRed,
+                decoration: TextDecoration.none,
+              ),
+            ),
+            const SizedBox(width: 2),
+          ],
+          _buildIcon(),
+        ],
+      ),
+    );
+  }
+
+  Widget _buildIcon() {
+    switch (status) {
+      case 'sending':
+        return const Icon(
+          LucideIcons.clock,
+          size: 11,
+          color: ChatUIConstants.textSecondaryLight,
+        );
+      case 'sent':
+        return const Icon(
+          LucideIcons.check,
+          size: 11,
+          color: ChatUIConstants.textSecondaryLight,
+        );
+      case 'delivered':
+        return const Icon(
+          LucideIcons.checkCheck,
+          size: 11,
+          color: ChatUIConstants.textSecondaryLight,
+        );
+      case 'seen':
+        return const Icon(
+          LucideIcons.checkCheck,
+          size: 11,
+          color: ChatUIConstants.verifiedBlue,
+        );
+      case 'failed':
+        return const Icon(
+          LucideIcons.alertCircle,
+          size: 11,
+          color: ChatUIConstants.likeRed,
+        );
+      default:
+        return const SizedBox.shrink();
+    }
+  }
+}
+
+class ReplyQuoteBox extends StatelessWidget {
+  final String username;
+  final String text;
+  final String? imageUrl;
+  final bool isSent;
+
+  const ReplyQuoteBox({
+    super.key,
+    required this.username,
+    required this.text,
+    this.imageUrl,
+    required this.isSent,
+  });
+
+  @override
+  Widget build(BuildContext context) {
+    final isDark = CupertinoTheme.of(context).brightness == Brightness.dark;
+
+    final bgColor = isSent
+        ? CupertinoColors.black.withOpacity(0.18)
+        : (isDark
+              ? CupertinoColors.white.withOpacity(0.07)
+              : CupertinoColors.black.withOpacity(0.05));
+
+    final accentColor = isSent
+        ? CupertinoColors.white.withOpacity(0.55)
+        : ChatUIConstants.verifiedBlue;
+    final nameColor = isSent
+        ? CupertinoColors.white.withOpacity(0.85)
+        : ChatUIConstants.verifiedBlue;
+    final textColor = isSent
+        ? CupertinoColors.white.withOpacity(0.60)
+        : (isDark
+              ? ChatUIConstants.textSecondaryDark
+              : ChatUIConstants.textSecondaryLight);
+
+    return Container(
+      margin: const EdgeInsets.only(bottom: 4),
+      constraints: const BoxConstraints(maxWidth: 260),
+      padding: const EdgeInsets.all(10),
+      decoration: BoxDecoration(
+        color: bgColor,
+        borderRadius: BorderRadius.circular(14),
+      ),
+      child: IntrinsicHeight(
+        child: Row(
+          children: [
+            Container(
+              width: 3,
+              decoration: BoxDecoration(
+                color: accentColor,
+                borderRadius: BorderRadius.circular(2),
+              ),
+            ),
+            const SizedBox(width: 8),
+            Expanded(
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Text(
+                    username,
+                    style: TextStyle(
+                      fontSize: 12,
+                      fontWeight: FontWeight.w600,
+                      color: nameColor,
+                      decoration: TextDecoration.none,
+                    ),
+                  ),
+                  const SizedBox(height: 2),
+                  Text(
+                    text,
+                    maxLines: 1,
+                    overflow: TextOverflow.ellipsis,
+                    style: TextStyle(
+                      fontSize: 12,
+                      fontWeight: FontWeight.w400,
+                      color: textColor,
+                      decoration: TextDecoration.none,
+                    ),
+                  ),
+                ],
+              ),
+            ),
+            if (imageUrl != null) ...[
+              const SizedBox(width: 8),
+              ClipRRect(
+                borderRadius: BorderRadius.circular(6),
+                child: Image.network(
+                  imageUrl!,
+                  width: 36,
+                  height: 36,
+                  fit: BoxFit.cover,
+                ),
+              ),
+            ],
+          ],
+        ),
+      ),
+    );
+  }
+}
+
+class ReactionsChip extends StatelessWidget {
+  final Map<String, int> reactions;
+  final bool isSent;
+
+  const ReactionsChip({
+    super.key,
+    required this.reactions,
+    required this.isSent,
+  });
+
+  @override
+  Widget build(BuildContext context) {
+    final isDark = CupertinoTheme.of(context).brightness == Brightness.dark;
+
+    return Container(
+      margin: EdgeInsets.only(
+        top: 4,
+        left: isSent ? 0 : 32,
+        right: isSent ? 4 : 0,
+      ),
+      padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 3),
+      decoration: BoxDecoration(
+        color: isDark ? const Color(0xFF2C2C2C) : CupertinoColors.white,
+        borderRadius: BorderRadius.circular(14),
+        border: Border.all(
+          color: isDark ? const Color(0xFF3A3A3C) : const Color(0xFFEFEFEF),
+        ),
+        boxShadow: [
+          BoxShadow(
+            color: CupertinoColors.black.withOpacity(0.07),
+            blurRadius: 6,
+            offset: const Offset(0, 1),
+          ),
+        ],
+      ),
+      child: Row(
+        mainAxisSize: MainAxisSize.min,
+        children: reactions.entries.map((e) {
+          return Padding(
+            padding: const EdgeInsets.only(right: 2),
+            child: Text(
+              "${e.key}${e.value > 1 ? " ${e.value}" : ""}",
+              style: const TextStyle(
+                fontSize: 13,
+                decoration: TextDecoration.none,
+              ),
+            ),
+          );
+        }).toList(),
+      ),
+    );
+  }
+}

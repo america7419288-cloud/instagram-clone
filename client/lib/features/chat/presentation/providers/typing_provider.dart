@@ -4,6 +4,7 @@ import '../../../../core/socket/socket_provider.dart';
 import '../../../../core/socket/socket_events.dart';
 import '../../data/repositories/message_repository.dart';
 import 'chat_providers.dart';
+import '../../../auth/presentation/providers/auth_provider.dart';
 
 class TypingState {
   final Set<String> typingUserIds;
@@ -13,6 +14,8 @@ class TypingState {
     this.typingUserIds = const {},
     this.amITyping = false,
   });
+
+  bool get isTyping => typingUserIds.isNotEmpty;
 
   TypingState copyWith({
     Set<String>? typingUserIds,
@@ -27,11 +30,10 @@ class TypingState {
 
 // Riverpod 3.x: FamilyNotifier removed — use Notifier with constructor injection
 class TypingNotifier extends Notifier<TypingState> {
-  final String conversationId;
+  late String conversationId;
   final Map<String, Timer> _typingTimers = {};
+  StreamSubscription? _typingSub;
   Timer? _stopTypingTimer;
-
-  TypingNotifier(this.conversationId);
 
   @override
   TypingState build() {
@@ -43,6 +45,7 @@ class TypingNotifier extends Notifier<TypingState> {
       for (final t in _typingTimers.values) {
         t.cancel();
       }
+      _typingSub?.cancel();
       _stopTypingTimer?.cancel();
     });
 
@@ -50,15 +53,20 @@ class TypingNotifier extends Notifier<TypingState> {
   }
 
   void _listenToTyping(socket) {
-    final sub = socket.typingStream.listen((data) {
+    _typingSub?.cancel();
+    _typingSub = socket.typingStream.listen((data) {
       if (data[SocketKeys.conversationId] != conversationId) return;
 
       final userId = data[SocketKeys.userId] as String?;
-      final isTyping = data['isTyping'] as bool? ?? true;
+      final isTyping = data[SocketKeys.isTyping] as bool? ?? true;
 
       if (userId == null) return;
 
       if (isTyping) {
+        // Don't show myself as typing
+        final currentUserId = ref.read(authProvider).user?.id;
+        if (userId == currentUserId) return;
+
         final newTypingUsers = Set<String>.from(state.typingUserIds)..add(userId);
         state = state.copyWith(typingUserIds: newTypingUsers);
 
@@ -73,11 +81,18 @@ class TypingNotifier extends Notifier<TypingState> {
         _typingTimers[userId]?.cancel();
       }
     });
-
-    ref.onDispose(() => sub.cancel());
   }
 
-  void onTyping() {
+  void onTextChanged(String text) {
+    if (text.isEmpty) {
+      if (state.amITyping) {
+        state = state.copyWith(amITyping: false);
+        ref.read(messageRepositoryProvider).setTyping(conversationId, false);
+      }
+      _stopTypingTimer?.cancel();
+      return;
+    }
+
     if (!state.amITyping) {
       state = state.copyWith(amITyping: true);
       ref.read(messageRepositoryProvider).setTyping(conversationId, true);
@@ -92,5 +107,5 @@ class TypingNotifier extends Notifier<TypingState> {
 }
 
 final typingProvider = NotifierProvider.family<TypingNotifier, TypingState, String>(
-  (conversationId) => TypingNotifier(conversationId),
+  (id) => TypingNotifier()..conversationId = id,
 );

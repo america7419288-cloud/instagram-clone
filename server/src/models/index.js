@@ -382,6 +382,18 @@ Message.belongsTo(Post, {
   constraints: false,
 });
 
+Message.belongsTo(Reel, {
+  foreignKey: 'shared_post_id',
+  as: 'sharedReel',
+  constraints: false,
+});
+
+Message.belongsTo(Story, {
+  foreignKey: 'shared_post_id',
+  as: 'sharedStory',
+  constraints: false,
+});
+
 // CONVERSATION → CREATOR
 Conversation.belongsTo(User, {
   foreignKey: 'created_by',

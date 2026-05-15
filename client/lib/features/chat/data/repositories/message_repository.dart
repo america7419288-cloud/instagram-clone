@@ -16,9 +16,9 @@ class MessageRepository {
     required ChatApi api,
     required SocketService socket,
     required ChatLocalDb localDb,
-  })  : _api = api,
-        _socket = socket,
-        _localDb = localDb;
+  }) : _api = api,
+       _socket = socket,
+       _localDb = localDb;
 
   // Stream of socket events related to messages
   Stream<Map<String, dynamic>> get onMessageEvent => _socket.messageStream;
@@ -34,14 +34,34 @@ class MessageRepository {
     }
   }
 
-  Future<List<Message>> getMessages(String conversationId, {String? before}) async {
+  Future<List<Message>> getMessages(
+    String conversationId, {
+    String? before,
+  }) async {
     try {
+      final cachedMessages = _localDb.getMessages(conversationId);
       final messages = await _api.getMessages(conversationId, before: before);
-      await _localDb.saveMessages(messages);
+      if (before == null && messages.isEmpty && cachedMessages.isNotEmpty) {
+        return cachedMessages;
+      }
+
+      if (before == null) {
+        await _localDb.replaceMessages(conversationId, messages);
+      } else {
+        await _localDb.saveMessages(messages);
+      }
       return messages;
     } catch (e) {
       return _localDb.getMessages(conversationId);
     }
+  }
+
+  List<Message> getCachedMessages(String conversationId) {
+    return _localDb.getMessages(conversationId);
+  }
+
+  Future<void> saveMessage(Message message) async {
+    await _localDb.saveMessage(message);
   }
 
   Future<Message> sendMessage(
@@ -81,29 +101,39 @@ class MessageRepository {
         postId: postId,
         replyToId: replyToId,
       );
-      
+
       // Remove optimistic and save real
       await _localDb.deleteMessage(effectiveTempId);
       await _localDb.saveMessage(message);
-      
+
       return message;
     } catch (e) {
-      final errorMessage = optimisticMessage.copyWith(isSending: false, hasError: true);
+      final errorMessage = optimisticMessage.copyWith(
+        isSending: false,
+        hasError: true,
+      );
       await _localDb.saveMessage(errorMessage);
       rethrow;
     }
   }
 
-  void joinConversation(String conversationId) => _socket.joinRoom(conversationId);
-  void leaveConversation(String conversationId) => _socket.leaveRoom(conversationId);
-  void setTyping(String conversationId, bool isTyping) => _socket.setTyping(conversationId, isTyping);
+  void joinConversation(String conversationId) =>
+      _socket.joinRoom(conversationId);
+  void leaveConversation(String conversationId) =>
+      _socket.leaveRoom(conversationId);
+  void setTyping(String conversationId, bool isTyping) =>
+      _socket.setTyping(conversationId, isTyping);
 
   Future<void> deleteMessage(String conversationId, String messageId) async {
     await _api.deleteMessage(conversationId, messageId);
     await _localDb.deleteMessage(messageId);
   }
 
-  Future<void> addReaction(String conversationId, String messageId, String emoji) async {
+  Future<void> addReaction(
+    String conversationId,
+    String messageId,
+    String emoji,
+  ) async {
     await _api.addReaction(conversationId, messageId, emoji);
     final message = _localDb.getMessage(messageId);
     if (message != null) {

@@ -23,34 +23,34 @@ import '../../../story/presentation/providers/story_provider.dart';
 // AUTH STATE
 // ─────────────────────────────────────────────────────
 class AuthState {
-  final bool      isAuthenticated;
-  final bool      isLoading;
+  final bool isAuthenticated;
+  final bool isLoading;
   final UserModel? user;
-  final String?   error;
+  final String? error;
   final List<SavedAccountModel> savedAccounts;
 
   const AuthState({
     this.isAuthenticated = false,
-    this.isLoading       = true,
+    this.isLoading = true,
     this.user,
     this.error,
-    this.savedAccounts   = const [],
+    this.savedAccounts = const [],
   });
 
   AuthState copyWith({
-    bool?      isAuthenticated,
-    bool?      isLoading,
+    bool? isAuthenticated,
+    bool? isLoading,
     UserModel? user,
-    String?    error,
-    bool       clearError = false,
+    String? error,
+    bool clearError = false,
     List<SavedAccountModel>? savedAccounts,
   }) {
     return AuthState(
       isAuthenticated: isAuthenticated ?? this.isAuthenticated,
-      isLoading:       isLoading       ?? this.isLoading,
-      user:            user            ?? this.user,
-      error:           clearError ? null : (error ?? this.error),
-      savedAccounts:   savedAccounts   ?? this.savedAccounts,
+      isLoading: isLoading ?? this.isLoading,
+      user: user ?? this.user,
+      error: clearError ? null : (error ?? this.error),
+      savedAccounts: savedAccounts ?? this.savedAccounts,
     );
   }
 
@@ -61,8 +61,8 @@ class AuthState {
 // AUTH NOTIFIER
 // ─────────────────────────────────────────────────────
 class AuthNotifier extends Notifier<AuthState> {
-  late AuthService      _authService;
-  late AccountManager   _accountManager;
+  late AuthService _authService;
+  late AccountManager _accountManager;
   final FlutterSecureStorage _storage = const FlutterSecureStorage(
     aOptions: AndroidOptions(encryptedSharedPreferences: true),
   );
@@ -71,28 +71,23 @@ class AuthNotifier extends Notifier<AuthState> {
   AuthState build() {
     _authService = ref.watch(authServiceProvider);
     _accountManager = ref.watch(accountManagerProvider);
-    
+
     // Initialize state
     Future.microtask(() => _init());
-    
+
     return const AuthState();
   }
 
   // ─── Initialize: check stored token ──────────────────
   Future<void> _init() async {
     try {
-      final token = await _storage.read(
-        key: AppConstants.accessTokenKey,
-      );
+      final token = await _storage.read(key: AppConstants.accessTokenKey);
 
       // ─── Load saved accounts ──────────────────────────
       final accounts = await _accountManager.getSavedAccounts();
 
       if (token == null) {
-        state = state.copyWith(
-          isLoading:     false,
-          savedAccounts: accounts,
-        );
+        state = state.copyWith(isLoading: false, savedAccounts: accounts);
         return;
       }
 
@@ -103,9 +98,11 @@ class AuthNotifier extends Notifier<AuthState> {
       } catch (_) {
         // If getMe() fails, try to get user data from local storage
         final userId = await _storage.read(key: '${AppConstants.userKey}_id');
-        final username = await _storage.read(key: '${AppConstants.userKey}_username');
+        final username = await _storage.read(
+          key: '${AppConstants.userKey}_username',
+        );
         final email = await _storage.read(key: '${AppConstants.userKey}_email');
-        
+
         if (userId != null && username != null && email != null) {
           user = UserModel(
             id: userId,
@@ -127,9 +124,9 @@ class AuthNotifier extends Notifier<AuthState> {
 
       state = state.copyWith(
         isAuthenticated: user != null,
-        isLoading:       false,
-        user:            user,
-        savedAccounts:   accounts,
+        isLoading: false,
+        user: user,
+        savedAccounts: accounts,
       );
 
       if (user != null) {
@@ -151,46 +148,44 @@ class AuthNotifier extends Notifier<AuthState> {
 
     try {
       _disconnectSocket();
-      _clearUserScopedProviders();
+      await _clearUserScopedProviders();
 
       final result = await _authService.login(
         identifier: identifier,
-        password:   password,
+        password: password,
       );
 
-      final accessToken  = result.accessToken;
+      final accessToken = result.accessToken;
       final refreshToken = result.refreshToken;
-      final user         = result.user;
+      final user = result.user;
 
       // ─── Save tokens (main) ───────────────────────────
       await _storage.write(
-        key:   AppConstants.accessTokenKey,
+        key: AppConstants.accessTokenKey,
         value: accessToken,
       );
       await _storage.write(
-        key:   AppConstants.refreshTokenKey,
+        key: AppConstants.refreshTokenKey,
         value: refreshToken,
       );
 
       // ─── Save to account manager ──────────────────────
       final savedAccount = SavedAccountModel(
-        userId:         user.id,
-        username:       user.username,
-        email:          user.email,
-        fullName:       user.fullName,
+        userId: user.id,
+        username: user.username,
+        email: user.email,
+        fullName: user.fullName,
         profilePicture: user.profilePicture,
-        accessToken:    accessToken,
-        refreshToken:   refreshToken,
-        isActive:       true,
+        accessToken: accessToken,
+        refreshToken: refreshToken,
+        isActive: true,
       );
 
       // Mark all others as inactive
       final currentAccounts = await _accountManager.getSavedAccounts();
       for (final acc in currentAccounts) {
         if (acc.userId != user.id) {
-          await _accountManager.saveAccount(
-            acc.copyWith(isActive: false),
-          );
+          await _accountManager.saveAccount(acc.copyWith(isActive: false));
         }
       }
 
@@ -199,21 +194,21 @@ class AuthNotifier extends Notifier<AuthState> {
 
       state = state.copyWith(
         isAuthenticated: true,
-        isLoading:       false,
-        user:            user,
-        savedAccounts:   updatedAccounts,
+        isLoading: false,
+        user: user,
+        savedAccounts: updatedAccounts,
       );
 
       _connectSocket(accessToken);
       _refreshUserScopedProviders();
-      
+
       // ─── Register FCM token after login ────────────────
       _registerPushToken();
       return true;
     } catch (e) {
       state = state.copyWith(
         isLoading: false,
-        error:     e.toString().replaceAll('Exception: ', ''),
+        error: e.toString().replaceAll('Exception: ', ''),
       );
       rethrow;
     }
@@ -231,47 +226,47 @@ class AuthNotifier extends Notifier<AuthState> {
 
     try {
       _disconnectSocket();
-      _clearUserScopedProviders();
+      await _clearUserScopedProviders();
 
       final result = await _authService.register(
         username: username,
-        email:    email,
+        email: email,
         password: password,
         fullName: fullName,
         profileImage: profileImage,
       );
 
-      final accessToken  = result.accessToken;
+      final accessToken = result.accessToken;
       final refreshToken = result.refreshToken;
-      final user         = result.user;
+      final user = result.user;
 
       await _storage.write(
-        key:   AppConstants.accessTokenKey,
+        key: AppConstants.accessTokenKey,
         value: accessToken,
       );
       await _storage.write(
-        key:   AppConstants.refreshTokenKey,
+        key: AppConstants.refreshTokenKey,
         value: refreshToken,
       );
 
       final savedAccount = SavedAccountModel(
-        userId:         user.id,
-        username:       user.username,
-        email:          user.email,
-        fullName:       user.fullName,
+        userId: user.id,
+        username: user.username,
+        email: user.email,
+        fullName: user.fullName,
         profilePicture: user.profilePicture,
-        accessToken:    accessToken,
-        refreshToken:   refreshToken,
-        isActive:       true,
+        accessToken: accessToken,
+        refreshToken: refreshToken,
+        isActive: true,
       );
       await _accountManager.saveAccount(savedAccount);
       final updatedAccounts = await _accountManager.getSavedAccounts();
 
       state = state.copyWith(
         isAuthenticated: true,
-        isLoading:       false,
-        user:            user,
-        savedAccounts:   updatedAccounts,
+        isLoading: false,
+        user: user,
+        savedAccounts: updatedAccounts,
       );
 
       _connectSocket(accessToken);
@@ -283,7 +278,7 @@ class AuthNotifier extends Notifier<AuthState> {
     } catch (e) {
       state = state.copyWith(
         isLoading: false,
-        error:     e.toString().replaceAll('Exception: ', ''),
+        error: e.toString().replaceAll('Exception: ', ''),
       );
       rethrow;
     }
@@ -298,7 +293,7 @@ class AuthNotifier extends Notifier<AuthState> {
     try {
       // ─── Disconnect current socket ────────────────────
       _disconnectSocket();
-      _clearUserScopedProviders();
+      await _clearUserScopedProviders();
 
       // ─── Set new active account ───────────────────────
       await _accountManager.setActiveAccount(userId);
@@ -311,7 +306,7 @@ class AuthNotifier extends Notifier<AuthState> {
       if (active != null && user != null) {
         await _accountManager.saveAccount(
           active.copyWith(
-            fullName:       user.fullName,
+            fullName: user.fullName,
             profilePicture: user.profilePicture,
           ),
         );
@@ -321,26 +316,24 @@ class AuthNotifier extends Notifier<AuthState> {
 
       state = state.copyWith(
         isAuthenticated: true,
-        isLoading:       false,
-        user:            user,
-        savedAccounts:   updatedAccounts,
+        isLoading: false,
+        user: user,
+        savedAccounts: updatedAccounts,
       );
 
       // ─── Connect socket for new account ───────────────
-      final token = await _storage.read(
-        key: AppConstants.accessTokenKey,
-      );
+      final token = await _storage.read(key: AppConstants.accessTokenKey);
       if (token != null) {
         _connectSocket(token);
         _refreshUserScopedProviders();
-        
+
         // ─── Register FCM token for new account ───────────
         _registerPushToken();
       }
     } catch (e) {
       state = state.copyWith(
         isLoading: false,
-        error:     e.toString().replaceAll('Exception: ', ''),
+        error: e.toString().replaceAll('Exception: ', ''),
       );
     }
   }
@@ -354,7 +347,7 @@ class AuthNotifier extends Notifier<AuthState> {
     } catch (_) {}
 
     _disconnectSocket();
-    _clearUserScopedProviders();
+    await _clearUserScopedProviders();
 
     final currentUserId = state.user?.id;
     if (currentUserId != null) {
@@ -370,16 +363,14 @@ class AuthNotifier extends Notifier<AuthState> {
 
       try {
         final user = await _authService.getMe();
-        final token = await _storage.read(
-          key: AppConstants.accessTokenKey,
-        );
+        final token = await _storage.read(key: AppConstants.accessTokenKey);
         final updatedAccounts = await _accountManager.getSavedAccounts();
 
         state = state.copyWith(
           isAuthenticated: true,
-          isLoading:       false,
-          user:            user,
-          savedAccounts:   updatedAccounts,
+          isLoading: false,
+          user: user,
+          savedAccounts: updatedAccounts,
         );
 
         if (token != null) {
@@ -396,8 +387,8 @@ class AuthNotifier extends Notifier<AuthState> {
 
     state = const AuthState(
       isAuthenticated: false,
-      isLoading:       false,
-      savedAccounts:   [],
+      isLoading: false,
+      savedAccounts: [],
     );
   }
 
@@ -409,13 +400,13 @@ class AuthNotifier extends Notifier<AuthState> {
     } catch (_) {}
 
     _disconnectSocket();
-    _clearUserScopedProviders();
+    await _clearUserScopedProviders();
     await _accountManager.clearAll();
 
     state = const AuthState(
       isAuthenticated: false,
-      isLoading:       false,
-      savedAccounts:   [],
+      isLoading: false,
+      savedAccounts: [],
     );
   }
 
@@ -437,13 +428,13 @@ class AuthNotifier extends Notifier<AuthState> {
     try {
       final user = await _authService.getMe();
       if (user == null) return;
-      
+
       state = state.copyWith(user: user);
 
       // ─── Update avatar in saved accounts ──────────────
       if (state.user != null) {
         await _accountManager.updateAccountAvatar(
-          userId:         state.user!.id,
+          userId: state.user!.id,
           profilePicture: user.profilePicture,
         );
       }
@@ -476,7 +467,7 @@ class AuthNotifier extends Notifier<AuthState> {
     } catch (_) {}
   }
 
-  void _clearUserScopedProviders() {
+  Future<void> _clearUserScopedProviders() async {
     ref.invalidate(feedProvider);
     ref.invalidate(storyFeedProvider);
     ref.invalidate(notificationProvider);
@@ -485,7 +476,7 @@ class AuthNotifier extends Notifier<AuthState> {
     ref.invalidate(profileProvider);
 
     // Clear local chat cache
-    ref.read(messageRepositoryProvider).clearLocalCache();
+    await ref.read(messageRepositoryProvider).clearLocalCache();
   }
 
   void _refreshUserScopedProviders() {
@@ -537,4 +528,3 @@ final isAuthenticatedProvider = Provider<bool>((ref) {
 final authLoadingProvider = Provider<bool>((ref) {
   return ref.watch(authProvider).isLoading;
 });
-

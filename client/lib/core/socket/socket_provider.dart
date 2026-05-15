@@ -2,6 +2,7 @@
 
 import 'dart:async';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
+import '../providers/server_config_provider.dart';
 import 'socket_service.dart';
 import 'socket_events.dart';
 
@@ -57,6 +58,28 @@ class SocketNotifier extends Notifier<SocketState> {
     }));
 
     _subscriptions.add(_socketService.presenceStream.listen((data) {
+      if (data.containsKey('statuses')) {
+        final statuses = data['statuses'] as Map<String, dynamic>;
+        final updated = Set<String>.from(state.onlineUserIds);
+        statuses.forEach((id, isOnline) {
+          if (isOnline == true) {
+            updated.add(id);
+          } else {
+            updated.remove(id);
+          }
+        });
+        state = state.copyWith(onlineUserIds: updated);
+        return;
+      }
+
+      if (data.containsKey('online_user_ids')) {
+        final ids = data['online_user_ids'] as List<dynamic>;
+        state = state.copyWith(
+          onlineUserIds: ids.map((e) => e.toString()).toSet(),
+        );
+        return;
+      }
+
       final userId = data[SocketKeys.userId] as String?;
       final status = data['status'] as String?;
       if (userId == null) return;
@@ -96,7 +119,12 @@ class SocketNotifier extends Notifier<SocketState> {
 }
 
 // ─── PROVIDERS ──────────────────────────────────────────────
-final socketServiceProvider = Provider<SocketService>((ref) => SocketService());
+final socketServiceProvider = Provider<SocketService>((ref) {
+  final config = ref.watch(serverConfigProvider);
+  final service = SocketService();
+  service.configure(socketUrl: config.socketUrl);
+  return service;
+});
 
 final socketProvider = NotifierProvider<SocketNotifier, SocketState>(
   SocketNotifier.new,
@@ -105,4 +133,3 @@ final socketProvider = NotifierProvider<SocketNotifier, SocketState>(
 final isSocketConnectedProvider = Provider<bool>((ref) {
   return ref.watch(socketProvider).isConnected;
 });
-

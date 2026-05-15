@@ -107,22 +107,22 @@ class _InstagramHeartAnimationState extends State<InstagramHeartAnimation>
 
     _opacity = TweenSequence<double>([
       TweenSequenceItem(
-        tween: Tween<double>(begin: 0.0, end: 1.0),
-        weight: 10.0,
+        tween: Tween<double>(begin: 0.0, end: 1.0).chain(CurveTween(curve: Curves.easeIn)),
+        weight: 20,
       ),
       TweenSequenceItem(
-        tween: ConstantTween<double>(1.0),
-        weight: 70.0,
+        tween: Tween<double>(begin: 1.0, end: 1.0).chain(CurveTween(curve: Curves.linear)),
+        weight: 60,
       ),
       TweenSequenceItem(
-        tween: Tween<double>(begin: 1.0, end: 0.0),
-        weight: 20.0,
+        tween: Tween<double>(begin: 1.0, end: 0.0).chain(CurveTween(curve: Curves.easeOut)),
+        weight: 20,
       ),
     ]).animate(_controller);
 
     if (widget.isAnimating) {
       _controller.forward().then((_) {
-        widget.onEnd();
+        if (mounted) widget.onEnd();
       });
     }
   }

@@ -180,9 +180,8 @@ class _NewMessagePageState extends ConsumerState<NewMessagePage> {
                 extra: <String, dynamic>{
                   'username': conversation.name ?? user.username,
                   'avatarUrl': conversation.avatarUrl,
-                  'isVerified': conversation.participants.isNotEmpty
-                      ? conversation.participants.first.isVerified
-                      : false,
+                  'isVerified':
+                      conversation.otherUser?.isVerified ?? user.isVerified,
                 },
               );
             } catch (e) {

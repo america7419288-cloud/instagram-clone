@@ -25,13 +25,14 @@ class ConversationAdapter extends TypeAdapter<Conversation> {
       unreadCount: fields[5] == null ? 0 : (fields[5] as num).toInt(),
       participants: (fields[6] as List).cast<ChatUser>(),
       updatedAt: fields[7] as DateTime,
+      otherUser: fields[8] as ChatUser?,
     );
   }
 
   @override
   void write(BinaryWriter writer, Conversation obj) {
     writer
-      ..writeByte(8)
+      ..writeByte(9)
       ..writeByte(0)
       ..write(obj.id)
       ..writeByte(1)
@@ -47,7 +48,9 @@ class ConversationAdapter extends TypeAdapter<Conversation> {
       ..writeByte(6)
       ..write(obj.participants)
       ..writeByte(7)
-      ..write(obj.updatedAt);
+      ..write(obj.updatedAt)
+      ..writeByte(8)
+      ..write(obj.otherUser);
   }
 
   @override

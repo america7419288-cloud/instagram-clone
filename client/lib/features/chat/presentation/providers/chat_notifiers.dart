@@ -60,7 +60,7 @@ class InboxNotifier extends Notifier<InboxState> {
     _inboxSub = ref.read(socketServiceProvider).inboxStream.listen((data) {
       loadConversations();
     });
-    
+
     ref.onDispose(() {
       _socketSub?.cancel();
       _inboxSub?.cancel();
@@ -70,6 +70,11 @@ class InboxNotifier extends Notifier<InboxState> {
   Future<void> refresh() => loadConversations();
 
   Future<Conversation> createConversation(String participantId) async {
+    final currentUserId = ref.read(currentUserProvider)?.id;
+    if (currentUserId != null && participantId == currentUserId) {
+      throw Exception('Cannot create a conversation with yourself.');
+    }
+
     final conversation = await _repository.createConversation(participantId);
     await loadConversations();
     return conversation;
@@ -128,6 +133,7 @@ class ChatNotifier extends Notifier<ChatState> {
   late String conversationId;
   MessageRepository get _repository => ref.read(messageRepositoryProvider);
   StreamSubscription? _socketSub;
+  StreamSubscription? _connSub;
 
   @override
   ChatState build() {
@@ -137,24 +143,37 @@ class ChatNotifier extends Notifier<ChatState> {
 
   Future<void> _init() async {
     await ref.read(chatInitProvider.future);
+
     _repository.joinConversation(conversationId);
     loadMessages();
     _listenToSocket();
-    _repository.markAsRead(conversationId);
-    
+    unawaited(_repository.markAsRead(conversationId));
+
+    // Listen for reconnection to re-join room
+    _connSub = ref.read(socketServiceProvider).connectionStream.listen((
+      connected,
+    ) {
+      if (connected) {
+        _repository.joinConversation(conversationId);
+      }
+    });
+
     ref.onDispose(() {
       _repository.leaveConversation(conversationId);
       _socketSub?.cancel();
+      _connSub?.cancel();
     });
   }
 
   void _listenToSocket() {
+    _socketSub?.cancel();
     _socketSub = _repository.onMessageEvent.listen((data) {
-      final String? msgConvId = data['conversation_id'] ?? (data['message']?['conversation_id']);
+      final String? msgConvId =
+          data['conversation_id'] ?? (data['message']?['conversation_id']);
       if (msgConvId != conversationId) return;
 
       final String? type = data['type'];
-      
+
       if (type == 'delete') {
         final messageId = data['message_id'];
         state = state.copyWith(
@@ -163,7 +182,7 @@ class ChatNotifier extends Notifier<ChatState> {
       } else if (type == 'reaction') {
         final messageId = data['message_id'];
         final emoji = data['emoji'];
-        
+
         state = state.copyWith(
           messages: state.messages.map((m) {
             if (m.id == messageId) {
@@ -175,41 +194,55 @@ class ChatNotifier extends Notifier<ChatState> {
           }).toList(),
         );
       } else {
-        // New message — guard against duplicates from our own sends.
-        // Check both real ID and tempId: the optimistic message still has
-        // id = tempId (the local timestamp string) at this point, so matching
-        // only on message.id misses it and causes a double-render.
         final msgData = data['message'] ?? data;
         final message = Message.fromJson(msgData);
         final incomingTempId = message.tempId;
-        final alreadyExists = state.messages.any((m) =>
-            m.id == message.id ||
-            (incomingTempId != null &&
-                (m.id == incomingTempId || m.tempId == incomingTempId)));
-        if (!alreadyExists) {
+        unawaited(_repository.saveMessage(message));
+
+        final existingIndex = state.messages.indexWhere(
+          (m) =>
+              m.id == message.id ||
+              (incomingTempId != null &&
+                  (m.id == incomingTempId || m.tempId == incomingTempId)),
+        );
+
+        if (existingIndex == -1) {
           state = state.copyWith(messages: [message, ...state.messages]);
-        } else if (incomingTempId != null) {
-          // Replace the optimistic entry with the confirmed server message
-          // (in case the API response hasn't arrived yet but the socket has)
-          state = state.copyWith(
-            messages: state.messages.map((m) =>
-              (m.id == incomingTempId || m.tempId == incomingTempId)
-                  ? message
-                  : m,
-            ).toList(),
-          );
+        } else {
+          final updatedMessages = List<Message>.from(state.messages);
+          updatedMessages[existingIndex] = message;
+          state = state.copyWith(messages: updatedMessages);
         }
-        _repository.markAsRead(conversationId);
+        unawaited(_repository.markAsRead(conversationId));
       }
     });
   }
 
+  Future<void> markAsRead() async {
+    await _repository.markAsRead(conversationId);
+  }
+
   Future<void> loadMessages() async {
-    state = state.copyWith(isLoading: true);
+    final cachedMessages = _repository.getCachedMessages(conversationId);
+    if (cachedMessages.isNotEmpty) {
+      state = state.copyWith(
+        messages: cachedMessages,
+        isLoading: false,
+        hasMore: cachedMessages.length >= 20,
+      );
+    } else {
+      state = state.copyWith(isLoading: true);
+    }
+
     try {
       final messages = await _repository.getMessages(conversationId);
+      if (messages.isEmpty && cachedMessages.isNotEmpty) {
+        state = state.copyWith(isLoading: false);
+        return;
+      }
+
       state = state.copyWith(
-        messages: messages, 
+        messages: messages,
         isLoading: false,
         hasMore: messages.length >= 20,
       );
@@ -217,17 +250,17 @@ class ChatNotifier extends Notifier<ChatState> {
       state = state.copyWith(isLoading: false, error: e.toString());
     }
   }
-  
+
   Future<void> loadMore() async {
     if (!state.hasMore || state.messages.isEmpty) return;
-    
+
     try {
-      final oldestMessage = state.messages.last; 
+      final oldestMessage = state.messages.last;
       final moreMessages = await _repository.getMessages(
-        conversationId, 
+        conversationId,
         before: oldestMessage.createdAt.toIso8601String(),
       );
-      
+
       if (moreMessages.isEmpty) {
         state = state.copyWith(hasMore: false);
       } else {
@@ -241,7 +274,8 @@ class ChatNotifier extends Notifier<ChatState> {
     }
   }
 
-  Future<void> sendMessage(String content, {
+  Future<void> sendMessage(
+    String content, {
     String? replyToId,
     String messageType = 'text',
     String? mediaPath,
@@ -278,7 +312,7 @@ class ChatNotifier extends Notifier<ChatState> {
         mediaPath: mediaPath,
         tempId: tempId,
       );
-      
+
       // Replace optimistic with confirmed server message (match by tempId too,
       // in case the socket already swapped it from tempId→realId)
       final updatedMessages = state.messages.map((m) {
@@ -291,16 +325,18 @@ class ChatNotifier extends Notifier<ChatState> {
       // Deduplicate by id — the socket may have already inserted the real
       // message before the HTTP response arrived, causing a second copy.
       final seen = <String>{};
-      final deduped = updatedMessages
-          .where((m) => seen.add(m.id))
-          .toList();
+      final deduped = updatedMessages.where((m) => seen.add(m.id)).toList();
 
       state = state.copyWith(messages: deduped);
     } catch (e) {
       // Mark as failed
       state = state.copyWith(
         messages: state.messages
-            .map((m) => m.id == tempId ? m.copyWith(isSending: false, hasError: true) : m)
+            .map(
+              (m) => m.id == tempId
+                  ? m.copyWith(isSending: false, hasError: true)
+                  : m,
+            )
             .toList(),
         error: e.toString(),
       );
@@ -309,6 +345,10 @@ class ChatNotifier extends Notifier<ChatState> {
 
   Future<void> sendMediaMessage(String path, String type) async {
     await sendMessage('', messageType: type, mediaPath: path);
+  }
+
+  Future<void> sendLike() async {
+    await sendMessage('❤️', messageType: 'like');
   }
 
   Future<void> addReaction(String messageId, String emoji) async {
@@ -342,13 +382,18 @@ class ChatNotifier extends Notifier<ChatState> {
 }
 
 // ─── PROVIDERS ──────────────────────────────────────────────
-final inboxProvider = NotifierProvider<InboxNotifier, InboxState>(InboxNotifier.new);
+final inboxProvider = NotifierProvider<InboxNotifier, InboxState>(
+  InboxNotifier.new,
+);
 
 final chatProvider = NotifierProvider.family<ChatNotifier, ChatState, String>(
-  (conversationId) => ChatNotifier()..conversationId = conversationId,
+  (id) => ChatNotifier()..conversationId = id,
 );
 
 final totalUnreadCountProvider = Provider<int>((ref) {
   final inboxState = ref.watch(inboxProvider);
-  return inboxState.conversations.fold(0, (sum, conv) => sum + conv.unreadCount);
+  return inboxState.conversations.fold(
+    0,
+    (sum, conv) => sum + conv.unreadCount,
+  );
 });

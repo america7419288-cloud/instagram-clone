@@ -66,7 +66,7 @@ class ReelBubble extends StatelessWidget {
             child: Stack(
               children: [
                 Image.network(
-                  message.thumbnailUrl ?? 'https://picsum.photos/400/600',
+                  message.sharedThumbnailUrl ?? message.thumbnailUrl ?? 'https://picsum.photos/400/600',
                   width: 238,
                   height: isReel ? 300 : 238,
                   fit: BoxFit.cover,

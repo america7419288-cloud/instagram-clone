@@ -3,9 +3,11 @@
 import 'package:flutter/cupertino.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
+import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:lucide_icons/lucide_icons.dart';
-import '../controller/chat_controller.dart';
-import '../models/message.dart';
+import 'providers/chat_notifiers.dart';
+import 'providers/typing_provider.dart';
+import '../models/message.dart' as mock;
 import '../../../../core/theme/chat_theme.dart';
 import 'widgets/chat_app_bar.dart';
 import 'widgets/message_list.dart';
@@ -13,7 +15,7 @@ import 'widgets/chat_input_bar.dart';
 import 'widgets/reply_preview.dart';
 import 'widgets/reaction_overlay.dart';
 
-class ChatScreen extends StatefulWidget {
+class ChatScreen extends ConsumerStatefulWidget {
   final String conversationId;
   final String username;
   final String? avatarUrl;
@@ -32,30 +34,27 @@ class ChatScreen extends StatefulWidget {
   });
 
   @override
-  State<ChatScreen> createState() =>
+  ConsumerState<ChatScreen> createState() =>
       _ChatScreenState();
 }
 
-class _ChatScreenState extends State<ChatScreen>
+class _ChatScreenState extends ConsumerState<ChatScreen>
     with WidgetsBindingObserver {
 
-  late final ChatController _controller;
+  late final ScrollController _scrollController;
   late final TextEditingController _textController;
   late final FocusNode _focusNode;
 
   bool _showScrollFab = false;
   bool _isComposing = false;
+  mock.ChatMessage? _replyingTo;
 
   @override
   void initState() {
     super.initState();
     WidgetsBinding.instance.addObserver(this);
 
-    _controller = ChatController(
-        conversationId: widget.conversationId);
-    _controller.init();
-    _controller.addListener(_rebuild);
-
+    _scrollController = ScrollController();
     _textController = TextEditingController();
     _focusNode = FocusNode();
 
@@ -65,18 +64,18 @@ class _ChatScreenState extends State<ChatScreen>
       if (composing != _isComposing) {
         setState(() => _isComposing = composing);
       }
-      _controller.onTextChanged(_textController.text);
+      
+      // Notify typing
+      ref.read(typingProvider(widget.conversationId).notifier)
+          .onTextChanged(_textController.text);
     });
 
-    _controller.scrollController.addListener(() {
-      if (!_controller.scrollController.hasClients) return;
-      final pos =
-          _controller.scrollController.position;
-      final nearBottom =
-          pos.maxScrollExtent - pos.pixels < 200;
+    _scrollController.addListener(() {
+      if (!_scrollController.hasClients) return;
+      final pos = _scrollController.position;
+      final nearBottom = pos.maxScrollExtent - pos.pixels < 200;
       if (!nearBottom != _showScrollFab) {
-        setState(
-            () => _showScrollFab = !nearBottom);
+        setState(() => _showScrollFab = !nearBottom);
       }
     });
   }
@@ -87,12 +86,10 @@ class _ChatScreenState extends State<ChatScreen>
   void didChangeMetrics() {
     // Auto scroll when keyboard opens
     WidgetsBinding.instance.addPostFrameCallback((_) {
-      if (_controller.scrollController.hasClients) {
-        _controller.scrollController.animateTo(
-          _controller.scrollController.position
-              .maxScrollExtent,
-          duration:
-              const Duration(milliseconds: 250),
+      if (_scrollController.hasClients) {
+        _scrollController.animateTo(
+          _scrollController.position.maxScrollExtent,
+          duration: const Duration(milliseconds: 250),
           curve: Curves.easeOutCubic,
         );
       }
@@ -104,6 +101,12 @@ class _ChatScreenState extends State<ChatScreen>
     final mq = MediaQuery.of(context);
     final isDark =
         mq.platformBrightness == Brightness.dark;
+
+    final chatState = ref.watch(chatProvider(widget.conversationId));
+    final typingState = ref.watch(typingProvider(widget.conversationId));
+    
+    // Map production messages to mock UI messages
+    final displayMessages = chatState.messages.map((m) => m.toChatMessage(isMe: m.is_me)).toList();
 
     return AnnotatedRegion<SystemUiOverlayStyle>(
       value: isDark
@@ -142,40 +145,26 @@ class _ChatScreenState extends State<ChatScreen>
 
                     // Messages
                     Expanded(
-                      child: _controller.isLoading
+                      child: chatState.isLoading && chatState.messages.isEmpty
                           ? _LoadingState()
                           : MessageList(
-                              messages:
-                                  _controller.messages,
-                              isTyping:
-                                  _controller.isTyping,
-                              scrollController:
-                                  _controller
-                                      .scrollController,
+                              messages: displayMessages,
+                              isTyping: typingState.isTyping,
+                              scrollController: _scrollController,
                               isDark: isDark,
-                              onLongPress:
-                                  _onMessageLongPress,
-                              onSwipeReply: (msg) {
-                                _controller
-                                    .setReply(msg);
-                                _focusNode
-                                    .requestFocus();
-                              },
-                              onDoubleTap: (msg) {
-                                _controller.react(
-                                    msg.id, '❤️');
-                              },
-                              onTapImage: (url) {
-                                _openImageViewer(url);
-                              },
+                              onLongPress: _onLongPress,
+                              onSwipeReply: _onReply,
+                              onDoubleTap: _onLike,
+                              onTapImage: _openImageViewer,
                             ),
                     ),
 
                     // Reply preview
-                    if (_controller.replyingTo != null)
+                    if (_replyingTo != null)
                       ReplyPreview(
-                        reply: _controller.replyingTo!,
-                        onClear: _controller.clearReply,
+                        message: _replyingTo!,
+                        onCancel: () => setState(() => _replyingTo = null),
+                        isDark: isDark,
                       ),
 
                     // Input bar
@@ -183,18 +172,31 @@ class _ChatScreenState extends State<ChatScreen>
                       textController: _textController,
                       focusNode: _focusNode,
                       isComposing: _isComposing,
-                      isRecording: _controller.isRecording,
-                      recordingDuration: _controller.recordingDuration,
+                      isRecording: false, // TODO: Voice
+                      recordingDuration: Duration.zero,
                       isDark: isDark,
-                      onSend: _onSend,
-                      onSendLike: _onSendLike,
-                      onStartRecord: _controller.startRecording,
-                      onStopRecord: _controller.stopRecording,
-                      onCancelRecord: _controller.cancelRecording,
+                      onSend: () {
+                        if (_textController.text.trim().isEmpty) return;
+                        ref.read(chatProvider(widget.conversationId).notifier)
+                            .sendMessage(
+                              _textController.text.trim(),
+                              replyToId: _replyingTo?.id,
+                            );
+                        _textController.clear();
+                        if (_replyingTo != null) {
+                          setState(() => _replyingTo = null);
+                        }
+                      },
+                      onSendLike: () {
+                        ref.read(chatProvider(widget.conversationId).notifier)
+                            .sendMessage('❤️');
+                      },
+                      onStartRecord: () {},
+                      onStopRecord: () async {},
+                      onCancelRecord: () {},
                       onGallery: () {},
                       onCamera: () {},
                     ),
-
                   ],
                 ),
 
@@ -206,12 +208,9 @@ class _ChatScreenState extends State<ChatScreen>
                         mq.padding.bottom,
                     child: _ScrollFab(
                       onTap: () {
-                        _controller.scrollController
-                            .animateTo(
-                          _controller.scrollController
-                              .position.maxScrollExtent,
-                          duration: const Duration(
-                              milliseconds: 350),
+                        _scrollController.animateTo(
+                          _scrollController.position.maxScrollExtent,
+                          duration: const Duration(milliseconds: 350),
                           curve: Curves.easeOutCubic,
                         );
                       },
@@ -229,18 +228,19 @@ class _ChatScreenState extends State<ChatScreen>
 
   // ── Actions ────────────────────────────────
 
-  void _onSend() {
-    final text = _textController.text;
-    if (text.trim().isEmpty) return;
-    _textController.clear();
-    _controller.sendText(text);
+  void _onReply(mock.ChatMessage message) {
+    HapticFeedback.lightImpact();
+    setState(() => _replyingTo = message);
+    _focusNode.requestFocus();
   }
 
-  void _onSendLike() {
-    _controller.sendText('❤️');
+  void _onLike(mock.ChatMessage message) {
+    HapticFeedback.mediumImpact();
+    ref.read(chatProvider(widget.conversationId).notifier)
+        .sendMessage('❤️');
   }
 
-  void _onMessageLongPress(ChatMessage message) {
+  void _onLongPress(mock.ChatMessage message) {
     HapticFeedback.heavyImpact();
     showGeneralDialog(
       context: context,
@@ -253,12 +253,12 @@ class _ChatScreenState extends State<ChatScreen>
         animation: anim,
         onReact: (emoji) {
           Navigator.pop(ctx);
-          _controller.react(message.id, emoji);
+          ref.read(chatProvider(widget.conversationId).notifier)
+              .addReaction(message.id, emoji);
         },
         onReply: () {
           Navigator.pop(ctx);
-          _controller.setReply(message);
-          _focusNode.requestFocus();
+          _onReply(message);
         },
         onCopy: () {
           Navigator.pop(ctx);
@@ -275,13 +275,14 @@ class _ChatScreenState extends State<ChatScreen>
             : null,
         onDelete: () {
           Navigator.pop(ctx);
-          _controller.deleteForMe(message.id);
+          ref.read(chatProvider(widget.conversationId).notifier)
+              .deleteMessage(message.id);
         },
       ),
     );
   }
 
-  void _confirmUnsend(ChatMessage message) {
+  void _confirmUnsend(mock.ChatMessage message) {
     showCupertinoDialog(
       context: context,
       builder: (_) => CupertinoAlertDialog(
@@ -298,7 +299,8 @@ class _ChatScreenState extends State<ChatScreen>
             isDestructiveAction: true,
             onPressed: () {
               Navigator.pop(context);
-              _controller.unsend(message.id);
+              ref.read(chatProvider(widget.conversationId).notifier)
+                  .deleteMessage(message.id);
             },
             child: const Text('Unsend'),
           ),
@@ -323,8 +325,7 @@ class _ChatScreenState extends State<ChatScreen>
   @override
   void dispose() {
     WidgetsBinding.instance.removeObserver(this);
-    _controller.removeListener(_rebuild);
-    _controller.dispose();
+    _scrollController.dispose();
     _textController.dispose();
     _focusNode.dispose();
     super.dispose();

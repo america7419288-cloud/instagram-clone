@@ -9,11 +9,12 @@ class ChatLocalDb {
 
   Future<void> initialize() async {
     await Hive.initFlutter();
-    
+
     // Register adapters if not already registered
     if (!Hive.isAdapterRegistered(0)) Hive.registerAdapter(ChatUserAdapter());
     if (!Hive.isAdapterRegistered(1)) Hive.registerAdapter(MessageAdapter());
-    if (!Hive.isAdapterRegistered(2)) Hive.registerAdapter(ConversationAdapter());
+    if (!Hive.isAdapterRegistered(2))
+      Hive.registerAdapter(ConversationAdapter());
 
     await Hive.openBox<Conversation>(conversationBoxName);
     await Hive.openBox<Message>(messageBoxName);
@@ -31,8 +32,9 @@ class ChatLocalDb {
   }
 
   // Conversation operations
-  Box<Conversation> get _conversationBox => Hive.box<Conversation>(conversationBoxName);
-  
+  Box<Conversation> get _conversationBox =>
+      Hive.box<Conversation>(conversationBoxName);
+
   List<Conversation> getConversations() {
     return _conversationBox.values
         .where((c) => c.id.isNotEmpty) // skip any corrupt entries
@@ -50,8 +52,9 @@ class ChatLocalDb {
 
   Future<void> saveConversations(List<Conversation> conversations) async {
     final Map<String, Conversation> conversationMap = {
-      for (var conv in conversations) conv.id: conv
+      for (var conv in conversations) conv.id: conv,
     };
+    await _conversationBox.clear();
     await _conversationBox.putAll(conversationMap);
   }
 
@@ -71,9 +74,22 @@ class ChatLocalDb {
 
   Future<void> saveMessages(List<Message> messages) async {
     final Map<String, Message> messageMap = {
-      for (var msg in messages) msg.id: msg
+      for (var msg in messages) msg.id: msg,
     };
     await _messageBox.putAll(messageMap);
+  }
+
+  Future<void> replaceMessages(
+    String conversationId,
+    List<Message> messages,
+  ) async {
+    final existingKeys = _messageBox.keys.where((key) {
+      final message = _messageBox.get(key);
+      return message?.conversationId == conversationId;
+    }).toList();
+
+    await _messageBox.deleteAll(existingKeys);
+    await saveMessages(messages);
   }
 
   Future<void> saveMessage(Message message) async {

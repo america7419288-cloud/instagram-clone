@@ -64,6 +64,7 @@ class _PostCardState extends ConsumerState<PostCard>
   int _likeCount = 0;
   bool _isSaved = false;
   bool _showHeartOverlay = false;
+  bool _heartAnimating = false;
   int _heartTrigger = 0;
   Offset _tapPosition = Offset.zero;
   int _currentPage = 0;
@@ -215,31 +216,32 @@ class _PostCardState extends ConsumerState<PostCard>
 
   void _handleLike({bool isDoubleTap = false}) {
     if (isDoubleTap) {
-      final now = DateTime.now().millisecondsSinceEpoch;
-      if (now - _lastHeartTime < 1000) return;
-      _lastHeartTime = now;
-    }
+      // Single gate — if heart is already on screen, ignore
+      if (_heartAnimating) return;
 
-    if (!isDoubleTap || (isDoubleTap && !_isLiked)) {
+      if (!_isLiked) {
+        _likeBounceController.forward(from: 0);
+        setState(() {
+          _isLiked = true;
+          _likeCount += 1;
+        });
+        ref.read(feedProvider.notifier).toggleLike(widget.post.id);
+      }
+
+      setState(() {
+        _heartAnimating = true;
+        _showHeartOverlay = true;
+        _showParticles = true;
+        _heartTrigger++; // Increment trigger to ensure fresh state if needed
+      });
+    } else {
+      // Regular like button tap
       _likeBounceController.forward(from: 0);
       setState(() {
         _isLiked = !_isLiked;
         _likeCount += _isLiked ? 1 : -1;
       });
       ref.read(feedProvider.notifier).toggleLike(widget.post.id);
-    }
-    
-    if (isDoubleTap) {
-      if (_showHeartOverlay) return;
-      setState(() {
-        _showHeartOverlay = true;
-        _heartTrigger++;
-        _showParticles = true;
-      });
-      // Particles reset after a while
-      Future.delayed(const Duration(milliseconds: 1000), () {
-        if (mounted) setState(() => _showParticles = false);
-      });
     }
   }
 
@@ -538,13 +540,17 @@ class _PostCardState extends ConsumerState<PostCard>
           // Instagram Heart Animation Wrapper (Positioned at tap location)
           if (_showHeartOverlay)
             Positioned(
-              left: _tapPosition.dx - 40, // Half of heart size (80)
-              top: _tapPosition.dy - 40,
+              left: _tapPosition.dx - 50, // Half of heart size (100)
+              top: _tapPosition.dy - 50,
               child: InstagramHeartAnimation(
                 key: ValueKey('heart-$_heartTrigger'),
                 isAnimating: _showHeartOverlay,
-                duration: const Duration(milliseconds: 1200),
-                onEnd: () => setState(() => _showHeartOverlay = false),
+                duration: const Duration(milliseconds: 1000), // Match particles
+                onEnd: () => setState(() {
+                  _showHeartOverlay = false;
+                  _showParticles = false; // Synchronized cleanup
+                  _heartAnimating = false;
+                }),
                 child: const SizedBox.shrink(),
               ),
             ),

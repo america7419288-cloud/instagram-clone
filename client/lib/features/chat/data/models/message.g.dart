@@ -30,13 +30,19 @@ class MessageAdapter extends TypeAdapter<Message> {
       isSending: fields[10] == null ? false : fields[10] as bool,
       hasError: fields[11] == null ? false : fields[11] as bool,
       tempId: fields[12] as String?,
+      postId: fields[13] as String?,
+      reelId: fields[14] as String?,
+      storyId: fields[15] as String?,
+      reactions: (fields[16] as Map?)?.cast<String, int>(),
+      replyToId: fields[17] as String?,
+      replyToMessage: fields[18] as Message?,
     );
   }
 
   @override
   void write(BinaryWriter writer, Message obj) {
     writer
-      ..writeByte(13)
+      ..writeByte(19)
       ..writeByte(0)
       ..write(obj.id)
       ..writeByte(1)
@@ -62,7 +68,19 @@ class MessageAdapter extends TypeAdapter<Message> {
       ..writeByte(11)
       ..write(obj.hasError)
       ..writeByte(12)
-      ..write(obj.tempId);
+      ..write(obj.tempId)
+      ..writeByte(13)
+      ..write(obj.postId)
+      ..writeByte(14)
+      ..write(obj.reelId)
+      ..writeByte(15)
+      ..write(obj.storyId)
+      ..writeByte(16)
+      ..write(obj.reactions)
+      ..writeByte(17)
+      ..write(obj.replyToId)
+      ..writeByte(18)
+      ..write(obj.replyToMessage);
   }
 
   @override

@@ -44,6 +44,7 @@ const validateSocketOrigin = (origin, callback) => {
 // ─── TRACK ONLINE USERS ────────────────────────────────────
 // Map: userId → Set of socketIds (user can have multiple tabs)
 const onlineUsers = new Map();
+let socketServer = null;
 
 // Map: socketId → userId (for disconnect lookup)
 const socketToUser = new Map();
@@ -87,7 +88,15 @@ const getOnlineUserIds = () => {
 };
 
 // ─── HELPER: Emit to all sockets of a user ─────────────────
-const emitToUser = (io, userId, event, data) => {
+const emitToUser = (...args) => {
+  const [first, second, third, fourth] = args;
+  const io = typeof first?.to === 'function' ? first : socketServer;
+  const userId = typeof first?.to === 'function' ? second : first;
+  const event = typeof first?.to === 'function' ? third : second;
+  const data = typeof first?.to === 'function' ? fourth : third;
+
+  if (!io || !userId || !event) return;
+
   const userSockets = onlineUsers.get(userId);
   if (userSockets) {
     userSockets.forEach((socketId) => {
@@ -110,6 +119,7 @@ const setupSocketServer = (httpServer) => {
     // Max message size
     maxHttpBufferSize: 1e7, // 10 MB
   });
+  socketServer = io;
 
   // ─── MIDDLEWARE: JWT Authentication ──────────────────────
   // Runs before every connection
@@ -311,6 +321,8 @@ const setupSocketServer = (httpServer) => {
                   is_deleted: false,
                   created_at: message.createdAt,
                   conversation_id,
+                  sender_id: message.sender_id,
+                  media_url: message.media_url,
                   sender: {
                     id: message.sender.id,
                     username: message.sender.username,

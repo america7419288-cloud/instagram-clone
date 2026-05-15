@@ -52,8 +52,11 @@ const Message = sequelize.define(
         'image',       // Image
         'video',       // Video
         'audio',       // Voice note
-        'post_share',  // Shared a post
-        'story_share', // Shared a story
+        'post_share',  // Shared a post (legacy)
+        'story_share', // Shared a story (legacy)
+        'post',        // Shared a post
+        'reel',        // Shared a reel
+        'story',       // Shared a story
         'profile',     // Shared a profile
         'like',        // Just sent ❤️
         'gif'          // GIF
@@ -62,15 +65,11 @@ const Message = sequelize.define(
       allowNull: false,
     },
 
-    // If sharing a post, store the post ID
+    // If sharing content, store the ID (Post, Reel, or Story)
     shared_post_id: {
       type: DataTypes.UUID,
       allowNull: true,
-      references: {
-        model: 'posts',
-        key: 'id',
-      },
-      onDelete: 'SET NULL',
+      // No strict references here to allow polymorphic sharing
     },
 
     // Reply to another message in same conversation

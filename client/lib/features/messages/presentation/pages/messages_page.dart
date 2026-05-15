@@ -64,7 +64,10 @@ class _MessagesPageState extends ConsumerState<MessagesPage>
             ? BouncyTap(
                 onTap: () => context.pop(),
                 child: Padding(
-                  padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 10),
+                  padding: const EdgeInsets.symmetric(
+                    horizontal: 16,
+                    vertical: 10,
+                  ),
                   child: Icon(
                     LucideIcons.chevron_left,
                     color: AppColors.textPrimary,
@@ -107,124 +110,130 @@ class _MessagesPageState extends ConsumerState<MessagesPage>
         child: SafeArea(
           child: Column(
             children: [
-            // Search bar
-            Padding(
-              padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
-              child: BouncyTap(
-                onTap: () {
-                  // TODO: Open search
-                },
-                child: Container(
-                  height: 36,
-                  decoration: BoxDecoration(
-                    color: AppColors.shimmerBase,
-                    borderRadius: BorderRadius.circular(10),
-                  ),
-                  child: Row(
-                    children: [
-                      const SizedBox(width: 12),
-                      Icon(
-                        LucideIcons.search,
-                        color: AppColors.textSecondary,
-                        size: 18,
-                      ),
-                      const SizedBox(width: 8),
-                      Expanded(
-                        child: Text(
-                          'Search',
-                          style: TextStyle(
-                            fontSize: 15,
-                            color: AppColors.textSecondary,
+              // Search bar
+              Padding(
+                padding: const EdgeInsets.symmetric(
+                  horizontal: 16,
+                  vertical: 8,
+                ),
+                child: BouncyTap(
+                  onTap: () {
+                    // TODO: Open search
+                  },
+                  child: Container(
+                    height: 36,
+                    decoration: BoxDecoration(
+                      color: AppColors.shimmerBase,
+                      borderRadius: BorderRadius.circular(10),
+                    ),
+                    child: Row(
+                      children: [
+                        const SizedBox(width: 12),
+                        Icon(
+                          LucideIcons.search,
+                          color: AppColors.textSecondary,
+                          size: 18,
+                        ),
+                        const SizedBox(width: 8),
+                        Expanded(
+                          child: Text(
+                            'Search',
+                            style: TextStyle(
+                              fontSize: 15,
+                              color: AppColors.textSecondary,
+                            ),
                           ),
                         ),
-                      ),
-                    ],
+                      ],
+                    ),
                   ),
                 ),
               ),
-            ),
 
-            // Primary/General tabs
-            Padding(
-              padding: const EdgeInsets.symmetric(horizontal: 16),
-              child: Row(
-                children: [
-                  Expanded(
-                    child: TabBar(
-                      controller: _tabController,
-                      isScrollable: true,
-                      tabAlignment: TabAlignment.start,
-                      padding: EdgeInsets.zero,
-                      indicatorColor: AppColors.textPrimary,
-                      indicatorWeight: 1,
-                      indicatorSize: TabBarIndicatorSize.label,
-                      labelColor: AppColors.textPrimary,
-                      unselectedLabelColor: AppColors.textSecondary,
-                      labelStyle: const TextStyle(
-                        fontSize: 14,
-                        fontWeight: FontWeight.w600,
-                      ),
-                      unselectedLabelStyle: const TextStyle(
-                        fontSize: 14,
-                        fontWeight: FontWeight.normal,
-                      ),
-                      tabs: const [
-                        Tab(text: 'Primary'),
-                        Tab(text: 'General'),
-                      ],
-                      dividerColor: Colors.transparent,
-                    ),
-                  ),
-                  BouncyTap(
-                    onTap: () {},
-                    child: const Padding(
-                      padding: EdgeInsets.symmetric(vertical: 10),
-                      child: Text(
-                        'Requests',
-                        style: TextStyle(
-                          color: AppColors.primary,
+              // Primary/General tabs
+              Padding(
+                padding: const EdgeInsets.symmetric(horizontal: 16),
+                child: Row(
+                  children: [
+                    Expanded(
+                      child: TabBar(
+                        controller: _tabController,
+                        isScrollable: true,
+                        tabAlignment: TabAlignment.start,
+                        padding: EdgeInsets.zero,
+                        indicatorColor: AppColors.textPrimary,
+                        indicatorWeight: 1,
+                        indicatorSize: TabBarIndicatorSize.label,
+                        labelColor: AppColors.textPrimary,
+                        unselectedLabelColor: AppColors.textSecondary,
+                        labelStyle: const TextStyle(
                           fontSize: 14,
-                          fontWeight: FontWeight.w400,
+                          fontWeight: FontWeight.w600,
+                        ),
+                        unselectedLabelStyle: const TextStyle(
+                          fontSize: 14,
+                          fontWeight: FontWeight.normal,
+                        ),
+                        tabs: const [
+                          Tab(text: 'Primary'),
+                          Tab(text: 'General'),
+                        ],
+                        dividerColor: Colors.transparent,
+                      ),
+                    ),
+                    BouncyTap(
+                      onTap: () {},
+                      child: const Padding(
+                        padding: EdgeInsets.symmetric(vertical: 10),
+                        child: Text(
+                          'Requests',
+                          style: TextStyle(
+                            color: AppColors.primary,
+                            fontSize: 14,
+                            fontWeight: FontWeight.w400,
+                          ),
                         ),
                       ),
                     ),
-                  ),
-                ],
+                  ],
+                ),
               ),
-            ),
-            const SizedBox(height: 8),
+              const SizedBox(height: 8),
 
-            // Content
-            Expanded(
-              child: inboxState.isLoading
-                  ? const _InboxSkeleton()
-                    : inboxState.error != null && inboxState.conversations.isEmpty
-                        ? ListView(
-                            physics: const AlwaysScrollableScrollPhysics(),
-                            children: [
-                              ErrorView(
-                                message: inboxState.error!,
-                                onRetry: () => ref.read(inboxProvider.notifier).loadConversations(),
-                              ),
-                            ],
-                          )
-                      : inboxState.conversations.isEmpty
-                          ? ListView(
-                              physics: const AlwaysScrollableScrollPhysics(),
-                              children: const [
-                                SizedBox(height: 60),
-                                EmptyState.messages(),
-                              ],
-                            )
-                          : _buildConversationList(
-                              context,
-                              inboxState.conversations,
-                              currentUser?.id ?? '',
-                            ),
-            ),
-          ],
+              // Content
+              Expanded(
+                child: inboxState.isLoading
+                    ? const _InboxSkeleton()
+                    : inboxState.error != null &&
+                          inboxState.conversations.isEmpty
+                    ? ListView(
+                        physics: const AlwaysScrollableScrollPhysics(),
+                        children: [
+                          ErrorView(
+                            message: inboxState.error!,
+                            onRetry: () => ref
+                                .read(inboxProvider.notifier)
+                                .loadConversations(),
+                          ),
+                        ],
+                      )
+                    : inboxState.conversations.isEmpty
+                    ? ListView(
+                        physics: const AlwaysScrollableScrollPhysics(),
+                        children: const [
+                          SizedBox(height: 60),
+                          EmptyState.messages(),
+                        ],
+                      )
+                    : _buildConversationList(
+                        context,
+                        inboxState.conversations,
+                        currentUser?.id ?? '',
+                      ),
+              ),
+            ],
+          ),
         ),
-      ),
       ),
     );
   }
@@ -249,9 +258,7 @@ class _MessagesPageState extends ConsumerState<MessagesPage>
               extra: <String, dynamic>{
                 'username': conv.name ?? 'User',
                 'avatarUrl': conv.avatarUrl,
-                'isVerified': conv.participants.isNotEmpty
-                    ? conv.participants.first.isVerified
-                    : false,
+                'isVerified': conv.otherUser?.isVerified ?? false,
               },
             );
           },
@@ -384,7 +391,8 @@ class _ConversationTile extends StatelessWidget {
                       children: [
                         Expanded(
                           child: Text(
-                            conversation.lastMessage?.content ?? 'Start a conversation',
+                            conversation.lastMessage?.content ??
+                                'Start a conversation',
                             style: TextStyle(
                               fontSize: 13,
                               color: hasUnread
@@ -510,4 +518,3 @@ class _InboxSkeleton extends StatelessWidget {
     );
   }
 }
-

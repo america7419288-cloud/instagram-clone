@@ -98,6 +98,7 @@ class ChatMessage {
   final String? sharedUsername;
   final String? sharedCaption;
   final String? sharedPostId;
+  final String? sharedThumbnailUrl;
 
   // State
   final DateTime timestamp;
@@ -127,6 +128,7 @@ class ChatMessage {
     this.sharedUsername,
     this.sharedCaption,
     this.sharedPostId,
+    this.sharedThumbnailUrl,
     required this.timestamp,
     required this.status,
     required this.isFromMe,
@@ -214,6 +216,7 @@ class ChatMessage {
         sharedUsername: sharedUsername,
         sharedCaption: sharedCaption,
         sharedPostId: sharedPostId,
+        sharedThumbnailUrl: sharedThumbnailUrl,
         timestamp: timestamp,
         status: status ?? this.status,
         isFromMe: isFromMe,

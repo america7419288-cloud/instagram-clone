@@ -1,4 +1,5 @@
 import 'package:hive_ce/hive.dart';
+import '../../models/message.dart' as mock;
 import 'chat_user.dart';
 
 part 'message.g.dart';
@@ -7,50 +8,50 @@ part 'message.g.dart';
 class Message {
   @HiveField(0)
   final String id;
-  
+
   @HiveField(1)
   final String conversationId;
-  
+
   @HiveField(2)
   final String senderId;
-  
+
   @HiveField(3)
   final String content;
-  
+
   @HiveField(4)
   final String messageType; // text, image, video, like
-  
+
   @HiveField(5)
   final DateTime createdAt;
-  
+
   @HiveField(6)
   final bool isRead;
-  
+
   @HiveField(7)
   final bool isDeleted;
-  
+
   @HiveField(8)
   final String? mediaUrl;
-  
+
   @HiveField(9)
   final ChatUser? sender;
-  
+
   // Local-only fields (not in Hive or at least handled carefully)
   @HiveField(10)
   final bool isSending;
-  
+
   @HiveField(11)
   final bool hasError;
-  
+
   @HiveField(12)
   final String? tempId;
-  
+
   @HiveField(13)
   final String? postId;
-  
+
   @HiveField(14)
   final String? reelId;
-  
+
   @HiveField(15)
   final String? storyId;
 
@@ -62,6 +63,15 @@ class Message {
 
   @HiveField(18)
   final Message? replyToMessage;
+
+  @HiveField(19)
+  final String? sharedUsername;
+  
+  @HiveField(20)
+  final String? sharedCaption;
+  
+  @HiveField(21)
+  final String? sharedThumbnailUrl;
 
   // Transient: local file path for optimistic media preview (not persisted)
   final String? localPath;
@@ -86,33 +96,65 @@ class Message {
     this.reactions,
     this.replyToId,
     this.replyToMessage,
+    this.sharedUsername,
+    this.sharedCaption,
+    this.sharedThumbnailUrl,
     this.localPath,
   });
 
   factory Message.fromJson(Map<String, dynamic> json) {
+    final sender = json['sender'] != null
+        ? ChatUser.fromJson(json['sender'])
+        : null;
+
+    // Handle polymorphic shared content
+    String? sUsername;
+    String? sCaption;
+    String? sThumbnail;
+    String? sPostId;
+
+    if (json['sharedPost'] != null) {
+      final post = json['sharedPost'];
+      sUsername = post['user']?['username'];
+      sCaption = post['caption'];
+      sPostId = post['id'];
+    } else if (json['sharedReel'] != null) {
+      final reel = json['sharedReel'];
+      sUsername = reel['user']?['username'];
+      sCaption = reel['caption'];
+      sPostId = reel['id'];
+      sThumbnail = reel['thumbnailUrl'];
+    } else if (json['sharedStory'] != null) {
+      final story = json['sharedStory'];
+      sUsername = story['user']?['username'];
+      sPostId = story['id'];
+    }
+
     return Message(
       id: json['id'] ?? '',
       conversationId: json['conversation_id'] ?? '',
-      senderId: json['sender_id'] ?? '',
+      senderId: json['sender_id'] ?? sender?.id ?? '',
       content: json['content'] ?? '',
       messageType: json['message_type'] ?? 'text',
-      createdAt: json['created_at'] != null 
-          ? DateTime.parse(json['created_at']) 
+      createdAt: json['created_at'] != null
+          ? DateTime.parse(json['created_at'])
           : DateTime.now(),
       isRead: json['is_read'] ?? false,
       isDeleted: json['is_deleted'] ?? false,
       mediaUrl: json['media_url'],
-      sender: json['sender'] != null ? ChatUser.fromJson(json['sender']) : null,
+      sender: sender,
       tempId: json['temp_id'],
-      postId: json['postId'],
-      reelId: json['reelId'],
-      storyId: json['storyId'],
-      reactions: json['reactions'] != null ? Map<String, int>.from(json['reactions']) : null,
-      replyToId: json['reply_to_id'],
-      replyToMessage: json['reply_to_message'] != null 
-          ? Message.fromJson(json['reply_to_message']) 
+      postId: json['shared_post_id'] ?? json['postId'] ?? sPostId,
+      reactions: json['reactions'] != null
+          ? Map<String, int>.from(json['reactions'])
           : null,
-      // localPath not from JSON
+      replyToId: json['reply_to_id'],
+      replyToMessage: json['reply_to_message'] != null
+          ? Message.fromJson(json['reply_to_message'])
+          : null,
+      sharedUsername: sUsername,
+      sharedCaption: sCaption,
+      sharedThumbnailUrl: sThumbnail,
     );
   }
 
@@ -158,6 +200,9 @@ class Message {
       reactions: reactions ?? this.reactions,
       replyToId: replyToId ?? this.replyToId,
       replyToMessage: replyToMessage ?? this.replyToMessage,
+      sharedUsername: sharedUsername ?? this.sharedUsername,
+      sharedCaption: sharedCaption ?? this.sharedCaption,
+      sharedThumbnailUrl: sharedThumbnailUrl ?? this.sharedThumbnailUrl,
       localPath: localPath ?? this.localPath,
     );
   }
@@ -181,7 +226,58 @@ class Message {
       'reactions': reactions,
       'reply_to_id': replyToId,
       'reply_to_message': replyToMessage?.toJson(),
+      'sharedUsername': sharedUsername,
+      'sharedCaption': sharedCaption,
+      'sharedThumbnailUrl': sharedThumbnailUrl,
     };
   }
 
+  mock.ChatMessage toChatMessage({required bool isMe}) {
+    return mock.ChatMessage(
+      id: id.isEmpty ? (tempId ?? '') : id,
+      conversationId: conversationId,
+      senderId: senderId,
+      senderName: sender?.username ?? 'User',
+      senderAvatar: sender?.profilePicUrl,
+      type: _mapMessageType(messageType),
+      text: content,
+      mediaUrl: mediaUrl,
+      thumbnailUrl: thumbnailUrl,
+      sharedUsername: sharedUsername,
+      sharedCaption: sharedCaption,
+      sharedPostId: postId,
+      sharedThumbnailUrl: sharedThumbnailUrl,
+      timestamp: createdAt,
+      status: _mapStatus(),
+      isFromMe: isMe,
+      isDeleted: isDeleted,
+    );
+  }
+
+  mock.MessageType _mapMessageType(String type) {
+    switch (type) {
+      case 'text':
+        return mock.MessageType.text;
+      case 'image':
+        return mock.MessageType.image;
+      case 'video':
+        return mock.MessageType.video;
+      case 'audio':
+        return mock.MessageType.audio;
+      case 'reel':
+        return mock.MessageType.reel;
+      case 'like':
+        return mock
+            .MessageType
+            .text; // Like is usually just an emoji or special text
+      default:
+        return mock.MessageType.text;
+    }
+  }
+
+  mock.MessageStatus _mapStatus() {
+    if (isSending) return mock.MessageStatus.sending;
+    if (hasError) return mock.MessageStatus.failed;
+    return mock.MessageStatus.sent; // Default to sent
+  }
 }

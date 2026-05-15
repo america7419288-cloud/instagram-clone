@@ -197,16 +197,23 @@ class _ReelCardState extends ConsumerState<ReelCard>
     }
   }
 
+  bool _heartAnimating = false;
+
   void _handleDoubleTap(TapDownDetails details) {
+    if (_heartAnimating) return;
     HapticFeedback.heavyImpact();
     
     setState(() {
+      _heartAnimating = true;
       _hearts.add(details.localPosition);
     });
 
     _heartAnimationController.forward(from: 0).then((_) {
       if (mounted) {
-        setState(() => _hearts.clear());
+        setState(() {
+          _hearts.clear();
+          _heartAnimating = false;
+        });
       }
     });
 
