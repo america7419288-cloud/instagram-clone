@@ -92,19 +92,18 @@ class NotificationGroup {
 
 // ─── NOTIFICATION NOTIFIER ──────────────────────────────────
 class NotificationNotifier extends Notifier<NotificationState> {
-  late final NotificationService _service;
+  NotificationService get _service => ref.read(notificationServiceProvider);
   Timer? _unreadPollTimer;
 
   @override
   NotificationState build() {
-    _service = ref.watch(notificationServiceProvider);
-    
     // Initialize
     Future.microtask(() {
       loadNotifications();
       loadUnreadCount();
     });
 
+    _unreadPollTimer?.cancel();
     _unreadPollTimer = Timer.periodic(
       const Duration(seconds: 30),
       (_) => loadUnreadCount(),

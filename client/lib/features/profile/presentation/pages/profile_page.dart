@@ -15,8 +15,8 @@ import '../../../follow/data/repositories/presentation/providers/widgets/follow_
 import '../../../story/presentation/widgets/highlights_bar.dart';
 import '../providers/profile_provider.dart';
 import '../../data/models/profile_model.dart';
-import '../../../messages/data/repositories/message_service.dart';
-import '../../../messages/presentation/providers/message_provider.dart';
+import '../../../chat/presentation/providers/chat_notifiers.dart';
+import '../../../chat/presentation/providers/chat_providers.dart';
 import '../../../../core/theme/app_theme.dart';
 import '../../../post/data/repositories/post_tag_service.dart';
 import '../../../../core/design/design_tokens.dart';
@@ -516,11 +516,24 @@ class _ProfilePageState extends ConsumerState<ProfilePage>
 
   Future<void> _messageUser(String userId) async {
     try {
-      final conv = await MessageService().createOrGetConversation(userId);
-      ref.read(inboxProvider.notifier).addConversation(conv);
-      if (mounted) context.push('/chat/${conv.id}');
+      final conversation = await ref.read(inboxProvider.notifier).createConversation(userId);
+      if (!mounted) return;
+      if (conversation.id.isEmpty) {
+        AppSnackbar.error(context, 'Could not open chat. Try again.');
+        return;
+      }
+      final profileState = ref.read(profileProvider(widget.username));
+      final profile = profileState.profile;
+      context.push(
+        '/chat/${conversation.id}',
+        extra: <String, dynamic>{
+          'username': profile?.username ?? 'User',
+          'avatarUrl': profile?.profilePicUrl,
+          'isVerified': profile?.isVerified ?? false,
+        },
+      );
     } catch (e) {
-      // Handle error
+      if (mounted) AppSnackbar.error(context, 'Error initiating chat: $e');
     }
   }
 

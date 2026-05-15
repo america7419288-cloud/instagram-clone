@@ -41,7 +41,13 @@ const formatConversation = (conv, currentUserId) => {
     is_group: c.is_group,
     name: c.is_group ? c.name : otherUser?.username,
     avatar_url: c.is_group ? c.avatar_url : otherUser?.profile_pic_url,
-    last_message: c.last_message,
+    last_message: c.last_message ? {
+      id: "preview",
+      content: c.last_message,
+      created_at: c.last_message_at,
+      sender_id: c.last_message_sender_id || null,
+      conversation_id: c.id
+    } : null,
     last_message_at: c.last_message_at,
     participants: (c.participants || []).map((p) => ({
       id: p.id,
@@ -77,6 +83,7 @@ const formatMessage = (message) => {
     deleted_at: m.deleted_at,
     created_at: m.created_at || m.createdAt,
     conversation_id: m.conversation_id,
+    sender_id: m.sender_id,
 
     // Who sent it
     sender: m.sender
@@ -88,8 +95,10 @@ const formatMessage = (message) => {
         }
       : null,
 
+    reply_to_id: m.reply_to_message_id,
+
     // If replying to another message
-    replied_to: m.repliedTo
+    reply_to_message: m.repliedTo
       ? {
           id: m.repliedTo.id,
           content: m.repliedTo.is_deleted
@@ -107,6 +116,11 @@ const formatMessage = (message) => {
           thumbnail: m.sharedPost.media?.[0]?.thumbnailUrl,
         }
       : null,
+    
+    postId: m.shared_post_id,
+    // Add these if they exist in future
+    // reelId: m.shared_reel_id,
+    // storyId: m.shared_story_id,
   };
 };
 
@@ -535,6 +549,7 @@ const sendMessage = async (req, res) => {
       message_type = 'text',
       reply_to_message_id,
       shared_post_id,
+      temp_id,
     } = req.body;
 
     // 1. VALIDATE
@@ -677,6 +692,7 @@ const sendMessage = async (req, res) => {
     if (io) {
       const roomName = `conversation:${conversationId}`;
       const socketMessage = formatMessage(fullMessage);
+      if (temp_id) socketMessage.temp_id = temp_id;
 
       io.to(roomName).emit('new-message', {
         conversation_id: conversationId,
@@ -697,7 +713,13 @@ const sendMessage = async (req, res) => {
       allParticipants.forEach((participant) => {
         emitToUser(io, participant.user_id, 'inbox-update', {
           conversation_id: conversationId,
-          last_message: preview,
+          last_message: {
+            id: message.id,
+            content: preview,
+            created_at: lastMessageAt,
+            sender_id: senderId,
+            conversation_id: conversationId,
+          },
           last_message_at: lastMessageAt,
         });
       });
@@ -736,7 +758,7 @@ const sendMessage = async (req, res) => {
       res,
       201,
       'Message sent successfully',
-      { message: formatMessage(fullMessage) }
+      { message: { ...formatMessage(fullMessage), temp_id } }
     );
 
   } catch (error) {

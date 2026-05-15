@@ -15,7 +15,7 @@ import '../../../../core/router/main_shell.dart';
 import '../../../../core/theme/app_theme.dart';
 import '../../../../shared/widgets/spring_widget.dart';
 import '../../../../shared/widgets/error_view.dart';
-import '../../../messages/presentation/providers/message_provider.dart';
+import '../../../chat/presentation/providers/chat_notifiers.dart';
 import 'package:instagram_clinet/features/notifications/presentation/providers/notification_provider.dart';
 import '../../../post/presentation/providers/feed_provider.dart';
 import '../../../post/presentation/widgets/post_card.dart';
@@ -138,7 +138,13 @@ class _HomePageContentState extends ConsumerState<HomePageContent> {
                 badgeCount: ref.watch(unreadNotificationsCountProvider),
                 isDark: isDark,
               ),
-              const SizedBox(width: 16),
+              _buildNavIcon(
+                iconPath: AppAssets.getIcon('Tab=Messenger', isDark: isDark, type: 'Default'),
+                onTap: () => context.push(AppRoutes.messages),
+                badgeCount: ref.watch(totalUnreadCountProvider),
+                isDark: isDark,
+              ),
+              const SizedBox(width: 8),
             ],
           ),
 

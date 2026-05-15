@@ -4,7 +4,9 @@ import 'package:flutter/foundation.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import '../../models/share_target.dart';
 import '../../models/share_content.dart';
-import '../../../messages/presentation/providers/message_provider.dart';
+import '../../../chat/presentation/providers/chat_notifiers.dart';
+import '../../../chat/presentation/providers/chat_providers.dart';
+import '../../../auth/presentation/providers/auth_provider.dart';
 import '../../../search/presentation/pages/providers/search_provider.dart';
 
 class ShareSheetState {
@@ -61,9 +63,9 @@ class ShareSheetNotifier extends Notifier<ShareSheetState> {
     final targets = conversations.map((conv) {
       return ShareTarget(
         id: conv.id,
-        name: conv.participantName,
-        avatarUrl: conv.participantAvatar,
-        username: conv.participantUsername,
+        name: conv.otherUser?.username ?? conv.name ?? 'Chat',
+        avatarUrl: conv.otherUser?.profilePicUrl ?? conv.avatarUrl,
+        username: conv.otherUser?.username ?? conv.name ?? 'chat',
         type: conv.isGroup ? ShareTargetType.group : ShareTargetType.user,
         isRecent: true,
       );
@@ -123,7 +125,9 @@ class ShareSheetNotifier extends Notifier<ShareSheetState> {
     state = state.copyWith(isSending: true);
 
     try {
-      final messageService = ref.read(messageServiceProvider);
+      final repository = ref.read(messageRepositoryProvider);
+      final currentUser = ref.read(currentUserProvider);
+      if (currentUser == null) throw Exception('User not authenticated');
       
       for (final target in state.selectedTargets) {
         String conversationId = target.id;
@@ -131,7 +135,7 @@ class ShareSheetNotifier extends Notifier<ShareSheetState> {
         // If it's a new user from search, get/create conversation first
         if (!target.isRecent && target.type == ShareTargetType.user) {
           try {
-            final conversation = await messageService.createOrGetConversation(target.id);
+            final conversation = await repository.createConversation(target.id);
             conversationId = conversation.id;
           } catch (e) {
             debugPrint('Failed to create conversation with ${target.name}: $e');
@@ -142,8 +146,6 @@ class ShareSheetNotifier extends Notifier<ShareSheetState> {
         // Build the message based on content type
         String defaultText = '';
         String? postId;
-        String? reelId;
-        String? storyId;
         String messageType = 'text';
         
         switch (content.type) {
@@ -154,12 +156,12 @@ class ShareSheetNotifier extends Notifier<ShareSheetState> {
             break;
           case ShareContentType.reel:
             defaultText = 'Sent a reel';
-            reelId = content.id;
+            postId = content.id; // maps to shared_post_id on backend
             messageType = 'reel';
             break;
           case ShareContentType.story:
             defaultText = 'Sent a story';
-            storyId = content.id;
+            postId = content.id; // maps to shared_post_id on backend
             messageType = 'story';
             break;
           case ShareContentType.profile:
@@ -168,14 +170,13 @@ class ShareSheetNotifier extends Notifier<ShareSheetState> {
             break;
         }
 
-        // Send actual message via API
-        await messageService.sendMessage(
-          conversationId: conversationId,
-          content: (message != null && message.isNotEmpty) ? message : defaultText,
+        // Send actual message via Repository
+        await repository.sendMessage(
+          conversationId,
+          (message != null && message.isNotEmpty) ? message : defaultText,
+          currentUser.id,
           messageType: messageType,
           postId: postId,
-          reelId: reelId,
-          storyId: storyId,
         );
       }
 

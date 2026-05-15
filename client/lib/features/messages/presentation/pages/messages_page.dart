@@ -15,8 +15,8 @@ import '../../../../core/theme/app_theme.dart';
 import '../../../../features/auth/presentation/providers/auth_provider.dart';
 import '../../../../shared/widgets/empty_state.dart';
 import '../../../../shared/widgets/error_view.dart';
-import '../../data/models/conversation_model.dart';
-import '../providers/message_provider.dart';
+import '../../../chat/data/models/conversation.dart';
+import '../../../chat/presentation/providers/chat_notifiers.dart';
 
 class MessagesPage extends ConsumerStatefulWidget {
   const MessagesPage({super.key});
@@ -198,16 +198,16 @@ class _MessagesPageState extends ConsumerState<MessagesPage>
             Expanded(
               child: inboxState.isLoading
                   ? const _InboxSkeleton()
-                  : inboxState.errorMessage != null && inboxState.conversations.isEmpty
-                      ? ListView(
-                          physics: const AlwaysScrollableScrollPhysics(),
-                          children: [
-                            ErrorView(
-                              message: inboxState.errorMessage!,
-                              onRetry: () => ref.read(inboxProvider.notifier).loadInbox(),
-                            ),
-                          ],
-                        )
+                    : inboxState.error != null && inboxState.conversations.isEmpty
+                        ? ListView(
+                            physics: const AlwaysScrollableScrollPhysics(),
+                            children: [
+                              ErrorView(
+                                message: inboxState.error!,
+                                onRetry: () => ref.read(inboxProvider.notifier).loadConversations(),
+                              ),
+                            ],
+                          )
                       : inboxState.conversations.isEmpty
                           ? ListView(
                               physics: const AlwaysScrollableScrollPhysics(),
@@ -231,7 +231,7 @@ class _MessagesPageState extends ConsumerState<MessagesPage>
 
   Widget _buildConversationList(
     BuildContext context,
-    List<ConversationModel> conversations,
+    List<Conversation> conversations,
     String currentUserId,
   ) {
     return ListView.builder(
@@ -243,9 +243,16 @@ class _MessagesPageState extends ConsumerState<MessagesPage>
           currentUserId: currentUserId,
           onTap: () {
             final conv = conversations[index];
+            if (conv.id.isEmpty) return; // guard: never push /chat/ with no id
             context.push(
               '/chat/${conv.id}',
-              extra: conv,
+              extra: <String, dynamic>{
+                'username': conv.name ?? 'User',
+                'avatarUrl': conv.avatarUrl,
+                'isVerified': conv.participants.isNotEmpty
+                    ? conv.participants.first.isVerified
+                    : false,
+              },
             );
           },
         );
@@ -261,15 +268,13 @@ class _ConversationTile extends StatelessWidget {
     required this.onTap,
   });
 
-  final ConversationModel conversation;
+  final Conversation conversation;
   final String currentUserId;
   final VoidCallback onTap;
 
   @override
   Widget build(BuildContext context) {
-    final timeText = conversation.lastMessageAt != null
-        ? timeago.format(conversation.lastMessageAt!, locale: 'en_short')
-        : '';
+    final timeText = timeago.format(conversation.updatedAt, locale: 'en_short');
     final hasUnread = conversation.unreadCount > 0;
 
     return Dismissible(
@@ -348,7 +353,7 @@ class _ConversationTile extends StatelessWidget {
                       children: [
                         Expanded(
                           child: Text(
-                            conversation.displayName,
+                            conversation.otherUser?.username ?? 'Chat',
                             style: TextStyle(
                               fontWeight: hasUnread
                                   ? FontWeight.w600
@@ -379,7 +384,7 @@ class _ConversationTile extends StatelessWidget {
                       children: [
                         Expanded(
                           child: Text(
-                            conversation.lastMessage ?? 'Start a conversation',
+                            conversation.lastMessage?.content ?? 'Start a conversation',
                             style: TextStyle(
                               fontSize: 13,
                               color: hasUnread
@@ -425,8 +430,8 @@ class _ConversationTile extends StatelessWidget {
   }
 
   Widget _buildAvatar() {
-    final avatarUrl = conversation.displayAvatarUrl;
-    final name = conversation.displayName;
+    final avatarUrl = conversation.otherUser?.profilePicUrl;
+    final name = conversation.otherUser?.username ?? '?';
 
     return Container(
       width: 56,

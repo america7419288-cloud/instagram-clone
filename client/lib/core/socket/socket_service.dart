@@ -1,256 +1,104 @@
+import 'dart:async';
 import 'package:flutter_secure_storage/flutter_secure_storage.dart';
 import 'package:socket_io_client/socket_io_client.dart' as io;
 
 import '../constants/app_constants.dart';
-
-class SocketEvents {
-  static const String joinRoom = 'join-room';
-  static const String leaveRoom = 'leave-room';
-  static const String sendMessage = 'send-message';
-  static const String typing = 'typing';
-  static const String stopTyping = 'stop-typing';
-  static const String messageRead = 'message-read';
-  static const String checkOnline = 'check-online';
-
-  static const String newMessage = 'new-message';
-  static const String userTyping = 'user-typing';
-  static const String onlineUsers = 'online-users';
-  static const String userOnline = 'user-online';
-  static const String userOffline = 'user-offline';
-  static const String onlineStatus = 'online-status';
-  static const String inboxUpdate = 'inbox-update';
-  static const String joinedRoom = 'joined-room';
-  static const String messagesRead = 'messages-read';
-  static const String errorEvent = 'error';
-}
+import 'socket_events.dart';
 
 class SocketService {
+  static final SocketService _instance = SocketService._internal();
+  factory SocketService() => _instance;
+  SocketService._internal();
+
   io.Socket? _socket;
   final FlutterSecureStorage _storage = const FlutterSecureStorage();
-  String _socketUrl = AppConstants.socketUrl;
+  
+  // Streams for external listeners
+  final _messageController = StreamController<Map<String, dynamic>>.broadcast();
+  final _typingController = StreamController<Map<String, dynamic>>.broadcast();
+  final _inboxController = StreamController<Map<String, dynamic>>.broadcast();
+  final _presenceController = StreamController<Map<String, dynamic>>.broadcast();
+  final _connectionController = StreamController<bool>.broadcast();
+
+  Stream<Map<String, dynamic>> get messageStream => _messageController.stream;
+  Stream<Map<String, dynamic>> get typingStream => _typingController.stream;
+  Stream<Map<String, dynamic>> get inboxStream => _inboxController.stream;
+  Stream<Map<String, dynamic>> get presenceStream => _presenceController.stream;
+  Stream<bool> get connectionStream => _connectionController.stream;
 
   bool _isConnected = false;
-
-  Function(Map<String, dynamic>)? onNewMessage;
-  Function(String conversationId, String userId, bool isTyping)?
-      onUserTyping;
-  Function(List<String> onlineUserIds)? onOnlineUsers;
-  Function(String userId, bool isOnline)? onUserOnlineStatus;
-  Function(Map<String, dynamic>)? onInboxUpdate;
-
-  Map<String, dynamic>? _asMap(dynamic data) {
-    if (data is Map<String, dynamic>) {
-      return data;
-    }
-
-    if (data is Map) {
-      return data.map((key, value) => MapEntry(key.toString(), value));
-    }
-
-    return null;
-  }
-
-  void updateSocketUrl(String url) {
-    _socketUrl = url;
-    if (_isConnected) {
-      disconnect();
-    }
-  }
+  bool get isConnected => _isConnected;
 
   Future<void> connect() async {
+    if (_isConnected) return;
+
+    final token = await _storage.read(key: AppConstants.tokenKey);
+    if (token == null) return;
+
+    _socket?.dispose();
+    
+    _socket = io.io(
+      AppConstants.socketUrl,
+      io.OptionBuilder()
+          .setPath('/socket.io')
+          .setTransports(['websocket', 'polling'])
+          .setAuth({'token': token})
+          .disableAutoConnect()
+          .enableReconnection()
+          .setReconnectionAttempts(10)
+          .setReconnectionDelay(1000)
+          .setReconnectionDelayMax(5000)
+          .setTimeout(10000)
+          .enableForceNew()
+          .disableMultiplex()
+          .build(),
+    );
+
+    _setupListeners();
+    _socket?.connect();
+  }
+
+  void _setupListeners() {
+    _socket?.onConnect((_) {
+      _isConnected = true;
+      _connectionController.add(true);
+      print('Socket Connected: ${_socket?.id}');
+    });
+
+    _socket?.onDisconnect((_) {
+      _isConnected = false;
+      _connectionController.add(false);
+      print('Socket Disconnected');
+    });
+
+    _socket?.on(SocketEvents.newMessage, (data) => _messageController.add(_asMap(data)));
+    _socket?.on(SocketEvents.messageDeleted, (data) => _messageController.add({..._asMap(data), 'type': 'delete'}));
+    _socket?.on(SocketEvents.messageReacted, (data) => _messageController.add({..._asMap(data), 'type': 'reaction'}));
+    _socket?.on(SocketEvents.userTyping, (data) => _typingController.add(_asMap(data)));
+    _socket?.on(SocketEvents.inboxUpdate, (data) => _inboxController.add(_asMap(data)));
+    _socket?.on(SocketEvents.onlineStatus, (data) => _presenceController.add(_asMap(data)));
+    _socket?.on(SocketEvents.userOnline, (data) => _presenceController.add({..._asMap(data), 'status': 'online'}));
+    _socket?.on(SocketEvents.userOffline, (data) => _presenceController.add({..._asMap(data), 'status': 'offline'}));
+  }
+
+  Map<String, dynamic> _asMap(dynamic data) {
+    if (data is Map<String, dynamic>) return data;
+    if (data is Map) return data.map((k, v) => MapEntry(k.toString(), v));
+    return {};
+  }
+
+  void emit(String event, dynamic data) {
     if (_isConnected) {
-      print('Socket already connected');
-      return;
-    }
-
-    try {
-      final token = await _storage.read(key: AppConstants.tokenKey);
-
-      if (token == null || token.isEmpty) {
-        print('No token found, cannot connect socket');
-        return;
-      }
-
-      _socket?.dispose();
-      _socket = null;
-
-      print('Connecting to socket: $_socketUrl');
-
-      _socket = io.io(
-        _socketUrl,
-        io.OptionBuilder()
-            .setPath('/socket.io')
-            .setTransports(['websocket', 'polling'])
-            .setAuth({'token': token})
-            .disableAutoConnect()
-            .enableReconnection()
-            .setReconnectionAttempts(10)
-            .setReconnectionDelay(1000)
-            .setReconnectionDelayMax(5000)
-            .setTimeout(10000)
-            .enableForceNew()
-            .disableMultiplex()
-            .build(),
-      );
-
-      _setupEventListeners();
-      _socket!.connect();
-    } catch (e) {
-      print('Socket connection error: $e');
+      _socket?.emit(event, data);
     }
   }
 
-  void _setupEventListeners() {
-    if (_socket == null) {
-      return;
-    }
-
-    _socket!.onConnect((_) {
-      _isConnected = true;
-      print('Socket connected: ${_socket!.id}');
-    });
-
-    _socket!.onDisconnect((reason) {
-      _isConnected = false;
-      print('Socket disconnected: $reason');
-    });
-
-    _socket!.onConnectError((error) {
-      _isConnected = false;
-      print('Socket connect error: $error');
-    });
-
-    _socket!.onError((error) {
-      _isConnected = false;
-      print('Socket error: $error');
-    });
-
-    _socket!.on('reconnecting', (attempt) {
-      print('Socket reconnecting... attempt $attempt');
-    });
-
-    _socket!.on('reconnect', (attempt) {
-      _isConnected = true;
-      print('Socket reconnected after $attempt attempts');
-    });
-
-    _socket!.on(SocketEvents.newMessage, (data) {
-      final payload = _asMap(data);
-      final message = payload?['message'];
-      final messageId = message is Map ? message['id'] : null;
-
-      print('New message received: $messageId');
-      if (onNewMessage != null && payload != null) {
-        onNewMessage!(payload);
-      }
-    });
-
-    _socket!.on(SocketEvents.userTyping, (data) {
-      final payload = _asMap(data);
-      if (onUserTyping != null && payload != null) {
-        onUserTyping!(
-          payload['conversation_id'] as String? ?? '',
-          payload['user_id'] as String? ?? '',
-          payload['is_typing'] as bool? ?? false,
-        );
-      }
-    });
-
-    _socket!.on(SocketEvents.onlineUsers, (data) {
-      final payload = _asMap(data);
-      if (onOnlineUsers != null && payload != null) {
-        final ids = List<String>.from(payload['online_user_ids'] ?? []);
-        onOnlineUsers!(ids);
-      }
-    });
-
-    _socket!.on(SocketEvents.userOnline, (data) {
-      final payload = _asMap(data);
-      if (onUserOnlineStatus != null && payload != null) {
-        onUserOnlineStatus!(payload['user_id'] as String? ?? '', true);
-      }
-    });
-
-    _socket!.on(SocketEvents.userOffline, (data) {
-      final payload = _asMap(data);
-      if (onUserOnlineStatus != null && payload != null) {
-        onUserOnlineStatus!(payload['user_id'] as String? ?? '', false);
-      }
-    });
-
-    _socket!.on(SocketEvents.inboxUpdate, (data) {
-      final payload = _asMap(data);
-      if (onInboxUpdate != null && payload != null) {
-        onInboxUpdate!(payload);
-      }
-    });
-
-    _socket!.on(SocketEvents.errorEvent, (data) {
-      print('Socket server error: $data');
-    });
-  }
-
-  void joinRoom(String conversationId) {
-    if (!_isConnected || _socket == null) {
-      print('Cannot join room - not connected');
-      return;
-    }
-
-    print('Joining room: conversation:$conversationId');
-    _socket!.emit(SocketEvents.joinRoom, {
-      'conversation_id': conversationId,
-    });
-  }
-
-  void leaveRoom(String conversationId) {
-    if (!_isConnected || _socket == null) {
-      return;
-    }
-
-    print('Leaving room: conversation:$conversationId');
-    _socket!.emit(SocketEvents.leaveRoom, {
-      'conversation_id': conversationId,
-    });
-  }
-
-  void emitTyping(String conversationId) {
-    if (!_isConnected || _socket == null) {
-      return;
-    }
-
-    _socket!.emit(SocketEvents.typing, {
-      'conversation_id': conversationId,
-    });
-  }
-
-  void emitStopTyping(String conversationId) {
-    if (!_isConnected || _socket == null) {
-      return;
-    }
-
-    _socket!.emit(SocketEvents.stopTyping, {
-      'conversation_id': conversationId,
-    });
-  }
-
-  void emitMessageRead(String conversationId) {
-    if (!_isConnected || _socket == null) {
-      return;
-    }
-
-    _socket!.emit(SocketEvents.messageRead, {
-      'conversation_id': conversationId,
-    });
-  }
-
-  void checkOnlineStatus(List<String> userIds) {
-    if (!_isConnected || _socket == null) {
-      return;
-    }
-
-    _socket!.emit(SocketEvents.checkOnline, {
-      'user_ids': userIds,
-    });
+  // Helper methods for specific actions
+  void joinRoom(String conversationId) => emit(SocketEvents.joinRoom, {SocketKeys.conversationId: conversationId});
+  void leaveRoom(String conversationId) => emit(SocketEvents.leaveRoom, {SocketKeys.conversationId: conversationId});
+  void sendMessage(Map<String, dynamic> message) => emit(SocketEvents.sendMessage, message);
+  void setTyping(String conversationId, bool isTyping) {
+    emit(isTyping ? SocketEvents.typing : SocketEvents.stopTyping, {SocketKeys.conversationId: conversationId});
   }
 
   void disconnect() {
@@ -258,16 +106,15 @@ class SocketService {
     _socket?.dispose();
     _socket = null;
     _isConnected = false;
-
-    onNewMessage = null;
-    onUserTyping = null;
-    onOnlineUsers = null;
-    onUserOnlineStatus = null;
-    onInboxUpdate = null;
-
-    print('Socket disconnected and disposed');
+    _connectionController.add(false);
   }
 
-  bool get isConnected => _isConnected;
-  String? get socketId => _socket?.id;
+  void dispose() {
+    disconnect();
+    _messageController.close();
+    _typingController.close();
+    _inboxController.close();
+    _presenceController.close();
+    _connectionController.close();
+  }
 }

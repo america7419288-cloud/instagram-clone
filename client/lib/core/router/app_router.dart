@@ -19,7 +19,7 @@ import '../../features/notifications/presentation/pages/notifications_page.dart'
 import '../../features/profile/presentation/pages/profile_page.dart';
 import '../../features/profile/presentation/pages/edit_profile_page.dart';
 import '../../features/messages/presentation/pages/messages_page.dart';
-import '../../features/chat/presentation/chat_screen.dart';
+import '../../features/messages/presentation/pages/chat_page.dart';
 import '../../features/messages/presentation/pages/new_message_page.dart';
 import '../../features/messages/data/models/conversation_model.dart';
 import '../../features/reels/presentation/pages/reel_detail_page.dart';
@@ -148,27 +148,23 @@ final appRouterProvider = Provider<GoRouter>((ref) {
         builder: (context, state) {
           final id = state.pathParameters['conversationId'] ?? '';
           final extra = state.extra;
-          
+
           String username = 'User';
           String? avatarUrl;
           bool isVerified = false;
-          
-          if (extra is ConversationModel) {
+
+          if (extra is Map<String, dynamic>) {
+            username = extra['username'] as String? ?? 'User';
+            avatarUrl = extra['avatarUrl'] as String?;
+            isVerified = extra['isVerified'] as bool? ?? false;
+          } else if (extra is ConversationModel) {
             username = extra.displayName;
             avatarUrl = extra.displayAvatarUrl;
             isVerified = extra.otherUser?.isVerified ?? false;
-          } else if (extra is Map<String, dynamic>) {
-            username = extra['username'] ?? 'User';
-            avatarUrl = extra['avatarUrl'];
-            isVerified = extra['isVerified'] ?? false;
           }
 
-          return ChatScreen(
+          return ChatPage(
             conversationId: id,
-            username: username,
-            avatarUrl: avatarUrl,
-            isVerified: isVerified,
-            isOnline: true, // Fallback
           );
         },
       ),

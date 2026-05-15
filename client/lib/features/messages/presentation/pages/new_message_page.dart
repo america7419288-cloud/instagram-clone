@@ -8,7 +8,7 @@ import 'package:go_router/go_router.dart';
 import '../../../../core/theme/app_theme.dart';
 import '../../../../shared/widgets/app_snackbar.dart';
 import '../providers/message_search_provider.dart';
-import '../providers/message_provider.dart';
+import '../../../chat/presentation/providers/chat_notifiers.dart';
 import '../../../../shared/widgets/spring_widget.dart';
 
 class NewMessagePage extends ConsumerStatefulWidget {
@@ -165,18 +165,26 @@ class _NewMessagePageState extends ConsumerState<NewMessagePage> {
 
               if (!context.mounted) return;
 
-              if (conversation != null) {
-                // Pop loading
-                Navigator.pop(context);
-                // Navigate to chat
-                context.pushReplacement(
-                  '/chat/${conversation.id}',
-                  extra: conversation,
-                );
-              } else {
-                Navigator.pop(context); // Pop loading
-                // Handle null case if needed, but error is usually in catch
+              // Always pop loading first
+              Navigator.pop(context);
+
+              // Guard: conversation ID must be non-empty for GoRouter to match /chat/:id
+              if (conversation.id.isEmpty) {
+                AppSnackbar.error(context, 'Could not open chat. Try again.');
+                return;
               }
+
+              // Pass a Map so the router's Map<String, dynamic> branch fires correctly
+              context.pushReplacement(
+                '/chat/${conversation.id}',
+                extra: <String, dynamic>{
+                  'username': conversation.name ?? user.username,
+                  'avatarUrl': conversation.avatarUrl,
+                  'isVerified': conversation.participants.isNotEmpty
+                      ? conversation.participants.first.isVerified
+                      : false,
+                },
+              );
             } catch (e) {
               if (!context.mounted) return;
               Navigator.pop(context); // Pop loading
@@ -210,4 +218,3 @@ class _NewMessagePageState extends ConsumerState<NewMessagePage> {
     );
   }
 }
-

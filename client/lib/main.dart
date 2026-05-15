@@ -12,6 +12,7 @@ import 'core/services/notification_handler.dart';
 import 'core/services/push_notification_service.dart';
 import 'core/theme/app_theme.dart';
 import 'core/providers/theme_provider.dart';
+import 'features/chat/presentation/providers/chat_initializer.dart';
 
 void main() async {
   WidgetsFlutterBinding.ensureInitialized();
@@ -99,10 +100,12 @@ class InstagramCloneApp extends ConsumerWidget {
         ),
       ),
       themeMode: themeState.themeMode,
-
       routerConfig: router,
       
       builder: (context, child) {
+        // Initialize chat service
+        ref.watch(chatServiceInitializerProvider);
+        
         // Apply Global No-Ripple behavior
         return ScrollConfiguration(
           behavior: const ScrollBehavior().copyWith(

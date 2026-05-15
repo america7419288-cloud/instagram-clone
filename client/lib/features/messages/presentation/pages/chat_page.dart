@@ -1,5 +1,6 @@
 // lib/features/messages/presentation/pages/chat_page.dart
 
+import 'dart:io';
 import 'package:flutter/material.dart';
 import 'package:flutter/cupertino.dart';
 import 'package:flutter/services.dart';
@@ -8,18 +9,22 @@ import 'package:flutter_lucide/flutter_lucide.dart';
 import 'package:cached_network_image/cached_network_image.dart';
 import 'package:go_router/go_router.dart';
 import 'package:intl/intl.dart';
+import 'package:image_picker/image_picker.dart';
 import '../../../../core/theme/app_theme.dart';
 import '../../../../shared/widgets/spring_widget.dart';
 import '../../../../shared/widgets/app_snackbar.dart';
 import '../../../../features/auth/presentation/providers/auth_provider.dart';
-import '../providers/message_provider.dart';
-import '../../data/models/conversation_model.dart';
-import '../../data/models/message_model.dart';
+import '../../../chat/presentation/providers/chat_notifiers.dart';
+import '../../../chat/presentation/providers/chat_providers.dart';
+import '../../../chat/presentation/providers/typing_provider.dart';
+import '../../../chat/presentation/providers/presence_provider.dart';
+import '../../../chat/data/models/conversation.dart';
+import '../../../chat/data/models/message.dart';
 import '../../../../core/socket/socket_provider.dart';
 
 class ChatPage extends ConsumerStatefulWidget {
   final String conversationId;
-  final ConversationModel? conversation;
+  final Conversation? conversation;
 
   const ChatPage({super.key, required this.conversationId, this.conversation});
 
@@ -31,13 +36,47 @@ class _ChatPageState extends ConsumerState<ChatPage> {
   final TextEditingController _messageController = TextEditingController();
   final FocusNode _messageFocus = FocusNode();
   final ScrollController _scrollController = ScrollController();
+  final ImagePicker _picker = ImagePicker();
   bool _isTyping = false;
+
+  Message? _replyingTo;
 
   @override
   void initState() {
     super.initState();
     _scrollController.addListener(_onScroll);
     _messageController.addListener(_onTextChanged);
+  }
+
+  Future<void> _pickImage(ImageSource source) async {
+    try {
+      final XFile? image = await _picker.pickImage(
+        source: source,
+        imageQuality: 70,
+      );
+      if (image != null) {
+        await ref
+            .read(chatProvider(widget.conversationId).notifier)
+            .sendMediaMessage(image.path, 'image');
+      }
+    } catch (e) {
+      if (mounted) AppSnackbar.show(context, message: 'Error picking image: $e');
+    }
+  }
+
+  Future<void> _pickVideo() async {
+    try {
+      final XFile? video = await _picker.pickVideo(
+        source: ImageSource.gallery,
+      );
+      if (video != null) {
+        await ref
+            .read(chatProvider(widget.conversationId).notifier)
+            .sendMediaMessage(video.path, 'video');
+      }
+    } catch (e) {
+      if (mounted) AppSnackbar.show(context, message: 'Error picking video: $e');
+    }
   }
 
   @override
@@ -54,6 +93,9 @@ class _ChatPageState extends ConsumerState<ChatPage> {
     if (isTyping != _isTyping) {
       setState(() => _isTyping = isTyping);
     }
+    if (isTyping) {
+      ref.read(typingProvider(widget.conversationId).notifier).onTyping();
+    }
   }
 
   void _onScroll() {
@@ -63,7 +105,7 @@ class _ChatPageState extends ConsumerState<ChatPage> {
     }
   }
 
-  ConversationModel? _conversationFromInbox(String conversationId) {
+  Conversation? _conversationFromInbox(String conversationId) {
     final conversations = ref.watch(inboxProvider).conversations;
     for (final conversation in conversations) {
       if (conversation.id == conversationId) {
@@ -77,22 +119,164 @@ class _ChatPageState extends ConsumerState<ChatPage> {
     final content = _messageController.text.trim();
     if (content.isEmpty) return;
 
-    _messageController.clear();
+    final replyToId = _replyingTo?.id;
+
+    setState(() {
+      _replyingTo = null;
+      _messageController.clear();
+    });
     _messageFocus.requestFocus();
 
-    final success = await ref
+    ref
         .read(chatProvider(widget.conversationId).notifier)
-        .sendMessage(content);
+        .sendMessage(content, replyToId: replyToId);
 
-    if (success) {
-      ref
-          .read(inboxProvider.notifier)
-          .updateConversationLastMessage(widget.conversationId, content);
-      if (_scrollController.hasClients) {
-        _scrollController.animateTo(0,
-            duration: const Duration(milliseconds: 300), curve: Curves.easeOut);
+    if (_scrollController.hasClients) {
+      _scrollController.animateTo(0,
+          duration: const Duration(milliseconds: 300), curve: Curves.easeOut);
+    }
+  }
+
+  Widget _buildMediaContent(Message message, bool isDark) {
+    const double mediaSize = 200;
+
+    Widget mediaWidget;
+
+    if (message.isSending && message.localPath != null) {
+      // ── Local file preview while uploading ──
+      mediaWidget = Stack(
+        alignment: Alignment.center,
+        children: [
+          Image.file(
+            File(message.localPath!),
+            width: mediaSize,
+            height: mediaSize,
+            fit: BoxFit.cover,
+            color: Colors.black26,
+            colorBlendMode: BlendMode.darken,
+          ),
+          const CupertinoActivityIndicator(radius: 14, color: Colors.white),
+        ],
+      );
+    } else if (message.messageType == 'video') {
+      // ── Video bubble with play overlay ──
+      if (message.mediaUrl != null) {
+        mediaWidget = Stack(
+          alignment: Alignment.center,
+          children: [
+            Container(
+              width: mediaSize,
+              height: mediaSize,
+              decoration: BoxDecoration(
+                color: isDark ? Colors.grey[900] : Colors.grey[300],
+              ),
+              child: const Icon(Icons.videocam_rounded, size: 48, color: Colors.white54),
+            ),
+            Container(
+              width: 48,
+              height: 48,
+              decoration: BoxDecoration(
+                color: Colors.black54,
+                shape: BoxShape.circle,
+              ),
+              child: const Icon(Icons.play_arrow_rounded, color: Colors.white, size: 32),
+            ),
+          ],
+        );
+      } else {
+        mediaWidget = SizedBox(
+          width: mediaSize,
+          height: mediaSize,
+          child: Center(
+            child: Icon(Icons.videocam_off_rounded, color: isDark ? Colors.white30 : Colors.black26),
+          ),
+        );
+      }
+    } else {
+      // ── Remote image ──
+      if (message.mediaUrl != null) {
+        mediaWidget = CachedNetworkImage(
+          imageUrl: message.mediaUrl!,
+          width: mediaSize,
+          fit: BoxFit.cover,
+          placeholder: (context, url) => Container(
+            width: mediaSize,
+            height: mediaSize,
+            color: isDark ? Colors.grey[900] : Colors.grey[200],
+            child: const Center(child: CupertinoActivityIndicator()),
+          ),
+          errorWidget: (context, url, error) => Container(
+            width: mediaSize,
+            height: mediaSize,
+            color: isDark ? Colors.grey[900] : Colors.grey[200],
+            child: const Icon(Icons.broken_image_outlined, color: Colors.white38),
+          ),
+        );
+      } else {
+        // Uploading image with no localPath (edge case)
+        mediaWidget = Container(
+          width: mediaSize,
+          height: mediaSize,
+          color: isDark ? Colors.grey[900] : Colors.grey[200],
+          child: const Center(child: CupertinoActivityIndicator()),
+        );
       }
     }
+
+    return Padding(
+      padding: const EdgeInsets.only(bottom: 4),
+      child: ClipRRect(
+        borderRadius: BorderRadius.circular(12),
+        child: mediaWidget,
+      ),
+    );
+  }
+
+  Widget _buildReplyPreview(bool isDark) {
+    if (_replyingTo == null) return const SizedBox.shrink();
+
+    return Container(
+      padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
+      decoration: BoxDecoration(
+        color: isDark ? Colors.grey[900] : Colors.grey[100],
+        border: Border(
+          left: BorderSide(color: AppColors.primary, width: 4),
+        ),
+      ),
+      child: Row(
+        children: [
+          Expanded(
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              mainAxisSize: MainAxisSize.min,
+              children: [
+                Text(
+                  'Replying to ${_replyingTo!.sender?.username ?? 'user'}',
+                  style: const TextStyle(
+                    fontSize: 12,
+                    fontWeight: FontWeight.bold,
+                    color: AppColors.primary,
+                  ),
+                ),
+                Text(
+                  _replyingTo!.content,
+                  maxLines: 1,
+                  overflow: TextOverflow.ellipsis,
+                  style: TextStyle(
+                    fontSize: 12,
+                    color: isDark ? Colors.white70 : Colors.black54,
+                  ),
+                ),
+              ],
+            ),
+          ),
+          IconButton(
+            icon: const Icon(LucideIcons.x, size: 16),
+            onPressed: () => setState(() => _replyingTo = null),
+          ),
+        ],
+      ),
+    );
   }
 
   @override
@@ -105,8 +289,8 @@ class _ChatPageState extends ConsumerState<ChatPage> {
     final conv =
         widget.conversation ?? _conversationFromInbox(widget.conversationId);
     final displayName =
-        conv?.displayName ?? conv?.otherUser?.username ?? 'Chat';
-    final displayAvatarUrl = conv?.displayAvatarUrl;
+        conv?.otherUser?.username ?? 'Chat';
+    final displayAvatarUrl = conv?.otherUser?.profilePicUrl;
 
     return Scaffold(
       backgroundColor: isDark ? Colors.black : Colors.white,
@@ -114,12 +298,20 @@ class _ChatPageState extends ConsumerState<ChatPage> {
       body: Column(
         children: [
           Expanded(
-            child: chatState.isLoading
+            child: chatState.isLoading && chatState.messages.isEmpty
                 ? const Center(child: CupertinoActivityIndicator())
                 : _buildMessagesList(chatState, currentUserId, isDark),
           ),
-          if (chatState.isOtherUserTyping)
-            _TypingIndicator(isDark: isDark),
+          Consumer(
+            builder: (context, ref, _) {
+              final typingState = ref.watch(typingProvider(widget.conversationId));
+              if (typingState.typingUserIds.isNotEmpty) {
+                return _TypingIndicator(isDark: isDark);
+              }
+              return const SizedBox.shrink();
+            },
+          ),
+          _buildReplyPreview(isDark),
           _buildInputBar(isDark),
         ],
       ),
@@ -127,7 +319,7 @@ class _ChatPageState extends ConsumerState<ChatPage> {
   }
 
   PreferredSizeWidget _buildAppBar(BuildContext context, String title,
-      String? avatarUrl, ConversationModel? conv) {
+      String? avatarUrl, Conversation? conv) {
     final isDark = Theme.of(context).brightness == Brightness.dark;
     return AppBar(
       backgroundColor: isDark ? Colors.black : Colors.white,
@@ -197,14 +389,14 @@ class _ChatPageState extends ConsumerState<ChatPage> {
     );
   }
 
-  Widget _buildActiveStatus(ConversationModel? conv) {
+  Widget _buildActiveStatus(Conversation? conv) {
     if (conv?.otherUser == null) return const SizedBox.shrink();
     return Consumer(
       builder: (context, ref, _) {
         final isOnline =
-            ref.watch(socketProvider).isUserOnline(conv!.otherUser!.id);
+            ref.watch(presenceProvider.notifier).isUserOnline(conv!.otherUser!.id);
         return Text(
-          isOnline ? 'Active now' : 'Active 5m ago', 
+          isOnline ? 'Active now' : 'Offline', 
           style: TextStyle(
             fontSize: 11,
             fontFamily: 'Instagram-Sans',
@@ -225,16 +417,28 @@ class _ChatPageState extends ConsumerState<ChatPage> {
       itemCount: chatState.messages.length,
       itemBuilder: (context, index) {
         final message = chatState.messages[index];
-        final isOwn = message.sender?.id == currentUserId;
+        // Use senderId as primary (set on optimistic), fall back to sender?.id
+        final isOwn = message.senderId.isNotEmpty
+            ? message.senderId == currentUserId
+            : message.sender?.id == currentUserId;
         final nextMsg = index > 0 ? chatState.messages[index - 1] : null;
         final prevMsg = index < chatState.messages.length - 1
             ? chatState.messages[index + 1]
             : null;
 
-        final isLastInGroup =
-            nextMsg == null || nextMsg.sender?.id != message.sender?.id;
-        final isFirstInGroup =
-            prevMsg == null || prevMsg.sender?.id != message.sender?.id;
+        // Use senderId for grouping too (handles optimistic messages)
+        final msgSenderId = message.senderId.isNotEmpty
+            ? message.senderId
+            : message.sender?.id ?? '';
+        final nextSenderId = nextMsg?.senderId.isNotEmpty == true
+            ? nextMsg!.senderId
+            : nextMsg?.sender?.id ?? '';
+        final prevSenderId = prevMsg?.senderId.isNotEmpty == true
+            ? prevMsg!.senderId
+            : prevMsg?.sender?.id ?? '';
+
+        final isLastInGroup = nextMsg == null || nextSenderId != msgSenderId;
+        final isFirstInGroup = prevMsg == null || prevSenderId != msgSenderId;
 
         // Date separator logic
         Widget? dateSeparator;
@@ -259,7 +463,7 @@ class _ChatPageState extends ConsumerState<ChatPage> {
                 child: Align(
                   alignment: Alignment.centerRight,
                   child: Text(
-                    'Seen', // Mocked status
+                    message.isRead ? 'Seen' : 'Sent',
                     style: TextStyle(
                       fontSize: 11,
                       color: isDark
@@ -283,7 +487,7 @@ class _ChatPageState extends ConsumerState<ChatPage> {
   }
 
   Widget _iOSMessageBubble({
-    required MessageModel message,
+    required Message message,
     required bool isOwn,
     required bool isLastInGroup,
     required bool isFirstInGroup,
@@ -301,58 +505,212 @@ class _ChatPageState extends ConsumerState<ChatPage> {
         bottom: isLastInGroup ? 8 : 2,
         top: isFirstInGroup ? 4 : 0,
       ),
-      child: Row(
-        mainAxisAlignment:
-            isOwn ? MainAxisAlignment.end : MainAxisAlignment.start,
-        crossAxisAlignment: CrossAxisAlignment.end,
+      child: Column(
+        crossAxisAlignment: isOwn ? CrossAxisAlignment.end : CrossAxisAlignment.start,
         children: [
-          if (!isOwn) ...[
-            SizedBox(
-              width: 20,
-              height: 20,
-              child: isLastInGroup
-                  ? CircleAvatar(
-                      radius: 10,
-                      backgroundImage: message.sender?.profilePicUrl != null
-                          ? NetworkImage(message.sender!.profilePicUrl!)
+          Row(
+            mainAxisAlignment:
+                isOwn ? MainAxisAlignment.end : MainAxisAlignment.start,
+            crossAxisAlignment: CrossAxisAlignment.end,
+            children: [
+              if (!isOwn) ...[
+                SizedBox(
+                  width: 20,
+                  height: 20,
+                  child: isLastInGroup
+                      ? CircleAvatar(
+                          radius: 10,
+                          backgroundImage: message.sender?.profilePicUrl != null
+                              ? NetworkImage(message.sender!.profilePicUrl!)
+                              : null,
+                          backgroundColor: AppColors.border,
+                        )
+                      : null,
+                ),
+                const SizedBox(width: 8),
+              ],
+              Flexible(
+                child: GestureDetector(
+                  onLongPress: () => _showMessageOptions(context, message, isOwn),
+                  child: Container(
+                    constraints: BoxConstraints(
+                        maxWidth: MediaQuery.of(context).size.width * 0.7),
+                    padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 10),
+                    decoration: BoxDecoration(
+                      borderRadius: borderRadius,
+                      gradient: isOwn
+                          ? const LinearGradient(
+                              colors: [AppColors.primary, Color(0xFFA033FF)],
+                              begin: Alignment.bottomRight,
+                              end: Alignment.topLeft,
+                            )
                           : null,
-                      backgroundColor: AppColors.border,
-                    )
-                  : null,
-            ),
-            const SizedBox(width: 8),
-          ],
-          Flexible(
-            child: Container(
-              constraints: BoxConstraints(
-                  maxWidth: MediaQuery.of(context).size.width * 0.7),
-              padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 10),
-              decoration: BoxDecoration(
-                borderRadius: borderRadius,
-                gradient: isOwn
-                    ? const LinearGradient(
-                        colors: [AppColors.primary, Color(0xFFA033FF)],
-                        begin: Alignment.bottomRight,
-                        end: Alignment.topLeft,
-                      )
-                    : null,
-                color: isOwn
-                    ? null
-                    : (isDark ? AppColors.darkShimmerBase : AppColors.shimmerBase),
-              ),
-              child: Text(
-                message.content ?? '',
-                style: TextStyle(
-                  fontSize: 15,
-                  fontFamily: 'Instagram-Sans',
-                  color: isOwn
-                      ? Colors.white
-                      : (isDark ? Colors.white : Colors.black),
+                      color: isOwn
+                          ? null
+                          : (isDark ? AppColors.darkShimmerBase : AppColors.shimmerBase),
+                    ),
+                    child: Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        if (message.replyToMessage != null)
+                          Container(
+                            margin: const EdgeInsets.only(bottom: 4),
+                            padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
+                            decoration: BoxDecoration(
+                              color: Colors.white.withOpacity(0.1),
+                              borderRadius: BorderRadius.circular(8),
+                              border: const Border(
+                                left: BorderSide(color: Colors.white38, width: 2),
+                              ),
+                            ),
+                            child: Column(
+                              crossAxisAlignment: CrossAxisAlignment.start,
+                              children: [
+                                Text(
+                                  message.replyToMessage!.sender?.username ?? 'user',
+                                  style: const TextStyle(
+                                    fontSize: 10,
+                                    fontWeight: FontWeight.bold,
+                                    color: Colors.white70,
+                                  ),
+                                ),
+                                Text(
+                                  message.replyToMessage!.content,
+                                  maxLines: 1,
+                                  overflow: TextOverflow.ellipsis,
+                                  style: const TextStyle(
+                                    fontSize: 10,
+                                    color: Colors.white60,
+                                  ),
+                                ),
+                              ],
+                            ),
+                          ),
+                        // ── Media Bubble ──────────────────────────
+                        if (message.messageType == 'image' || message.messageType == 'video') ...[
+                          _buildMediaContent(message, isDark),
+                        ],
+                        // ── Text Content ──────────────────────────
+                        if (message.content.isNotEmpty)
+                          Text(
+                            message.content,
+                            style: TextStyle(
+                              fontSize: 15,
+                              fontFamily: 'Instagram-Sans',
+                              color: isOwn
+                                  ? Colors.white
+                                  : (isDark ? Colors.white : Colors.black),
+                            ),
+                          ),
+                        // ── Send Error Indicator ──────────────────
+                        if (message.hasError)
+                          Padding(
+                            padding: const EdgeInsets.only(top: 4),
+                            child: Row(
+                              mainAxisSize: MainAxisSize.min,
+                              children: const [
+                                Icon(Icons.error_outline, color: Colors.redAccent, size: 14),
+                                SizedBox(width: 4),
+                                Text(
+                                  'Failed to send',
+                                  style: TextStyle(color: Colors.redAccent, fontSize: 10),
+                                ),
+                              ],
+                            ),
+                          ),
+                      ],
+                    ),
+                  ),
                 ),
               ),
+            ],
+          ),
+          if (message.reactions != null && message.reactions!.isNotEmpty)
+            Padding(
+              padding: EdgeInsets.only(
+                top: 4,
+                left: isOwn ? 0 : 28,
+                right: isOwn ? 4 : 0,
+              ),
+              child: _buildReactionBadge(message.reactions!, isDark),
             ),
+        ],
+      ),
+    );
+  }
+
+  Widget _buildReactionBadge(Map<String, dynamic> reactions, bool isDark) {
+    return Container(
+      padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
+      decoration: BoxDecoration(
+        color: isDark ? AppColors.darkShimmerBase : Colors.white,
+        borderRadius: BorderRadius.circular(10),
+        border: Border.all(color: isDark ? Colors.white10 : Colors.black12),
+        boxShadow: [
+          BoxShadow(
+            color: Colors.black.withOpacity(0.1),
+            blurRadius: 4,
+            offset: const Offset(0, 2),
           ),
         ],
+      ),
+      child: Row(
+        mainAxisSize: MainAxisSize.min,
+        children: reactions.entries.map((e) {
+          return Padding(
+            padding: const EdgeInsets.symmetric(horizontal: 1),
+            child: Text(
+              '${e.key} ${e.value > 1 ? e.value : ''}',
+              style: const TextStyle(fontSize: 10),
+            ),
+          );
+        }).toList(),
+      ),
+    );
+  }
+
+  void _showMessageOptions(BuildContext context, Message message, bool isOwn) {
+    final isDark = Theme.of(context).brightness == Brightness.dark;
+    showCupertinoModalPopup(
+      context: context,
+      builder: (context) => CupertinoActionSheet(
+        actions: [
+          _ReactionPicker(
+            onSelected: (emoji) {
+              ref.read(chatProvider(widget.conversationId).notifier).addReaction(message.id, emoji);
+              Navigator.pop(context);
+            },
+          ),
+          CupertinoActionSheetAction(
+            onPressed: () {
+              setState(() => _replyingTo = message);
+              Navigator.pop(context);
+              _messageFocus.requestFocus();
+            },
+            child: const Text('Reply'),
+          ),
+          CupertinoActionSheetAction(
+            onPressed: () {
+              Clipboard.setData(ClipboardData(text: message.content ?? ''));
+              Navigator.pop(context);
+              AppSnackbar.show(context, message: 'Copied to clipboard');
+            },
+            child: const Text('Copy'),
+          ),
+          if (isOwn)
+            CupertinoActionSheetAction(
+              isDestructiveAction: true,
+              onPressed: () {
+                ref.read(chatProvider(widget.conversationId).notifier).deleteMessage(message.id);
+                Navigator.pop(context);
+              },
+              child: const Text('Unsend'),
+            ),
+        ],
+        cancelButton: CupertinoActionSheetAction(
+          onPressed: () => Navigator.pop(context),
+          child: const Text('Cancel'),
+        ),
       ),
     );
   }
@@ -372,9 +730,7 @@ class _ChatPageState extends ConsumerState<ChatPage> {
         children: [
           // Camera button
           BouncyTap(
-            onTap: () {
-              // TODO: Open camera
-            },
+            onTap: () => _pickImage(ImageSource.camera),
             child: Container(
               width: 32,
               height: 32,
@@ -435,12 +791,15 @@ class _ChatPageState extends ConsumerState<ChatPage> {
               : Row(
                   children: [
                     BouncyTap(
-                      onTap: () {},
+                      onTap: () {
+                        // TODO: Implement voice recording
+                        AppSnackbar.show(context, message: 'Voice recording coming soon');
+                      },
                       child: const Icon(LucideIcons.mic, size: 24),
                     ),
                     const SizedBox(width: 16),
                     BouncyTap(
-                      onTap: () {},
+                      onTap: () => _pickImage(ImageSource.gallery),
                       child: const Icon(LucideIcons.image, size: 24),
                     ),
                   ],
@@ -575,3 +934,28 @@ class _BouncingDotsState extends State<_BouncingDots>
   }
 }
 
+class _ReactionPicker extends StatelessWidget {
+  final Function(String) onSelected;
+  
+  const _ReactionPicker({required this.onSelected});
+
+  @override
+  Widget build(BuildContext context) {
+    final emojis = ['❤️', '🙌', '🔥', '👏', '😢', '😍', '😮', '😂'];
+    return Container(
+      padding: const EdgeInsets.all(12),
+      child: Row(
+        mainAxisAlignment: MainAxisAlignment.spaceEvenly,
+        children: emojis.map((emoji) {
+          return BouncyTap(
+            onTap: () => onSelected(emoji),
+            child: Text(
+              emoji,
+              style: const TextStyle(fontSize: 26),
+            ),
+          );
+        }).toList(),
+      ),
+    );
+  }
+}
