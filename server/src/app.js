@@ -37,7 +37,8 @@ app.use(cors({
             !requestOrigin ||
             !isProduction ||
             allowAllOrigins ||
-            allowedOrigins.includes(requestOrigin)
+            allowedOrigins.includes(requestOrigin) ||
+            (requestOrigin && (requestOrigin.startsWith('http://localhost') || requestOrigin.startsWith('http://127.0.0.1')))
         ) {
             return callback(null, true);
         }
