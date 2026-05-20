@@ -16,7 +16,7 @@ import '../../../../core/theme/app_theme.dart';
 import '../../../../shared/widgets/spring_widget.dart';
 import '../../../../shared/widgets/error_view.dart';
 import '../../../chat/presentation/providers/chat_notifiers.dart';
-import 'package:instagram_clinet/features/notifications/presentation/providers/notification_provider.dart';
+import 'package:instagram_client/features/notifications/presentation/providers/notification_provider.dart';
 import '../../../post/presentation/providers/feed_provider.dart';
 import '../../../post/presentation/widgets/post_card.dart';
 import '../../../story/presentation/providers/story_provider.dart';

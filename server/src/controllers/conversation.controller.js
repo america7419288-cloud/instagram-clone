@@ -24,6 +24,7 @@ const { createMessageNotification } = require('../services/notification.service'
 const {
   uploadImageToCloudinary,
   uploadVideoToCloudinary,
+  uploadAudioToCloudinary,
   getMediaType,
 } = require('../services/upload.service');
 
@@ -68,6 +69,7 @@ const formatConversation = (conv, currentUserId) => {
         }
       : null,
     unread_count: c.unread_count || 0,
+    disappearing_duration: c.disappearing_duration || null,
     created_at: c.created_at || c.createdAt,
   };
 };
@@ -83,9 +85,12 @@ const formatMessage = (message) => {
     message_type: m.message_type,
     is_deleted: m.is_deleted,
     deleted_at: m.deleted_at,
+    is_edited: m.is_edited || false,
+    edited_at: m.edited_at || null,
+    expires_at: m.expires_at || null,
     created_at: m.created_at || m.createdAt,
-    conversation_id: m.conversation_id,
-    sender_id: m.sender_id,
+    conversation_id: m.conversation_id || m.conversationId,
+    sender_id: m.sender_id || m.senderId,
 
     // Who sent it
     sender: m.sender
@@ -690,6 +695,13 @@ const sendMessage = async (req, res) => {
           'instagram-clone/messages'
         );
         resolvedMessageType = 'video';
+      } else if (fileMediaType === 'audio') {
+        uploadResult = await uploadAudioToCloudinary(
+          req.file.buffer,
+          req.file.mimetype,
+          'instagram-clone/messages/audio'
+        );
+        resolvedMessageType = 'audio';
       } else {
         uploadResult = await uploadImageToCloudinary(
           req.file.buffer,
@@ -703,6 +715,12 @@ const sendMessage = async (req, res) => {
       console.log(`✅ Message media uploaded: ${mediaUrl}`);
     }
 
+    // Calculate disappearing message expiration
+    let expiresAt = null;
+    if (conversation && conversation.disappearing_duration && conversation.disappearing_duration > 0) {
+      expiresAt = new Date(Date.now() + conversation.disappearing_duration * 1000);
+    }
+
     // 4. CREATE MESSAGE
     console.log('💾 Creating message in database...');
     const message = await Message.create({
@@ -714,6 +732,7 @@ const sendMessage = async (req, res) => {
       reply_to_message_id: reply_to_message_id || null,
       shared_post_id: shared_post_id || null,
       is_deleted: false,
+      expires_at: expiresAt,
     });
     console.log('✅ Message created:', message.id);
 
@@ -1141,6 +1160,283 @@ const debugConversation = async (req, res) => {
   }
 };
 
+// ─────────────────────────────────────────────────────────────
+// @route   PUT /api/v1/conversations/:id/messages/:messageId
+// @desc    Edit a text message content
+// @access  Private (own text messages only)
+// ─────────────────────────────────────────────────────────────
+const editMessage = async (req, res) => {
+  try {
+    const { id: conversationId, messageId } = req.params;
+    const { content } = req.body;
+    const currentUserId = req.user.id;
+
+    if (!content || content.trim().length === 0) {
+      return errorResponse(res, 400, 'Content is required to edit message.');
+    }
+
+    // Verify user is a participant
+    const participant = await ConversationParticipant.findOne({
+      where: { conversation_id: conversationId, user_id: currentUserId, left_at: null },
+    });
+    if (!participant) {
+      return errorResponse(res, 403, 'You are not a participant in this conversation.');
+    }
+
+    const message = await Message.findOne({
+      where: { id: messageId, conversation_id: conversationId },
+      include: [{ model: User, as: 'sender', attributes: ['id', 'username', 'full_name', 'profile_pic_url'] }]
+    });
+
+    if (!message) {
+      return errorResponse(res, 404, 'Message not found.');
+    }
+
+    if (message.sender_id !== currentUserId) {
+      return errorResponse(res, 403, 'You can only edit your own messages.');
+    }
+
+    if (message.is_deleted) {
+      return errorResponse(res, 400, 'Cannot edit an unsent message.');
+    }
+
+    if (message.message_type !== 'text') {
+      return errorResponse(res, 400, 'Only text messages can be edited.');
+    }
+
+    await message.update({
+      content,
+      is_edited: true,
+      edited_at: new Date(),
+    });
+
+    const updatedMessage = formatMessage(message);
+
+    // Broadcast update via socket.io
+    const io = req.app.get('io');
+    if (io) {
+      io.to(`conversation:${conversationId}`).emit('message-edited', {
+        conversation_id: conversationId,
+        message: updatedMessage,
+      });
+    }
+
+    return successResponse(res, 200, 'Message edited successfully.', { message: updatedMessage });
+  } catch (error) {
+    console.error('❌ Edit message error:', error);
+    return errorResponse(res, 500, 'Failed to edit message.', error.message);
+  }
+};
+
+// ─────────────────────────────────────────────────────────────
+// @route   POST /api/v1/conversations/group
+// @desc    Create a new group conversation
+// @access  Private
+// ─────────────────────────────────────────────────────────────
+const createGroupConversation = async (req, res) => {
+  try {
+    const creatorId = req.user.id;
+    const { name, participant_ids, avatar_url } = req.body;
+
+    if (!name || name.trim().length === 0) {
+      return errorResponse(res, 400, 'Group name is required.');
+    }
+
+    if (!participant_ids || !Array.isArray(participant_ids) || participant_ids.length === 0) {
+      return errorResponse(res, 400, 'At least one participant is required.');
+    }
+
+    // Ensure all participant IDs are unique and do not include the creator
+    const uniqueUserIds = Array.from(new Set(participant_ids.filter(id => id !== creatorId)));
+
+    // Verify all target users exist
+    const validUsers = await User.findAll({
+      where: { id: { [Op.in]: uniqueUserIds } },
+      attributes: ['id', 'username']
+    });
+
+    if (validUsers.length !== uniqueUserIds.length) {
+      return errorResponse(res, 400, 'One or more participant users do not exist.');
+    }
+
+    // Create the conversation model
+    const conversation = await Conversation.create({
+      name: name.trim(),
+      avatar_url: avatar_url || null,
+      is_group: true,
+      created_by: creatorId,
+      last_message: 'Group created',
+      last_message_at: new Date(),
+      last_message_sender_id: creatorId,
+    });
+
+    // Add creator as admin and others as members
+    const participantsData = [
+      {
+        conversation_id: conversation.id,
+        user_id: creatorId,
+        role: 'admin',
+      },
+      ...uniqueUserIds.map(uid => ({
+        conversation_id: conversation.id,
+        user_id: uid,
+        role: 'member',
+      }))
+    ];
+
+    await ConversationParticipant.bulkCreate(participantsData);
+
+    // Retrieve the full conversation with all participants included
+    const fullConversation = await Conversation.findByPk(conversation.id, {
+      include: [
+        {
+          model: User,
+          as: 'participants',
+          attributes: ['id', 'username', 'full_name', 'profile_pic_url', 'is_verified'],
+          through: { attributes: ['role'] },
+        },
+      ],
+    });
+
+    const formatted = formatConversation(fullConversation, creatorId);
+
+    // Notify all participants over socket about the new inbox conversation
+    const io = req.app.get('io');
+    if (io) {
+      const allParticipantIds = [creatorId, ...uniqueUserIds];
+      allParticipantIds.forEach((uid) => {
+        emitToUser(io, uid, 'inbox-update', {
+          conversation_id: conversation.id,
+          last_message: {
+            id: 'system',
+            content: 'Group created',
+            created_at: new Date(),
+            sender_id: creatorId,
+            conversation_id: conversation.id,
+          },
+          last_message_at: new Date(),
+        });
+      });
+    }
+
+    return successResponse(res, 201, 'Group conversation created successfully.', {
+      conversation: formatted,
+    });
+
+  } catch (error) {
+    console.error('❌ Create group error:', error);
+    return errorResponse(res, 500, 'Failed to create group conversation.', error.message);
+  }
+};
+
+// ─────────────────────────────────────────────────────────────
+// @route   PUT /api/v1/conversations/:id/disappearing
+// @desc    Set conversation disappearing messages configuration
+// @access  Private (participants only)
+// ─────────────────────────────────────────────────────────────
+const setDisappearingMessages = async (req, res) => {
+  try {
+    const { id: conversationId } = req.params;
+    const { duration } = req.body; // duration in seconds (e.g. 86400, or 0/null to disable)
+    const currentUserId = req.user.id;
+
+    // Verify user is a participant
+    const participant = await ConversationParticipant.findOne({
+      where: { conversation_id: conversationId, user_id: currentUserId, left_at: null },
+    });
+    if (!participant) {
+      return errorResponse(res, 403, 'You are not a participant in this conversation.');
+    }
+
+    const conversation = await Conversation.findByPk(conversationId);
+    if (!conversation) {
+      return errorResponse(res, 404, 'Conversation not found.');
+    }
+
+    const durationVal = duration ? parseInt(duration) : null;
+
+    await conversation.update({
+      disappearing_duration: durationVal,
+    });
+
+    // Broadcast mode change via socket
+    const io = req.app.get('io');
+    if (io) {
+      io.to(`conversation:${conversationId}`).emit('disappearing-mode-changed', {
+        conversation_id: conversationId,
+        disappearing_duration: durationVal,
+        changed_by: currentUserId,
+      });
+    }
+
+    return successResponse(res, 200, 'Disappearing messages configuration updated.', {
+      conversation_id: conversationId,
+      disappearing_duration: durationVal,
+    });
+
+  } catch (error) {
+    console.error('❌ Set disappearing mode error:', error);
+    return errorResponse(res, 500, 'Failed to set disappearing messages.', error.message);
+  }
+};
+
+// ─────────────────────────────────────────────────────────────
+// @route   GET /api/v1/conversations/:id/search
+// @desc    Search conversation historical messages
+// @access  Private (participants only)
+// ─────────────────────────────────────────────────────────────
+const searchMessages = async (req, res) => {
+  try {
+    const { id: conversationId } = req.params;
+    const { query } = req.query;
+    const currentUserId = req.user.id;
+
+    if (!query || query.trim().length === 0) {
+      return errorResponse(res, 400, 'Search query is required.');
+    }
+
+    // Verify participant
+    const participant = await ConversationParticipant.findOne({
+      where: { conversation_id: conversationId, user_id: currentUserId, left_at: null },
+    });
+
+    if (!participant) {
+      return errorResponse(res, 403, 'You are not a participant in this conversation.');
+    }
+
+    // Search messages using SQL LIKE operator
+    const messages = await Message.findAll({
+      where: {
+        conversation_id: conversationId,
+        is_deleted: false,
+        content: {
+          [Op.iLike]: `%${query.trim()}%`
+        }
+      },
+      include: [
+        {
+          model: User,
+          as: 'sender',
+          attributes: ['id', 'username', 'full_name', 'profile_pic_url'],
+        }
+      ],
+      order: [['created_at', 'DESC']],
+      limit: 50
+    });
+
+    const formatted = messages.map(formatMessage);
+
+    return successResponse(res, 200, 'Messages searched successfully.', {
+      query,
+      results: formatted
+    });
+
+  } catch (error) {
+    console.error('❌ Search messages error:', error);
+    return errorResponse(res, 500, 'Failed to search messages.', error.message);
+  }
+};
+
 module.exports = {
   createOrGetConversation,
   getInbox,
@@ -1152,4 +1448,8 @@ module.exports = {
   getUnreadCount,
   leaveConversation,
   debugConversation,
+  editMessage,
+  createGroupConversation,
+  setDisappearingMessages,
+  searchMessages,
 };

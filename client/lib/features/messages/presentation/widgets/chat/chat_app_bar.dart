@@ -17,6 +17,7 @@ class ChatAppBar extends StatelessWidget {
   final VoidCallback? onCallTap;
   final VoidCallback? onVideoTap;
   final VoidCallback? onInfoTap;
+  final VoidCallback? onMoreTap;
 
   const ChatAppBar({
     super.key,
@@ -31,6 +32,7 @@ class ChatAppBar extends StatelessWidget {
     this.onCallTap,
     this.onVideoTap,
     this.onInfoTap,
+    this.onMoreTap,
   });
 
   @override
@@ -151,7 +153,7 @@ class ChatAppBar extends StatelessWidget {
           ),
           _buildActionIcon(context, LucideIcons.phone, onCallTap),
           _buildActionIcon(context, LucideIcons.video, onVideoTap),
-          _buildActionIcon(context, LucideIcons.info, onInfoTap),
+          _buildActionIcon(context, LucideIcons.info, onMoreTap ?? onInfoTap),
         ],
       ),
     );

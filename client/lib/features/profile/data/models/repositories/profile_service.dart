@@ -1,6 +1,7 @@
 // lib/features/profile/data/repositories/profile_service.dart
 
 import 'package:dio/dio.dart';
+import 'package:http_parser/http_parser.dart';
 import 'package:image_picker/image_picker.dart';
 import '../../../../../core/network/dio_client.dart';
 import '../profile_model.dart';
@@ -75,7 +76,7 @@ class ProfileService {
         'image': MultipartFile.fromBytes(
           bytes,
           filename: imageFile.name,
-          contentType: DioMediaType('image', 'jpeg'),
+          contentType: MediaType('image', 'jpeg'),
         ),
       });
 

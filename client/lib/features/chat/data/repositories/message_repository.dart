@@ -157,6 +157,38 @@ class MessageRepository {
     return conversation;
   }
 
+  Future<Message> editMessage(String conversationId, String messageId, String content) async {
+    final message = await _api.editMessage(conversationId, messageId, content);
+    await _localDb.saveMessage(message);
+    return message;
+  }
+
+  Future<Conversation> createGroupConversation({
+    required String name,
+    required List<String> participantIds,
+    String? avatarUrl,
+  }) async {
+    final conversation = await _api.createGroupConversation(
+      name: name,
+      participantIds: participantIds,
+      avatarUrl: avatarUrl,
+    );
+    await _localDb.saveConversation(conversation);
+    return conversation;
+  }
+
+  Future<void> setDisappearingMessages(String conversationId, int? durationSeconds) async {
+    await _api.setDisappearingMessages(conversationId, durationSeconds);
+    final conv = _localDb.getConversation(conversationId);
+    if (conv != null) {
+      await _localDb.saveConversation(conv.copyWith(disappearingDuration: durationSeconds));
+    }
+  }
+
+  Future<List<Message>> searchMessages(String conversationId, String query) async {
+    return await _api.searchMessages(conversationId, query);
+  }
+
   Future<void> clearLocalCache() async {
     await _localDb.clearAll();
   }

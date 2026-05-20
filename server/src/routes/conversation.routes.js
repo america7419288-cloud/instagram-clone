@@ -14,6 +14,10 @@ const {
   getUnreadCount,
   leaveConversation,
   debugConversation,
+  editMessage,
+  createGroupConversation,
+  setDisappearingMessages,
+  searchMessages,
 } = require('../controllers/conversation.controller');
 
 const { protect } = require('../middleware/auth.middleware');
@@ -31,8 +35,11 @@ router.get('/:id/debug', protect, debugConversation);
 // GET inbox (all conversations)
 router.get('/', protect, getInbox);
 
-// POST create or get DM
+// POST create or get DM conversation
 router.post('/', protect, createOrGetConversation);
+
+// POST create group conversation (MUST be registered before dynamic /:id to prevent param collision)
+router.post('/group', protect, createGroupConversation);
 
 // GET single conversation
 router.get('/:id', protect, getConversation);
@@ -43,13 +50,22 @@ router.delete('/:id', protect, leaveConversation);
 // GET messages in conversation
 router.get('/:id/messages', protect, getMessages);
 
+// GET search history of messages in conversation
+router.get('/:id/search', protect, searchMessages);
+
 // POST send message — support optional media file upload
 router.post('/:id/messages', protect, uploadPostMedia.single('media'), sendMessage);
+
+// PUT edit message content
+router.put('/:id/messages/:messageId', protect, editMessage);
 
 // DELETE unsend a message (conversation-scoped URL used by the client)
 router.delete('/:id/messages/:messageId', protect, deleteMessage);
 
 // PUT mark as read
 router.put('/:id/read', protect, markAsRead);
+
+// PUT disappearing messages duration
+router.put('/:id/disappearing', protect, setDisappearingMessages);
 
 module.exports = router;

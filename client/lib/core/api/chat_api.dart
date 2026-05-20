@@ -91,4 +91,45 @@ class ChatApi {
       data: {'emoji': emoji},
     );
   }
+
+  Future<Message> editMessage(String conversationId, String messageId, String content) async {
+    final response = await _dio.put(
+      '/conversations/$conversationId/messages/$messageId',
+      data: {'content': content},
+    );
+    return Message.fromJson(response.data['data']['message']);
+  }
+
+  Future<Conversation> createGroupConversation({
+    required String name,
+    required List<String> participantIds,
+    String? avatarUrl,
+  }) async {
+    final response = await _dio.post(
+      '/conversations/group',
+      data: {
+        'name': name,
+        'participant_ids': participantIds,
+        if (avatarUrl != null) 'avatar_url': avatarUrl,
+      },
+    );
+    return Conversation.fromJson(response.data['data']['conversation']);
+  }
+
+  Future<void> setDisappearingMessages(String conversationId, int? durationSeconds) async {
+    await _dio.put(
+      '/conversations/$conversationId/disappearing',
+      data: {'duration': durationSeconds},
+    );
+  }
+
+  Future<List<Message>> searchMessages(String conversationId, String query) async {
+    final response = await _dio.get(
+      '/conversations/$conversationId/search',
+      queryParameters: {'query': query},
+    );
+    return (response.data['data']['results'] as List)
+        .map((json) => Message.fromJson(json))
+        .toList();
+  }
 }

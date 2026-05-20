@@ -1,6 +1,8 @@
+import 'dart:async';
 import 'package:flutter/cupertino.dart';
 import 'package:lucide_icons/lucide_icons.dart';
 import 'package:cached_network_image/cached_network_image.dart';
+import 'package:just_audio/just_audio.dart';
 import 'chat_ui_constants.dart';
 
 class TextBubble extends StatelessWidget {
@@ -209,57 +211,149 @@ class VideoBubble extends StatelessWidget {
   }
 }
 
-class AudioBubble extends StatelessWidget {
-  final bool isPlaying;
-  final double progress;
-  final String duration;
+class AudioBubble extends StatefulWidget {
+  final String audioUrl;
   final bool isSent;
-  final List<double> waveform;
 
   const AudioBubble({
     super.key,
-    required this.isPlaying,
-    required this.progress,
-    required this.duration,
+    required this.audioUrl,
     required this.isSent,
-    required this.waveform,
   });
+
+  @override
+  State<AudioBubble> createState() => _AudioBubbleState();
+}
+
+class _AudioBubbleState extends State<AudioBubble> {
+  late AudioPlayer _audioPlayer;
+  bool _isPlaying = false;
+  Duration _duration = Duration.zero;
+  Duration _position = Duration.zero;
+  StreamSubscription? _playerStateSubscription;
+  StreamSubscription? _durationSubscription;
+  StreamSubscription? _positionSubscription;
+  bool _isInitialized = false;
+
+  @override
+  void initState() {
+    super.initState();
+    _audioPlayer = AudioPlayer();
+    _initAudio();
+  }
+
+  Future<void> _initAudio() async {
+    if (widget.audioUrl.isEmpty) return;
+    try {
+      final duration = await _audioPlayer.setUrl(widget.audioUrl);
+      if (mounted) {
+        setState(() {
+          _duration = duration ?? Duration.zero;
+          _isInitialized = true;
+        });
+      }
+    } catch (e) {
+      debugPrint("Error initializing audio player: $e");
+    }
+
+    _playerStateSubscription = _audioPlayer.playerStateStream.listen((state) {
+      if (mounted) {
+        setState(() {
+          _isPlaying = state.playing;
+          if (state.processingState == ProcessingState.completed) {
+            _audioPlayer.seek(Duration.zero);
+            _audioPlayer.pause();
+          }
+        });
+      }
+    });
+
+    _durationSubscription = _audioPlayer.durationStream.listen((duration) {
+      if (mounted && duration != null) {
+        setState(() {
+          _duration = duration;
+        });
+      }
+    });
+
+    _positionSubscription = _audioPlayer.positionStream.listen((position) {
+      if (mounted) {
+        setState(() {
+          _position = position;
+        });
+      }
+    });
+  }
+
+  @override
+  void dispose() {
+    _playerStateSubscription?.cancel();
+    _durationSubscription?.cancel();
+    _positionSubscription?.cancel();
+    _audioPlayer.dispose();
+    super.dispose();
+  }
+
+  Future<void> _togglePlay() async {
+    if (!_isInitialized && widget.audioUrl.isNotEmpty) {
+      await _initAudio();
+    }
+    if (_isPlaying) {
+      await _audioPlayer.pause();
+    } else {
+      await _audioPlayer.play();
+    }
+  }
+
+  String _formatDuration(Duration d) {
+    final minutes = d.inMinutes;
+    final seconds = d.inSeconds % 60;
+    return '$minutes:${seconds.toString().padLeft(2, '0')}';
+  }
 
   @override
   Widget build(BuildContext context) {
     final isDark = CupertinoTheme.of(context).brightness == Brightness.dark;
+    final progress = _duration.inMilliseconds > 0
+        ? _position.inMilliseconds / _duration.inMilliseconds
+        : 0.0;
+
+    final displayDuration = _formatDuration(_isPlaying ? _position : (_duration == Duration.zero ? const Duration(seconds: 3) : _duration));
 
     return Container(
       width: 232,
       padding: const EdgeInsets.only(left: 11, right: 14, top: 10, bottom: 10),
       decoration: BoxDecoration(
-        color: isSent
+        color: widget.isSent
             ? ChatUIConstants.bubbleSent
             : (isDark
-                  ? ChatUIConstants.bubbleReceivedDark
-                  : ChatUIConstants.bubbleReceivedLight),
+                ? ChatUIConstants.bubbleReceivedDark
+                : ChatUIConstants.bubbleReceivedLight),
         borderRadius: BorderRadius.circular(20),
       ),
       child: Row(
         children: [
-          _buildPlayButton(isDark),
+          GestureDetector(
+            onTap: _togglePlay,
+            child: _buildPlayButton(isDark),
+          ),
           const SizedBox(width: 8),
           Expanded(
             child: Column(
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
-                _buildWaveform(isDark),
+                _buildWaveform(isDark, progress),
                 const SizedBox(width: 2),
                 Text(
-                  duration,
+                  displayDuration,
                   style: TextStyle(
                     fontFamily: ChatUIConstants.fontFamily,
                     fontSize: 11,
-                    color: isSent
+                    color: widget.isSent
                         ? CupertinoColors.white.withOpacity(0.65)
                         : (isDark
-                              ? ChatUIConstants.textSecondaryDark
-                              : ChatUIConstants.textSecondaryLight),
+                            ? ChatUIConstants.textSecondaryDark
+                            : ChatUIConstants.textSecondaryLight),
                     decoration: TextDecoration.none,
                   ),
                 ),
@@ -277,25 +371,25 @@ class AudioBubble extends StatelessWidget {
       height: 38,
       decoration: BoxDecoration(
         shape: BoxShape.circle,
-        color: isSent
+        color: widget.isSent
             ? CupertinoColors.white.withOpacity(0.22)
             : (isDark
-                  ? CupertinoColors.white.withOpacity(0.1)
-                  : CupertinoColors.black.withOpacity(0.07)),
+                ? CupertinoColors.white.withOpacity(0.1)
+                : CupertinoColors.black.withOpacity(0.07)),
       ),
       child: Icon(
-        isPlaying ? LucideIcons.pause : LucideIcons.play,
+        _isPlaying ? LucideIcons.pause : LucideIcons.play,
         size: 17,
-        color: isSent
+        color: widget.isSent
             ? CupertinoColors.white
             : (isDark
-                  ? ChatUIConstants.textPrimaryDark
-                  : ChatUIConstants.textPrimaryLight),
+                ? ChatUIConstants.textPrimaryDark
+                : ChatUIConstants.textPrimaryLight),
       ),
     );
   }
 
-  Widget _buildWaveform(bool isDark) {
+  Widget _buildWaveform(bool isDark, double progress) {
     return SizedBox(
       height: 22,
       child: Row(
@@ -303,9 +397,7 @@ class AudioBubble extends StatelessWidget {
         children: List.generate(40, (index) {
           final barProgress = index / 40.0;
           final isPlayed = barProgress <= progress;
-          final height = waveform.length > index
-              ? waveform[index].clamp(3.0, 22.0)
-              : 3.0;
+          final height = (3.0 + (index % 7) * 2.5).clamp(3.0, 22.0);
 
           return Container(
             width: 2.5,
@@ -313,14 +405,14 @@ class AudioBubble extends StatelessWidget {
             decoration: BoxDecoration(
               borderRadius: BorderRadius.circular(1.5),
               color: isPlayed
-                  ? (isSent
-                        ? CupertinoColors.white
-                        : ChatUIConstants.verifiedBlue)
-                  : (isSent
-                        ? CupertinoColors.white.withOpacity(0.35)
-                        : (isDark
-                              ? CupertinoColors.white.withOpacity(0.2)
-                              : const Color(0xFFCCCCCC))),
+                  ? (widget.isSent
+                      ? CupertinoColors.white
+                      : ChatUIConstants.verifiedBlue)
+                  : (widget.isSent
+                      ? CupertinoColors.white.withOpacity(0.35)
+                      : (isDark
+                          ? CupertinoColors.white.withOpacity(0.2)
+                          : const Color(0xFFCCCCCC))),
             ),
           );
         }),

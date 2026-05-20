@@ -29,16 +29,29 @@ const fileFilter = (req, file, cb) => {
     'video/mpeg',
   ];
 
+  const allowedAudioTypes = [
+    'audio/mpeg',
+    'audio/mp3',
+    'audio/wav',
+    'audio/x-wav',
+    'audio/mp4',
+    'audio/m4a',
+    'audio/aac',
+    'audio/ogg',
+    'audio/webm',
+  ];
+
   const isImage = allowedImageTypes.includes(file.mimetype);
   const isVideo = allowedVideoTypes.includes(file.mimetype);
+  const isAudio = allowedAudioTypes.includes(file.mimetype) || file.mimetype.startsWith('audio/');
 
-  if (isImage || isVideo) {
+  if (isImage || isVideo || isAudio) {
     cb(null, true);
   } else {
     cb(
       new Error(
         `File type ${file.mimetype} is not supported. ` +
-        'Please upload an image (JPG, PNG, WebP, GIF) or video (MP4, MOV, AVI, WebM).'
+        'Please upload an image (JPG, PNG, WebP, GIF), video (MP4, MOV, AVI, WebM), or audio (MP3, WAV, M4A).'
       ),
       false
     );
@@ -195,6 +208,38 @@ const uploadVideoToCloudinary = (
           mediaType: 'video',
           thumbnailUrl,
           duration,
+        });
+      }
+    );
+
+    uploadStream.end(buffer);
+  });
+};
+
+// ─── Upload audio to Cloudinary ───────────────────────
+const uploadAudioToCloudinary = (
+  buffer,
+  mimetype,
+  folder = 'instagram-clone/messages/audio'
+) => {
+  return new Promise((resolve, reject) => {
+    console.log('☁️ Uploading audio to Cloudinary via stream...');
+
+    const uploadStream = cloudinary.uploader.upload_stream(
+      {
+        folder,
+        resource_type: 'video', // Cloudinary treats audio as 'video'
+      },
+      (error, result) => {
+        if (error) {
+          console.error('❌ Cloudinary audio upload error:', error.message);
+          return reject(new Error('Failed to upload audio. Please try again.'));
+        }
+        resolve({
+          url: result.secure_url,
+          publicId: result.public_id,
+          mediaType: 'audio',
+          duration: result.duration ? Math.round(result.duration) : null,
         });
       }
     );
@@ -399,6 +444,7 @@ const deleteFromCloudinary = async (publicId, resourceType = 'image') => {
 // ─── Detect media type from mimetype ──────────────────
 const getMediaType = (mimetype) => {
   if (mimetype.startsWith('video/')) return 'video';
+  if (mimetype.startsWith('audio/')) return 'audio';
   return 'image';
 };
 
@@ -419,6 +465,7 @@ module.exports = {
   // Cloudinary helpers
   uploadImageToCloudinary,
   uploadVideoToCloudinary,
+  uploadAudioToCloudinary,
   uploadProfilePictureToCloudinary,
   uploadStoryToCloudinary,
   uploadReelToCloudinary,

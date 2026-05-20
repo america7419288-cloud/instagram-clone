@@ -8,20 +8,20 @@ import 'package:flutter_lucide/flutter_lucide.dart';
 import 'package:go_router/go_router.dart';
 import 'package:video_player/video_player.dart';
 
-import 'package:instagram_clinet/core/theme/app_theme.dart';
+import 'package:instagram_client/core/theme/app_theme.dart';
 import '../../data/models/reel_model.dart';
 import '../providers/reel_provider.dart';
-import 'package:instagram_clinet/shared/widgets/spring_widget.dart';
-import 'package:instagram_clinet/shared/widgets/verified_badge.dart';
-import 'package:instagram_clinet/core/widgets/instagram_heart_animation.dart';
-import 'package:instagram_clinet/core/router/app_router.dart';
-import 'package:instagram_clinet/features/share/models/share_content.dart';
-import 'package:instagram_clinet/features/share/presentation/share_sheet.dart';
+import 'package:instagram_client/shared/widgets/spring_widget.dart';
+import 'package:instagram_client/shared/widgets/verified_badge.dart';
+import 'package:instagram_client/core/widgets/instagram_heart_animation.dart';
+import 'package:instagram_client/core/router/app_router.dart';
+import 'package:instagram_client/features/share/models/share_content.dart';
+import 'package:instagram_client/features/share/presentation/share_sheet.dart';
 import 'reel_action_buttons.dart';
-import 'package:instagram_clinet/features/menu/presentation/three_dot_menu.dart';
-import 'package:instagram_clinet/features/menu/models/menu_context.dart';
-import 'package:instagram_clinet/features/menu/models/menu_action.dart';
-import 'package:instagram_clinet/features/follow/data/repositories/presentation/providers/follow_provider.dart';
+import 'package:instagram_client/features/menu/presentation/three_dot_menu.dart';
+import 'package:instagram_client/features/menu/models/menu_context.dart';
+import 'package:instagram_client/features/menu/models/menu_action.dart';
+import 'package:instagram_client/features/follow/data/repositories/presentation/providers/follow_provider.dart';
 
 class ReelCard extends ConsumerStatefulWidget {
   final ReelModel reel;

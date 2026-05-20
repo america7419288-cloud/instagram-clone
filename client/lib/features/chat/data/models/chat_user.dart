@@ -31,9 +31,9 @@ class ChatUser {
     return ChatUser(
       id: json['id'] ?? '',
       username: json['username'] ?? '',
-      fullName: json['full_name'],
-      profilePicUrl: json['profile_pic_url'],
-      isVerified: json['is_verified'] ?? false,
+      fullName: json['full_name'] ?? json['fullName'],
+      profilePicUrl: json['profile_pic_url'] ?? json['profilePicUrl'],
+      isVerified: json['is_verified'] ?? json['isVerified'] ?? false,
     );
   }
 

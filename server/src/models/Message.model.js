@@ -96,6 +96,25 @@ const Message = sequelize.define(
       type: DataTypes.DATE,
       allowNull: true,
     },
+
+    // Message editing status
+    is_edited: {
+      type: DataTypes.BOOLEAN,
+      defaultValue: false,
+      allowNull: false,
+    },
+
+    // When message was last edited
+    edited_at: {
+      type: DataTypes.DATE,
+      allowNull: true,
+    },
+
+    // When disappearing message expires
+    expires_at: {
+      type: DataTypes.DATE,
+      allowNull: true,
+    },
   },
   {
     tableName: 'messages',

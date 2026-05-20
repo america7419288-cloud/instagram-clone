@@ -33,6 +33,9 @@ class Conversation {
   @HiveField(8)
   final ChatUser? otherUser;
 
+  // Phase 2 fields (not in Hive)
+  final int? disappearingDuration;
+
   Conversation({
     required this.id,
     this.isGroup = false,
@@ -43,27 +46,39 @@ class Conversation {
     required this.participants,
     required this.updatedAt,
     this.otherUser,
+    this.disappearingDuration,
   });
 
   factory Conversation.fromJson(Map<String, dynamic> json) {
     return Conversation(
       id: json['id'] ?? '',
-      isGroup: json['is_group'] ?? false,
+      isGroup: json['is_group'] ?? json['isGroup'] ?? false,
       name: json['name'],
-      avatarUrl: json['avatar_url'],
+      avatarUrl: json['avatar_url'] ?? json['avatarUrl'],
       lastMessage: json['last_message'] != null
           ? Message.fromJson(json['last_message'])
-          : null,
-      unreadCount: json['unread_count'] ?? 0,
+          : json['lastMessage'] != null
+              ? Message.fromJson(json['lastMessage'])
+              : null,
+      unreadCount: json['unread_count'] ?? json['unreadCount'] ?? 0,
       participants: (json['participants'] as List? ?? [])
           .map((p) => ChatUser.fromJson(p))
           .toList(),
       updatedAt: json['updated_at'] != null
           ? DateTime.parse(json['updated_at'])
-          : DateTime.now(),
+          : json['updatedAt'] != null
+              ? DateTime.parse(json['updatedAt'])
+              : DateTime.now(),
       otherUser: json['other_user'] != null
           ? ChatUser.fromJson(json['other_user'])
-          : null,
+          : json['otherUser'] != null
+              ? ChatUser.fromJson(json['otherUser'])
+              : null,
+      disappearingDuration: json['disappearing_duration'] != null
+          ? int.tryParse(json['disappearing_duration'].toString())
+          : json['disappearingDuration'] != null
+              ? int.tryParse(json['disappearingDuration'].toString())
+              : null,
     );
   }
 
@@ -77,6 +92,7 @@ class Conversation {
     List<ChatUser>? participants,
     DateTime? updatedAt,
     ChatUser? otherUser,
+    int? disappearingDuration,
   }) {
     return Conversation(
       id: id ?? this.id,
@@ -88,6 +104,7 @@ class Conversation {
       participants: participants ?? this.participants,
       updatedAt: updatedAt ?? this.updatedAt,
       otherUser: otherUser ?? this.otherUser,
+      disappearingDuration: disappearingDuration ?? this.disappearingDuration,
     );
   }
 
@@ -102,6 +119,7 @@ class Conversation {
       'participants': participants.map((p) => p.toJson()).toList(),
       'updated_at': updatedAt.toIso8601String(),
       'other_user': otherUser?.toJson(),
+      'disappearing_duration': disappearingDuration,
     };
   }
 }

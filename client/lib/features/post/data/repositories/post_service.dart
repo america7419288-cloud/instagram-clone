@@ -2,6 +2,7 @@
 
 import 'dart:io';
 import 'package:dio/dio.dart';
+import 'package:http_parser/http_parser.dart';
 import '../../../../core/network/dio_client.dart';
 import '../../../../core/constants/app_constants.dart';
 import '../models/post_model.dart';
@@ -70,7 +71,7 @@ class PostService {
             await MultipartFile.fromFile(
               file.path,
               filename: fileName,
-              contentType: DioMediaType('image', 'jpeg'),
+              contentType: MediaType('image', 'jpeg'),
             ),
           ),
         );

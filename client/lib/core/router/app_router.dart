@@ -21,7 +21,13 @@ import '../../features/profile/presentation/pages/edit_profile_page.dart';
 import '../../features/messages/presentation/pages/messages_page.dart';
 import '../../features/messages/presentation/pages/chat_page.dart';
 import '../../features/messages/presentation/pages/new_message_page.dart';
+import '../../features/messages/presentation/pages/message_search_page.dart';
+import '../../features/messages/presentation/pages/image_viewer_page.dart';
+import '../../features/messages/presentation/pages/video_player_page.dart';
+import '../../features/messages/presentation/pages/forward_message_page.dart';
+import '../../features/messages/presentation/pages/group_chat_create_page.dart';
 import '../../features/messages/data/models/conversation_model.dart';
+import '../../features/chat/data/models/message.dart';
 import '../../features/reels/presentation/pages/reel_detail_page.dart';
 import '../../features/story/presentation/pages/story_viewer_page.dart';
 import '../../features/follow/data/repositories/presentation/pages/followers_page.dart';
@@ -171,6 +177,43 @@ final appRouterProvider = Provider<GoRouter>((ref) {
       GoRoute(
         path: AppRoutes.newMessage,
         builder: (context, state) => const NewMessagePage(),
+      ),
+      GoRoute(
+        path: '/messages/search',
+        builder: (context, state) => const MessageSearchPage(),
+      ),
+      GoRoute(
+        path: '/messages/image-viewer',
+        builder: (context, state) {
+          final extra = state.extra as Map<String, dynamic>?;
+          return ImageViewerPage(
+            imageUrl: extra?['imageUrl'] as String? ?? '',
+            senderName: extra?['senderName'] as String?,
+            timestamp: extra?['timestamp'] as DateTime?,
+          );
+        },
+      ),
+      GoRoute(
+        path: '/messages/video-player',
+        builder: (context, state) {
+          final extra = state.extra as Map<String, dynamic>?;
+          return VideoPlayerPage(
+            videoUrl: extra?['videoUrl'] as String? ?? '',
+            thumbnailUrl: extra?['thumbnailUrl'] as String?,
+            senderName: extra?['senderName'] as String?,
+          );
+        },
+      ),
+      GoRoute(
+        path: '/messages/forward',
+        builder: (context, state) {
+          final message = state.extra as Message;
+          return ForwardMessagePage(message: message);
+        },
+      ),
+      GoRoute(
+        path: '/messages/group/create',
+        builder: (context, state) => const GroupChatCreatePage(),
       ),
       GoRoute(
         path: AppRoutes.editProfile,

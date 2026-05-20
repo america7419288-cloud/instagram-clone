@@ -93,6 +93,12 @@ class InboxNotifier extends Notifier<InboxState> {
   Future<void> loadUnreadCount() async {
     await loadConversations();
   }
+
+  void deleteConversation(String conversationId) {
+    state = state.copyWith(
+      conversations: state.conversations.where((c) => c.id != conversationId).toList(),
+    );
+  }
 }
 
 // ─── CHAT STATE ─────────────────────────────────────────────
@@ -179,6 +185,17 @@ class ChatNotifier extends Notifier<ChatState> {
         state = state.copyWith(
           messages: state.messages.where((m) => m.id != messageId).toList(),
         );
+      } else if (type == 'edit') {
+        final msgData = data['message'];
+        if (msgData != null) {
+          final message = Message.fromJson(msgData);
+          state = state.copyWith(
+            messages: state.messages.map((m) {
+              return m.id == message.id ? message : m;
+            }).toList(),
+          );
+          unawaited(_repository.saveMessage(message));
+        }
       } else if (type == 'reaction') {
         final messageId = data['message_id'];
         final emoji = data['emoji'];
@@ -375,6 +392,28 @@ class ChatNotifier extends Notifier<ChatState> {
       state = state.copyWith(
         messages: state.messages.where((m) => m.id != messageId).toList(),
       );
+    } catch (e) {
+      state = state.copyWith(error: e.toString());
+    }
+  }
+
+  Future<void> editMessage(String messageId, String content) async {
+    try {
+      final message = await _repository.editMessage(conversationId, messageId, content);
+      state = state.copyWith(
+        messages: state.messages.map((m) {
+          return m.id == messageId ? message : m;
+        }).toList(),
+      );
+    } catch (e) {
+      state = state.copyWith(error: e.toString());
+    }
+  }
+
+  Future<void> setDisappearingMessages(int? durationSeconds) async {
+    try {
+      await _repository.setDisappearingMessages(conversationId, durationSeconds);
+      await ref.read(inboxProvider.notifier).loadConversations();
     } catch (e) {
       state = state.copyWith(error: e.toString());
     }

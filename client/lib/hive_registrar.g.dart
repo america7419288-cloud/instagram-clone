@@ -3,9 +3,9 @@
 // Check in to version control
 
 import 'package:hive_ce/hive_ce.dart';
-import 'package:instagram_clinet/features/chat/data/models/chat_user.dart';
-import 'package:instagram_clinet/features/chat/data/models/conversation.dart';
-import 'package:instagram_clinet/features/chat/data/models/message.dart';
+import 'package:instagram_client/features/chat/data/models/chat_user.dart';
+import 'package:instagram_client/features/chat/data/models/conversation.dart';
+import 'package:instagram_client/features/chat/data/models/message.dart';
 
 extension HiveRegistrar on HiveInterface {
   void registerAdapters() {

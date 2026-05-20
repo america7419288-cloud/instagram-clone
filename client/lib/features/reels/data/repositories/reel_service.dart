@@ -3,6 +3,7 @@
 import 'dart:io';
 
 import 'package:dio/dio.dart';
+import 'package:http_parser/http_parser.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import '../../../../core/constants/app_constants.dart';
@@ -118,7 +119,7 @@ class ReelService {
         MultipartFile.fromBytes(
           fileBytes,
           filename: fileName,
-          contentType: DioMediaType.parse(mimeType),
+          contentType: MediaType.parse(mimeType),
         ),
       ),
     );

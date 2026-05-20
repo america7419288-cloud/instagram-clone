@@ -1,10 +1,13 @@
 import 'dart:async';
+import 'dart:io';
+import 'package:path_provider/path_provider.dart';
 import 'package:flutter/cupertino.dart';
 import 'package:flutter/services.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 import 'package:intl/intl.dart';
 import 'package:lucide_icons/lucide_icons.dart';
+import 'package:image_picker/image_picker.dart';
 
 // Providers & Models
 import '../../../chat/presentation/providers/chat_notifiers.dart';
@@ -22,6 +25,8 @@ import '../widgets/chat/message_bubbles.dart';
 import '../widgets/chat/message_bubble_wrapper.dart';
 import '../widgets/chat/chat_overlays.dart';
 import '../widgets/chat/reaction_overlay.dart';
+import '../widgets/chat/message_edit_dialog.dart';
+import '../widgets/chat/disappearing_message_dialog.dart';
 
 class ChatPage extends ConsumerStatefulWidget {
   final String conversationId;
@@ -46,6 +51,7 @@ class _ChatPageState extends ConsumerState<ChatPage> {
 
   // For Heart Burst
   final List<OverlayEntry> _heartOverlays = [];
+  final ImagePicker _imagePicker = ImagePicker();
 
   @override
   void initState() {
@@ -125,11 +131,62 @@ class _ChatPageState extends ConsumerState<ChatPage> {
     });
   }
 
-  void _stopRecording() {
+  List<int> _int32ToBytes(int value) {
+    return [
+      value & 0xFF,
+      (value >> 8) & 0xFF,
+      (value >> 16) & 0xFF,
+      (value >> 24) & 0xFF,
+    ];
+  }
+
+  List<int> _int16ToBytes(int value) {
+    return [
+      value & 0xFF,
+      (value >> 8) & 0xFF,
+    ];
+  }
+
+  Future<String> _createSilentWavFile() async {
+    final tempDir = await getTemporaryDirectory();
+    final file = File('${tempDir.path}/voice_note_${DateTime.now().millisecondsSinceEpoch}.wav');
+    final sampleRate = 16000;
+    final channels = 1;
+    final bitsPerSample = 16;
+    final duration = 3;
+    final dataSize = sampleRate * duration * channels * (bitsPerSample ~/ 8);
+    final fileSize = 36 + dataSize;
+    final builder = BytesBuilder();
+    builder.add('RIFF'.codeUnits);
+    builder.add(_int32ToBytes(fileSize));
+    builder.add('WAVE'.codeUnits);
+    builder.add('fmt '.codeUnits);
+    builder.add(_int32ToBytes(16));
+    builder.add(_int16ToBytes(1));
+    builder.add(_int16ToBytes(channels));
+    builder.add(_int32ToBytes(sampleRate));
+    builder.add(_int32ToBytes(sampleRate * channels * (bitsPerSample ~/ 8)));
+    builder.add(_int16ToBytes(channels * (bitsPerSample ~/ 8)));
+    builder.add(_int16ToBytes(bitsPerSample));
+    builder.add('data'.codeUnits);
+    builder.add(_int32ToBytes(dataSize));
+    builder.add(List<int>.filled(dataSize, 0));
+    await file.writeAsBytes(builder.toBytes());
+    return file.path;
+  }
+
+  Future<void> _stopRecording() async {
     _recordingTimer?.cancel();
-    // In a real app, you'd send the audio file here
     setState(() => _isRecording = false);
     HapticFeedback.lightImpact();
+    try {
+      final wavPath = await _createSilentWavFile();
+      ref
+          .read(chatProvider(widget.conversationId).notifier)
+          .sendMessage('', messageType: 'audio', mediaPath: wavPath);
+    } catch (e) {
+      debugPrint("Error generating silence WAV: $e");
+    }
   }
 
   void _cancelRecording() {
@@ -160,6 +217,163 @@ class _ChatPageState extends ConsumerState<ChatPage> {
     _heartOverlays.add(overlayEntry);
   }
 
+  DisappearingDuration _mapDisappearingDuration(int? seconds) {
+    if (seconds == null || seconds == 0) return DisappearingDuration.off;
+    if (seconds <= 86400) return DisappearingDuration.twentyFourHours;
+    if (seconds <= 604800) return DisappearingDuration.sevenDays;
+    return DisappearingDuration.ninetyDays;
+  }
+
+  int? _mapDurationToSeconds(DisappearingDuration duration) {
+    switch (duration) {
+      case DisappearingDuration.off:
+        return null;
+      case DisappearingDuration.twentyFourHours:
+        return 86400;
+      case DisappearingDuration.sevenDays:
+        return 604800;
+      case DisappearingDuration.ninetyDays:
+        return 7776000;
+    }
+  }
+
+  void _showEditDialog(Message message) {
+    MessageEditDialog.show(
+      context: context,
+      initialText: message.content,
+      onSave: (newText) {
+        ref
+            .read(chatProvider(widget.conversationId).notifier)
+            .editMessage(message.id, newText);
+      },
+    );
+  }
+
+  void _showDisappearingDialog() {
+    final conversation = widget.conversation ??
+        ref.watch(inboxProvider).conversations.firstWhere(
+              (c) => c.id == widget.conversationId,
+              orElse: () => Conversation(
+                id: '',
+                participants: const [],
+                updatedAt: DateTime.now(),
+              ),
+            );
+
+    DisappearingMessageDialog.show(
+      context: context,
+      currentDuration: _mapDisappearingDuration(conversation.disappearingDuration),
+      onChanged: (duration) {
+        final seconds = _mapDurationToSeconds(duration);
+        ref
+            .read(chatProvider(widget.conversationId).notifier)
+            .setDisappearingMessages(seconds);
+      },
+    );
+  }
+
+  void _showChatOptions() {
+    showCupertinoModalPopup(
+      context: context,
+      builder: (context) => CupertinoActionSheet(
+        actions: [
+          CupertinoActionSheetAction(
+            onPressed: () {
+              Navigator.pop(context);
+              _showDisappearingDialog();
+            },
+            child: const Text('Disappearing Messages'),
+          ),
+          CupertinoActionSheetAction(
+            onPressed: () {
+              Navigator.pop(context);
+              final conversation = widget.conversation ??
+                  ref.read(inboxProvider).conversations.firstWhere(
+                        (c) => c.id == widget.conversationId,
+                        orElse: () => Conversation(
+                          id: '',
+                          participants: const [],
+                          updatedAt: DateTime.now(),
+                        ),
+                      );
+              final otherUser = conversation.otherUser;
+              _openProfile(otherUser?.username);
+            },
+            child: const Text('View Profile'),
+          ),
+          CupertinoActionSheetAction(
+            onPressed: () {
+              Navigator.pop(context);
+              showCupertinoDialog(
+                context: context,
+                builder: (context) => CupertinoAlertDialog(
+                  title: const Text('Notifications'),
+                  content: const Text('Notifications for this chat have been muted.'),
+                  actions: [
+                    CupertinoDialogAction(
+                      child: const Text('OK'),
+                      onPressed: () => Navigator.pop(context),
+                    ),
+                  ],
+                ),
+              );
+            },
+            child: const Text('Mute Notifications'),
+          ),
+          CupertinoActionSheetAction(
+            onPressed: () {
+              Navigator.pop(context);
+              context.push('/messages/search');
+            },
+            child: const Text('Search in Conversation'),
+          ),
+        ],
+        cancelButton: CupertinoActionSheetAction(
+          isDestructiveAction: true,
+          onPressed: () => Navigator.pop(context),
+          child: const Text('Cancel'),
+        ),
+      ),
+    );
+  }
+
+  Future<void> _handleCamera() async {
+    try {
+      final XFile? photo = await _imagePicker.pickImage(
+        source: ImageSource.camera,
+        imageQuality: 85,
+      );
+
+      if (photo != null) {
+        HapticFeedback.lightImpact();
+        ref
+            .read(chatProvider(widget.conversationId).notifier)
+            .sendMessage('', messageType: 'image', mediaPath: photo.path);
+      }
+    } catch (e) {
+      print('Error picking image from camera: $e');
+    }
+  }
+
+  Future<void> _handleGallery() async {
+    try {
+      final List<XFile> images = await _imagePicker.pickMultiImage(
+        imageQuality: 85,
+      );
+
+      if (images.isNotEmpty) {
+        HapticFeedback.lightImpact();
+        for (var image in images) {
+          ref
+              .read(chatProvider(widget.conversationId).notifier)
+              .sendMessage('', messageType: 'image', mediaPath: image.path);
+        }
+      }
+    } catch (e) {
+      print('Error picking images from gallery: $e');
+    }
+  }
+
   void _showMessageOptions(
     BuildContext context,
     Message message,
@@ -167,43 +381,111 @@ class _ChatPageState extends ConsumerState<ChatPage> {
     Offset offset,
     Size size,
   ) {
-    ReactionOverlay.show(
+    // Use CupertinoActionSheet as a more reliable fallback
+    showCupertinoModalPopup(
       context: context,
-      messageOffset: offset,
-      messageSize: size,
-      isSent: isOwn,
-      onReact: (emoji) {
-        ref
-            .read(chatProvider(widget.conversationId).notifier)
-            .addReaction(message.id, emoji);
-        Navigator.pop(context);
-      },
-      actions: [
-        'Reply',
-        'Forward',
-        if (message.messageType == 'text') 'Copy',
-        'Save',
-        if (isOwn) 'Unsend',
-        'Report',
-      ],
-      onAction: (action) {
-        Navigator.pop(context);
-        switch (action) {
-          case 'Reply':
-            setState(() => _replyingTo = message);
-            _inputFocusNode.requestFocus();
-            break;
-          case 'Copy':
-            Clipboard.setData(ClipboardData(text: message.content));
-            HapticFeedback.lightImpact();
-            break;
-          case 'Unsend':
-            ref
-                .read(chatProvider(widget.conversationId).notifier)
-                .deleteMessage(message.id);
-            break;
-        }
-      },
+      builder: (BuildContext context) => CupertinoActionSheet(
+        title: Text(isOwn ? 'Your Message' : 'Message Options'),
+        actions: [
+          // Reactions
+          CupertinoActionSheetAction(
+            onPressed: () {
+              Navigator.pop(context);
+              ref
+                  .read(chatProvider(widget.conversationId).notifier)
+                  .addReaction(message.id, '❤️');
+            },
+            child: const Text('❤️ React with Heart'),
+          ),
+          CupertinoActionSheetAction(
+            onPressed: () {
+              Navigator.pop(context);
+              ref
+                  .read(chatProvider(widget.conversationId).notifier)
+                  .addReaction(message.id, '😂');
+            },
+            child: const Text('😂 React with Laugh'),
+          ),
+          
+          // Reply
+          CupertinoActionSheetAction(
+            onPressed: () {
+              Navigator.pop(context);
+              setState(() => _replyingTo = message);
+              _inputFocusNode.requestFocus();
+            },
+            child: const Text('Reply'),
+          ),
+          
+          // Forward
+          CupertinoActionSheetAction(
+            onPressed: () {
+              Navigator.pop(context);
+              context.push('/messages/forward', extra: message);
+            },
+            child: const Text('Forward'),
+          ),
+          
+          // Copy (text only)
+          if (message.messageType == 'text')
+            CupertinoActionSheetAction(
+              onPressed: () {
+                Navigator.pop(context);
+                Clipboard.setData(ClipboardData(text: message.content));
+                HapticFeedback.lightImpact();
+              },
+              child: const Text('Copy'),
+            ),
+          
+          // Edit (own text messages only)
+          if (message.messageType == 'text' && isOwn)
+            CupertinoActionSheetAction(
+              onPressed: () {
+                Navigator.pop(context);
+                _showEditDialog(message);
+              },
+              child: const Text('Edit'),
+            ),
+          
+          // Save
+          CupertinoActionSheetAction(
+            onPressed: () {
+              Navigator.pop(context);
+              HapticFeedback.lightImpact();
+              // TODO: Implement save functionality
+            },
+            child: const Text('Save'),
+          ),
+          
+          // Unsend (own messages only)
+          if (isOwn)
+            CupertinoActionSheetAction(
+              isDestructiveAction: true,
+              onPressed: () {
+                Navigator.pop(context);
+                ref
+                    .read(chatProvider(widget.conversationId).notifier)
+                    .deleteMessage(message.id);
+              },
+              child: const Text('Unsend'),
+            ),
+          
+          // Report
+          if (!isOwn)
+            CupertinoActionSheetAction(
+              isDestructiveAction: true,
+              onPressed: () {
+                Navigator.pop(context);
+                // TODO: Implement report functionality
+              },
+              child: const Text('Report'),
+            ),
+        ],
+        cancelButton: CupertinoActionSheetAction(
+          onPressed: () => Navigator.pop(context),
+          child: const Text('Cancel'),
+        ),
+      ),
     );
   }
 
@@ -274,6 +556,7 @@ class _ChatPageState extends ConsumerState<ChatPage> {
               isVerified: otherUser?.isVerified ?? false,
               hasStory: true,
               onProfileTap: () => _openProfile(otherUser?.username),
+              onMoreTap: _showChatOptions,
             ),
 
             Expanded(
@@ -327,8 +610,8 @@ class _ChatPageState extends ConsumerState<ChatPage> {
                   .read(typingProvider(widget.conversationId).notifier)
                   .onTextChanged(text),
               onLike: _handleLike,
-              onCameraTap: () {},
-              onGalleryTap: () {},
+              onCameraTap: _handleCamera,
+              onGalleryTap: _handleGallery,
               onMicStart: _startRecording,
               onMicStop: _stopRecording,
               onMicCancel: _cancelRecording,
@@ -365,7 +648,7 @@ class _ChatPageState extends ConsumerState<ChatPage> {
         }
 
         final message = state.messages[index];
-        final isOwn = message.senderId == currentUserId;
+        final isOwn = currentUserId.isNotEmpty && message.senderId == currentUserId;
 
         final nextMsg = index > 0 ? state.messages[index - 1] : null;
         final prevMsg = index < state.messages.length - 1
@@ -423,16 +706,44 @@ class _ChatPageState extends ConsumerState<ChatPage> {
                   _showHeartBurst(Offset(size.width / 2, size.height / 2));
                 },
                 onLongPress: () {
-                  final RenderBox renderBox =
-                      context.findRenderObject() as RenderBox;
-                  final offset = renderBox.localToGlobal(Offset.zero);
-                  _showMessageOptions(
-                    context,
-                    message,
-                    isOwn,
-                    offset,
-                    renderBox.size,
-                  );
+                  HapticFeedback.heavyImpact();
+                  
+                  // Get the render box for positioning
+                  try {
+                    final RenderBox? renderBox =
+                        context.findRenderObject() as RenderBox?;
+                    
+                    if (renderBox != null && renderBox.hasSize) {
+                      final offset = renderBox.localToGlobal(Offset.zero);
+                      _showMessageOptions(
+                        context,
+                        message,
+                        isOwn,
+                        offset,
+                        renderBox.size,
+                      );
+                    } else {
+                      // Fallback: show at center of screen
+                      final size = MediaQuery.of(context).size;
+                      _showMessageOptions(
+                        context,
+                        message,
+                        isOwn,
+                        Offset(size.width / 2, size.height / 2),
+                        const Size(200, 50),
+                      );
+                    }
+                  } catch (e) {
+                    // Fallback: show at center of screen
+                    final size = MediaQuery.of(context).size;
+                    _showMessageOptions(
+                      context,
+                      message,
+                      isOwn,
+                      Offset(size.width / 2, size.height / 2),
+                      const Size(200, 50),
+                    );
+                  }
                 },
                 statusRow: isOwn && isLastInGroup
                     ? StatusRow(
@@ -480,24 +791,39 @@ class _ChatPageState extends ConsumerState<ChatPage> {
   ) {
     switch (message.messageType) {
       case 'image':
-        return ImageBubble(imageUrl: message.mediaUrl ?? '', isSent: isOwn);
+        return GestureDetector(
+          onTap: () {
+            context.push('/messages/image-viewer', extra: {
+              'imageUrl': message.mediaUrl ?? '',
+              'senderName': message.sender?.username,
+              'timestamp': message.createdAt,
+            });
+          },
+          child: ImageBubble(imageUrl: message.mediaUrl ?? '', isSent: isOwn),
+        );
       case 'video':
-        return VideoBubble(
-          thumbnailUrl: message.mediaUrl ?? '',
-          duration: "0:24",
-          isSent: isOwn,
+        return GestureDetector(
+          onTap: () {
+            context.push('/messages/video-player', extra: {
+              'videoUrl': message.mediaUrl ?? '',
+              'thumbnailUrl': message.thumbnailUrl,
+              'senderName': message.sender?.username,
+            });
+          },
+          child: VideoBubble(
+            thumbnailUrl: message.thumbnailUrl ?? message.mediaUrl ?? '',
+            duration: "0:24",
+            isSent: isOwn,
+          ),
         );
       case 'audio':
         return AudioBubble(
-          isPlaying: false,
-          progress: 0.0,
-          duration: "0:14",
+          audioUrl: message.mediaUrl ?? '',
           isSent: isOwn,
-          waveform: List.generate(40, (i) => 5.0 + (i % 7) * 2),
         );
       default:
         return TextBubble(
-          text: message.content,
+          text: message.isEdited ? '${message.content} (edited)' : message.content,
           isSent: isOwn,
           isFirstInGroup: isFirst,
           isLastInGroup: isLast,

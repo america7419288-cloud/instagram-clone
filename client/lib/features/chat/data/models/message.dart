@@ -73,8 +73,16 @@ class Message {
   @HiveField(21)
   final String? sharedThumbnailUrl;
 
+  @HiveField(22)
+  final String? thumbnailUrl;
+
   // Transient: local file path for optimistic media preview (not persisted)
   final String? localPath;
+
+  // Phase 2 fields (not in Hive)
+  final bool isEdited;
+  final DateTime? editedAt;
+  final DateTime? expiresAt;
 
   Message({
     required this.id,
@@ -99,7 +107,11 @@ class Message {
     this.sharedUsername,
     this.sharedCaption,
     this.sharedThumbnailUrl,
+    this.thumbnailUrl,
     this.localPath,
+    this.isEdited = false,
+    this.editedAt,
+    this.expiresAt,
   });
 
   factory Message.fromJson(Map<String, dynamic> json) {
@@ -130,31 +142,51 @@ class Message {
       sPostId = story['id'];
     }
 
+    final String? sharedPostId = json['shared_post_id'] ?? json['postId'] ?? sPostId;
+
     return Message(
       id: json['id'] ?? '',
-      conversationId: json['conversation_id'] ?? '',
-      senderId: json['sender_id'] ?? sender?.id ?? '',
+      conversationId: json['conversation_id'] ?? json['conversationId'] ?? '',
+      senderId: json['sender_id'] ?? json['senderId'] ?? sender?.id ?? '',
       content: json['content'] ?? '',
-      messageType: json['message_type'] ?? 'text',
+      messageType: json['message_type'] ?? json['messageType'] ?? 'text',
       createdAt: json['created_at'] != null
           ? DateTime.parse(json['created_at'])
-          : DateTime.now(),
-      isRead: json['is_read'] ?? false,
-      isDeleted: json['is_deleted'] ?? false,
-      mediaUrl: json['media_url'],
+          : json['createdAt'] != null
+              ? DateTime.parse(json['createdAt'])
+              : DateTime.now(),
+      isRead: json['is_read'] ?? json['isRead'] ?? false,
+      isDeleted: json['is_deleted'] ?? json['isDeleted'] ?? false,
+      mediaUrl: json['media_url'] ?? json['mediaUrl'],
       sender: sender,
-      tempId: json['temp_id'],
-      postId: json['shared_post_id'] ?? json['postId'] ?? sPostId,
+      tempId: json['temp_id'] ?? json['tempId'],
+      postId: json['message_type'] == 'post' ? sharedPostId : (json['postId'] ?? json['post_id']),
+      reelId: json['message_type'] == 'reel' ? sharedPostId : (json['reelId'] ?? json['reel_id']),
+      storyId: json['message_type'] == 'story' ? sharedPostId : (json['storyId'] ?? json['story_id']),
       reactions: json['reactions'] != null
           ? Map<String, int>.from(json['reactions'])
           : null,
-      replyToId: json['reply_to_id'],
+      replyToId: json['reply_to_id'] ?? json['replyToId'],
       replyToMessage: json['reply_to_message'] != null
           ? Message.fromJson(json['reply_to_message'])
-          : null,
+          : json['replyToMessage'] != null
+              ? Message.fromJson(json['replyToMessage'])
+              : null,
       sharedUsername: sUsername,
       sharedCaption: sCaption,
       sharedThumbnailUrl: sThumbnail,
+      thumbnailUrl: json['thumbnail_url'] ?? json['thumbnailUrl'],
+      isEdited: json['is_edited'] ?? json['isEdited'] ?? false,
+      editedAt: json['edited_at'] != null
+          ? DateTime.parse(json['edited_at'])
+          : json['editedAt'] != null
+              ? DateTime.parse(json['editedAt'])
+              : null,
+      expiresAt: json['expires_at'] != null
+          ? DateTime.parse(json['expires_at'])
+          : json['expiresAt'] != null
+              ? DateTime.parse(json['expiresAt'])
+              : null,
     );
   }
 
@@ -179,6 +211,13 @@ class Message {
     String? replyToId,
     Message? replyToMessage,
     String? localPath,
+    String? sharedUsername,
+    String? sharedCaption,
+    String? sharedThumbnailUrl,
+    String? thumbnailUrl,
+    bool? isEdited,
+    DateTime? editedAt,
+    DateTime? expiresAt,
   }) {
     return Message(
       id: id ?? this.id,
@@ -203,7 +242,11 @@ class Message {
       sharedUsername: sharedUsername ?? this.sharedUsername,
       sharedCaption: sharedCaption ?? this.sharedCaption,
       sharedThumbnailUrl: sharedThumbnailUrl ?? this.sharedThumbnailUrl,
+      thumbnailUrl: thumbnailUrl ?? this.thumbnailUrl,
       localPath: localPath ?? this.localPath,
+      isEdited: isEdited ?? this.isEdited,
+      editedAt: editedAt ?? this.editedAt,
+      expiresAt: expiresAt ?? this.expiresAt,
     );
   }
 
@@ -229,6 +272,10 @@ class Message {
       'sharedUsername': sharedUsername,
       'sharedCaption': sharedCaption,
       'sharedThumbnailUrl': sharedThumbnailUrl,
+      'thumbnail_url': thumbnailUrl,
+      'is_edited': isEdited,
+      'edited_at': editedAt?.toIso8601String(),
+      'expires_at': expiresAt?.toIso8601String(),
     };
   }
 
@@ -266,10 +313,12 @@ class Message {
         return mock.MessageType.audio;
       case 'reel':
         return mock.MessageType.reel;
+      case 'post':
+        return mock.MessageType.post;
+      case 'story':
+        return mock.MessageType.storyReply;
       case 'like':
-        return mock
-            .MessageType
-            .text; // Like is usually just an emoji or special text
+        return mock.MessageType.text;
       default:
         return mock.MessageType.text;
     }
@@ -280,4 +329,4 @@ class Message {
     if (hasError) return mock.MessageStatus.failed;
     return mock.MessageStatus.sent; // Default to sent
   }
-}
+} 

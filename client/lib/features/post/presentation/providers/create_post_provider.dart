@@ -2,6 +2,7 @@ import 'dart:io';
 import 'package:flutter/widgets.dart';
 
 import 'package:dio/dio.dart';
+import 'package:http_parser/http_parser.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:image_picker/image_picker.dart';
 
@@ -190,7 +191,7 @@ class CreatePostNotifier extends Notifier<CreatePostState> {
             MultipartFile.fromBytes(
               fileBytes,
               filename: fileName,
-              contentType: DioMediaType.parse(mimeType),
+              contentType: MediaType.parse(mimeType),
             ),
           ),
         );

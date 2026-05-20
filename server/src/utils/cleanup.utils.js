@@ -1,7 +1,7 @@
 // server/src/utils/cleanup.utils.js
 // Runs periodically to clean up expired story media
 
-const { Story } = require('../models');
+const { Story, Message } = require('../models');
 const { deleteFromCloudinary } = require('../services/upload.service');
 const { Op } = require('sequelize');
 
@@ -55,23 +55,52 @@ const cleanupExpiredStories = async () => {
   }
 };
 
-// Schedule cleanup to run every hour
+// Clean up expired disappearing messages
+const cleanupExpiredMessages = async () => {
+  try {
+    console.log('🧹 Starting expired message cleanup...');
+    const deletedCount = await Message.destroy({
+      where: {
+        expires_at: { [Op.lte]: new Date() }
+      }
+    });
+
+    if (deletedCount > 0) {
+      console.log(`🧹 Disappearing Messages Sweeper: Removed ${deletedCount} expired messages.`);
+    } else {
+      console.log('🧹 Disappearing Messages Sweeper: No expired messages to clean.');
+    }
+  } catch (error) {
+    console.error('❌ Message cleanup job error:', error.message);
+  }
+};
+
+// Schedule cleanup to run periodically
 const startCleanupJob = () => {
   // Run once on startup
   cleanupExpiredStories();
+  cleanupExpiredMessages();
 
   // Then run every hour (3600000 ms)
-  const interval = setInterval(
+  const storyInterval = setInterval(
     cleanupExpiredStories,
     60 * 60 * 1000
   );
 
-  console.log('⏰ Story cleanup job scheduled (every hour)');
+  // Then run every 60 seconds (60000 ms)
+  const messageInterval = setInterval(
+    cleanupExpiredMessages,
+    60 * 1000
+  );
 
-  return interval;
+  console.log('⏰ Story cleanup job scheduled (every hour)');
+  console.log('⏰ Disappearing messages cleanup job scheduled (every 60 seconds)');
+
+  return { storyInterval, messageInterval };
 };
 
 module.exports = {
   cleanupExpiredStories,
+  cleanupExpiredMessages,
   startCleanupJob,
 };

@@ -102,6 +102,8 @@ class SocketService {
     _socket?.on(SocketEvents.newMessage, (data) => _messageController.add(_asMap(data)));
     _socket?.on(SocketEvents.messageDeleted, (data) => _messageController.add({..._asMap(data), 'type': 'delete'}));
     _socket?.on(SocketEvents.messageReacted, (data) => _messageController.add({..._asMap(data), 'type': 'reaction'}));
+    _socket?.on('message-edited', (data) => _messageController.add({..._asMap(data), 'type': 'edit'}));
+    _socket?.on('disappearing-mode-changed', (data) => _inboxController.add(_asMap(data)));
     _socket?.on(SocketEvents.userTyping, (data) => _typingController.add(_asMap(data)));
     _socket?.on(SocketEvents.inboxUpdate, (data) => _inboxController.add(_asMap(data)));
     _socket?.on(SocketEvents.onlineStatus, (data) => _presenceController.add(_asMap(data)));

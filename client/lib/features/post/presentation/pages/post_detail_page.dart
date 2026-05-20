@@ -11,7 +11,7 @@ import '../../../../core/router/navigation_extensions.dart';
 import '../../../../core/theme/app_theme.dart';
 import '../../data/models/post_model.dart';
 import '../../data/repositories/post_service.dart';
-import 'package:instagram_clinet/features/post/presentation/providers/feed_provider.dart';
+import 'package:instagram_client/features/post/presentation/providers/feed_provider.dart';
 import '../../../../shared/widgets/spring_widget.dart';
 import '../widgets/video_player_widget.dart';
 

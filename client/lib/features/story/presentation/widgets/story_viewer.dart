@@ -8,20 +8,20 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:phosphor_flutter/phosphor_flutter.dart';
 import 'package:just_audio/just_audio.dart';
 
-import 'package:instagram_clinet/core/network/audio_stream_source.dart';
-import 'package:instagram_clinet/core/network/dio_client.dart';
-import 'package:instagram_clinet/core/theme/app_theme.dart';
-import 'package:instagram_clinet/shared/widgets/app_snackbar.dart';
-import 'package:instagram_clinet/features/auth/presentation/providers/auth_provider.dart';
+import 'package:instagram_client/core/network/audio_stream_source.dart';
+import 'package:instagram_client/core/network/dio_client.dart';
+import 'package:instagram_client/core/theme/app_theme.dart';
+import 'package:instagram_client/shared/widgets/app_snackbar.dart';
+import 'package:instagram_client/features/auth/presentation/providers/auth_provider.dart';
 import '../../data/models/story_model.dart';
 import '../../data/repositories/story_service.dart';
-import 'package:instagram_clinet/features/share/models/share_content.dart';
-import 'package:instagram_clinet/features/share/presentation/share_sheet.dart';
+import 'package:instagram_client/features/share/models/share_content.dart';
+import 'package:instagram_client/features/share/presentation/share_sheet.dart';
 import '../providers/story_provider.dart';
 import 'story_video_player.dart';
-import 'package:instagram_clinet/features/menu/presentation/three_dot_menu.dart';
-import 'package:instagram_clinet/features/menu/models/menu_context.dart';
-import 'package:instagram_clinet/features/menu/models/menu_action.dart';
+import 'package:instagram_client/features/menu/presentation/three_dot_menu.dart';
+import 'package:instagram_client/features/menu/models/menu_context.dart';
+import 'package:instagram_client/features/menu/models/menu_action.dart';
 
 class StoryViewer extends ConsumerStatefulWidget {
   final List<StoryFeedModel> groups;

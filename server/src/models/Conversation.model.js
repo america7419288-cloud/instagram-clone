@@ -65,6 +65,12 @@ const Conversation = sequelize.define(
       },
       onDelete: 'SET NULL',
     },
+
+    // Duration in seconds for disappearing messages
+    disappearing_duration: {
+      type: DataTypes.INTEGER,
+      allowNull: true,
+    },
   },
   {
     tableName: 'conversations',

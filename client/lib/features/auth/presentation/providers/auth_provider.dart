@@ -14,7 +14,7 @@ import '../../data/repositories/auth_service.dart';
 // Import other providers to refresh/invalidate them on auth changes
 import '../../../chat/presentation/providers/chat_notifiers.dart';
 import '../../../chat/presentation/providers/chat_providers.dart';
-import 'package:instagram_clinet/features/notifications/presentation/providers/notification_provider.dart';
+import 'package:instagram_client/features/notifications/presentation/providers/notification_provider.dart';
 import '../../../post/presentation/providers/feed_provider.dart';
 import '../../../profile/presentation/providers/profile_provider.dart';
 import '../../../story/presentation/providers/story_provider.dart';

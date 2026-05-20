@@ -118,7 +118,7 @@ class _MessagesPageState extends ConsumerState<MessagesPage>
                 ),
                 child: BouncyTap(
                   onTap: () {
-                    // TODO: Open search
+                    context.push('/messages/search');
                   },
                   child: Container(
                     height: 36,
@@ -247,11 +247,11 @@ class _MessagesPageState extends ConsumerState<MessagesPage>
       physics: const BouncingScrollPhysics(),
       itemCount: conversations.length,
       itemBuilder: (context, index) {
+        final conv = conversations[index];
         return _ConversationTile(
-          conversation: conversations[index],
+          conversation: conv,
           currentUserId: currentUserId,
           onTap: () {
-            final conv = conversations[index];
             if (conv.id.isEmpty) return; // guard: never push /chat/ with no id
             context.push(
               '/chat/${conv.id}',
@@ -261,6 +261,9 @@ class _MessagesPageState extends ConsumerState<MessagesPage>
                 'isVerified': conv.otherUser?.isVerified ?? false,
               },
             );
+          },
+          onDismissed: () {
+            ref.read(inboxProvider.notifier).deleteConversation(conv.id);
           },
         );
       },
@@ -273,11 +276,13 @@ class _ConversationTile extends StatelessWidget {
     required this.conversation,
     required this.currentUserId,
     required this.onTap,
+    required this.onDismissed,
   });
 
   final Conversation conversation;
   final String currentUserId;
   final VoidCallback onTap;
+  final VoidCallback onDismissed;
 
   @override
   Widget build(BuildContext context) {
@@ -286,7 +291,30 @@ class _ConversationTile extends StatelessWidget {
 
     return Dismissible(
       key: Key(conversation.id),
-      direction: DismissDirection.horizontal,
+      direction: DismissDirection.endToStart,
+      confirmDismiss: (direction) async {
+        return await showCupertinoDialog<bool>(
+          context: context,
+          builder: (context) => CupertinoAlertDialog(
+            title: const Text('Delete Chat?'),
+            content: const Text('Once deleted, this conversation will be removed from your inbox.'),
+            actions: [
+              CupertinoDialogAction(
+                child: const Text('Cancel'),
+                onPressed: () => Navigator.pop(context, false),
+              ),
+              CupertinoDialogAction(
+                isDestructiveAction: true,
+                child: const Text('Delete'),
+                onPressed: () => Navigator.pop(context, true),
+              ),
+            ],
+          ),
+        );
+      },
+      onDismissed: (direction) {
+        onDismissed();
+      },
       background: Container(
         alignment: Alignment.centerLeft,
         padding: const EdgeInsets.only(left: 20),
