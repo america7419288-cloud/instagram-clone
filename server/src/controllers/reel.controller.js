@@ -491,7 +491,7 @@ const getReelComments = async (req, res) => {
                 },
             ],
             order: [
-                ['isPinned', 'DESC'],
+                ['is_pinned', 'DESC'],
                 ['createdAt', 'DESC'],
             ],
             limit,
@@ -506,9 +506,9 @@ const getReelComments = async (req, res) => {
             userAvatar: c.user?.profile_pic_url,
             isVerified: c.user?.is_verified || false,
             content: c.content,
-            likesCount: c.likesCount,
-            repliesCount: c.repliesCount,
-            isPinned: c.isPinned,
+            likesCount: c.like_count || c.likesCount,
+            repliesCount: c.replies_count || c.repliesCount,
+            isPinned: c.is_pinned,
             isLiked: userId ? (c.likes?.length > 0) : false,
             createdAt: c.createdAt,
         }));

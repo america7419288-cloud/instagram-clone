@@ -11,18 +11,14 @@ const {
 const { Op } = require('sequelize');
 
 // ─── HELPER: Format notification ───────────────────────────
-const formatNotification = async (notification) => {
+const formatNotification = (notification) => {
   const n = notification.toJSON ? notification.toJSON() : notification;
 
-  // Get post thumbnail if needed
+  // Get post thumbnail from eager-loaded post (no additional query)
   let postThumbnail = null;
-  if (notification.postId) {
-    const media = await PostMedia.findOne({
-      where: { postId: notification.postId },
-      order: [['order', 'ASC']],
-      attributes: ['thumbnailUrl', 'url'],
-    });
-    postThumbnail = media?.thumbnailUrl || media?.url;
+  if (n.post && n.post.media && n.post.media.length > 0) {
+    const firstMedia = n.post.media[0];
+    postThumbnail = firstMedia.thumbnail_url || firstMedia.url;
   }
 
   // Build human-readable message based on type
@@ -103,16 +99,27 @@ const getNotifications = async (req, res) => {
               'profile_pic_url', 'is_verified',
             ],
           },
+          {
+            model: Post,
+            as: 'post',
+            required: false,
+            attributes: ['id'],
+            include: [{
+              model: PostMedia,
+              as: 'media',
+              attributes: ['thumbnail_url', 'url'],
+              order: [['order', 'ASC']],
+              limit: 1,
+            }],
+          },
         ],
         order: [['created_at', 'DESC']],
         limit,
         offset,
       });
 
-    // Format all notifications
-    const formattedNotifications = await Promise.all(
-      notifications.map(formatNotification)
-    );
+    // Format all notifications (no additional queries needed now)
+    const formattedNotifications = notifications.map(formatNotification);
 
     return paginatedResponse(
       res,

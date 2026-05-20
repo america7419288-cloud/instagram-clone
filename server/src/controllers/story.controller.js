@@ -284,27 +284,52 @@ const getStoryFeed = async (req, res) => {
       });
     }
 
-    // 3. GET ALL ACTIVE STORIES FROM THESE USERS
-    const stories = await Story.findAll({
+    // 3. GET ALL ACTIVE STORIES FROM THESE USERS (with limit)
+    const MAX_STORIES_TOTAL = 100; // Limit total stories to prevent performance issues
+    const MAX_STORIES_PER_USER = 3; // Limit stories per user
+
+    // First get unique users with stories
+    const userStories = await Story.findAll({
       where: {
         user_id: { [Op.in]: filteredUserIds },
-        expires_at: { [Op.gt]: now }, // Not expired
-        audience: 'followers',        // Public stories
+        expires_at: { [Op.gt]: now },
+        audience: 'followers',
       },
-      include: [
-        {
-          model: User,
-          as: 'user',
-          attributes: [
-            'id', 'username', 'full_name',
-            'profile_pic_url', 'is_verified',
-          ],
-        },
-        { model: StoryPoll, as: 'poll' },
-        { model: StoryQuestion, as: 'question' },
-      ],
-      order: [['created_at', 'ASC']],
+      attributes: ['id', 'user_id', 'created_at'],
+      order: [['created_at', 'DESC']],
+      limit: MAX_STORIES_TOTAL,
     });
+
+    // Get unique user IDs from the stories
+    const storyUserIds = [...new Set(userStories.map(s => s.user_id))];
+
+    // Now get full story data per user (limited)
+    const storiesPromises = storyUserIds.slice(0, 20).map(async (userId) => {
+      return Story.findAll({
+        where: {
+          user_id: userId,
+          expires_at: { [Op.gt]: now },
+          audience: 'followers',
+        },
+        include: [
+          {
+            model: User,
+            as: 'user',
+            attributes: [
+              'id', 'username', 'full_name',
+              'profile_pic_url', 'is_verified',
+            ],
+          },
+          { model: StoryPoll, as: 'poll' },
+          { model: StoryQuestion, as: 'question' },
+        ],
+        order: [['created_at', 'ASC']],
+        limit: MAX_STORIES_PER_USER,
+      });
+    });
+
+    const storiesArrays = await Promise.all(storiesPromises);
+    const stories = storiesArrays.flat();
 
     if (stories.length === 0) {
       return successResponse(res, 200, 'No stories yet', {
@@ -692,9 +717,10 @@ const deleteStory = async (req, res) => {
 
     // Delete from Cloudinary
     if (story.cloudinary_public_id) {
-      await deleteFromCloudinary(story.cloudinary_public_id);
+      const resourceType = story.media_type === 'video' ? 'video' : 'image';
+      await deleteFromCloudinary(story.cloudinary_public_id, resourceType);
       console.log(
-        `☁️ Story media deleted from Cloudinary: ${story.cloudinary_public_id}`
+        `☁️ Story media deleted from Cloudinary: ${story.cloudinary_public_id} (${resourceType})`
       );
     }
 

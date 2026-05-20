@@ -428,6 +428,10 @@ const searchUsers = async (req, res) => {
 
     // 2. SEARCH USERS
     // Search in username AND full name
+    // Use parameterized query to prevent SQL injection
+    const exactMatch = searchTerm;
+    const startsWithMatch = searchTerm + '%';
+
     const { count, rows: users } = await User.findAndCountAll({
       where: {
         [Op.and]: [
@@ -464,24 +468,20 @@ const searchUsers = async (req, res) => {
         'is_verified',
         'is_private',
       ],
-      // Exact matches first, then partial
+      // Exact matches first, then partial - using safe parameterized approach
       order: [
-        // If username exactly matches, show first
         [
           User.sequelize.literal(
-            `CASE WHEN username = '${searchTerm}' THEN 0 ELSE 1 END`
-          ),
-          'ASC',
-        ],
-        // Then username starts with search term
-        [
-          User.sequelize.literal(
-            `CASE WHEN username LIKE '${searchTerm}%' THEN 0 ELSE 1 END`
+            'CASE WHEN username = :exactMatch THEN 0 WHEN username LIKE :startsWithMatch THEN 1 ELSE 2 END'
           ),
           'ASC',
         ],
         ['username', 'ASC'],
       ],
+      replacements: {
+        exactMatch: exactMatch,
+        startsWithMatch: startsWithMatch,
+      },
       limit: parseInt(limit),
       offset,
     });

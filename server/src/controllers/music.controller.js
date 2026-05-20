@@ -17,6 +17,7 @@ const CACHE_EXPIRY = 5 * 60 * 60 * 1000; // 5 hours (YouTube URLs usually last 6
 
 /**
  * Search for music using ytmusicapi Python script
+ * Fixed: Use spawn with array arguments to prevent command injection
  */
 const searchMusic = async (req, res) => {
     try {
@@ -25,15 +26,36 @@ const searchMusic = async (req, res) => {
             return errorResponse(res, 400, 'Search query is required');
         }
 
+        // Validate query - only allow safe characters
+        const sanitizedQuery = query.trim().replace(/[^\w\s\-'(),]/gi, '');
+        if (!sanitizedQuery || sanitizedQuery.length === 0) {
+            return errorResponse(res, 400, 'Invalid search query');
+        }
+
         const scriptPath = path.join(__dirname, '..', 'scripts', 'music_search.py');
-        // Use double quotes for the query to handle spaces and special characters
-        const command = `python "${scriptPath}" "${query.replace(/"/g, '\\"')}"`;
 
-        console.log(`🎵 Searching music for: ${query}`);
+        console.log(`🎵 Searching music for: ${sanitizedQuery}`);
 
-        exec(command, (error, stdout, stderr) => {
-            if (error) {
-                console.error(`❌ Python exec error: ${error}`);
+        // Use spawn with array arguments instead of shell exec to prevent command injection
+        const pythonProcess = spawn('python', [scriptPath, sanitizedQuery], {
+            shell: false,
+            env: { ...process.env, PYTHONIOENCODING: 'utf-8' }
+        });
+
+        let stdout = '';
+        let stderr = '';
+
+        pythonProcess.stdout.on('data', (data) => {
+            stdout += data.toString();
+        });
+
+        pythonProcess.stderr.on('data', (data) => {
+            stderr += data.toString();
+        });
+
+        pythonProcess.on('close', (code) => {
+            if (code !== 0) {
+                console.error(`❌ Python script error (code ${code}): ${stderr}`);
                 return errorResponse(res, 500, 'Failed to execute music search script');
             }
             if (stderr) {
@@ -42,7 +64,7 @@ const searchMusic = async (req, res) => {
 
             try {
                 const results = JSON.parse(stdout);
-                
+
                 if (results.error) {
                     console.error(`❌ YTMusic API error: ${results.error}`);
                     return errorResponse(res, 500, results.error);
@@ -54,6 +76,11 @@ const searchMusic = async (req, res) => {
                 console.log('Raw output:', stdout);
                 return errorResponse(res, 500, 'Failed to parse music search results');
             }
+        });
+
+        pythonProcess.on('error', (error) => {
+            console.error(`❌ Failed to start Python process: ${error}`);
+            return errorResponse(res, 500, 'Failed to execute music search script');
         });
     } catch (error) {
         console.error('❌ searchMusic error:', error);
@@ -82,6 +109,11 @@ const streamMusic = async (req, res) => {
         const { videoId } = req.params;
         if (!videoId) {
             return errorResponse(res, 400, 'Video ID is required');
+        }
+
+        // Validate videoId - YouTube IDs are 11 characters alphanumeric
+        if (!/^[a-zA-Z0-9_-]{11}$/.test(videoId)) {
+            return errorResponse(res, 400, 'Invalid video ID format');
         }
 
         const cacheDir = path.join(__dirname, '..', '..', 'cache', 'audio');

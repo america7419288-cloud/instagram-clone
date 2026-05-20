@@ -107,7 +107,7 @@ app.get('/api/v1/test', (req, res) => {
 });
 
 
-app.use('/*splat', (req, res) => {
+app.use('*', (req, res) => {
     res.status(404).json({
         success: false,
         message: `Route ${req.originalUrl} not found`

@@ -245,7 +245,7 @@ const getQuestionAnswers = async (req, res) => {
                 {
                     model: User,
                     as: 'user',
-                    attributes: ['id', 'username', 'profilePicture', 'isVerified'],
+                    attributes: ['id', 'username', 'profile_pic_url', 'is_verified'],
                 },
             ],
             order: [['createdAt', 'DESC']],
@@ -379,7 +379,7 @@ const replyToStory = async (req, res) => {
 
         // ─── Get story + owner ────────────────────────────
         const story = await Story.findByPk(storyId, {
-            attributes: ['id', 'userId', 'mediaUrl', 'mediaType', 'thumbnailUrl'],
+            attributes: ['id', 'user_id', 'media_url', 'media_type', 'thumbnail_url'],
         });
         if (!story) return errorResponse(res, 404, 'Story not found');
 
@@ -396,7 +396,7 @@ const replyToStory = async (req, res) => {
         if (!conversation) {
             conversation = await Conversation.create({
                 id: uuidv4(),
-                isGroup: false,
+                is_group: false,
             });
 
             await ConversationParticipant.bulkCreate([
@@ -408,17 +408,11 @@ const replyToStory = async (req, res) => {
         // ─── Create message with story context ────────────
         const newMessage = await Message.create({
             id: uuidv4(),
-            conversationId: conversation.id,
-            senderId,
-            messageType: 'story_reply',
+            conversation_id: conversation.id,
+            sender_id: senderId,
+            message_type: 'story',
             content: message.trim(),
-            // Store story reference in metadata
-            metadata: JSON.stringify({
-                storyId,
-                storyUrl: story.mediaUrl,
-                storyType: story.mediaType,
-                thumbnailUrl: story.thumbnailUrl,
-            }),
+            media_url: story.media_url,
         });
 
         // ─── Update conversation last message ─────────────
@@ -437,7 +431,7 @@ const replyToStory = async (req, res) => {
 
         // ─── Emit via socket ──────────────────────────────
         const sender = await User.findByPk(senderId, {
-            attributes: ['id', 'username', 'profilePicture'],
+            attributes: ['id', 'username', 'profile_pic_url'],
         });
 
         emitToUser(recipientId, 'new-message', {
@@ -587,7 +581,7 @@ const getHighlight = async (req, res) => {
                 {
                     model: User,
                     as: 'user',
-                    attributes: ['id', 'username', 'profilePicture'],
+                    attributes: ['id', 'username', 'profile_pic_url'],
                 },
             ],
         });

@@ -897,7 +897,7 @@ const _processHashtags = async (postId, caption) => {
         defaults: {
           id: uuidv4(),
           name: tag.toLowerCase(),
-          postsCount: 0,
+          post_count: 0,
         },
       });
 
@@ -906,7 +906,7 @@ const _processHashtags = async (postId, caption) => {
         defaults: { id: uuidv4(), postId, hashtagId: hashtag.id },
       });
 
-      await hashtag.increment('postsCount');
+      await hashtag.increment('post_count');
     }
   } catch (error) {
     console.error('❌ _processHashtags error:', error.message);

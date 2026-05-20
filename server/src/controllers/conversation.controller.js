@@ -7,6 +7,8 @@ const {
   User,
   Post,
   PostMedia,
+  Reel,
+  Story,
   Block,
   sequelize,
 } = require('../models');
@@ -113,14 +115,34 @@ const formatMessage = (message) => {
     shared_post: m.sharedPost
       ? {
           id: m.sharedPost.id,
-          thumbnail: m.sharedPost.media?.[0]?.thumbnailUrl,
+          caption: m.sharedPost.caption,
+          thumbnail: m.sharedPost.mediaFiles?.[0]?.thumbnailUrl || m.sharedPost.mediaFiles?.[0]?.url,
+          user: m.sharedPost.user,
+        }
+      : null,
+
+    // Shared reel info
+    shared_reel: m.sharedReel
+      ? {
+          id: m.sharedReel.id,
+          caption: m.sharedReel.caption,
+          thumbnail: m.sharedReel.thumbnailUrl,
+          user: m.sharedReel.user,
+        }
+      : null,
+
+    // Shared story info
+    shared_story: m.sharedStory
+      ? {
+          id: m.sharedStory.id,
+          user: m.sharedStory.user,
+          // Story media URL would go here if Story model has it
         }
       : null,
     
     postId: m.shared_post_id,
-    // Add these if they exist in future
-    // reelId: m.shared_reel_id,
-    // storyId: m.shared_story_id,
+    reelId: m.message_type === 'reel' ? m.shared_post_id : null,
+    storyId: m.message_type === 'story' ? m.shared_post_id : null,
   };
 };
 
@@ -330,25 +352,29 @@ const getInbox = async (req, res) => {
 
     console.log(`✅ Found ${conversations.length} conversations for the user.`);
 
-    const unreadCountEntries = await Promise.all(
-      conversations.map(async (conv) => {
-        const participant = conv.participantRecords?.[0];
-        const unreadWhere = {
-          conversation_id: conv.id,
-          sender_id: { [Op.ne]: currentUserId },
-          is_deleted: false,
-        };
+    // Fix N+1: Get all unread counts in a single query
+    const activeConversationIds = conversations.map(c => c.id);
+    const activeParticipantRecords = conversations.flatMap(c => (c.participantRecords || []).map(p => ({ conversationId: c.id, lastReadAt: p.last_read_at })));
+    const lastReadByConv = new Map(activeParticipantRecords.map(p => [p.conversationId, p.lastReadAt]));
 
-        if (participant?.last_read_at) {
-          unreadWhere.created_at = { [Op.gt]: participant.last_read_at };
-        }
+    // Build a single query to get unread counts
+    const unreadCounts = await Message.findAll({
+      where: {
+        conversation_id: { [Op.in]: activeConversationIds },
+        sender_id: { [Op.ne]: currentUserId },
+        is_deleted: false,
+      },
+      attributes: [
+        'conversation_id',
+        [sequelize.fn('COUNT', sequelize.col('id')), 'unread_count']
+      ],
+      group: ['conversation_id'],
+      raw: true,
+    });
 
-        const unreadCount = await Message.count({ where: unreadWhere });
-        return [conv.id, unreadCount];
-      })
+    const unreadCountByConversationId = new Map(
+      unreadCounts.map(u => [u.conversation_id, parseInt(u.unread_count)])
     );
-
-    const unreadCountByConversationId = new Map(unreadCountEntries);
 
     // 2.1 Filter out conversations with blocked users
     const blockedUserIds = await getBlockedUserIds(currentUserId);
@@ -510,7 +536,10 @@ const getMessages = async (req, res) => {
           model: Post,
           as: 'sharedPost',
           attributes: ['id', 'caption'],
-          include: [{ model: User, as: 'user', attributes: ['username', 'profile_pic_url'] }],
+          include: [
+            { model: User, as: 'user', attributes: ['username', 'profile_pic_url'] },
+            { model: PostMedia, as: 'mediaFiles', attributes: ['url', 'thumbnailUrl'], limit: 1 }
+          ],
           required: false,
         },
         {
@@ -573,8 +602,16 @@ const sendMessage = async (req, res) => {
       temp_id,
     } = req.body;
 
+    console.log('📨 Send message request:', {
+      conversationId,
+      senderId,
+      content: content?.substring(0, 50),
+      message_type,
+      temp_id,
+    });
+
     // 1. VALIDATE
-    if (!content && message_type === 'text' && !req.file) {
+    if (!content && (message_type === 'text' || message_type === 'reply') && !req.file && !shared_post_id) {
       return errorResponse(res, 400, 'Message content is required.');
     }
 
@@ -594,6 +631,8 @@ const sendMessage = async (req, res) => {
         left_at: null,
       },
     });
+
+    console.log('👤 Participant check:', { found: !!participant });
 
     if (!participant) {
       return errorResponse(
@@ -665,6 +704,7 @@ const sendMessage = async (req, res) => {
     }
 
     // 4. CREATE MESSAGE
+    console.log('💾 Creating message in database...');
     const message = await Message.create({
       conversation_id: conversationId,
       sender_id: senderId,
@@ -675,6 +715,7 @@ const sendMessage = async (req, res) => {
       shared_post_id: shared_post_id || null,
       is_deleted: false,
     });
+    console.log('✅ Message created:', message.id);
 
     // 5. UPDATE CONVERSATION LAST MESSAGE
     const preview = content
@@ -691,6 +732,7 @@ const sendMessage = async (req, res) => {
     );
 
     // 6. GET FULL MESSAGE WITH SENDER
+    console.log('🔍 Fetching full message with associations...');
     const fullMessage = await Message.findByPk(message.id, {
       include: [
         {
@@ -710,7 +752,10 @@ const sendMessage = async (req, res) => {
           model: Post,
           as: 'sharedPost',
           attributes: ['id', 'caption'],
-          include: [{ model: User, as: 'user', attributes: ['username', 'profile_pic_url'] }],
+          include: [
+            { model: User, as: 'user', attributes: ['username', 'profile_pic_url'] },
+            { model: PostMedia, as: 'mediaFiles', attributes: ['url', 'thumbnailUrl'], limit: 1 }
+          ],
           required: false,
         },
         {
@@ -729,6 +774,7 @@ const sendMessage = async (req, res) => {
         },
       ],
     });
+    console.log('✅ Full message fetched successfully');
 
     const io = req.app.get('io');
     if (io) {
@@ -805,7 +851,12 @@ const sendMessage = async (req, res) => {
 
   } catch (error) {
     console.error('❌ Send message error:', error);
-    return errorResponse(res, 500, 'Failed to send message.');
+    console.error('Error details:', {
+      message: error.message,
+      stack: error.stack,
+      name: error.name,
+    });
+    return errorResponse(res, 500, `Failed to send message: ${error.message}`);
   }
 };
 
@@ -991,6 +1042,105 @@ const leaveConversation = async (req, res) => {
   }
 };
 
+// ─────────────────────────────────────────────────────────────
+// @route   GET /api/v1/conversations/:id/debug
+// @desc    Debug conversation and participant status
+// @access  Private
+// ─────────────────────────────────────────────────────────────
+const debugConversation = async (req, res) => {
+  try {
+    const { id: conversationId } = req.params;
+    const userId = req.user.id;
+
+    // Check conversation exists
+    const conversation = await Conversation.findByPk(conversationId, {
+      include: [
+        {
+          model: User,
+          as: 'participants',
+          attributes: ['id', 'username', 'full_name'],
+        },
+      ],
+    });
+
+    // Check participant status
+    const participant = await ConversationParticipant.findOne({
+      where: {
+        conversation_id: conversationId,
+        user_id: userId,
+      },
+    });
+
+    // Check user exists
+    const user = await User.findByPk(userId, {
+      attributes: ['id', 'username', 'full_name', 'email'],
+    });
+
+    // Get recent messages count
+    const messageCount = await Message.count({
+      where: { conversation_id: conversationId },
+    });
+
+    // Check database connection
+    let dbConnected = false;
+    try {
+      await sequelize.authenticate();
+      dbConnected = true;
+    } catch (dbError) {
+      dbConnected = false;
+    }
+
+    return res.json({
+      success: true,
+      debug_info: {
+        conversation: {
+          exists: !!conversation,
+          id: conversation?.id,
+          is_group: conversation?.is_group,
+          participant_count: conversation?.participants?.length || 0,
+          participants: conversation?.participants?.map(p => ({
+            id: p.id,
+            username: p.username,
+          })) || [],
+        },
+        participant: {
+          exists: !!participant,
+          is_active: participant && !participant.left_at,
+          joined_at: participant?.joined_at,
+          left_at: participant?.left_at,
+          last_read_at: participant?.last_read_at,
+        },
+        user: {
+          exists: !!user,
+          id: user?.id,
+          username: user?.username,
+          full_name: user?.full_name,
+        },
+        messages: {
+          count: messageCount,
+        },
+        database: {
+          connected: dbConnected,
+        },
+        request: {
+          conversation_id: conversationId,
+          user_id: userId,
+        },
+      },
+    });
+  } catch (error) {
+    console.error('❌ Debug conversation error:', error);
+    return res.json({
+      success: false,
+      error: {
+        message: error.message,
+        name: error.name,
+        stack: error.stack,
+      },
+    });
+  }
+};
+
 module.exports = {
   createOrGetConversation,
   getInbox,
@@ -1001,4 +1151,5 @@ module.exports = {
   markAsRead,
   getUnreadCount,
   leaveConversation,
+  debugConversation,
 };

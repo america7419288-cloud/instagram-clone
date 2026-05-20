@@ -13,6 +13,7 @@ const {
   markAsRead,
   getUnreadCount,
   leaveConversation,
+  debugConversation,
 } = require('../controllers/conversation.controller');
 
 const { protect } = require('../middleware/auth.middleware');
@@ -23,6 +24,9 @@ const { uploadPostMedia } = require('../services/upload.service');
 
 // GET unread count (for badge) - BEFORE /:id
 router.get('/unread-count', protect, getUnreadCount);
+
+// DEBUG endpoint - check conversation and participant status
+router.get('/:id/debug', protect, debugConversation);
 
 // GET inbox (all conversations)
 router.get('/', protect, getInbox);
