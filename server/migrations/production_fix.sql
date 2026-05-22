@@ -11,13 +11,16 @@ ALTER TABLE conversations
   ADD COLUMN IF NOT EXISTS disappearing_duration INTEGER DEFAULT NULL;
 
 -- ────────────────────────────────────────────────────────────────
--- 2. messages → add is_edited, edited_at, expires_at, reactions
+-- 2. messages → add is_edited, edited_at, expires_at, reactions, and drop foreign key constraint on shared_post_id
 -- ────────────────────────────────────────────────────────────────
 ALTER TABLE messages
   ADD COLUMN IF NOT EXISTS is_edited    BOOLEAN   NOT NULL DEFAULT FALSE,
   ADD COLUMN IF NOT EXISTS edited_at    TIMESTAMP WITH TIME ZONE DEFAULT NULL,
   ADD COLUMN IF NOT EXISTS expires_at   TIMESTAMP WITH TIME ZONE DEFAULT NULL,
   ADD COLUMN IF NOT EXISTS reactions    JSONB     NOT NULL DEFAULT '{}';
+
+ALTER TABLE messages
+  DROP CONSTRAINT IF EXISTS messages_shared_post_id_fkey;
 
 -- ────────────────────────────────────────────────────────────────
 -- 3. Create saved_reels table (new – mirrors saved_posts)

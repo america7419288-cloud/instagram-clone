@@ -12,7 +12,7 @@ class SocketService {
 
   io.Socket? _socket;
   final FlutterSecureStorage _storage = const FlutterSecureStorage();
-  String _socketUrl = AppConstants.socketUrl;
+  String _socketUrl = AppConstants.dynamicSocketUrl;
   bool _isConnecting = false;
   
   // Streams for external listeners

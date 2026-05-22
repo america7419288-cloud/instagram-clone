@@ -1,3 +1,5 @@
+import 'package:flutter/foundation.dart';
+
 class AppConstants {
   AppConstants._();
 
@@ -13,6 +15,10 @@ class AppConstants {
     'SOCKET_URL',
     defaultValue: 'https://instagram-clone-im0x.onrender.com',
   );
+
+  static String get dynamicBaseUrl => baseUrl;
+
+  static String get dynamicSocketUrl => socketUrl;
 
   static const String loginEndpoint = '/auth/login';
   static const String registerEndpoint = '/auth/register';

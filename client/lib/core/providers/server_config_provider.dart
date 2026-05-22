@@ -1,3 +1,4 @@
+import 'package:flutter/foundation.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 
@@ -24,8 +25,14 @@ class ServerConfig {
 class ServerConfigNotifier extends Notifier<ServerConfig> {
   static const String _baseUrlKey = 'server_base_url';
   static const String _socketUrlKey = 'server_socket_url';
-  static const String _defaultBaseUrl = 'https://instagram-clone-im0x.onrender.com/api/v1';
-  static const String _defaultSocketUrl = 'https://instagram-clone-im0x.onrender.com';
+  
+  static String get _defaultBaseUrl {
+    return 'https://instagram-clone-im0x.onrender.com/api/v1';
+  }
+
+  static String get _defaultSocketUrl {
+    return 'https://instagram-clone-im0x.onrender.com';
+  }
 
   @override
   ServerConfig build() {
@@ -37,10 +44,51 @@ class ServerConfigNotifier extends Notifier<ServerConfig> {
   }
 
   Future<void> _loadConfig() async {
-    final prefs = await SharedPreferences.getInstance();
-    final baseUrl = prefs.getString(_baseUrlKey) ?? _defaultBaseUrl;
-    final socketUrl = prefs.getString(_socketUrlKey) ?? _defaultSocketUrl;
-    state = ServerConfig(baseUrl: baseUrl, socketUrl: socketUrl);
+    try {
+      final prefs = await SharedPreferences.getInstance();
+      final savedBaseUrl = prefs.getString(_baseUrlKey);
+      final savedSocketUrl = prefs.getString(_socketUrlKey);
+
+      String baseUrl = savedBaseUrl ?? _defaultBaseUrl;
+      String socketUrl = savedSocketUrl ?? _defaultSocketUrl;
+
+      final isAndroid = !kIsWeb && (defaultTargetPlatform == TargetPlatform.android);
+
+      debugPrint('⚙️ [ServerConfigNotifier] Initial config load: savedBaseUrl=$savedBaseUrl, savedSocketUrl=$savedSocketUrl');
+      debugPrint('⚙️ [ServerConfigNotifier] Platform info: kDebugMode=$kDebugMode, kIsWeb=$kIsWeb, isAndroid=$isAndroid');
+
+      if (kDebugMode) {
+        bool needsHealing = false;
+        if (isAndroid && baseUrl.contains('localhost')) {
+          needsHealing = true;
+        } else {
+          // Detect if the cached URL host is local but the port is misconfigured (i.e. not 5000)
+          final uri = Uri.tryParse(baseUrl);
+          if (uri != null) {
+            final host = uri.host.toLowerCase();
+            if (host == 'localhost' || host == '127.0.0.1' || host == '10.0.2.2') {
+              if (uri.port != 5000) {
+                needsHealing = true;
+                debugPrint('⚙️ [ServerConfigNotifier] Stale or misconfigured local port (${uri.port}) detected.');
+              }
+            }
+          }
+        }
+
+        if (needsHealing) {
+          debugPrint('⚙️ [ServerConfigNotifier] Healing config from "$baseUrl" to "$_defaultBaseUrl"');
+          baseUrl = _defaultBaseUrl;
+          socketUrl = _defaultSocketUrl;
+          await prefs.setString(_baseUrlKey, baseUrl);
+          await prefs.setString(_socketUrlKey, socketUrl);
+        }
+      }
+
+      state = ServerConfig(baseUrl: baseUrl, socketUrl: socketUrl);
+      debugPrint('⚙️ [ServerConfigNotifier] Active state initialized: ${state.baseUrl}');
+    } catch (e, stack) {
+      debugPrint('🚨 [ServerConfigNotifier] Error loading config: $e\n$stack');
+    }
   }
 
   Future<void> updateConfig({

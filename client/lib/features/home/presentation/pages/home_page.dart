@@ -77,6 +77,7 @@ class _HomePageContentState extends ConsumerState<HomePageContent> {
   Widget build(BuildContext context) {
     final feedState = ref.watch(feedProvider);
     final isDark = CupertinoTheme.of(context).brightness == Brightness.dark;
+    final hasSuggested = feedState.posts.length >= 3;
 
     // Listen for scroll-to-top signal from MainShell
     ref.listen(homeScrollSignalProvider, (prev, next) {
@@ -184,14 +185,14 @@ class _HomePageContentState extends ConsumerState<HomePageContent> {
               delegate: SliverChildBuilderDelegate(
                 (context, index) {
                   // Show suggested users after 3 posts
-                  if (index == 3) {
+                  if (hasSuggested && index == 3) {
                     return SuggestedUsersCard(
                       onSeeAll: () => debugPrint('See all'),
                     );
                   }
 
                   // Adjust index if we've passed the suggestion card
-                  final postIndex = index > 3 ? index - 1 : index;
+                  final postIndex = (hasSuggested && index > 3) ? index - 1 : index;
 
                   if (postIndex == feedState.posts.length) {
                     if (feedState.hasMore) {
@@ -206,7 +207,7 @@ class _HomePageContentState extends ConsumerState<HomePageContent> {
                   final post = feedState.posts[postIndex];
                   return PostCard(key: ValueKey(post.id), post: post);
                 },
-                childCount: feedState.posts.length + 2, // +1 for loading/spacer, +1 for suggestions
+                childCount: feedState.posts.length + (hasSuggested ? 2 : 1),
               ),
             ),
         ],
