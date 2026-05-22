@@ -3,6 +3,7 @@ const path = require('path');
 const https = require('https');
 const fs = require('fs');
 const agent = new https.Agent({ keepAlive: true });
+const PYTHON_CMD = process.platform === 'win32' ? 'py' : 'python';
 const {
     successResponse,
     errorResponse,
@@ -37,7 +38,7 @@ const searchMusic = async (req, res) => {
         console.log(`🎵 Searching music for: ${sanitizedQuery}`);
 
         // Use spawn with array arguments instead of shell exec to prevent command injection
-        const pythonProcess = spawn('python', [scriptPath, sanitizedQuery], {
+        const pythonProcess = spawn(PYTHON_CMD, [scriptPath, sanitizedQuery], {
             shell: false,
             env: { ...process.env, PYTHONIOENCODING: 'utf-8' }
         });
@@ -145,7 +146,7 @@ const streamMusic = async (req, res) => {
         console.log(`🎵 Extracting fresh stream for video: ${videoId}`);
 
         // 3. Extract using yt-dlp
-        const command = `python -m yt_dlp -g -f "ba/best" ${YT_DLP_FLAGS} "${videoId}"`;
+        const command = `${PYTHON_CMD} -m yt_dlp -g -f "ba/best" ${YT_DLP_FLAGS} "${videoId}"`;
         
         exec(command, (error, stdout, stderr) => {
             if (error) {
@@ -153,7 +154,7 @@ const streamMusic = async (req, res) => {
                 if (stderr) console.error(`⚠️ stderr: ${stderr}`);
                 
                 // Fallback attempt with different client if first fails
-                const fallbackCommand = `python -m yt_dlp -g -f "ba/best" --quiet "${videoId}"`;
+                const fallbackCommand = `${PYTHON_CMD} -m yt_dlp -g -f "ba/best" --quiet "${videoId}"`;
                 
                 exec(fallbackCommand, (fError, fStdout) => {
                     if (fError) {
@@ -205,7 +206,7 @@ const _downloadToDisk = (videoId, filePath) => {
     console.log(`📥 Starting background download: ${videoId}`);
     urlCache.set(`downloading_${videoId}`, true);
 
-    const command = `python -m yt_dlp -f "ba/best" ${YT_DLP_FLAGS} -o "${filePath}" "${videoId}"`;
+    const command = `${PYTHON_CMD} -m yt_dlp -f "ba/best" ${YT_DLP_FLAGS} -o "${filePath}" "${videoId}"`;
     
     exec(command, (error) => {
         urlCache.delete(`downloading_${videoId}`);
