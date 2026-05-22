@@ -834,4 +834,7 @@ module.exports = {
     getReelComments,
     addReelComment,
     deleteReel,
+    saveReel,
+    unsaveReel,
+    getSavedReels,
 };

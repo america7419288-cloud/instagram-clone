@@ -17,6 +17,7 @@ import '../../../../shared/widgets/empty_state.dart';
 import '../../../../shared/widgets/error_view.dart';
 import '../../../chat/data/models/conversation.dart';
 import '../../../chat/presentation/providers/chat_notifiers.dart';
+import '../../../chat/presentation/providers/presence_provider.dart';
 
 class MessagesPage extends ConsumerStatefulWidget {
   const MessagesPage({super.key});
@@ -243,6 +244,15 @@ class _MessagesPageState extends ConsumerState<MessagesPage>
     List<Conversation> conversations,
     String currentUserId,
   ) {
+    // Tell the presence provider which users to track via socket
+    final userIdsToTrack = conversations
+        .map((c) => c.otherUser?.id)
+        .whereType<String>()
+        .toList();
+    if (userIdsToTrack.isNotEmpty) {
+      ref.read(presenceProvider.notifier).trackUsers(userIdsToTrack);
+    }
+
     return ListView.builder(
       physics: const BouncingScrollPhysics(),
       itemCount: conversations.length,
@@ -252,7 +262,7 @@ class _MessagesPageState extends ConsumerState<MessagesPage>
           conversation: conv,
           currentUserId: currentUserId,
           onTap: () {
-            if (conv.id.isEmpty) return; // guard: never push /chat/ with no id
+            if (conv.id.isEmpty) return;
             context.push(
               '/chat/${conv.id}',
               extra: <String, dynamic>{
@@ -271,7 +281,7 @@ class _MessagesPageState extends ConsumerState<MessagesPage>
   }
 }
 
-class _ConversationTile extends StatelessWidget {
+class _ConversationTile extends ConsumerWidget {
   const _ConversationTile({
     required this.conversation,
     required this.currentUserId,
@@ -319,7 +329,12 @@ class _ConversationTile extends StatelessWidget {
   }
 
   @override
-  Widget build(BuildContext context) {
+  Widget build(BuildContext context, WidgetRef ref) {
+    final isOnline = ref.watch(
+      presenceProvider.select(
+        (s) => s.onlineUsers[conversation.otherUser?.id ?? ''] ?? false,
+      ),
+    );
     final timeText = timeago.format(conversation.updatedAt, locale: 'en_short');
     final hasUnread = conversation.unreadCount > 0;
 
@@ -412,7 +427,7 @@ class _ConversationTile extends StatelessWidget {
           padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 10),
           child: Row(
             children: [
-              _buildAvatar(),
+              _buildAvatar(isOnline, context),
               const SizedBox(width: 12),
               Expanded(
                 child: Column(
@@ -498,11 +513,12 @@ class _ConversationTile extends StatelessWidget {
     );
   }
 
-  Widget _buildAvatar() {
+  Widget _buildAvatar(bool isOnline, BuildContext context) {
     final avatarUrl = conversation.otherUser?.profilePicUrl;
     final name = conversation.otherUser?.username ?? '?';
+    final isDark = Theme.of(context).brightness == Brightness.dark;
 
-    return Container(
+    final avatar = Container(
       width: 56,
       height: 56,
       decoration: const BoxDecoration(
@@ -518,6 +534,33 @@ class _ConversationTile extends StatelessWidget {
               )
             : _defaultAvatar(name),
       ),
+    );
+
+    if (!isOnline) return avatar;
+
+    // Green dot (bottom-right), same style as Instagram
+    return Stack(
+      clipBehavior: Clip.none,
+      children: [
+        avatar,
+        Positioned(
+          right: 0,
+          bottom: 0,
+          child: AnimatedContainer(
+            duration: const Duration(milliseconds: 250),
+            width: 14,
+            height: 14,
+            decoration: BoxDecoration(
+              color: const Color(0xFF00C853),
+              shape: BoxShape.circle,
+              border: Border.all(
+                color: isDark ? Colors.black : Colors.white,
+                width: 2,
+              ),
+            ),
+          ),
+        ),
+      ],
     );
   }
 

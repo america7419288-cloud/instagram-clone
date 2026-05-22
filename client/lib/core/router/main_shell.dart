@@ -15,6 +15,7 @@ import '../../features/auth/presentation/providers/auth_provider.dart';
 import '../../features/create/presentation/pages/media_picker_page.dart';
 import '../../features/create/presentation/pages/creation_camera_page.dart';
 import '../../features/messages/presentation/pages/messages_page.dart';
+import '../../features/chat/presentation/providers/chat_notifiers.dart';
 
 class MainShellTabIndexNotifier extends Notifier<int> {
   @override
@@ -82,6 +83,7 @@ class _MainShellState extends ConsumerState<MainShell> {
   Widget build(BuildContext context) {
     final isDark = Theme.of(context).brightness == Brightness.dark;
     final user = ref.watch(authProvider).user;
+    final totalUnread = ref.watch(totalUnreadCountProvider);
 
     final bgColor = (isDark ? Colors.black : Colors.white).withOpacity(0.94);
     final borderColor = isDark ? const Color(0xFF262626) : const Color(0xFFDBDBDB);
@@ -145,8 +147,8 @@ class _MainShellState extends ConsumerState<MainShell> {
             ),
             // Inbox (Send Icon)
             _tabItem(
-              inactive: SvgPicture.asset(AppAssets.getIcon('Name=Share', isDark: isDark, state: 'Default'), width: 25, height: 25, colorFilter: ColorFilter.mode(iconColor.withOpacity(0.6), BlendMode.srcIn)),
-              active: SvgPicture.asset(AppAssets.getIcon('Name=Share', isDark: isDark, state: 'Active'), width: 25, height: 25, colorFilter: ColorFilter.mode(iconColor, BlendMode.srcIn)),
+              inactive: _buildInboxIcon(isDark, iconColor.withOpacity(0.6), totalUnread, false),
+              active: _buildInboxIcon(isDark, iconColor, totalUnread, true),
             ),
             // Profile
             BottomNavigationBarItem(
@@ -191,6 +193,47 @@ class _MainShellState extends ConsumerState<MainShell> {
               : null,
         ),
       ),
+    );
+  }
+
+  Widget _buildInboxIcon(bool isDark, Color color, int badgeCount, bool isActive) {
+    return Stack(
+      clipBehavior: Clip.none,
+      children: [
+        SvgPicture.asset(
+          AppAssets.getIcon('Name=Share', isDark: isDark, state: isActive ? 'Active' : 'Default'),
+          width: 25,
+          height: 25,
+          colorFilter: ColorFilter.mode(color, BlendMode.srcIn),
+        ),
+        if (badgeCount > 0)
+          Positioned(
+            top: -2,
+            right: -2,
+            child: Container(
+              padding: const EdgeInsets.all(2),
+              decoration: BoxDecoration(
+                color: const Color(0xFFFF3040),
+                shape: BoxShape.circle,
+                border: Border.all(
+                  color: isDark ? Colors.black : Colors.white,
+                  width: 1.5,
+                ),
+              ),
+              constraints: const BoxConstraints(minWidth: 16, minHeight: 16),
+              child: Center(
+                child: Text(
+                  badgeCount > 9 ? '9+' : '$badgeCount',
+                  style: const TextStyle(
+                    color: Colors.white,
+                    fontSize: 8,
+                    fontWeight: FontWeight.bold,
+                  ),
+                ),
+              ),
+            ),
+          ),
+      ],
     );
   }
 }

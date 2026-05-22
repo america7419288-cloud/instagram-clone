@@ -138,12 +138,6 @@ class _HomePageContentState extends ConsumerState<HomePageContent> {
                 badgeCount: ref.watch(unreadNotificationsCountProvider),
                 isDark: isDark,
               ),
-              _buildNavIcon(
-                iconPath: AppAssets.getIcon('Tab=Messenger', isDark: isDark, type: 'Default'),
-                onTap: () => context.push(AppRoutes.messages),
-                badgeCount: ref.watch(totalUnreadCountProvider),
-                isDark: isDark,
-              ),
               const SizedBox(width: 8),
             ],
           ),

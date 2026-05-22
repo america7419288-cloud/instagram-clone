@@ -325,10 +325,10 @@ class PushNotificationService {
     final payload = data['route'] ?? '/notifications';
 
     await _localNotifications.show(
-      id,
-      title,
-      body,
-      details,
+      id: id,
+      title: title,
+      body: body,
+      notificationDetails: details,
       payload: payload,
     );
   }

@@ -44,12 +44,15 @@ class _MessageBubbleWrapperState extends State<MessageBubbleWrapper>
 
   @override
   Widget build(BuildContext context) {
+    final hasReactions = widget.reactionsChip != null;
     return Padding(
       padding: EdgeInsets.only(
         left: 8,
         right: 8,
         top: widget.isFirstInGroup ? 8 : 2,
-        bottom: widget.isLastInGroup ? 4 : 0,
+        bottom: widget.isLastInGroup
+            ? (hasReactions ? 14 : 4)
+            : (hasReactions ? 10 : 0),
       ),
       child: Stack(
         clipBehavior: Clip.none,
@@ -170,16 +173,36 @@ class _MessageBubbleWrapperState extends State<MessageBubbleWrapper>
   }
 
   Widget _buildBubbleColumn() {
+    final hasReactions = widget.reactionsChip != null;
+    Widget bubbleContent = widget.child;
+
+    if (hasReactions) {
+      bubbleContent = Stack(
+        clipBehavior: Clip.none,
+        children: [
+          widget.child,
+          Positioned(
+            bottom: -8, // Overlap the bottom border
+            right: widget.isSent ? 10 : null, // Bottom right for sent
+            left: widget.isSent ? null : 10,  // Bottom left for received
+            child: widget.reactionsChip!,
+          ),
+        ],
+      );
+    }
+
     return Column(
       crossAxisAlignment: widget.isSent
           ? CrossAxisAlignment.end
           : CrossAxisAlignment.start,
       children: [
         if (widget.replyQuote != null) widget.replyQuote!,
-        widget.child,
-        if (widget.reactionsChip != null) widget.reactionsChip!,
+        bubbleContent,
         if (widget.isSent && widget.isLastInGroup && widget.statusRow != null)
-          widget.statusRow!,
+          Padding(
+            padding: EdgeInsets.only(top: hasReactions ? 10.0 : 0.0),
+            child: widget.statusRow!,
+          ),
       ],
     );
   }
@@ -380,35 +403,35 @@ class ReactionsChip extends StatelessWidget {
     final isDark = CupertinoTheme.of(context).brightness == Brightness.dark;
 
     return Container(
-      margin: EdgeInsets.only(
-        top: 4,
-        left: isSent ? 0 : 32,
-        right: isSent ? 4 : 0,
-      ),
-      padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 3),
+      padding: const EdgeInsets.symmetric(horizontal: 7, vertical: 3),
       decoration: BoxDecoration(
-        color: isDark ? const Color(0xFF2C2C2C) : CupertinoColors.white,
-        borderRadius: BorderRadius.circular(14),
+        color: isDark ? const Color(0xFF262626) : CupertinoColors.white,
+        borderRadius: BorderRadius.circular(20),
         border: Border.all(
-          color: isDark ? const Color(0xFF3A3A3C) : const Color(0xFFEFEFEF),
+          color: isDark ? const Color(0xFF3E3E40) : const Color(0xFFE2E2E4),
+          width: 1,
         ),
         boxShadow: [
           BoxShadow(
-            color: CupertinoColors.black.withOpacity(0.07),
-            blurRadius: 6,
-            offset: const Offset(0, 1),
+            color: CupertinoColors.black.withOpacity(isDark ? 0.35 : 0.09),
+            blurRadius: 5,
+            spreadRadius: 0.5,
+            offset: const Offset(0, 2),
           ),
         ],
       ),
       child: Row(
         mainAxisSize: MainAxisSize.min,
         children: reactions.entries.map((e) {
+          final countText = e.value > 1 ? " ${e.value}" : "";
           return Padding(
-            padding: const EdgeInsets.only(right: 2),
+            padding: const EdgeInsets.symmetric(horizontal: 1),
             child: Text(
-              "${e.key}${e.value > 1 ? " ${e.value}" : ""}",
-              style: const TextStyle(
-                fontSize: 13,
+              "${e.key}$countText",
+              style: TextStyle(
+                fontSize: 11,
+                fontWeight: FontWeight.w500,
+                color: isDark ? CupertinoColors.white : CupertinoColors.black,
                 decoration: TextDecoration.none,
               ),
             ),
