@@ -92,7 +92,7 @@ class _NoteBubbleState extends State<NoteBubble>
         ? (widget.isLarge ? 12.0 : 8.0)
         : (widget.isLarge ? 10.0 : 6.0);
 
-    final double maxWidth = widget.isLarge ? 200.0 : 130.0;
+    final double maxWidth = widget.isLarge ? 200.0 : 88.0;
     final double tailHeight = widget.isLarge ? 7.0 : 6.0;
     final double tailWidth = widget.isLarge ? 9.0 : 8.0;
 

@@ -967,6 +967,19 @@ class _ChatPageState extends ConsumerState<ChatPage> {
           },
         );
       default:
+        final content = message.content;
+        if (content.startsWith('[note_reply]:')) {
+          final parts = content.substring('[note_reply]:'.length).split('|');
+          final String noteText = parts.isNotEmpty ? parts[0] : '';
+          final String replyText = parts.length > 1 ? parts.sublist(1).join('|') : '';
+          return _buildNoteReplyBubble(
+            noteText,
+            replyText,
+            isOwn,
+            isFirst,
+            isLast,
+          );
+        }
         return TextBubble(
           text: message.isEdited ? '${message.content} (edited)' : message.content,
           isSent: isOwn,
@@ -974,6 +987,160 @@ class _ChatPageState extends ConsumerState<ChatPage> {
           isLastInGroup: isLast,
         );
     }
+  }
+
+  Widget _buildNoteReplyBubble(
+    String noteText,
+    String replyText,
+    bool isOwn,
+    bool isFirst,
+    bool isLast,
+  ) {
+    final isDark = CupertinoTheme.of(context).brightness == Brightness.dark;
+    
+    final bubbleColor = isOwn
+        ? ChatUIConstants.bubbleSent
+        : (isDark
+            ? ChatUIConstants.bubbleReceivedDark
+            : ChatUIConstants.bubbleReceivedLight);
+
+    final cardBgColor = isOwn
+        ? CupertinoColors.white.withOpacity(0.18)
+        : (isDark
+            ? CupertinoColors.white.withOpacity(0.08)
+            : CupertinoColors.black.withOpacity(0.05));
+
+    final cardTextColor = isOwn
+        ? CupertinoColors.white.withOpacity(0.9)
+        : (isDark
+            ? ChatUIConstants.textPrimaryDark.withOpacity(0.85)
+            : ChatUIConstants.textPrimaryLight.withOpacity(0.85));
+
+    final accentBarColor = isOwn
+        ? CupertinoColors.white.withOpacity(0.6)
+        : const Color(0xFF0095F6);
+
+    final borderRadius = BorderRadius.only(
+      topLeft: const Radius.circular(18),
+      topRight: isOwn
+          ? (isFirst
+                ? const Radius.circular(18)
+                : const Radius.circular(6))
+          : const Radius.circular(18),
+      bottomLeft: isOwn
+          ? const Radius.circular(18)
+          : (isLast
+                ? const Radius.circular(6)
+                : const Radius.circular(18)),
+      bottomRight: isOwn
+          ? (isLast
+                ? const Radius.circular(6)
+                : const Radius.circular(18))
+          : const Radius.circular(18),
+    );
+
+    return Container(
+      constraints: BoxConstraints(
+        maxWidth: MediaQuery.of(context).size.width * 0.74,
+        minWidth: 120,
+      ),
+      padding: const EdgeInsets.symmetric(horizontal: 11, vertical: 10),
+      decoration: BoxDecoration(
+        color: bubbleColor,
+        borderRadius: borderRadius,
+        border: isOwn
+            ? null
+            : Border.all(
+                color: isDark
+                    ? const Color(0xFF303030)
+                    : const Color(0xFFE9E9E9),
+                width: 0.4,
+              ),
+      ),
+      child: Column(
+        mainAxisSize: MainAxisSize.min,
+        crossAxisAlignment: CrossAxisAlignment.stretch,
+        children: [
+          // QUOTED NOTE CARD
+          Container(
+            padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 8),
+            decoration: BoxDecoration(
+              color: cardBgColor,
+              borderRadius: BorderRadius.circular(12),
+            ),
+            child: Row(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                // Accent left border bar
+                Container(
+                  width: 3.5,
+                  height: 38,
+                  decoration: BoxDecoration(
+                    color: accentBarColor,
+                    borderRadius: BorderRadius.circular(2),
+                  ),
+                ),
+                const SizedBox(width: 8),
+                Expanded(
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      // Header Metadata Row
+                      Row(
+                        children: [
+                          Icon(
+                            LucideIcons.messageSquare,
+                            size: 11,
+                            color: cardTextColor.withOpacity(0.65),
+                          ),
+                          const SizedBox(width: 4),
+                          Text(
+                            isOwn ? 'You replied to note' : 'Replied to your note',
+                            style: TextStyle(
+                              fontFamily: ChatUIConstants.fontFamily,
+                              fontSize: 10,
+                              fontWeight: FontWeight.w600,
+                              color: cardTextColor.withOpacity(0.65),
+                              decoration: TextDecoration.none,
+                            ),
+                          ),
+                        ],
+                      ),
+                      const SizedBox(height: 3),
+                      // Quoted Note text
+                      Text(
+                        noteText,
+                        style: TextStyle(
+                          fontFamily: ChatUIConstants.fontFamily,
+                          fontSize: 12.5,
+                          fontStyle: FontStyle.italic,
+                          color: cardTextColor,
+                          height: 1.25,
+                          decoration: TextDecoration.none,
+                        ),
+                        maxLines: 2,
+                        overflow: TextOverflow.ellipsis,
+                      ),
+                    ],
+                  ),
+                ),
+              ],
+            ),
+          ),
+          
+          const SizedBox(height: 8),
+
+          // REPLY BODY TEXT
+          Padding(
+            padding: const EdgeInsets.symmetric(horizontal: 4.0),
+            child: Text(
+              replyText,
+              style: ChatUIConstants.messageStyle(isOwn, isDark),
+            ),
+          ),
+        ],
+      ),
+    );
   }
 }
 

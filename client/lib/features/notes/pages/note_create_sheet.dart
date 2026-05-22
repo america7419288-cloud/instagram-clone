@@ -5,7 +5,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_lucide/flutter_lucide.dart';
-import '../../../auth/presentation/providers/auth_provider.dart';
+import 'package:instagram_client/features/auth/presentation/providers/auth_provider.dart';
 import '../controllers/notes_controller.dart';
 import '../models/note_model.dart';
 import '../widgets/note_bubble.dart';
@@ -118,7 +118,7 @@ class _NoteCreateSheetState extends ConsumerState<NoteCreateSheet>
       // Trigger shake when reaching the warning thresholds or exactly the limit
       if (currentCount >= 55 && _lastCharCount < 55) {
         _shakeController.forward(from: 0.0);
-        HapticFeedback.warningImpact();
+        HapticFeedback.vibrate();
       } else if (currentCount == 60 && _lastCharCount < 60) {
         _shakeController.forward(from: 0.0);
         HapticFeedback.vibrate();

@@ -12,9 +12,7 @@ import 'package:go_router/go_router.dart';
 
 import '../../../../core/router/app_router.dart';
 import '../../../../core/router/main_shell.dart';
-import '../../../../core/theme/app_theme.dart';
 import '../../../../shared/widgets/spring_widget.dart';
-import '../../../../shared/widgets/error_view.dart';
 import '../../../chat/presentation/providers/chat_notifiers.dart';
 import 'package:instagram_client/features/notifications/presentation/providers/notification_provider.dart';
 import '../../../post/presentation/providers/feed_provider.dart';
@@ -22,7 +20,6 @@ import '../../../post/presentation/widgets/post_card.dart';
 import '../../../story/presentation/providers/story_provider.dart';
 import '../../../story/presentation/widgets/stories_bar.dart';
 import '../widgets/suggested_users_card.dart';
-import '../../../../shared/models/user_model.dart';
 import '../../../create/presentation/pages/creation_camera_page.dart';
 
 class HomePage extends ConsumerWidget {
@@ -139,7 +136,14 @@ class _HomePageContentState extends ConsumerState<HomePageContent> {
                 badgeCount: ref.watch(unreadNotificationsCountProvider),
                 isDark: isDark,
               ),
-              const SizedBox(width: 8),
+              const SizedBox(width: 12),
+              _buildNavIcon(
+                iconPath: AppAssets.getIcon('Name=Share', isDark: isDark, state: 'Default'),
+                onTap: () => context.push(AppRoutes.messages),
+                badgeCount: ref.watch(totalUnreadCountProvider),
+                isDark: isDark,
+              ),
+              const SizedBox(width: 16),
             ],
           ),
 
@@ -233,54 +237,6 @@ class _HomePageContentState extends ConsumerState<HomePageContent> {
             width: 24,
             height: 24,
             colorFilter: ColorFilter.mode(isDark ? Colors.white : Colors.black, BlendMode.srcIn),
-          ),
-          if (badgeCount > 0)
-            Positioned(
-              top: -2,
-              right: -2,
-              child: Container(
-                padding: const EdgeInsets.all(2),
-                decoration: BoxDecoration(
-                  color: const Color(0xFFFF3040),
-                  shape: BoxShape.circle,
-                  border: Border.all(
-                    color: isDark ? Colors.black : Colors.white,
-                    width: 1.5,
-                  ),
-                ),
-                constraints: const BoxConstraints(minWidth: 16, minHeight: 16),
-                child: Center(
-                  child: Text(
-                    badgeCount > 9 ? '9+' : '$badgeCount',
-                    style: const TextStyle(
-                      color: Colors.white,
-                      fontSize: 8,
-                      fontWeight: FontWeight.bold,
-                    ),
-                  ),
-                ),
-              ),
-            ),
-        ],
-      ),
-    );
-  }
-
-  Widget _buildMessageIcon({
-    required IconData icon,
-    required VoidCallback onTap,
-    int badgeCount = 0,
-    required bool isDark,
-  }) {
-    return BouncyTap(
-      onTap: onTap,
-      child: Stack(
-        clipBehavior: Clip.none,
-        children: [
-          Icon(
-            icon,
-            size: 22,
-            color: isDark ? Colors.white : Colors.black,
           ),
           if (badgeCount > 0)
             Positioned(

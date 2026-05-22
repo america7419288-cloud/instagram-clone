@@ -134,11 +134,13 @@ class _AudienceSelectorState extends State<AudienceSelector>
                       mainAxisAlignment: MainAxisAlignment.center,
                       mainAxisSize: MainAxisSize.min,
                       children: [
-                        Text(
-                          '👥',
-                          style: TextStyle(
-                            fontSize: 11,
-                            opacity: _selectedAudience == NoteAudience.followers ? 1.0 : 0.6,
+                        Opacity(
+                          opacity: _selectedAudience == NoteAudience.followers ? 1.0 : 0.6,
+                          child: const Text(
+                            '👥',
+                            style: TextStyle(
+                              fontSize: 11,
+                            ),
                           ),
                         ),
                         const SizedBox(width: 4),
@@ -166,11 +168,13 @@ class _AudienceSelectorState extends State<AudienceSelector>
                       mainAxisAlignment: MainAxisAlignment.center,
                       mainAxisSize: MainAxisSize.min,
                       children: [
-                        Text(
-                          '💚',
-                          style: TextStyle(
-                            fontSize: 11,
-                            opacity: _selectedAudience == NoteAudience.closeFriends ? 1.0 : 0.6,
+                        Opacity(
+                          opacity: _selectedAudience == NoteAudience.closeFriends ? 1.0 : 0.6,
+                          child: const Text(
+                            '💚',
+                            style: TextStyle(
+                              fontSize: 11,
+                            ),
                           ),
                         ),
                         const SizedBox(width: 4),

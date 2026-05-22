@@ -24,6 +24,11 @@ import '../../../../core/design/design_tokens.dart';
 import '../../../../shared/widgets/verified_badge.dart';
 import '../../../../core/constants/app_assets.dart';
 import 'package:flutter_svg/flutter_svg.dart';
+import '../../../notes/controllers/notes_controller.dart';
+import '../../../notes/widgets/note_bubble.dart';
+import '../../../notes/pages/note_create_sheet.dart';
+import '../../../notes/pages/note_view_sheet.dart';
+import '../../../notes/models/note_model.dart';
 
 class ProfilePage extends ConsumerStatefulWidget {
   final String username;
@@ -195,11 +200,27 @@ class _ProfilePageState extends ConsumerState<ProfilePage>
   }
 
   Widget _buildHeader(ProfileModel profile, FollowState followState) {
+    final notesState = ref.watch(notesProvider);
+    NoteModel? userNote;
+
+    if (profile.isOwnProfile) {
+      userNote = notesState.myNote;
+    } else {
+      for (final note in notesState.friendNotes) {
+        if (note.username == profile.username) {
+          userNote = note;
+          break;
+        }
+      }
+    }
+
+    final double topPadding = userNote != null ? 32.0 : 12.0;
+
     return Padding(
-      padding: const EdgeInsets.fromLTRB(16, 12, 24, 0),
+      padding: EdgeInsets.fromLTRB(16, topPadding, 24, 0),
       child: Row(
         children: [
-          _buildAvatar(profile),
+          _buildAvatar(profile, userNote),
           const Spacer(),
           _buildStatItem(followState.isBlocked ? '-' : profile.postCount.toString(), 'post'),
           const SizedBox(width: 24),
@@ -219,14 +240,45 @@ class _ProfilePageState extends ConsumerState<ProfilePage>
     );
   }
 
-  Widget _buildAvatar(ProfileModel profile) {
-    return UserStoryAvatar(
-      userId: profile.id,
-      profilePicUrl: profile.profilePicUrl,
-      username: profile.username,
-      size: 79,
-      showPresence: false,
-      isClickable: true,
+  Widget _buildAvatar(ProfileModel profile, NoteModel? userNote) {
+    final VoidCallback avatarTapHandler = () {
+      if (userNote != null) {
+        if (profile.isOwnProfile) {
+          NoteCreateSheet.show(context, existingNote: userNote);
+        } else {
+          NoteViewSheet.show(context, userNote);
+        }
+      } else if (profile.isOwnProfile) {
+        NoteCreateSheet.show(context);
+      }
+    };
+
+    return Stack(
+      clipBehavior: Clip.none,
+      alignment: Alignment.topCenter,
+      children: [
+        GestureDetector(
+          onTap: avatarTapHandler,
+          child: UserStoryAvatar(
+            userId: profile.id,
+            profilePicUrl: profile.profilePicUrl,
+            username: profile.username,
+            size: 79,
+            showPresence: false,
+            isClickable: userNote == null,
+          ),
+        ),
+        if (userNote != null)
+          Positioned(
+            top: -24,
+            left: 24, // Shift right slightly to align tail pointer nicely
+            child: NoteBubble(
+              note: userNote,
+              animateEntry: true,
+              onTap: avatarTapHandler,
+            ),
+          ),
+      ],
     );
   }
 

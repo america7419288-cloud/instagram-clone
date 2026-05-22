@@ -2,8 +2,14 @@
 
 import 'dart:math' as math;
 import 'package:flutter/material.dart';
+import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:cached_network_image/cached_network_image.dart';
 import '../models/active_friend_model.dart';
+import '../../notes/controllers/notes_controller.dart';
+import '../../notes/models/note_model.dart';
+import '../../notes/widgets/note_bubble.dart';
+import '../../notes/pages/note_create_sheet.dart';
+import '../../notes/pages/note_view_sheet.dart';
 import 'pulsing_dot.dart';
 
 class DashedCirclePainter extends CustomPainter {
@@ -44,7 +50,7 @@ class DashedCirclePainter extends CustomPainter {
   bool shouldRepaint(covariant CustomPainter oldDelegate) => false;
 }
 
-class ActiveFriendItem extends StatelessWidget {
+class ActiveFriendItem extends ConsumerWidget {
   final ActiveFriendModel? friend; // null represents "Your Note"
   final VoidCallback onTap;
   final Animation<double> animation;
@@ -59,17 +65,46 @@ class ActiveFriendItem extends StatelessWidget {
   });
 
   @override
-  Widget build(BuildContext context) {
+  Widget build(BuildContext context, WidgetRef ref) {
     final isDark = Theme.of(context).brightness == Brightness.dark;
     final textColor = isDark ? Colors.white : Colors.black;
     final labelColor = isDark ? const Color(0xFFA8A8A8) : const Color(0xFF737373);
 
     final isYourNote = friend == null;
 
+    // Watch Notes State
+    final notesState = ref.watch(notesProvider);
+
+    NoteModel? activeNote;
+    if (isYourNote) {
+      activeNote = notesState.myNote;
+    } else {
+      // Find matching note for this friend
+      for (final note in notesState.friendNotes) {
+        if (note.username == friend!.username) {
+          activeNote = note;
+          break;
+        }
+      }
+    }
+
+    // Determine Tap Behavior
+    final VoidCallback itemTapHandler = () {
+      if (isYourNote) {
+        // Open Note Creation or Edit sheet
+        NoteCreateSheet.show(context, existingNote: activeNote);
+      } else if (activeNote != null) {
+        // Open Note View/Reply sheet
+        NoteViewSheet.show(context, activeNote);
+      } else {
+        // Standard friend tap (opens chat)
+        onTap();
+      }
+    };
+
     return AnimatedBuilder(
       animation: animation,
       builder: (context, child) {
-        // Apply staggered slide-in and opacity
         final translateX = (1.0 - animation.value) * 30.0;
         return Opacity(
           opacity: animation.value,
@@ -80,30 +115,35 @@ class ActiveFriendItem extends StatelessWidget {
         );
       },
       child: GestureDetector(
-        onTap: onTap,
+        onTap: itemTapHandler,
         behavior: HitTestBehavior.opaque,
         child: SizedBox(
-          width: 80,
+          width: 92,
           child: Column(
             mainAxisAlignment: MainAxisAlignment.center,
             crossAxisAlignment: CrossAxisAlignment.center,
             children: [
-              // AVATAR AREA WITH OPTIONAL NOTE BUBBLE
+              // AVATAR AREA WITH OPTIONAL STATE-OF-THE-ART NOTE BUBBLE
               Stack(
                 clipBehavior: Clip.none,
                 alignment: Alignment.topCenter,
                 children: [
-                  // Note creator vs active friend avatar
+                  // Avatar Circle
                   if (isYourNote)
-                    _buildYourNoteAvatar(isDark, labelColor)
+                    _buildYourNoteAvatar(isDark, labelColor, activeNote != null)
                   else
                     _buildFriendAvatar(isDark),
 
                   // NOTE BUBBLE (above avatar)
-                  if (!isYourNote && friend!.hasActiveNote && friend!.noteText != null)
+                  if (activeNote != null)
                     Positioned(
-                      top: -24,
-                      child: _buildNoteBubble(friend!.noteText!, isDark),
+                      top: -26, // Shifted up beautifully
+                      left: 14, // Aligned slightly right of center to match the bottom-left pointer tail
+                      child: NoteBubble(
+                        note: activeNote,
+                        animateEntry: true,
+                        onTap: itemTapHandler,
+                      ),
                     ),
                 ],
               ),
@@ -113,7 +153,7 @@ class ActiveFriendItem extends StatelessWidget {
               Padding(
                 padding: const EdgeInsets.symmetric(horizontal: 4.0),
                 child: Text(
-                  isYourNote ? 'Note' : _truncateUsername(friend!.username),
+                  isYourNote ? 'Your note' : _truncateUsername(friend!.username),
                   style: TextStyle(
                     fontSize: 12,
                     color: isYourNote ? labelColor : textColor,
@@ -131,22 +171,25 @@ class ActiveFriendItem extends StatelessWidget {
     );
   }
 
-  Widget _buildYourNoteAvatar(bool isDark, Color labelColor) {
+  Widget _buildYourNoteAvatar(bool isDark, Color labelColor, bool hasNote) {
     final dashedColor = isDark ? const Color(0xFF363636) : const Color(0xFFDBDBDB);
     final avatarUrl = currentUserAvatar ?? '';
 
     return Stack(
       clipBehavior: Clip.none,
       children: [
-        // Dashed border around avatar
+        // Avatar frame
         Container(
           width: 56,
           height: 56,
           decoration: const BoxDecoration(shape: BoxShape.circle),
           child: CustomPaint(
-            painter: DashedCirclePainter(color: dashedColor, strokeWidth: 1.5),
+            painter: DashedCirclePainter(
+              color: hasNote ? Colors.transparent : dashedColor,
+              strokeWidth: 1.5,
+            ),
             child: Padding(
-              padding: const EdgeInsets.all(4.0),
+              padding: const EdgeInsets.all(3.0),
               child: Container(
                 decoration: const BoxDecoration(shape: BoxShape.circle),
                 child: ClipRRect(
@@ -164,28 +207,29 @@ class ActiveFriendItem extends StatelessWidget {
           ),
         ),
 
-        // Blue [+] badge at bottom-right
-        Positioned(
-          bottom: 0,
-          right: 0,
-          child: Container(
-            width: 18,
-            height: 18,
-            decoration: BoxDecoration(
-              color: const Color(0xFF0095F6),
-              shape: BoxShape.circle,
-              border: Border.all(
-                color: isDark ? Colors.black : Colors.white,
-                width: 1.5,
+        // Show Blue [+] badge only if the user hasn't left a note yet
+        if (!hasNote)
+          Positioned(
+            bottom: 0,
+            right: 0,
+            child: Container(
+              width: 18,
+              height: 18,
+              decoration: BoxDecoration(
+                color: const Color(0xFF0095F6),
+                shape: BoxShape.circle,
+                border: Border.all(
+                  color: isDark ? Colors.black : Colors.white,
+                  width: 1.5,
+                ),
+              ),
+              child: const Icon(
+                Icons.add,
+                color: Colors.white,
+                size: 12,
               ),
             ),
-            child: const Icon(
-              Icons.add,
-              color: Colors.white,
-              size: 12,
-            ),
           ),
-        ),
       ],
     );
   }
@@ -206,7 +250,7 @@ class ActiveFriendItem extends StatelessWidget {
             child: CachedNetworkImage(
               imageUrl: friend!.avatarUrl,
               fit: BoxFit.cover,
-              placeholder: (c, u) => Container(color: Colors.grey.withValues(alpha: 0.2)),
+              placeholder: (c, u) => Container(color: Colors.grey.withOpacity(0.2)),
               errorWidget: (c, u, e) => _buildPlaceholderIcon(),
             ),
           ),
@@ -240,68 +284,15 @@ class ActiveFriendItem extends StatelessWidget {
     );
   }
 
-  Widget _buildNoteBubble(String text, bool isDark) {
-    final bubbleColor = isDark ? const Color(0xFF262626) : Colors.white;
-    final textColor = isDark ? Colors.white : Colors.black;
-    final shadowColor = isDark ? Colors.black.withValues(alpha: 0.5) : Colors.black.withValues(alpha: 0.1);
-
-    return Stack(
-      clipBehavior: Clip.none,
-      alignment: Alignment.bottomCenter,
-      children: [
-        // Main rectangle container
-        Container(
-          constraints: const BoxConstraints(maxWidth: 72),
-          padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 6),
-          decoration: BoxDecoration(
-            color: bubbleColor,
-            borderRadius: BorderRadius.circular(10),
-            boxShadow: [
-              BoxShadow(
-                color: shadowColor,
-                blurRadius: 4,
-                offset: const Offset(0, 2),
-              ),
-            ],
-          ),
-          child: Text(
-            text,
-            style: TextStyle(
-              fontSize: 9,
-              color: textColor,
-              fontWeight: FontWeight.w400,
-            ),
-            maxLines: 2,
-            overflow: TextOverflow.ellipsis,
-            textAlign: TextAlign.center,
-          ),
-        ),
-
-        // Small triangle pointer at bottom
-        Positioned(
-          bottom: -4,
-          child: Transform.rotate(
-            angle: math.pi / 4,
-            child: Container(
-              width: 8,
-              height: 8,
-              color: bubbleColor,
-            ),
-          ),
-        ),
-      ],
-    );
-  }
-
   Widget _buildPlaceholderIcon() {
     return Container(
-      color: Colors.grey.withValues(alpha: 0.2),
+      color: Colors.grey.withOpacity(0.2),
       child: const Icon(Icons.person, color: Colors.grey, size: 24),
     );
   }
 
   String _truncateUsername(String username) {
-    if (username.length <= 7) return username;
-    return '${username.substring(0, 6)}…';
+    if (username.length <= 8) return username;
+    return '${username.substring(0, 7)}…';
   }
 }

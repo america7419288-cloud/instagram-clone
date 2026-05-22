@@ -44,6 +44,8 @@ class AppConstants {
   static const String storyFeedUrl  = '/stories/feed';
   static const String highlightsUrl = '/highlights';
   static const String usersUrl      = '/users';
+  static const String notesUrl      = '/notes';
+  static const String notesFeedUrl  = '/notes/feed';
 
 
   static const String tokenKey = 'auth_token';

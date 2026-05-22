@@ -13,6 +13,8 @@ import '../widgets/inbox_app_bar.dart';
 import '../widgets/message_requests_tile.dart';
 import '../widgets/active_friends_bar.dart';
 import '../widgets/conversation_tile.dart';
+import '../../notes/pages/note_create_sheet.dart';
+import '../../notes/controllers/notes_controller.dart';
 
 class InboxPage extends ConsumerStatefulWidget {
   const InboxPage({super.key});
@@ -127,56 +129,10 @@ class _InboxPageState extends ConsumerState<InboxPage>
   void _openMessageRequests() {
     context.push(AppRoutes.messageRequests);
   }
-
   void _openNoteCreator() {
-    final isDark = Theme.of(context).brightness == Brightness.dark;
-    final controller = TextEditingController();
-    
-    showDialog(
-      context: context,
-      builder: (context) => AlertDialog(
-        backgroundColor: isDark ? const Color(0xFF262626) : Colors.white,
-        title: const Text('Leave a Note', style: TextStyle(fontWeight: FontWeight.bold)),
-        content: Column(
-          mainAxisSize: MainAxisSize.min,
-          crossAxisAlignment: CrossAxisAlignment.start,
-          children: [
-            const Text(
-              'Share what\'s on your mind. Friends will see your note above your profile avatar for 24 hours.',
-              style: TextStyle(fontSize: 12, color: Colors.grey),
-            ),
-            const SizedBox(height: 12),
-            TextField(
-              controller: controller,
-              maxLength: 60,
-              decoration: const InputDecoration(
-                hintText: 'Share a thought...',
-                border: OutlineInputBorder(),
-              ),
-            ),
-          ],
-        ),
-        actions: [
-          TextButton(
-            onPressed: () => Navigator.pop(context),
-            child: const Text('Cancel', style: TextStyle(color: Colors.grey)),
-          ),
-          TextButton(
-            onPressed: () {
-              Navigator.pop(context);
-              if (controller.text.isNotEmpty) {
-                ScaffoldMessenger.of(context).showSnackBar(
-                  SnackBar(content: Text('Note shared: "${controller.text}"')),
-                );
-              }
-            },
-            child: const Text('Share', style: TextStyle(color: Color(0xFF0095F6), fontWeight: FontWeight.bold)),
-          ),
-        ],
-      ),
-    );
+    final existingNote = ref.read(notesProvider).myNote;
+    NoteCreateSheet.show(context, existingNote: existingNote);
   }
-
   @override
   Widget build(BuildContext context) {
     final isDark = Theme.of(context).brightness == Brightness.dark;

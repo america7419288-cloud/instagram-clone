@@ -90,4 +90,32 @@ class NoteModel {
       replyCount: replyCount ?? this.replyCount,
     );
   }
+
+  Map<String, dynamic> toJson() {
+    return {
+      'id': id,
+      'userId': userId,
+      'username': username,
+      'avatarUrl': avatarUrl,
+      'text': text,
+      'createdAt': createdAt.toIso8601String(),
+      'audience': audience.index,
+      'isOwn': isOwn,
+      'replyCount': replyCount,
+    };
+  }
+
+  factory NoteModel.fromJson(Map<String, dynamic> json) {
+    return NoteModel(
+      id: json['id'] as String,
+      userId: json['userId'] as String,
+      username: json['username'] as String,
+      avatarUrl: json['avatarUrl'] as String,
+      text: json['text'] as String,
+      createdAt: DateTime.parse(json['createdAt'] as String),
+      audience: NoteAudience.values[json['audience'] as int],
+      isOwn: json['isOwn'] as bool? ?? false,
+      replyCount: json['replyCount'] as int? ?? 0,
+    );
+  }
 }

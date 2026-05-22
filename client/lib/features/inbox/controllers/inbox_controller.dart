@@ -127,7 +127,13 @@ class InboxPageNotifier extends Notifier<InboxPageState> {
         groupAvatars: conv.isGroup 
             ? conv.participants.map((p) => p.profilePicUrl ?? '').where((u) => u.isNotEmpty).toList() 
             : const [],
-        lastMessage: conv.lastMessage?.content ?? (conv.isAccepted ? 'Start a conversation' : 'Sent a message request'),
+        lastMessage: () {
+          final rawContent = conv.lastMessage?.content;
+          if (rawContent != null && rawContent.startsWith('[note_reply]:')) {
+            return '↩ Replied to your note';
+          }
+          return rawContent ?? (conv.isAccepted ? 'Start a conversation' : 'Sent a message request');
+        }(),
         lastMessageType: lastMsgType,
         lastMessageTime: conv.lastMessage?.createdAt ?? conv.updatedAt,
         isSentByMe: isOwn,

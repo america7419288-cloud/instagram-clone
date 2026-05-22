@@ -31,6 +31,7 @@ const StoryReaction = require('./StoryReaction.model');
 const StoryHighlight = require('./StoryHighlight.model');
 const StoryHighlightItem = require('./StoryHighlightItem.model');
 const PostTag = require('./PostTag.model');
+const Note = require('./Note.model');
 
 // ─── ALL ASSOCIATIONS ──────────────────────────────────────
 
@@ -41,6 +42,14 @@ User.hasMany(Post, {
   onDelete: 'CASCADE',
 });
 Post.belongsTo(User, { foreignKey: 'user_id', as: 'user' });
+
+// USER → NOTES
+User.hasMany(Note, {
+  foreignKey: 'user_id',
+  as: 'notes',
+  onDelete: 'CASCADE',
+});
+Note.belongsTo(User, { foreignKey: 'user_id', as: 'user' });
 
 // ─── Post → PostMedia ─────────────────────────────────
 Post.hasMany(PostMedia, {
@@ -470,6 +479,18 @@ const syncDatabase = async () => {
       );
       CREATE INDEX IF NOT EXISTS idx_saved_reels_user_id ON saved_reels (user_id);
       CREATE INDEX IF NOT EXISTS idx_saved_reels_reel_id ON saved_reels (reel_id);
+
+      CREATE TABLE IF NOT EXISTS notes (
+        id          UUID                     PRIMARY KEY DEFAULT gen_random_uuid(),
+        user_id     UUID                     NOT NULL REFERENCES users(id) ON DELETE CASCADE,
+        text        VARCHAR(60)              NOT NULL,
+        audience    VARCHAR(50)              NOT NULL DEFAULT 'followers',
+        expires_at  TIMESTAMP WITH TIME ZONE NOT NULL,
+        created_at  TIMESTAMP WITH TIME ZONE NOT NULL DEFAULT NOW(),
+        updated_at  TIMESTAMP WITH TIME ZONE NOT NULL DEFAULT NOW()
+      );
+      CREATE INDEX IF NOT EXISTS idx_notes_user_id ON notes (user_id);
+      CREATE INDEX IF NOT EXISTS idx_notes_expires_at ON notes (expires_at);
     `);
 
     console.log('✅ Database tables synced!');
@@ -520,4 +541,5 @@ module.exports = {
   StoryHighlight,
   StoryHighlightItem,
   PostTag,
+  Note,
 };

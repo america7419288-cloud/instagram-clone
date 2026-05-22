@@ -1,8 +1,11 @@
-// lib/features/notes/controllers/notes_controller.dart
-
+import 'dart:convert';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
+import 'package:shared_preferences/shared_preferences.dart';
 import '../../chat/presentation/providers/chat_notifiers.dart';
+import '../../auth/presentation/providers/auth_provider.dart';
 import '../models/note_model.dart';
+
+import '../data/repositories/notes_service.dart';
 
 class NotesState {
   final NoteModel? myNote;
@@ -24,100 +27,135 @@ class NotesState {
   }
 }
 
-class NotesNotifier extends StateNotifier<NotesState> {
-  final Ref _ref;
+class NotesNotifier extends Notifier<NotesState> {
+  @override
+  NotesState build() {
+    // 1. Asynchronously load the persisted note and feed from SharedPreferences post-build
+    Future.microtask(() async {
+      await _loadPersistedNote();
+      await fetchNotesFeed();
+    });
 
-  NotesNotifier(this._ref) : super(const NotesState()) {
-    _loadInitialNotes();
-  }
-
-  void _loadInitialNotes() {
-    final now = DateTime.now();
-
-    // Create high-fidelity mock notes with varying creation times to demonstrate decaying styling
-    final mockNotes = [
-      NoteModel(
-        id: 'friend_1',
-        userId: 'user_1',
-        username: 'alex_mercer',
-        avatarUrl: 'https://images.unsplash.com/photo-1535713875002-d1d0cf377fde?w=100&h=100&fit=crop',
-        text: 'Coding late tonight... 💻☕',
-        createdAt: now.subtract(const Duration(hours: 2)), // 2h ago -> Opacity 1.0, Solid border
-        audience: NoteAudience.followers,
-      ),
-      NoteModel(
-        id: 'friend_2',
-        userId: 'user_2',
-        username: 'sara.k',
-        avatarUrl: 'https://images.unsplash.com/photo-1494790108377-be9c29b29330?w=100&h=100&fit=crop',
-        text: '✈️ Heading to Paris! Au revoir!',
-        createdAt: now.subtract(const Duration(hours: 14)), // 14h ago -> Opacity 0.85, Solid border
-        audience: NoteAudience.closeFriends,
-      ),
-      NoteModel(
-        id: 'friend_3',
-        userId: 'user_3',
-        username: 'john_doe',
-        avatarUrl: 'https://images.unsplash.com/photo-1507003211169-0a1dd7228f2d?w=100&h=100&fit=crop',
-        text: '🔥😂🙌', // Emoji only note
-        createdAt: now.subtract(const Duration(hours: 5)), // 5h ago -> Opacity 0.85, Solid
-        audience: NoteAudience.followers,
-      ),
-      NoteModel(
-        id: 'friend_4',
-        userId: 'user_4',
-        username: 'emma_w',
-        avatarUrl: 'https://images.unsplash.com/photo-1438761681033-6461ffad8d80?w=100&h=100&fit=crop',
-        text: 'Any Netflix recommendations?',
-        createdAt: now.subtract(const Duration(hours: 21)), // 21h ago -> Opacity 0.65, Dashed border!
-        audience: NoteAudience.followers,
-      ),
-      NoteModel(
-        id: 'friend_5',
-        userId: 'user_5',
-        username: 'marcus_fit',
-        avatarUrl: 'https://images.unsplash.com/photo-1500648767791-00dcc994a43e?w=100&h=100&fit=crop',
-        text: 'Morning gym grind! 💪🎖️',
-        createdAt: now.subtract(const Duration(minutes: 23 * 60 + 35)), // 23h 35m ago -> Opacity 0.4, Dashed, Expiring soon!
-        audience: NoteAudience.closeFriends,
-      ),
-    ];
-
-    state = NotesState(
-      myNote: null, // Start with no own note
-      friendNotes: mockNotes,
+    return const NotesState(
+      myNote: null,
+      friendNotes: [],
     );
   }
 
-  void shareNote(String text, NoteAudience audience) {
-    final note = NoteModel(
-      id: 'my_note_id',
-      userId: 'me',
-      username: 'your_username',
-      avatarUrl: '', // Will pull from auth
-      text: text,
-      createdAt: DateTime.now(),
-      audience: audience,
-      isOwn: true,
-    );
+  /// Load persisted own note and friends feed from local storage for instant offline loading
+  Future<void> _loadPersistedNote() async {
+    try {
+      final prefs = await SharedPreferences.getInstance();
+      
+      // Load own note
+      final noteJsonStr = prefs.getString('user_own_note');
+      NoteModel? loadedMyNote;
+      if (noteJsonStr != null) {
+        final decodedMap = jsonDecode(noteJsonStr) as Map<String, dynamic>;
+        final note = NoteModel.fromJson(decodedMap);
+        if (!note.isExpired) {
+          loadedMyNote = note;
+        } else {
+          await prefs.remove('user_own_note');
+        }
+      }
 
-    state = state.copyWith(myNote: () => note);
+      // Load friends notes
+      final feedJsonStr = prefs.getString('friend_notes_feed');
+      List<NoteModel> loadedFriendNotes = [];
+      if (feedJsonStr != null) {
+        final decodedList = jsonDecode(feedJsonStr) as List<dynamic>;
+        loadedFriendNotes = decodedList
+            .map((item) => NoteModel.fromJson(item as Map<String, dynamic>))
+            .where((note) => !note.isExpired)
+            .toList();
+      }
+
+      state = state.copyWith(
+        myNote: () => loadedMyNote,
+        friendNotes: loadedFriendNotes,
+      );
+    } catch (e) {
+      // Suppress local storage loading errors
+    }
   }
 
-  void deleteNote() {
-    state = state.copyWith(myNote: () => null);
+  /// Fetch the latest notes feed from the server
+  Future<void> fetchNotesFeed() async {
+    try {
+      final service = ref.read(notesServiceProvider);
+      final feed = await service.getNotesFeed();
+
+      NoteModel? ownNote;
+      final List<NoteModel> friendNotes = [];
+
+      for (final note in feed) {
+        if (note.isOwn) {
+          ownNote = note;
+        } else {
+          friendNotes.add(note);
+        }
+      }
+
+      state = state.copyWith(
+        myNote: () => ownNote,
+        friendNotes: friendNotes,
+      );
+
+      // Cache updated values locally
+      final prefs = await SharedPreferences.getInstance();
+      if (ownNote != null) {
+        await prefs.setString('user_own_note', jsonEncode(ownNote.toJson()));
+      } else {
+        await prefs.remove('user_own_note');
+      }
+
+      final friendNotesJson = friendNotes.map((n) => n.toJson()).toList();
+      await prefs.setString('friend_notes_feed', jsonEncode(friendNotesJson));
+    } catch (e) {
+      // Offline fallback: keep using current state
+    }
   }
 
+  /// Create and share a new note with followers or close friends
+  Future<void> shareNote(String text, NoteAudience audience) async {
+    try {
+      final service = ref.read(notesServiceProvider);
+      final note = await service.createNote(text, audience);
+
+      state = state.copyWith(myNote: () => note);
+
+      // Cache own note
+      final prefs = await SharedPreferences.getInstance();
+      await prefs.setString('user_own_note', jsonEncode(note.toJson()));
+    } catch (e) {
+      rethrow;
+    }
+  }
+
+  /// Delete the user's active note
+  Future<void> deleteNote() async {
+    try {
+      final service = ref.read(notesServiceProvider);
+      await service.deleteNote();
+
+      state = state.copyWith(myNote: () => null);
+
+      // Remove from cache
+      final prefs = await SharedPreferences.getInstance();
+      await prefs.remove('user_own_note');
+    } catch (e) {
+      rethrow;
+    }
+  }
+
+  /// Reply to a friend's active note via direct message
   Future<void> replyToNote(NoteModel note, String replyText) async {
     // 1. Resolve/create conversation with note author
-    final chatNotifier = _ref.read(inboxProvider.notifier);
-    
-    // For demo/routing purposes, in a real app this uses note.userId
-    // If it's a mock note user (friend_1, etc.), we map them or create a local mock DM channel
-    // Let's lookup if there is already an existing conversation with note.username.
-    final inboxState = _ref.read(inboxProvider);
+    final chatNotifier = ref.read(inboxProvider.notifier);
+    final inboxState = ref.read(inboxProvider);
     String conversationId = '';
-    
+
     for (final c in inboxState.conversations) {
       if (c.otherUser?.username == note.username) {
         conversationId = c.id;
@@ -127,9 +165,8 @@ class NotesNotifier extends StateNotifier<NotesState> {
 
     if (conversationId.isEmpty) {
       // If conversation doesn't exist, create it dynamically
-      final resolvedUser = note.userId.startsWith('friend_') ? 'friend_user_id' : note.userId;
       try {
-        final conversation = await chatNotifier.createConversation(resolvedUser);
+        final conversation = await chatNotifier.createConversation(note.userId);
         conversationId = conversation.id;
       } catch (e) {
         // Fallback to sending into first conversation or generic message
@@ -145,11 +182,9 @@ class NotesNotifier extends StateNotifier<NotesState> {
     final formattedMessage = '[note_reply]:${note.text}|$replyText';
 
     // 3. Trigger Riverpod sendMessage on ChatNotifier family
-    final messageNotifier = _ref.read(chatProvider(conversationId).notifier);
+    final messageNotifier = ref.read(chatProvider(conversationId).notifier);
     await messageNotifier.sendMessage(formattedMessage);
   }
 }
 
-final notesProvider = StateNotifierProvider<NotesNotifier, NotesState>((ref) {
-  return NotesNotifier(ref);
-});
+final notesProvider = NotifierProvider<NotesNotifier, NotesState>(NotesNotifier.new);
