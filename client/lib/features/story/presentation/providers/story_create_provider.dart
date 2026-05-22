@@ -87,7 +87,7 @@ class StoryCreateState {
 }
 
 // ─── STORY CREATE NOTIFIER ───────────────────────────────────
-class StoryCreateNotifier extends AutoDisposeNotifier<StoryCreateState> {
+class StoryCreateNotifier extends Notifier<StoryCreateState> {
   late final StoryService _storyService;
 
   @override
@@ -186,6 +186,6 @@ class StoryCreateNotifier extends AutoDisposeNotifier<StoryCreateState> {
 }
 
 // ─── PROVIDERS ──────────────────────────────────────────────
-final storyCreateProvider = NotifierProvider.autoDispose<StoryCreateNotifier, StoryCreateState>(() {
-  return StoryCreateNotifier();
-});
+final storyCreateProvider = NotifierProvider<StoryCreateNotifier, StoryCreateState>(
+  StoryCreateNotifier.new,
+);

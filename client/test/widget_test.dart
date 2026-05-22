@@ -8,7 +8,7 @@
 import 'package:flutter_test/flutter_test.dart';
 
 import 'package:flutter_riverpod/flutter_riverpod.dart';
-import 'package:instagram_clinet/main.dart';
+import 'package:instagram_client/main.dart';
 
 void main() {
   testWidgets('App renders smoke test', (WidgetTester tester) async {

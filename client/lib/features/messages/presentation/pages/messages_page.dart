@@ -284,6 +284,40 @@ class _ConversationTile extends StatelessWidget {
   final VoidCallback onTap;
   final VoidCallback onDismissed;
 
+  // ── Build the last-message preview subtitle ──────────────────
+  // Mirrors Instagram: "You: hey" vs just "hey" for inbound messages.
+  String _buildLastMessagePreview(String currentUserId) {
+    final msg = conversation.lastMessage;
+    if (msg == null) return 'Start a conversation';
+
+    final isOwn = msg.senderId == currentUserId;
+    final prefix = isOwn ? 'You: ' : '';
+
+    // Deleted message
+    if (msg.isDeleted) {
+      return isOwn ? 'You unsent a message' : 'Message unsent';
+    }
+
+    // Media / special types
+    switch (msg.messageType) {
+      case 'image':
+        return '${prefix}Sent a photo';
+      case 'video':
+        return '${prefix}Sent a video';
+      case 'like':
+        return isOwn ? 'You sent \u2764\ufe0f' : '\u2764\ufe0f';
+      case 'reel':
+        return '${prefix}Shared a reel';
+      case 'story':
+        return '${prefix}Replied to a story';
+      case 'post':
+        return '${prefix}Shared a post';
+      default:
+        final text = msg.content.trim();
+        return text.isEmpty ? '${prefix}...' : '$prefix$text';
+    }
+  }
+
   @override
   Widget build(BuildContext context) {
     final timeText = timeago.format(conversation.updatedAt, locale: 'en_short');
@@ -419,8 +453,7 @@ class _ConversationTile extends StatelessWidget {
                       children: [
                         Expanded(
                           child: Text(
-                            conversation.lastMessage?.content ??
-                                'Start a conversation',
+                            _buildLastMessagePreview(currentUserId),
                             style: TextStyle(
                               fontSize: 13,
                               color: hasUnread

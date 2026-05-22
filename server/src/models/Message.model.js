@@ -115,6 +115,13 @@ const Message = sequelize.define(
       type: DataTypes.DATE,
       allowNull: true,
     },
+
+    // Emoji reactions: { "❤️": ["userId1", "userId2"], "😂": ["userId3"] }
+    reactions: {
+      type: DataTypes.JSONB,
+      allowNull: false,
+      defaultValue: {},
+    },
   },
   {
     tableName: 'messages',

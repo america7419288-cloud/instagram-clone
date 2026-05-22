@@ -28,7 +28,7 @@ class AppConstants {
   static const String suggestionsEndpoint = '/users/suggestions';
   static const String exploreEndpoint = '/posts/explore';
   static const String postsUrl = '/posts';
-  static const String uploadProfilePicEndpoint = '/users/profile-pic';
+  static const String uploadProfilePicEndpoint = '/users/profile-picture';
 
   static const String reelsUrl      = '/reels';
   static const String reelsFeedUrl  = '/reels/feed';

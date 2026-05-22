@@ -6,8 +6,9 @@ const { v4: uuidv4 } = require('uuid');
 const { Op } = require('sequelize');
 const {
     User,
-    Reel, // test
+    Reel,
     ReelLike,
+    SavedReel,
     Comment,
     CommentLike,
     Follower,
@@ -653,6 +654,98 @@ const deleteReel = async (req, res) => {
 };
 
 // ─────────────────────────────────────────────────────
+// SAVE REEL (bookmark)
+// POST /api/reels/:reelId/save
+// ─────────────────────────────────────────────────────
+const saveReel = async (req, res) => {
+    try {
+        const { reelId } = req.params;
+        const userId = req.user.id;
+
+        const reel = await Reel.findByPk(reelId, { attributes: ['id'] });
+        if (!reel) {
+            return errorResponse(res, 404, 'Reel not found');
+        }
+
+        // Upsert: create if not already saved
+        const [, created] = await SavedReel.findOrCreate({
+            where: { userId, reelId },
+            defaults: { userId, reelId },
+        });
+
+        if (!created) {
+            return errorResponse(res, 400, 'Reel already saved');
+        }
+
+        return successResponse(res, 200, 'Reel saved');
+    } catch (error) {
+        console.error('❌ saveReel error:', error);
+        return errorResponse(res, 500, 'Failed to save reel');
+    }
+};
+
+// ─────────────────────────────────────────────────────
+// UNSAVE REEL (remove bookmark)
+// DELETE /api/reels/:reelId/save
+// ─────────────────────────────────────────────────────
+const unsaveReel = async (req, res) => {
+    try {
+        const { reelId } = req.params;
+        const userId = req.user.id;
+
+        const saved = await SavedReel.findOne({ where: { userId, reelId } });
+        if (!saved) {
+            return errorResponse(res, 400, 'Reel not saved');
+        }
+
+        await saved.destroy();
+        return successResponse(res, 200, 'Reel unsaved');
+    } catch (error) {
+        console.error('❌ unsaveReel error:', error);
+        return errorResponse(res, 500, 'Failed to unsave reel');
+    }
+};
+
+// ─────────────────────────────────────────────────────
+// GET SAVED REELS
+// GET /api/reels/saved?page=1&limit=20
+// ─────────────────────────────────────────────────────
+const getSavedReels = async (req, res) => {
+    try {
+        const userId = req.user.id;
+        const page = parseInt(req.query.page) || 1;
+        const limit = parseInt(req.query.limit) || 20;
+        const offset = (page - 1) * limit;
+
+        const saved = await SavedReel.findAll({
+            where: { userId },
+            include: [
+                {
+                    model: Reel,
+                    as: 'reel',
+                    include: _reelIncludes(userId),
+                },
+            ],
+            order: [['createdAt', 'DESC']],
+            limit,
+            offset,
+        });
+
+        const formatted = saved
+            .filter((s) => s.reel)
+            .map((s) => ({
+                ..._formatReel(s.reel, userId),
+                isSaved: true,
+            }));
+
+        return successResponse(res, 200, 'Saved reels loaded', formatted);
+    } catch (error) {
+        console.error('❌ getSavedReels error:', error);
+        return errorResponse(res, 500, 'Failed to load saved reels');
+    }
+};
+
+// ─────────────────────────────────────────────────────
 // PRIVATE HELPERS
 // ─────────────────────────────────────────────────────
 
@@ -673,6 +766,13 @@ const _reelIncludes = (userId) => [
     {
         model: ReelLike,
         as: 'likes',
+        where: userId ? { userId } : undefined,
+        required: false,
+        attributes: ['userId'],
+    },
+    {
+        model: SavedReel,
+        as: 'saves',
         where: userId ? { userId } : undefined,
         required: false,
         attributes: ['userId'],

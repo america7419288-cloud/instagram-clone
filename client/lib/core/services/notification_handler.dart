@@ -27,15 +27,17 @@ class _NotificationHandlerState
     try {
       final pushService = ref.read(pushNotificationServiceProvider);
 
-      // ─── Initialize ────────────────────────────────────
+      // ─── Initialize (channel + permission + handlers) ──
       await pushService.initialize();
 
-      // ─── Listen for notification taps ──────────────────
+      // ─── Listen for notification taps → navigate ───────
       pushService.onNotificationTap.listen((data) {
         if (mounted) _handleNavigation(data);
       });
 
-      // ─── Show in-app banner for foreground messages ────
+      // ─── Show in-app banner for foreground messages ─────
+      // push_notification_service also shows a system notification;
+      // here we additionally show the custom in-app banner.
       FirebaseMessaging.onMessage.listen((RemoteMessage message) {
         if (!mounted) return;
         final notification = message.notification;

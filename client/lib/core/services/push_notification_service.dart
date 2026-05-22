@@ -90,8 +90,9 @@ class PushNotificationService {
     // ─── Check if app was launched from notification ───
     await _checkInitialMessage();
 
-    // ─── Ensure token is sent to server ────────────────
-    await getAndSendToken();
+    // NOTE: getAndSendToken() is intentionally NOT called here.
+    // auth_provider calls _registerPushToken() → getAndSendToken()
+    // after login/init, ensuring the token is only sent while authenticated.
 
     debugPrint('✅ PushNotificationService initialized');
   }
@@ -324,10 +325,10 @@ class PushNotificationService {
     final payload = data['route'] ?? '/notifications';
 
     await _localNotifications.show(
-      id: id,
-      title: title,
-      body: body,
-      notificationDetails: details,
+      id,
+      title,
+      body,
+      details,
       payload: payload,
     );
   }

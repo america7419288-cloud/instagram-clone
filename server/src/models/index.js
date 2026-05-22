@@ -1,5 +1,4 @@
 // server/src/models/index.js
-// COMPLETE UPDATED FILE
 
 const { sequelize } = require('../config/database');
 
@@ -23,6 +22,7 @@ const ConversationParticipant = require('./ConversationParticipant.model');
 const Message = require('./Message.model');
 const Reel = require('./Reel.model');
 const ReelLike = require('./ReelLike.model');
+const SavedReel = require('./SavedReel.model');
 const StoryPoll = require('./StoryPoll.model');
 const StoryPollVote = require('./StoryPollVote.model');
 const StoryQuestion = require('./StoryQuestion.model');
@@ -187,7 +187,6 @@ StoryHighlightItem.belongsTo(StoryHighlight, {
 });
 StoryHighlightItem.belongsTo(Story, { foreignKey: 'storyId' });
 
-
 // ─── Reel → ReelLike ──────────────────────────────────
 Reel.hasMany(ReelLike, {
   foreignKey: 'reelId',
@@ -201,6 +200,19 @@ User.hasMany(ReelLike, {
   onDelete: 'CASCADE',
 });
 
+// ─── Reel → SavedReel ─────────────────────────────────
+Reel.hasMany(SavedReel, {
+  foreignKey: 'reelId',
+  as: 'saves',
+  onDelete: 'CASCADE',
+});
+SavedReel.belongsTo(Reel, { foreignKey: 'reelId', as: 'reel' });
+User.hasMany(SavedReel, {
+  foreignKey: 'userId',
+  as: 'savedReels',
+  onDelete: 'CASCADE',
+});
+SavedReel.belongsTo(User, { foreignKey: 'userId', as: 'user' });
 
 // COMMENT LIKES
 Comment.hasMany(CommentLike, {
@@ -375,19 +387,17 @@ Message.belongsTo(Message, {
   constraints: false,
 });
 
-// MESSAGE → SHARED POST
+// MESSAGE → SHARED POST / REEL / STORY (polymorphic via shared_post_id)
 Message.belongsTo(Post, {
   foreignKey: 'shared_post_id',
   as: 'sharedPost',
   constraints: false,
 });
-
 Message.belongsTo(Reel, {
   foreignKey: 'shared_post_id',
   as: 'sharedReel',
   constraints: false,
 });
-
 Message.belongsTo(Story, {
   foreignKey: 'shared_post_id',
   as: 'sharedStory',
@@ -405,23 +415,55 @@ Conversation.belongsTo(User, {
 const syncDatabase = async () => {
   try {
     const isProduction = process.env.NODE_ENV === 'production';
-    const shouldAlter = !isProduction || process.env.DB_SYNC_ALTER === 'true';
+
+    // Step 1: Sync table structure
+    // In development: alter:true so Sequelize creates/modifies columns freely.
+    // In production: alter:false — we manage schema changes with safe SQL below.
+    const shouldAlter = !isProduction;
     await sequelize.sync({ alter: shouldAlter });
     console.log(
       `✅ Database synced (alter: ${shouldAlter}) in ${isProduction ? 'production' : 'development'} mode`
     );
 
+    // Step 2: Safe additive migrations — idempotent, never drops data.
+    // ADD COLUMN IF NOT EXISTS and CREATE TABLE IF NOT EXISTS are safe to run
+    // on every server startup against both dev and production databases.
+    await sequelize.query(`
+      ALTER TABLE conversations
+        ADD COLUMN IF NOT EXISTS disappearing_duration INTEGER DEFAULT NULL;
+
+      ALTER TABLE messages
+        ADD COLUMN IF NOT EXISTS is_edited  BOOLEAN   NOT NULL DEFAULT FALSE;
+      ALTER TABLE messages
+        ADD COLUMN IF NOT EXISTS edited_at  TIMESTAMP WITH TIME ZONE DEFAULT NULL;
+      ALTER TABLE messages
+        ADD COLUMN IF NOT EXISTS expires_at TIMESTAMP WITH TIME ZONE DEFAULT NULL;
+      ALTER TABLE messages
+        ADD COLUMN IF NOT EXISTS reactions  JSONB NOT NULL DEFAULT '{}';
+
+      CREATE TABLE IF NOT EXISTS saved_reels (
+        id          UUID                     PRIMARY KEY DEFAULT gen_random_uuid(),
+        user_id     UUID                     NOT NULL REFERENCES users(id)  ON DELETE CASCADE,
+        reel_id     UUID                     NOT NULL REFERENCES reels(id)  ON DELETE CASCADE,
+        created_at  TIMESTAMP WITH TIME ZONE NOT NULL DEFAULT NOW(),
+        updated_at  TIMESTAMP WITH TIME ZONE NOT NULL DEFAULT NOW(),
+        CONSTRAINT  unique_user_reel_save UNIQUE (user_id, reel_id)
+      );
+      CREATE INDEX IF NOT EXISTS idx_saved_reels_user_id ON saved_reels (user_id);
+      CREATE INDEX IF NOT EXISTS idx_saved_reels_reel_id ON saved_reels (reel_id);
+    `);
+
     console.log('✅ Database tables synced!');
     console.log('   → users, posts, post_media');
     console.log('   → likes, hashtags, post_hashtags');
-    console.log('   → saved_posts, comments, comment_likes');
+    console.log('   → saved_posts, saved_reels, comments, comment_likes');
     console.log('   → followers, blocks');
     console.log('   → stories, story_views');
     console.log('   → notifications');
-    console.log('   → conversations');              // ⭐ NEW
-    console.log('   → conversation_participants');  // ⭐ NEW
-    console.log('   → messages');                   // ⭐ NEW
-    console.log('   → post_tags');                  // ⭐ NEW
+    console.log('   → conversations (+ disappearing_duration)');
+    console.log('   → conversation_participants');
+    console.log('   → messages (+ is_edited, edited_at, expires_at, reactions)');
+    console.log('   → post_tags');
   } catch (error) {
     console.error('❌ Database sync failed:', error.message);
     throw error;
@@ -450,6 +492,7 @@ module.exports = {
   Message,
   Reel,
   ReelLike,
+  SavedReel,
   StoryPoll,
   StoryPollVote,
   StoryQuestion,

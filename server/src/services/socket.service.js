@@ -475,10 +475,15 @@ const setupSocketServer = (httpServer) => {
 // These can be used from other parts of the app
 // e.g., emit notification when someone likes a post
 
+// ─── HELPER: Get the singleton Socket.io server ────────────
+// Used by HTTP controllers that need to emit real-time events
+const getIO = () => socketServer;
+
 module.exports = {
   setupSocketServer,
   isUserOnline,
   emitToUser,
   getOnlineUserIds,
   onlineUsers,
+  getIO,
 };

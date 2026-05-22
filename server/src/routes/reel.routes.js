@@ -16,6 +16,9 @@ const {
     getReelComments,
     addReelComment,
     deleteReel,
+    saveReel,
+    unsaveReel,
+    getSavedReels,
 } = require('../controllers/reel.controller');
 
 const { protect, optionalAuth } = require('../middleware/auth.middleware');
@@ -77,6 +80,7 @@ const handleMulterError = (err, req, res, next) => {
 // ─── Specific routes first (before :reelId) ───────────
 router.get('/feed', protect, getReelsFeed);
 router.get('/explore', optionalAuth, getExploreReels);
+router.get('/saved', protect, getSavedReels);     // ⭐ Saved reels
 router.get('/user/:username', optionalAuth, getUserReels);
 
 // ─── Create reel (video upload) ───────────────────────
@@ -104,5 +108,9 @@ router.get('/:reelId/likes', optionalAuth, getReelLikers);
 // ─── Comments ─────────────────────────────────────────
 router.get('/:reelId/comments', optionalAuth, getReelComments);
 router.post('/:reelId/comments', protect, addReelComment);
+
+// ─── Save / Unsave (bookmark) ────────────────────────────
+router.post('/:reelId/save', protect, saveReel);
+router.delete('/:reelId/save', protect, unsaveReel);
 
 module.exports = router;

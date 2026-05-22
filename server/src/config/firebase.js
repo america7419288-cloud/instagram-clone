@@ -46,8 +46,21 @@ const initializeFirebase = () => {
                 client_x509_cert_url: `https://www.googleapis.com/robot/v1/metadata/x509/${process.env.FIREBASE_CLIENT_EMAIL
                     }`,
             };
-            credential = admin.credential.cert(serviceAccount);
-            console.log('🔥 Firebase: Using environment variables');
+        // ─── Validate all required fields are present ────
+        const required = [
+            'project_id', 'private_key', 'client_email', 'private_key_id'
+        ];
+        const missing = required.filter(k => !serviceAccount[k] ||
+            serviceAccount[k].includes('xxxxx') ||
+            serviceAccount[k].includes('your-project')
+        );
+        if (missing.length > 0) {
+            console.error(`❌ Firebase: Incomplete env vars — missing/placeholder: ${missing.join(', ')}`);
+            console.error('   Set correct values in Render env vars or use FIREBASE_SERVICE_ACCOUNT_PATH');
+            return null;
+        }
+        credential = admin.credential.cert(serviceAccount);
+        console.log(`🔥 Firebase: Using env vars (project: ${serviceAccount.project_id})`);
         }
 
         if (!credential) {

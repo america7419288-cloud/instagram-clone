@@ -18,7 +18,7 @@ const {
   errorResponse,
   paginatedResponse,
 } = require('../utils/response.utils');
-const { emitToUser } = require('../services/socket.service');
+const { emitToUser, getIO } = require('../services/socket.service');
 const { Op } = require('sequelize');
 const { createMessageNotification } = require('../services/notification.service');
 const {
@@ -357,28 +357,38 @@ const getInbox = async (req, res) => {
 
     console.log(`✅ Found ${conversations.length} conversations for the user.`);
 
-    // Fix N+1: Get all unread counts in a single query
+    // Build a single efficient query: count messages not sent by current user
+    // that were created AFTER the current user's last_read_at for each conversation.
+    // Using raw SQL with a JOIN on conversation_participants to apply per-conversation
+    // last_read_at thresholds in one round-trip — avoids N+1 and stale counts.
     const activeConversationIds = conversations.map(c => c.id);
-    const activeParticipantRecords = conversations.flatMap(c => (c.participantRecords || []).map(p => ({ conversationId: c.id, lastReadAt: p.last_read_at })));
-    const lastReadByConv = new Map(activeParticipantRecords.map(p => [p.conversationId, p.lastReadAt]));
-
-    // Build a single query to get unread counts
-    const unreadCounts = await Message.findAll({
-      where: {
-        conversation_id: { [Op.in]: activeConversationIds },
-        sender_id: { [Op.ne]: currentUserId },
-        is_deleted: false,
+    const [unreadRows] = await sequelize.query(`
+      SELECT
+        m.conversation_id,
+        COUNT(m.id) AS unread_count
+      FROM messages m
+      JOIN conversation_participants cp
+        ON cp.conversation_id = m.conversation_id
+       AND cp.user_id = :userId
+      WHERE
+        m.conversation_id IN (:conversationIds)
+        AND m.sender_id  != :userId
+        AND m.is_deleted  = false
+        AND (
+          cp.last_read_at IS NULL
+          OR m.created_at > cp.last_read_at
+        )
+      GROUP BY m.conversation_id
+    `, {
+      replacements: {
+        userId: currentUserId,
+        conversationIds: activeConversationIds,
       },
-      attributes: [
-        'conversation_id',
-        [sequelize.fn('COUNT', sequelize.col('id')), 'unread_count']
-      ],
-      group: ['conversation_id'],
-      raw: true,
+      type: sequelize.QueryTypes.SELECT,
     });
 
     const unreadCountByConversationId = new Map(
-      unreadCounts.map(u => [u.conversation_id, parseInt(u.unread_count)])
+      (unreadRows || []).map(u => [u.conversation_id, parseInt(u.unread_count, 10)])
     );
 
     // 2.1 Filter out conversations with blocked users
@@ -750,6 +760,17 @@ const sendMessage = async (req, res) => {
       { where: { id: conversationId } }
     );
 
+    // 5b. STAMP SENDER'S last_read_at — sending a message means you've read
+    //     everything up to this moment, so your own inbox won't show unread dot.
+    await ConversationParticipant.update(
+      { last_read_at: new Date() },
+      {
+        where: {
+          conversation_id: conversationId,
+          user_id: senderId,
+        },
+      }
+    );
     // 6. GET FULL MESSAGE WITH SENDER
     console.log('🔍 Fetching full message with associations...');
     const fullMessage = await Message.findByPk(message.id, {
@@ -920,6 +941,18 @@ const deleteMessage = async (req, res) => {
     });
 
     console.log(`🗑️  Message unsent: ${messageId}`);
+
+    // ─── Broadcast deletion to conversation room in real-time ───
+    const io = getIO();
+    if (io) {
+      const roomName = `conversation:${message.conversation_id}`;
+      io.to(roomName).emit('message-deleted', {
+        conversation_id: message.conversation_id,
+        message_id: messageId,
+        deleted_by: currentUserId,
+        deleted_at: new Date(),
+      });
+    }
 
     return successResponse(
       res,
@@ -1437,6 +1470,71 @@ const searchMessages = async (req, res) => {
   }
 };
 
+// ─────────────────────────────────────────────────────────────
+// @route   POST /api/v1/conversations/:id/messages/:messageId/react
+// @desc    Add or remove an emoji reaction on a message
+// @access  Private
+// ─────────────────────────────────────────────────────────────
+const reactToMessage = async (req, res) => {
+  try {
+    const { id: conversationId, messageId } = req.params;
+    const currentUserId = req.user.id;
+    const { emoji } = req.body;
+
+    if (!emoji || typeof emoji !== 'string') {
+      return errorResponse(res, 400, 'emoji field is required.');
+    }
+
+    const message = await Message.findOne({
+      where: { id: messageId, conversation_id: conversationId },
+    });
+
+    if (!message) {
+      return errorResponse(res, 404, 'Message not found.');
+    }
+
+    if (message.is_deleted) {
+      return errorResponse(res, 400, 'Cannot react to a deleted message.');
+    }
+
+    // Build updated reactions map
+    const reactions = { ...(message.reactions || {}) };
+    const users = reactions[emoji] ? [...reactions[emoji]] : [];
+    const alreadyReacted = users.includes(currentUserId);
+
+    if (alreadyReacted) {
+      // Toggle off: remove user from this emoji
+      reactions[emoji] = users.filter((uid) => uid !== currentUserId);
+      if (reactions[emoji].length === 0) delete reactions[emoji];
+    } else {
+      // Toggle on: add user to this emoji
+      reactions[emoji] = [...users, currentUserId];
+    }
+
+    await message.update({ reactions });
+
+    // ─── Broadcast to conversation room ───────────────────────
+    const io = getIO();
+    if (io) {
+      const roomName = `conversation:${conversationId}`;
+      io.to(roomName).emit('message-reacted', {
+        conversation_id: conversationId,
+        message_id: messageId,
+        reactions,
+        reacted_by: currentUserId,
+        emoji,
+        action: alreadyReacted ? 'removed' : 'added',
+      });
+    }
+
+    return successResponse(res, 200, 'Reaction updated.', { reactions });
+
+  } catch (error) {
+    console.error('❌ React to message error:', error);
+    return errorResponse(res, 500, 'Failed to update reaction.');
+  }
+};
+
 module.exports = {
   createOrGetConversation,
   getInbox,
@@ -1452,4 +1550,5 @@ module.exports = {
   createGroupConversation,
   setDisappearingMessages,
   searchMessages,
+  reactToMessage,
 };
