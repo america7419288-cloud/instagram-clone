@@ -1499,16 +1499,26 @@ const reactToMessage = async (req, res) => {
 
     // Build updated reactions map
     const reactions = { ...(message.reactions || {}) };
-    const users = reactions[emoji] ? [...reactions[emoji]] : [];
-    const alreadyReacted = users.includes(currentUserId);
+    let alreadyReactedToSameEmoji = false;
 
-    if (alreadyReacted) {
-      // Toggle off: remove user from this emoji
-      reactions[emoji] = users.filter((uid) => uid !== currentUserId);
-      if (reactions[emoji].length === 0) delete reactions[emoji];
-    } else {
-      // Toggle on: add user to this emoji
-      reactions[emoji] = [...users, currentUserId];
+    // Remove this user from all emoji reactions first
+    for (const key of Object.keys(reactions)) {
+      const users = reactions[key] ? [...reactions[key]] : [];
+      if (users.includes(currentUserId)) {
+        if (key === emoji) {
+          alreadyReactedToSameEmoji = true;
+        }
+        reactions[key] = users.filter((uid) => uid !== currentUserId);
+        if (reactions[key].length === 0) {
+          delete reactions[key];
+        }
+      }
+    }
+
+    // If they reacted to a different emoji, add the user's reaction
+    if (!alreadyReactedToSameEmoji) {
+      const targetUsers = reactions[emoji] ? [...reactions[emoji]] : [];
+      reactions[emoji] = [...targetUsers, currentUserId];
     }
 
     await message.update({ reactions });
@@ -1523,7 +1533,7 @@ const reactToMessage = async (req, res) => {
         reactions,
         reacted_by: currentUserId,
         emoji,
-        action: alreadyReacted ? 'removed' : 'added',
+        action: alreadyReactedToSameEmoji ? 'removed' : 'added',
       });
     }
 
