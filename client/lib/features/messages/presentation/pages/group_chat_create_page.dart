@@ -8,6 +8,7 @@ import 'package:cached_network_image/cached_network_image.dart';
 import '../../../../core/theme/app_theme.dart';
 import '../../../../shared/widgets/spring_widget.dart';
 import '../../../../shared/models/user_model.dart';
+import '../../../../shared/widgets/verified_badge.dart';
 import '../providers/message_search_provider.dart';
 import '../../../chat/presentation/providers/chat_notifiers.dart';
 import '../../../chat/presentation/providers/chat_providers.dart';
@@ -542,13 +543,26 @@ class _UserSelectionTile extends StatelessWidget {
               child: Column(
                 crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
-                  Text(
-                    user.username,
-                    style: const TextStyle(
-                      fontWeight: FontWeight.w600,
-                      fontSize: 15,
-                      color: AppColors.textPrimary,
-                    ),
+                  Row(
+                    mainAxisSize: MainAxisSize.min,
+                    children: [
+                      Flexible(
+                        child: Text(
+                          user.username,
+                          style: const TextStyle(
+                            fontWeight: FontWeight.w600,
+                            fontSize: 15,
+                            color: AppColors.textPrimary,
+                          ),
+                          maxLines: 1,
+                          overflow: TextOverflow.ellipsis,
+                        ),
+                      ),
+                      if (user.isVerified) ...[
+                        const SizedBox(width: 4),
+                        const VerifiedBadge(size: 13),
+                      ],
+                    ],
                   ),
                   Text(
                     user.fullName,
@@ -631,13 +645,26 @@ class _MemberListTile extends StatelessWidget {
           ),
           const SizedBox(width: 12),
           Expanded(
-            child: Text(
-              user.username,
-              style: const TextStyle(
-                fontWeight: FontWeight.w500,
-                fontSize: 15,
-                color: AppColors.textPrimary,
-              ),
+            child: Row(
+              mainAxisSize: MainAxisSize.min,
+              children: [
+                Flexible(
+                  child: Text(
+                    user.username,
+                    style: const TextStyle(
+                      fontWeight: FontWeight.w500,
+                      fontSize: 15,
+                      color: AppColors.textPrimary,
+                    ),
+                    maxLines: 1,
+                    overflow: TextOverflow.ellipsis,
+                  ),
+                ),
+                if (user.isVerified) ...[
+                  const SizedBox(width: 4),
+                  const VerifiedBadge(size: 13),
+                ],
+              ],
             ),
           ),
           CupertinoButton(

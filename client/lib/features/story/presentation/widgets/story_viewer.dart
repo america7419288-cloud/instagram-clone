@@ -12,6 +12,7 @@ import 'package:instagram_client/core/network/audio_stream_source.dart';
 import 'package:instagram_client/core/network/dio_client.dart';
 import 'package:instagram_client/core/theme/app_theme.dart';
 import 'package:instagram_client/shared/widgets/app_snackbar.dart';
+import 'package:instagram_client/shared/widgets/verified_badge.dart';
 import 'package:instagram_client/features/auth/presentation/providers/auth_provider.dart';
 import '../../data/models/story_model.dart';
 import '../../data/repositories/story_service.dart';
@@ -93,6 +94,8 @@ class _StoryViewerState extends ConsumerState<StoryViewer>
     _progressController.dispose();
     _replyController.dispose();
     _replyFocus.dispose();
+    _dismissController?.dispose();
+    _snapController?.dispose();
     SystemChrome.setEnabledSystemUIMode(SystemUiMode.edgeToEdge);
     _transformationController.dispose();
     super.dispose();
@@ -313,8 +316,70 @@ class _StoryViewerState extends ConsumerState<StoryViewer>
     );
   }
 
-  double _dragOffset = 0.0;
+  double _dragY = 0.0;
+  double _dragStartY = 0.0;
   bool _isDragging = false;
+  AnimationController? _dismissController;
+  AnimationController? _snapController;
+
+  void _animateDismiss() {
+    ref.read(isSwipeDismissingProvider.notifier).setSwipeDismissing(true);
+    final screenHeight = MediaQuery.of(context).size.height;
+
+    _dismissController?.dispose();
+    _dismissController = AnimationController(
+      vsync: this,
+      duration: const Duration(milliseconds: 250),
+    );
+
+    final dismissAnimation = Tween<double>(
+      begin: _dragY,
+      end: screenHeight,
+    ).animate(CurvedAnimation(
+      parent: _dismissController!,
+      curve: Curves.easeIn,
+    ));
+
+    dismissAnimation.addListener(() {
+      setState(() => _dragY = dismissAnimation.value);
+    });
+
+    _dismissController!.forward().then((_) {
+      if (mounted) {
+        Navigator.of(context).pop();
+      }
+    });
+  }
+
+  void _animateSnapBack() {
+    _snapController?.dispose();
+    _snapController = AnimationController(
+      vsync: this,
+      duration: const Duration(milliseconds: 350),
+    );
+
+    final snapAnimation = Tween<double>(
+      begin: _dragY,
+      end: 0.0,
+    ).animate(CurvedAnimation(
+      parent: _snapController!,
+      curve: Curves.elasticOut,
+    ));
+
+    snapAnimation.addListener(() {
+      setState(() => _dragY = snapAnimation.value);
+    });
+
+    _snapController!.forward().then((_) {
+      if (mounted) {
+        setState(() {
+          _isDragging = false;
+          _dragY = 0.0;
+        });
+        _resumeStory();
+      }
+    });
+  }
 
   Widget _buildGroupItem(int groupIndex) {
     if (groupIndex != _currentGroupIndex) {
@@ -327,58 +392,73 @@ class _StoryViewerState extends ConsumerState<StoryViewer>
     final group = _currentGroup;
     final isOwnStory = currentUser?.id == group.user.id;
 
-    // Calculate scale and opacity based on drag
-    final dragScale = (1.0 - (_dragOffset / 500)).clamp(0.8, 1.0);
-    final dragOpacity = (1.0 - (_dragOffset / 300)).clamp(0.0, 1.0);
+    final screenHeight = MediaQuery.of(context).size.height;
+    final dragProgress = (_dragY / screenHeight).clamp(0.0, 1.0);
+
+    // Calculate scale, opacity and corner radius based on drag
+    final dragScale = 1.0 - dragProgress * 0.3;
+    final dragOpacity = 1.0 - dragProgress;
+    final dragBorderRadius = dragProgress * 40.0;
 
     return GestureDetector(
       onTapDown: _isTyping ? null : _handleTapDown,
       onLongPressStart: (_) => _pauseStory(),
       onLongPressEnd: (_) => _resumeStory(),
-      onVerticalDragStart: (_) {
-        setState(() => _isDragging = true);
+      onVerticalDragStart: (details) {
+        _dismissController?.stop();
+        _snapController?.stop();
+        setState(() {
+          _dragStartY = details.globalPosition.dy;
+          _isDragging = true;
+        });
         _pauseStory();
       },
       onVerticalDragUpdate: (details) {
-        if (details.delta.dy > 0 || _dragOffset > 0) {
+        final delta = details.globalPosition.dy - _dragStartY;
+        if (delta > 0) {
           setState(() {
-            _dragOffset += details.delta.dy;
+            _dragY = delta;
+          });
+        } else {
+          setState(() {
+            _dragY = 0.0;
           });
         }
       },
       onVerticalDragEnd: (details) {
-        if (_dragOffset > 100) {
-          Navigator.of(context).pop();
+        final velocity = details.primaryVelocity ?? 0;
+        
+        if (_dragY > screenHeight * 0.25 || velocity > 500) {
+          _animateDismiss();
         } else {
-          setState(() {
-            _dragOffset = 0;
-            _isDragging = false;
-          });
-          _resumeStory();
+          _animateSnapBack();
         }
       },
       child: Container(
         color: Colors.black.withValues(alpha: dragOpacity),
-        child: Transform.scale(
-          scale: dragScale,
-          child: ClipRRect(
-            borderRadius: BorderRadius.circular(_dragOffset > 0 ? 12 : 0),
-            child: Stack(
-              children: [
-                _buildStoryMedia(story),
-                _buildGradients(),
-                SafeArea(
-                  child: Column(
-                    crossAxisAlignment: CrossAxisAlignment.start,
-                    children: [
-                      _buildProgressBars(),
-                      const SizedBox(height: 8),
-                      _buildUserInfo(group, story, isOwnStory),
-                    ],
+        child: Transform.translate(
+          offset: Offset(0, _dragY),
+          child: Transform.scale(
+            scale: dragScale,
+            child: ClipRRect(
+              borderRadius: BorderRadius.circular(dragBorderRadius),
+              child: Stack(
+                children: [
+                  _buildStoryMedia(story),
+                  _buildGradients(),
+                  SafeArea(
+                    child: Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        _buildProgressBars(),
+                        const SizedBox(height: 8),
+                        _buildUserInfo(group, story, isOwnStory),
+                      ],
+                    ),
                   ),
-                ),
-                _buildBottomSection(story, group, isOwnStory),
-              ],
+                  _buildBottomSection(story, group, isOwnStory),
+                ],
+              ),
             ),
           ),
         ),
@@ -547,13 +627,28 @@ class _StoryViewerState extends ConsumerState<StoryViewer>
                 ),
               ),
               const SizedBox(width: 8),
-              Text(
-                group.user.username,
-                style: const TextStyle(
-                  color: Colors.white,
-                  fontWeight: FontWeight.w600,
-                  fontSize: 13,
-                  fontFamily: 'SF-Pro',
+              Flexible(
+                child: Row(
+                  mainAxisSize: MainAxisSize.min,
+                  children: [
+                    Flexible(
+                      child: Text(
+                        group.user.username,
+                        style: const TextStyle(
+                          color: Colors.white,
+                          fontWeight: FontWeight.w600,
+                          fontSize: 13,
+                          fontFamily: 'SF-Pro',
+                        ),
+                        maxLines: 1,
+                        overflow: TextOverflow.ellipsis,
+                      ),
+                    ),
+                    if (group.user.isVerified == true) ...[
+                      const SizedBox(width: 4),
+                      const VerifiedBadge(size: 13),
+                    ],
+                  ],
                 ),
               ),
               const SizedBox(width: 8),

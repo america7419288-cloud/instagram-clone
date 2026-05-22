@@ -4,6 +4,7 @@ import 'package:go_router/go_router.dart';
 import 'package:flutter_lucide/flutter_lucide.dart';
 
 import '../../../../../shared/widgets/user_story_avatar.dart';
+import '../../../../../shared/widgets/verified_badge.dart';
 import 'chat_ui_constants.dart';
 
 class ChatAppBar extends StatelessWidget {
@@ -128,11 +129,7 @@ class ChatAppBar extends StatelessWidget {
                             ),
                             if (isVerified) ...[
                               const SizedBox(width: 4),
-                              const Icon(
-                                LucideIcons.badge_check,
-                                size: 14,
-                                color: ChatUIConstants.verifiedBlue,
-                              ),
+                              const VerifiedBadge(size: 14),
                             ],
                           ],
                         ),

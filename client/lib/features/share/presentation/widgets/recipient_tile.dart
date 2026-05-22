@@ -5,6 +5,7 @@ import 'package:flutter/services.dart';
 import 'package:lucide_icons/lucide_icons.dart';
 import '../../models/share_target.dart';
 import '../theme/share_theme.dart';
+import '../../../../shared/widgets/verified_badge.dart';
 
 class RecipientTile extends StatefulWidget {
   final ShareTarget target;
@@ -208,11 +209,7 @@ class _Avatar extends StatelessWidget {
                     ? ShareTheme.backgroundDark
                     : ShareTheme.background,
               ),
-              child: const Icon(
-                LucideIcons.badgeCheck,
-                size: 16,
-                color: ShareTheme.blue,
-              ),
+              child: const VerifiedBadge(size: 16),
             ),
           ),
       ],

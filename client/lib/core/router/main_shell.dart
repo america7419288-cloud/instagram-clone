@@ -15,6 +15,7 @@ import '../../features/auth/presentation/providers/auth_provider.dart';
 import '../../features/create/presentation/pages/media_picker_page.dart';
 import '../../features/create/presentation/pages/creation_camera_page.dart';
 import '../../features/messages/presentation/pages/messages_page.dart';
+import '../../features/inbox/pages/inbox_page.dart';
 import '../../features/chat/presentation/providers/chat_notifiers.dart';
 
 class MainShellTabIndexNotifier extends Notifier<int> {
@@ -109,7 +110,7 @@ class _MainShellState extends ConsumerState<MainShell> {
           KeyedSubtree(key: _tabKeys[0], child: const HomePage()),
           KeyedSubtree(key: _tabKeys[1], child: const SearchPage()),
           KeyedSubtree(key: _tabKeys[2], child: const ReelsPage()),
-          KeyedSubtree(key: _tabKeys[3], child: const MessagesPage()),
+          KeyedSubtree(key: _tabKeys[3], child: const InboxPage()),
           KeyedSubtree(
             key: _tabKeys[4],
             child: ProfilePage(username: user?.username ?? ''),

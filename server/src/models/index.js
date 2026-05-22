@@ -445,6 +445,9 @@ const syncDatabase = async () => {
       ALTER TABLE conversations
         ADD COLUMN IF NOT EXISTS disappearing_duration INTEGER DEFAULT NULL;
 
+      ALTER TABLE conversation_participants
+        ADD COLUMN IF NOT EXISTS is_accepted BOOLEAN NOT NULL DEFAULT TRUE;
+
       ALTER TABLE messages
         DROP CONSTRAINT IF EXISTS messages_shared_post_id_fkey;
 

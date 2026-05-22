@@ -202,6 +202,31 @@ class MessageRepository {
     return await _api.searchMessages(conversationId, query);
   }
 
+  Future<List<Conversation>> getMessageRequests() async {
+    try {
+      final conversations = await _api.getMessageRequests();
+      for (var conv in conversations) {
+        await _localDb.saveConversation(conv);
+      }
+      return conversations;
+    } catch (e) {
+      return _localDb.getConversations().where((c) => !c.isAccepted).toList();
+    }
+  }
+
+  Future<void> acceptRequest(String conversationId) async {
+    await _api.acceptConversationRequest(conversationId);
+    final conv = _localDb.getConversation(conversationId);
+    if (conv != null) {
+      await _localDb.saveConversation(conv.copyWith(isAccepted: true));
+    }
+  }
+
+  Future<void> rejectRequest(String conversationId) async {
+    await _api.rejectConversationRequest(conversationId);
+    await _localDb.deleteConversation(conversationId);
+  }
+
   Future<void> clearLocalCache() async {
     await _localDb.clearAll();
   }

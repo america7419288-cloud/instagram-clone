@@ -10,6 +10,7 @@ import '../../../../core/socket/socket_provider.dart';
 import '../../../../shared/models/user_model.dart';
 import '../../data/models/saved_account_model.dart';
 import '../../data/repositories/auth_service.dart';
+import '../../../../core/network/dio_client.dart';
 
 // Import other providers to refresh/invalidate them on auth changes
 import '../../../chat/presentation/providers/chat_notifiers.dart';
@@ -169,6 +170,8 @@ class AuthNotifier extends Notifier<AuthState> {
         value: refreshToken,
       );
 
+      DioClient().resetTokenCache();
+
       // ─── Save to account manager ──────────────────────
       final savedAccount = SavedAccountModel(
         userId: user.id,
@@ -249,6 +252,8 @@ class AuthNotifier extends Notifier<AuthState> {
         value: refreshToken,
       );
 
+      DioClient().resetTokenCache();
+
       final savedAccount = SavedAccountModel(
         userId: user.id,
         username: user.username,
@@ -297,6 +302,7 @@ class AuthNotifier extends Notifier<AuthState> {
 
       // ─── Set new active account ───────────────────────
       await _accountManager.setActiveAccount(userId);
+      DioClient().resetTokenCache();
 
       // ─── Load new account data ────────────────────────
       final user = await _authService.getMe();
@@ -360,6 +366,7 @@ class AuthNotifier extends Notifier<AuthState> {
       // ─── Switch to first remaining account ────────────
       final nextAccount = remaining.first;
       await _accountManager.setActiveAccount(nextAccount.userId);
+      DioClient().resetTokenCache();
 
       try {
         final user = await _authService.getMe();
@@ -384,6 +391,7 @@ class AuthNotifier extends Notifier<AuthState> {
 
     // ─── No remaining accounts → fully logged out ──────
     await _accountManager.clearAll();
+    DioClient().resetTokenCache();
 
     state = const AuthState(
       isAuthenticated: false,
@@ -402,6 +410,7 @@ class AuthNotifier extends Notifier<AuthState> {
     _disconnectSocket();
     await _clearUserScopedProviders();
     await _accountManager.clearAll();
+    DioClient().resetTokenCache();
 
     state = const AuthState(
       isAuthenticated: false,

@@ -8,6 +8,7 @@ import 'package:timeago/timeago.dart' as timeago;
 
 import '../../../../core/theme/app_theme.dart';
 import '../../../../shared/widgets/spring_widget.dart';
+import '../../../../shared/widgets/verified_badge.dart';
 import '../../../chat/data/models/message.dart';
 import '../../../chat/data/models/conversation.dart';
 import '../../../chat/presentation/providers/chat_notifiers.dart';
@@ -274,13 +275,26 @@ class _SearchResultTile extends StatelessWidget {
                   Row(
                     children: [
                       Expanded(
-                        child: Text(
-                          conversation.otherUser?.username ?? 'User',
-                          style: const TextStyle(
-                            fontWeight: FontWeight.w600,
-                            fontSize: 15,
-                            color: AppColors.textPrimary,
-                          ),
+                        child: Row(
+                          mainAxisSize: MainAxisSize.min,
+                          children: [
+                            Flexible(
+                              child: Text(
+                                conversation.otherUser?.username ?? 'User',
+                                style: const TextStyle(
+                                  fontWeight: FontWeight.w600,
+                                  fontSize: 15,
+                                  color: AppColors.textPrimary,
+                                ),
+                                maxLines: 1,
+                                overflow: TextOverflow.ellipsis,
+                              ),
+                            ),
+                            if (conversation.otherUser?.isVerified == true) ...[
+                              const SizedBox(width: 4),
+                              const VerifiedBadge(size: 13),
+                            ],
+                          ],
                         ),
                       ),
                       Text(

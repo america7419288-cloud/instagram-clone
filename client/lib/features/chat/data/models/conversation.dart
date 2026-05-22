@@ -35,6 +35,7 @@ class Conversation {
 
   // Phase 2 fields (not in Hive)
   final int? disappearingDuration;
+  final bool isAccepted;
 
   Conversation({
     required this.id,
@@ -47,6 +48,7 @@ class Conversation {
     required this.updatedAt,
     this.otherUser,
     this.disappearingDuration,
+    this.isAccepted = true,
   });
 
   factory Conversation.fromJson(Map<String, dynamic> json) {
@@ -79,6 +81,7 @@ class Conversation {
           : json['disappearingDuration'] != null
               ? int.tryParse(json['disappearingDuration'].toString())
               : null,
+      isAccepted: json['is_accepted'] ?? json['isAccepted'] ?? true,
     );
   }
 
@@ -93,6 +96,7 @@ class Conversation {
     DateTime? updatedAt,
     ChatUser? otherUser,
     int? disappearingDuration,
+    bool? isAccepted,
   }) {
     return Conversation(
       id: id ?? this.id,
@@ -105,6 +109,7 @@ class Conversation {
       updatedAt: updatedAt ?? this.updatedAt,
       otherUser: otherUser ?? this.otherUser,
       disappearingDuration: disappearingDuration ?? this.disappearingDuration,
+      isAccepted: isAccepted ?? this.isAccepted,
     );
   }
 
@@ -120,6 +125,7 @@ class Conversation {
       'updated_at': updatedAt.toIso8601String(),
       'other_user': otherUser?.toJson(),
       'disappearing_duration': disappearingDuration,
+      'is_accepted': isAccepted,
     };
   }
 }

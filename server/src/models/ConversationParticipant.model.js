@@ -60,6 +60,13 @@ const ConversationParticipant = sequelize.define(
       allowNull: false,
     },
 
+    // Has user accepted this conversation (for message requests)?
+    is_accepted: {
+      type: DataTypes.BOOLEAN,
+      defaultValue: true,
+      allowNull: false,
+    },
+
     // When user left group (NULL = still in group)
     left_at: {
       type: DataTypes.DATE,

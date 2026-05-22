@@ -9,6 +9,7 @@ import 'package:flutter_lucide/flutter_lucide.dart';
 import 'package:go_router/go_router.dart';
 import 'package:timeago/timeago.dart' as timeago;
 import '../../../../shared/widgets/spring_widget.dart';
+import '../../../../shared/widgets/verified_badge.dart';
 
 import '../../../../core/router/app_router.dart';
 import '../../../../core/theme/app_theme.dart';
@@ -437,18 +438,29 @@ class _ConversationTile extends ConsumerWidget {
                     Row(
                       children: [
                         Expanded(
-                          child: Text(
-                            conversation.otherUser?.username ?? 'Chat',
-                            style: TextStyle(
-                              fontWeight: hasUnread
-                                  ? FontWeight.w600
-                                  : FontWeight.w500,
-                              fontSize: 14,
-                              color: AppColors.textPrimary,
-                              fontFamily: 'SF Pro Text',
-                            ),
-                            maxLines: 1,
-                            overflow: TextOverflow.ellipsis,
+                          child: Row(
+                            mainAxisSize: MainAxisSize.min,
+                            children: [
+                              Flexible(
+                                child: Text(
+                                  conversation.otherUser?.username ?? 'Chat',
+                                  style: TextStyle(
+                                    fontWeight: hasUnread
+                                        ? FontWeight.w600
+                                        : FontWeight.w500,
+                                    fontSize: 14,
+                                    color: AppColors.textPrimary,
+                                    fontFamily: 'SF Pro Text',
+                                  ),
+                                  maxLines: 1,
+                                  overflow: TextOverflow.ellipsis,
+                                ),
+                              ),
+                              if (conversation.otherUser?.isVerified == true) ...[
+                                const SizedBox(width: 4),
+                                const VerifiedBadge(size: 13),
+                              ],
+                            ],
                           ),
                         ),
                         const SizedBox(width: 8),

@@ -136,3 +136,17 @@ final storyFeedProvider =
     NotifierProvider<StoryFeedNotifier, StoryFeedState>(
   StoryFeedNotifier.new,
 );
+
+class SwipeDismissNotifier extends Notifier<bool> {
+@override
+bool build() => false;
+
+void setSwipeDismissing(bool value) {
+  state = value;
+}
+}
+
+final isSwipeDismissingProvider =
+  NotifierProvider<SwipeDismissNotifier, bool>(
+SwipeDismissNotifier.new,
+);

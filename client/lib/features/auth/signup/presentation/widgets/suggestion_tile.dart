@@ -6,6 +6,7 @@ import 'package:flutter/services.dart';
 import 'package:lucide_icons/lucide_icons.dart';
 import '../../models/suggested_user.dart';
 import '../theme/auth_theme.dart';
+import '../../../../../shared/widgets/verified_badge.dart';
 
 class SuggestionTile extends StatelessWidget {
   final SuggestedUser user;
@@ -59,11 +60,7 @@ class SuggestionTile extends StatelessWidget {
                     ),
                     if (user.isVerified) ...[
                       const SizedBox(width: 3),
-                      const Icon(
-                        LucideIcons.badgeCheck,
-                        size: 13,
-                        color: AuthColors.verifiedBlue,
-                      ),
+                      const VerifiedBadge(size: 13),
                     ],
                   ],
                 ),

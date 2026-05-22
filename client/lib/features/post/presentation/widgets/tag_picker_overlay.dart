@@ -11,6 +11,7 @@ import '../../data/models/post_tag_model.dart';
 import '../../../search/data/repositories/search_service.dart';
 import '../../../search/presentation/pages/providers/search_provider.dart';
 import '../../../../shared/models/user_model.dart';
+import '../../../../shared/widgets/verified_badge.dart';
 
 // ─── Tag picker (shown in PostEditorPage) ─────────────
 class TagPickerOverlay extends ConsumerStatefulWidget {
@@ -407,17 +408,17 @@ class _TagPickerOverlayState extends ConsumerState<TagPickerOverlay> {
                     ),
                     title: Row(
                       children: [
-                        Text(
-                          user.username,
-                          style: IgText.username.copyWith(color: text),
+                        Flexible(
+                          child: Text(
+                            user.username,
+                            style: IgText.username.copyWith(color: text),
+                            maxLines: 1,
+                            overflow: TextOverflow.ellipsis,
+                          ),
                         ),
                         if (user.isVerified) ...[
                           const SizedBox(width: 4),
-                          const Icon(
-                            Icons.verified,
-                            size:  14,
-                            color: IgColors.verified,
-                          ),
+                          const VerifiedBadge(size: 14),
                         ],
                       ],
                     ),
@@ -544,7 +545,7 @@ class _TagBubbleState extends State<_TagBubble>
                     ),
                     if (widget.tag.isVerified) ...[
                       const SizedBox(width: 2),
-                      const Icon(Icons.verified, size: 10, color: Colors.white),
+                      const VerifiedBadge(size: 10),
                     ],
                   ],
                 ),

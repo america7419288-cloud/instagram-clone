@@ -71,7 +71,21 @@ class UserStoryAvatar extends ConsumerWidget {
     if (isClickable && hasStory) {
       mainAvatar = GestureDetector(
         onTap: () {
-          context.push('/story/$userId');
+          ref.read(isSwipeDismissingProvider.notifier).setSwipeDismissing(false);
+          final RenderBox? renderBox = context.findRenderObject() as RenderBox?;
+          if (renderBox != null) {
+            final position = renderBox.localToGlobal(Offset.zero);
+            final sizeRect = renderBox.size;
+            final rect = Rect.fromLTWH(
+              position.dx,
+              position.dy,
+              sizeRect.width,
+              sizeRect.height,
+            );
+            context.push('/story/$userId', extra: {'originRect': rect});
+          } else {
+            context.push('/story/$userId');
+          }
         },
         child: mainAvatar,
       );

@@ -6,6 +6,7 @@ import 'package:cached_network_image/cached_network_image.dart';
 import 'package:go_router/go_router.dart';
 import '../../../../core/router/navigation_extensions.dart';
 import '../../../../core/theme/app_theme.dart';
+import '../../../../shared/widgets/verified_badge.dart';
 import '../../data/repositories/comment_service.dart';
 
 class PostLikesPage extends ConsumerStatefulWidget {
@@ -137,13 +138,16 @@ class _LikerTile extends StatelessWidget {
       ),
       title: Row(
         children: [
-          Text(
-            user['username'] ?? '',
-            style: const TextStyle(fontWeight: FontWeight.w600, fontSize: 14),
+          Flexible(
+            child: Text(
+              user['username'] ?? '',
+              style: const TextStyle(fontWeight: FontWeight.w600, fontSize: 14),
+              overflow: TextOverflow.ellipsis,
+            ),
           ),
           if (user['is_verified'] == true) ...[
             const SizedBox(width: 4),
-            const Icon(Icons.verified, size: 14, color: AppColors.primary),
+            const VerifiedBadge(size: 14),
           ],
         ],
       ),

@@ -13,6 +13,7 @@ import '../../../../core/theme/app_theme.dart';
 import '../../../../shared/widgets/empty_state.dart';
 import '../../../../shared/widgets/error_view.dart';
 import '../../../../shared/widgets/spring_widget.dart';
+import '../../../../shared/widgets/verified_badge.dart';
 import '../../../../shared/widgets/user_story_avatar.dart';
 import '../../data/models/notification_model.dart';
 import '../providers/notification_provider.dart';
@@ -302,6 +303,15 @@ class _NotificationRow extends StatelessWidget {
             text: username,
             style: const TextStyle(fontWeight: FontWeight.w600),
           ),
+          if (notification.sender?.isVerified == true) ...[
+            const WidgetSpan(
+              alignment: PlaceholderAlignment.middle,
+              child: Padding(
+                padding: EdgeInsets.only(left: 4, right: 2),
+                child: VerifiedBadge(size: 13),
+              ),
+            ),
+          ],
           TextSpan(text: ' $message'),
           TextSpan(
             text: timeStr,

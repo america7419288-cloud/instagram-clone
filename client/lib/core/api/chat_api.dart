@@ -132,4 +132,20 @@ class ChatApi {
         .map((json) => Message.fromJson(json))
         .toList();
   }
+
+  Future<List<Conversation>> getMessageRequests() async {
+    final response = await _dio.get('/conversations', queryParameters: {'requests': 'true'});
+    return (response.data['data'] as List)
+        .map((json) => Conversation.fromJson(json))
+        .where((c) => c.id.isNotEmpty)
+        .toList();
+  }
+
+  Future<void> acceptConversationRequest(String conversationId) async {
+    await _dio.post('/conversations/$conversationId/accept');
+  }
+
+  Future<void> rejectConversationRequest(String conversationId) async {
+    await _dio.post('/conversations/$conversationId/reject');
+  }
 }

@@ -8,6 +8,7 @@ import '../../../../../../core/router/navigation_extensions.dart';
 import '../../../../../../core/theme/app_theme.dart';
 import '../../../../../auth/presentation/providers/auth_provider.dart';
 import '../../../../../../shared/widgets/user_story_avatar.dart';
+import '../../../../../../shared/widgets/verified_badge.dart';
 import '../../follow_service.dart';
 import '../providers/widgets/follow_button.dart';
 
@@ -480,13 +481,16 @@ class _UserListItem extends StatelessWidget {
       ),
       title: Row(
         children: [
-          Text(
-            username,
-            style: const TextStyle(fontWeight: FontWeight.w600, fontSize: 14),
+          Flexible(
+            child: Text(
+              username,
+              style: const TextStyle(fontWeight: FontWeight.w600, fontSize: 14),
+              overflow: TextOverflow.ellipsis,
+            ),
           ),
           if (isVerified) ...[
             const SizedBox(width: 4),
-            const Icon(Icons.verified, size: 14, color: AppColors.primary),
+            const VerifiedBadge(size: 14),
           ],
         ],
       ),

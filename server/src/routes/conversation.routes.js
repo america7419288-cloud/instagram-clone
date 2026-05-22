@@ -19,6 +19,8 @@ const {
   setDisappearingMessages,
   searchMessages,
   reactToMessage,
+  acceptConversationRequest,
+  rejectConversationRequest,
 } = require('../controllers/conversation.controller');
 
 const { protect } = require('../middleware/auth.middleware');
@@ -71,5 +73,11 @@ router.put('/:id/disappearing', protect, setDisappearingMessages);
 
 // POST react to a message with an emoji (toggles on/off)
 router.post('/:id/messages/:messageId/react', protect, reactToMessage);
+
+// POST accept conversation request
+router.post('/:id/accept', protect, acceptConversationRequest);
+
+// POST reject conversation request
+router.post('/:id/reject', protect, rejectConversationRequest);
 
 module.exports = router;

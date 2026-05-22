@@ -13,6 +13,7 @@ import '../../data/models/post_model.dart';
 import '../../data/repositories/post_service.dart';
 import 'package:instagram_client/features/post/presentation/providers/feed_provider.dart';
 import '../../../../shared/widgets/spring_widget.dart';
+import '../../../../shared/widgets/verified_badge.dart';
 import '../widgets/video_player_widget.dart';
 
 
@@ -160,12 +161,25 @@ class _PostDetailPageState extends ConsumerState<PostDetailPage> {
                       context.pushIfNotCurrent('/profile/${author.username}');
                     }
                   },
-                  child: Text(
-                    author?.username ?? '',
-                    style: const TextStyle(
-                      fontWeight: FontWeight.w600,
-                      fontSize: 13,
-                    ),
+                  child: Row(
+                    mainAxisSize: MainAxisSize.min,
+                    children: [
+                      Flexible(
+                        child: Text(
+                          author?.username ?? '',
+                          style: const TextStyle(
+                            fontWeight: FontWeight.w600,
+                            fontSize: 13,
+                          ),
+                          maxLines: 1,
+                          overflow: TextOverflow.ellipsis,
+                        ),
+                      ),
+                      if (author?.isVerified == true) ...[
+                        const SizedBox(width: 4),
+                        const VerifiedBadge(size: 12),
+                      ],
+                    ],
                   ),
                 ),
                 if (post.location != null)
@@ -347,10 +361,19 @@ class _PostDetailPageState extends ConsumerState<PostDetailPage> {
                 ),
                 children: [
                   TextSpan(
-                    text: '${post.user?.username ?? ''} ',
+                    text: post.user?.username ?? '',
                     style: const TextStyle(fontWeight: FontWeight.w600),
                   ),
-                  TextSpan(text: post.caption!),
+                  if (post.user?.isVerified == true) ...[
+                    const WidgetSpan(
+                      alignment: PlaceholderAlignment.middle,
+                      child: Padding(
+                        padding: EdgeInsets.only(left: 4, right: 2),
+                        child: VerifiedBadge(size: 11),
+                      ),
+                    ),
+                  ],
+                  TextSpan(text: ' ${post.caption!}'),
                 ],
               ),
             ),

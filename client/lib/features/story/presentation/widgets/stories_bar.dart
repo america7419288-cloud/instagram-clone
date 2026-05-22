@@ -40,10 +40,11 @@ class StoriesBar extends ConsumerWidget {
               profilePicUrl: currentUser.profilePicUrl,
               hasStory: storyState.userGroups.any((g) => g.isOwn),
               hasUnseen: storyState.userGroups.any((g) => g.isOwn && g.hasUnseen),
-              onTap: () {
+              onTap: (rect) {
                 final ownGroup = storyState.userGroups.where((g) => g.isOwn).firstOrNull;
                 if (ownGroup != null && ownGroup.stories.isNotEmpty) {
-                  context.push('/story/${currentUser.id}');
+                  ref.read(isSwipeDismissingProvider.notifier).setSwipeDismissing(false);
+                  context.push('/story/${currentUser.id}', extra: {'originRect': rect});
                 } else {
                   context.push(AppRoutes.createStory);
                 }
@@ -52,7 +53,10 @@ class StoriesBar extends ConsumerWidget {
           ...storyState.userGroups.where((g) => !g.isOwn).map(
             (group) => _StoryItem(
               group: group,
-              onTap: () => context.push('/story/${group.user.id}'),
+              onTap: (rect) {
+                ref.read(isSwipeDismissingProvider.notifier).setSwipeDismissing(false);
+                context.push('/story/${group.user.id}', extra: {'originRect': rect});
+              },
             ),
           ),
         ],
@@ -66,7 +70,7 @@ class _YourStoryItem extends StatelessWidget {
   final String? profilePicUrl;
   final bool hasStory;
   final bool hasUnseen;
-  final VoidCallback onTap;
+  final ValueChanged<Rect> onTap;
 
   const _YourStoryItem({
     required this.userId,
@@ -81,7 +85,22 @@ class _YourStoryItem extends StatelessWidget {
     final isDark = CupertinoTheme.of(context).brightness == Brightness.dark;
 
     return BouncyTap(
-      onTap: onTap,
+      onTap: () {
+        final RenderBox? renderBox = context.findRenderObject() as RenderBox?;
+        if (renderBox != null) {
+          final position = renderBox.localToGlobal(Offset.zero);
+          final size = renderBox.size;
+          final rect = Rect.fromLTWH(
+            position.dx + (size.width - 68) / 2,
+            position.dy,
+            68,
+            68,
+          );
+          onTap(rect);
+        } else {
+          onTap(Rect.zero);
+        }
+      },
       child: Padding(
         padding: const EdgeInsets.symmetric(horizontal: 11),
         child: Column(
@@ -138,7 +157,7 @@ class _YourStoryItem extends StatelessWidget {
 
 class _StoryItem extends StatelessWidget {
   final StoryFeedModel group;
-  final VoidCallback onTap;
+  final ValueChanged<Rect> onTap;
 
   const _StoryItem({
     required this.group,
@@ -150,7 +169,22 @@ class _StoryItem extends StatelessWidget {
     final isDark = CupertinoTheme.of(context).brightness == Brightness.dark;
 
     return BouncyTap(
-      onTap: onTap,
+      onTap: () {
+        final RenderBox? renderBox = context.findRenderObject() as RenderBox?;
+        if (renderBox != null) {
+          final position = renderBox.localToGlobal(Offset.zero);
+          final size = renderBox.size;
+          final rect = Rect.fromLTWH(
+            position.dx + (size.width - 68) / 2,
+            position.dy,
+            68,
+            68,
+          );
+          onTap(rect);
+        } else {
+          onTap(Rect.zero);
+        }
+      },
       child: Padding(
         padding: const EdgeInsets.symmetric(horizontal: 11),
         child: Column(

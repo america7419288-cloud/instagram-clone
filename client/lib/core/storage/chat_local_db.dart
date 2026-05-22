@@ -58,6 +58,10 @@ class ChatLocalDb {
     await _conversationBox.putAll(conversationMap);
   }
 
+  Future<void> deleteConversation(String conversationId) async {
+    await _conversationBox.delete(conversationId);
+  }
+
   // Message operations
   Box<Message> get _messageBox => Hive.box<Message>(messageBoxName);
 

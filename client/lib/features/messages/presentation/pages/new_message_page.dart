@@ -11,6 +11,7 @@ import '../providers/message_search_provider.dart';
 import '../../../chat/presentation/providers/chat_notifiers.dart';
 import '../../../../shared/widgets/spring_widget.dart';
 import '../../../../shared/widgets/user_story_avatar.dart';
+import '../../../../shared/widgets/verified_badge.dart';
 
 class NewMessagePage extends ConsumerStatefulWidget {
   const NewMessagePage({super.key});
@@ -200,9 +201,20 @@ class _NewMessagePageState extends ConsumerState<NewMessagePage> {
               showPresence: false,
               isClickable: true,
             ),
-            title: Text(
-              user.username,
-              style: const TextStyle(fontWeight: FontWeight.w600),
+            title: Row(
+              children: [
+                Flexible(
+                  child: Text(
+                    user.username,
+                    style: const TextStyle(fontWeight: FontWeight.w600),
+                    overflow: TextOverflow.ellipsis,
+                  ),
+                ),
+                if (user.isVerified) ...[
+                  const SizedBox(width: 4),
+                  const VerifiedBadge(size: 13),
+                ],
+              ],
             ),
             subtitle: Text(
               user.fullName,

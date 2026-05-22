@@ -19,6 +19,8 @@ import '../../features/notifications/presentation/pages/notifications_page.dart'
 import '../../features/profile/presentation/pages/profile_page.dart';
 import '../../features/profile/presentation/pages/edit_profile_page.dart';
 import '../../features/messages/presentation/pages/messages_page.dart';
+import '../../features/inbox/pages/inbox_page.dart';
+import '../../features/inbox/pages/message_requests_page.dart';
 import '../../features/messages/presentation/pages/chat_page.dart';
 import '../../features/messages/presentation/pages/new_message_page.dart';
 import '../../features/messages/presentation/pages/message_search_page.dart';
@@ -28,10 +30,12 @@ import '../../features/messages/presentation/pages/forward_message_page.dart';
 import '../../features/messages/presentation/pages/group_chat_create_page.dart';
 import '../../features/messages/data/models/conversation_model.dart';
 import '../../features/chat/data/models/message.dart';
-import '../../features/reels/presentation/pages/reel_detail_page.dart';
 import '../../features/story/presentation/pages/story_viewer_page.dart';
-import '../../features/follow/data/repositories/presentation/pages/followers_page.dart';
+import '../../features/story/presentation/providers/story_provider.dart';
+import '../../features/story/presentation/widgets/story_viewer.dart';
 import '../../features/follow/data/repositories/presentation/pages/follow_requests_page.dart';
+import '../../features/follow/data/repositories/presentation/pages/followers_page.dart';
+import '../../features/reels/presentation/pages/reel_detail_page.dart';
 import 'main_shell.dart';
 import '../../features/settings/presentation/pages/settings_page.dart';
 import '../../features/settings/presentation/pages/server_settings_page.dart';
@@ -56,6 +60,7 @@ class AppRoutes {
   static const String reels = '/reels';
   static const String notifications = '/notifications';
   static const String messages = '/messages';
+  static const String messageRequests = '/messages/requests';
   static const String chat = '/chat/:conversationId';
   static const String newMessage = '/new-message';
   static const String editProfile = '/profile/edit';
@@ -147,7 +152,11 @@ final appRouterProvider = Provider<GoRouter>((ref) {
       // Full screen routes (hide tabs)
       GoRoute(
         path: AppRoutes.messages,
-        builder: (context, state) => const MessagesPage(),
+        builder: (context, state) => const InboxPage(),
+      ),
+      GoRoute(
+        path: AppRoutes.messageRequests,
+        builder: (context, state) => const MessageRequestsPage(),
       ),
       GoRoute(
         path: AppRoutes.chat,
@@ -273,7 +282,107 @@ final appRouterProvider = Provider<GoRouter>((ref) {
       ),
       GoRoute(
         path: AppRoutes.story,
-        builder: (context, state) => StoryViewerPage(userId: state.pathParameters['userId'] ?? ''),
+        pageBuilder: (context, state) {
+          final userId = state.pathParameters['userId'] ?? '';
+          final extra = state.extra as Map<String, dynamic>?;
+          final originRect = extra?['originRect'] as Rect?;
+
+          if (originRect == null) {
+            return _fadePage(context, state, StoryViewerPage(userId: userId));
+          }
+
+          return CustomTransitionPage<void>(
+            key: state.pageKey,
+            child: StoryViewerPage(userId: userId),
+            barrierColor: Colors.transparent,
+            opaque: false,
+            transitionDuration: const Duration(milliseconds: 320),
+            reverseTransitionDuration: const Duration(milliseconds: 280),
+            transitionsBuilder: (context, animation, secondaryAnimation, child) {
+              final isSwipeDismiss = ref.read(isSwipeDismissingProvider);
+              if (isSwipeDismiss) {
+                return FadeTransition(
+                  opacity: animation,
+                  child: child,
+                );
+              }
+
+              final screenSize = MediaQuery.of(context).size;
+
+              final rectTween = RectTween(
+                begin: originRect,
+                end: Rect.fromLTWH(0, 0, screenSize.width, screenSize.height),
+              );
+
+              final rectAnimation = rectTween.animate(CurvedAnimation(
+                parent: animation,
+                curve: Curves.fastOutSlowIn,
+                reverseCurve: Curves.easeIn,
+              ));
+
+              final borderRadiusTween = BorderRadiusTween(
+                begin: BorderRadius.circular(originRect.width / 2),
+                end: BorderRadius.zero,
+              );
+
+              final borderRadiusAnimation = borderRadiusTween.animate(CurvedAnimation(
+                parent: animation,
+                curve: Curves.fastOutSlowIn,
+                reverseCurve: Curves.easeIn,
+              ));
+
+              final backgroundOpacity = Tween<double>(
+                begin: 0.0,
+                end: 1.0,
+              ).animate(CurvedAnimation(
+                parent: animation,
+                curve: const Interval(0.0, 0.5),
+                reverseCurve: const Interval(0.5, 1.0),
+              ));
+
+              final contentOpacity = Tween<double>(
+                begin: 0.0,
+                end: 1.0,
+              ).animate(CurvedAnimation(
+                parent: animation,
+                curve: const Interval(0.6, 1.0),
+                reverseCurve: const Interval(0.0, 0.4),
+              ));
+
+              return AnimatedBuilder(
+                animation: animation,
+                builder: (context, _) {
+                  final rect = rectAnimation.value ?? originRect;
+                  final radius = borderRadiusAnimation.value ?? BorderRadius.zero;
+                  final bgOp = backgroundOpacity.value;
+                  final contentOp = contentOpacity.value;
+
+                  return Stack(
+                    children: [
+                      Opacity(
+                        opacity: bgOp,
+                        child: Container(color: Colors.black),
+                      ),
+                      Positioned(
+                        left: rect.left,
+                        top: rect.top,
+                        width: rect.width,
+                        height: rect.height,
+                        child: ClipRRect(
+                          borderRadius: radius,
+                          child: Opacity(
+                            opacity: contentOp,
+                            child: child,
+                          ),
+                        ),
+                      ),
+                    ],
+                  );
+                },
+              );
+            },
+          );
+        },
       ),
       GoRoute(
         path: AppRoutes.settings,

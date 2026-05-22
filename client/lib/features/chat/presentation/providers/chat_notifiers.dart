@@ -10,22 +10,26 @@ import 'chat_providers.dart';
 // ─── INBOX STATE ────────────────────────────────────────────
 class InboxState {
   final List<Conversation> conversations;
+  final List<Conversation> requests;
   final bool isLoading;
   final String? error;
 
   const InboxState({
     this.conversations = const [],
+    this.requests = const [],
     this.isLoading = false,
     this.error,
   });
 
   InboxState copyWith({
     List<Conversation>? conversations,
+    List<Conversation>? requests,
     bool? isLoading,
     String? error,
   }) {
     return InboxState(
       conversations: conversations ?? this.conversations,
+      requests: requests ?? this.requests,
       isLoading: isLoading ?? this.isLoading,
       error: error,
     );
@@ -83,8 +87,35 @@ class InboxNotifier extends Notifier<InboxState> {
   Future<void> loadConversations() async {
     state = state.copyWith(isLoading: true);
     try {
-      final conversations = await _repository.getConversations();
-      state = state.copyWith(conversations: conversations, isLoading: false);
+      final results = await Future.wait([
+        _repository.getConversations(),
+        _repository.getMessageRequests(),
+      ]);
+      state = state.copyWith(
+        conversations: results[0],
+        requests: results[1],
+        isLoading: false,
+      );
+    } catch (e) {
+      state = state.copyWith(isLoading: false, error: e.toString());
+    }
+  }
+
+  Future<void> acceptRequest(String conversationId) async {
+    state = state.copyWith(isLoading: true);
+    try {
+      await _repository.acceptRequest(conversationId);
+      await loadConversations();
+    } catch (e) {
+      state = state.copyWith(isLoading: false, error: e.toString());
+    }
+  }
+
+  Future<void> rejectRequest(String conversationId) async {
+    state = state.copyWith(isLoading: true);
+    try {
+      await _repository.rejectRequest(conversationId);
+      await loadConversations();
     } catch (e) {
       state = state.copyWith(isLoading: false, error: e.toString());
     }
@@ -97,6 +128,7 @@ class InboxNotifier extends Notifier<InboxState> {
   void deleteConversation(String conversationId) {
     state = state.copyWith(
       conversations: state.conversations.where((c) => c.id != conversationId).toList(),
+      requests: state.requests.where((c) => c.id != conversationId).toList(),
     );
   }
 }

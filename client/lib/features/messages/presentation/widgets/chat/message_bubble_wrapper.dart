@@ -11,7 +11,7 @@ class MessageBubbleWrapper extends StatefulWidget {
   final String? senderAvatar;
   final VoidCallback onReply;
   final VoidCallback onDoubleTap;
-  final VoidCallback onLongPress;
+  final void Function(Offset position, Size size)? onLongPress;
   final Widget? statusRow;
   final Widget? reactionsChip;
   final Widget? replyQuote;
@@ -25,7 +25,7 @@ class MessageBubbleWrapper extends StatefulWidget {
     this.senderAvatar,
     required this.onReply,
     required this.onDoubleTap,
-    required this.onLongPress,
+    this.onLongPress,
     this.statusRow,
     this.reactionsChip,
     this.replyQuote,
@@ -41,6 +41,7 @@ class _MessageBubbleWrapperState extends State<MessageBubbleWrapper>
   static const double _maxDragOffset = 72.0;
   static const double _replyThreshold = 50.0;
   bool _thresholdReached = false;
+  final GlobalKey _bubbleKey = GlobalKey();
 
   @override
   Widget build(BuildContext context) {
@@ -127,7 +128,16 @@ class _MessageBubbleWrapperState extends State<MessageBubbleWrapper>
             },
             onLongPress: () {
               HapticFeedback.heavyImpact();
-              widget.onLongPress();
+              if (widget.onLongPress != null) {
+                final RenderBox? renderBox =
+                    _bubbleKey.currentContext?.findRenderObject() as RenderBox?;
+                if (renderBox != null && renderBox.hasSize) {
+                  final offset = renderBox.localToGlobal(Offset.zero);
+                  widget.onLongPress!(offset, renderBox.size);
+                } else {
+                  widget.onLongPress!(Offset.zero, Size.zero);
+                }
+              }
             },
             child: Transform.translate(
               offset: Offset(_dragOffset, 0),
@@ -197,7 +207,10 @@ class _MessageBubbleWrapperState extends State<MessageBubbleWrapper>
           : CrossAxisAlignment.start,
       children: [
         if (widget.replyQuote != null) widget.replyQuote!,
-        bubbleContent,
+        Container(
+          key: _bubbleKey,
+          child: bubbleContent,
+        ),
         if (widget.isSent && widget.isLastInGroup && widget.statusRow != null)
           Padding(
             padding: EdgeInsets.only(top: hasReactions ? 10.0 : 0.0),

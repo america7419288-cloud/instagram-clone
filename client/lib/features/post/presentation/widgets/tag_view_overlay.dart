@@ -12,6 +12,7 @@ import '../../data/repositories/post_tag_service.dart';
 import '../../../../core/design/design_tokens.dart';
 import '../../../../core/theme/app_theme.dart';
 import '../../data/models/post_tag_model.dart';
+import '../../../../shared/widgets/verified_badge.dart';
 
 // ─────────────────────────────────────────────────────
 // TAG VIEW OVERLAY
@@ -198,11 +199,7 @@ class _TagViewBubble extends ConsumerWidget {
                   // Verified
                   if (tag.isVerified) ...[
                     const SizedBox(width: 2),
-                    const Icon(
-                      Icons.verified,
-                      size:  10,
-                      color: Colors.white70,
-                    ),
+                    const VerifiedBadge(size: 10),
                   ],
 
                   // Pending Label or Accept Button
@@ -458,15 +455,19 @@ class TaggedUsersRow extends StatelessWidget {
                 ),
                 title: Row(
                   children: [
-                    Text(
-                      tag.username,
-                      style: IgText.username.copyWith(
-                        color: IgColors.text_(isDark),
+                    Flexible(
+                      child: Text(
+                        tag.username,
+                        style: IgText.username.copyWith(
+                          color: IgColors.text_(isDark),
+                        ),
+                        maxLines: 1,
+                        overflow: TextOverflow.ellipsis,
                       ),
                     ),
                     if (tag.isVerified) ...[
                       const SizedBox(width: 4),
-                      const Icon(Icons.verified, size: 14, color: IgColors.verified),
+                      const VerifiedBadge(size: 14),
                     ],
                   ],
                 ),

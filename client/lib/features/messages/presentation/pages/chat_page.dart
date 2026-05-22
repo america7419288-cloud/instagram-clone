@@ -24,6 +24,8 @@ import '../widgets/chat/chat_input_bar.dart';
 import '../widgets/chat/message_bubbles.dart';
 import '../widgets/chat/message_bubble_wrapper.dart';
 import '../widgets/chat/chat_overlays.dart';
+import '../widgets/chat/popup_menu/message_popup_menu.dart';
+import 'package:flutter/material.dart' show Colors, Material;
 import '../widgets/chat/reaction_overlay.dart';
 import '../widgets/chat/message_edit_dialog.dart';
 import '../widgets/chat/disappearing_message_dialog.dart';
@@ -58,9 +60,13 @@ class _ChatPageState extends ConsumerState<ChatPage> {
     super.initState();
     _scrollController.addListener(_scrollListener);
 
-    // Mark as read when entering
+    // Mark as read when entering (if conversation is accepted)
     WidgetsBinding.instance.addPostFrameCallback((_) {
-      ref.read(chatProvider(widget.conversationId).notifier).markAsRead();
+      final isAccepted = widget.conversation?.isAccepted ??
+          ref.read(inboxProvider).conversations.any((c) => c.id == widget.conversationId);
+      if (isAccepted) {
+        ref.read(chatProvider(widget.conversationId).notifier).markAsRead();
+      }
     });
   }
 
@@ -381,111 +387,62 @@ class _ChatPageState extends ConsumerState<ChatPage> {
     Offset offset,
     Size size,
   ) {
-    // Use CupertinoActionSheet as a more reliable fallback
-    showCupertinoModalPopup(
+    showGeneralDialog(
       context: context,
-      builder: (BuildContext context) => CupertinoActionSheet(
-        title: Text(isOwn ? 'Your Message' : 'Message Options'),
-        actions: [
-          // Reactions
-          CupertinoActionSheetAction(
-            onPressed: () {
-              Navigator.pop(context);
-              ref
-                  .read(chatProvider(widget.conversationId).notifier)
-                  .addReaction(message.id, '❤️');
-            },
-            child: const Text('❤️ React with Heart'),
-          ),
-          CupertinoActionSheetAction(
-            onPressed: () {
-              Navigator.pop(context);
-              ref
-                  .read(chatProvider(widget.conversationId).notifier)
-                  .addReaction(message.id, '😂');
-            },
-            child: const Text('😂 React with Laugh'),
-          ),
-          
-          // Reply
-          CupertinoActionSheetAction(
-            onPressed: () {
-              Navigator.pop(context);
-              setState(() => _replyingTo = message);
-              _inputFocusNode.requestFocus();
-            },
-            child: const Text('Reply'),
-          ),
-          
-          // Forward
-          CupertinoActionSheetAction(
-            onPressed: () {
-              Navigator.pop(context);
-              context.push('/messages/forward', extra: message);
-            },
-            child: const Text('Forward'),
-          ),
-          
-          // Copy (text only)
-          if (message.messageType == 'text')
-            CupertinoActionSheetAction(
-              onPressed: () {
-                Navigator.pop(context);
-                Clipboard.setData(ClipboardData(text: message.content));
-                HapticFeedback.lightImpact();
-              },
-              child: const Text('Copy'),
+      barrierColor: Colors.transparent,
+      barrierDismissible: true,
+      barrierLabel: 'Dismiss Popup',
+      transitionDuration: const Duration(milliseconds: 200),
+      pageBuilder: (context, animation, secondaryAnimation) {
+        return MessagePopupMenu(
+          message: message,
+          messageWidget: Material(
+            color: Colors.transparent,
+            child: _buildBubbleContent(
+              message,
+              isOwn,
+              true,
+              true,
             ),
-          
-          // Edit (own text messages only)
-          if (message.messageType == 'text' && isOwn)
-            CupertinoActionSheetAction(
-              onPressed: () {
-                Navigator.pop(context);
-                _showEditDialog(message);
-              },
-              child: const Text('Edit'),
-            ),
-          
-          // Save
-          CupertinoActionSheetAction(
-            onPressed: () {
-              Navigator.pop(context);
-              HapticFeedback.lightImpact();
-              // TODO: Implement save functionality
-            },
-            child: const Text('Save'),
           ),
-          
-          // Unsend (own messages only)
-          if (isOwn)
-            CupertinoActionSheetAction(
-              isDestructiveAction: true,
-              onPressed: () {
-                Navigator.pop(context);
-                ref
-                    .read(chatProvider(widget.conversationId).notifier)
-                    .deleteMessage(message.id);
-              },
-              child: const Text('Unsend'),
-            ),
-          
-          // Report
-          if (!isOwn)
-            CupertinoActionSheetAction(
-              isDestructiveAction: true,
-              onPressed: () {
-                Navigator.pop(context);
-                // TODO: Implement report functionality
-              },
-              child: const Text('Report'),
-            ),
-        ],
-        cancelButton: CupertinoActionSheetAction(
-          onPressed: () => Navigator.pop(context),
-          child: const Text('Cancel'),
-        ),
-      ),
+          messagePosition: offset,
+          messageSize: size,
+          isMine: isOwn,
+          onDismiss: () => Navigator.of(context).pop(),
+          onReact: (emoji) {
+            ref
+                .read(chatProvider(widget.conversationId).notifier)
+                .addReaction(message.id, emoji);
+          },
+          onReply: () {
+            setState(() => _replyingTo = message);
+            _inputFocusNode.requestFocus();
+          },
+          onCopy: () {
+            Clipboard.setData(ClipboardData(text: message.content));
+            HapticFeedback.lightImpact();
+          },
+          onForward: () {
+            context.push('/messages/forward', extra: message);
+          },
+          onUnsend: () {
+            ref
+                .read(chatProvider(widget.conversationId).notifier)
+                .deleteMessage(message.id);
+          },
+          onReport: () {
+            // TODO: Implement report functionality
+          },
+          onSave: () {
+            HapticFeedback.lightImpact();
+            // TODO: Implement save functionality
+          },
+          onCopyLink: () {
+            Clipboard.setData(ClipboardData(text: 'https://instagram.com/p/placeholder'));
+            HapticFeedback.lightImpact();
+          },
+        );
+      },
     );
   }
 
@@ -519,11 +476,18 @@ class _ChatPageState extends ConsumerState<ChatPage> {
             .conversations
             .firstWhere(
               (c) => c.id == widget.conversationId,
-              orElse: () => Conversation(
-                id: '',
-                participants: const [],
-                updatedAt: DateTime.now(),
-              ),
+              orElse: () => ref
+                  .watch(inboxProvider)
+                  .requests
+                  .firstWhere(
+                    (c) => c.id == widget.conversationId,
+                    orElse: () => Conversation(
+                      id: '',
+                      participants: const [],
+                      updatedAt: DateTime.now(),
+                      isAccepted: true, // Default to true if not found in either
+                    ),
+                  ),
             );
 
     final otherUser = conversation.otherUser;
@@ -582,50 +546,205 @@ class _ChatPageState extends ConsumerState<ChatPage> {
               ),
             ),
 
-            AnimatedSwitcher(
-              duration: const Duration(milliseconds: 180),
-              switchInCurve: Curves.easeOutCubic,
-              switchOutCurve: Curves.easeInCubic,
-              transitionBuilder: (child, animation) {
-                return SizeTransition(
-                  sizeFactor: animation,
-                  axisAlignment: -1,
-                  child: FadeTransition(opacity: animation, child: child),
-                );
-              },
-              child: typingState.isTyping
-                  ? TypingIndicator(
-                      key: const ValueKey('typing'),
-                      avatarUrl: otherUser?.profilePicUrl,
-                    )
-                  : const SizedBox.shrink(key: ValueKey('no_typing')),
-            ),
-
-            if (_replyingTo != null)
-              ReplyPreviewBar(
-                username: _replyingTo!.sender?.username ?? 'user',
-                text: _replyingTo!.content,
-                imageUrl: _replyingTo!.mediaUrl,
-                onCancel: () => setState(() => _replyingTo = null),
+            if (conversation.isAccepted == false)
+              _buildRequestPreviewBlock(context, conversation, isDark)
+            else ...[
+              AnimatedSwitcher(
+                duration: const Duration(milliseconds: 180),
+                switchInCurve: Curves.easeOutCubic,
+                switchOutCurve: Curves.easeInCubic,
+                transitionBuilder: (child, animation) {
+                  return SizeTransition(
+                    sizeFactor: animation,
+                    axisAlignment: -1,
+                    child: FadeTransition(opacity: animation, child: child),
+                  );
+                },
+                child: typingState.isTyping
+                    ? TypingIndicator(
+                        key: const ValueKey('typing'),
+                        avatarUrl: otherUser?.profilePicUrl,
+                      )
+                    : const SizedBox.shrink(key: ValueKey('no_typing')),
               ),
 
-            ChatInputBar(
-              onSend: _handleSend,
-              onChanged: (text) => ref
-                  .read(typingProvider(widget.conversationId).notifier)
-                  .onTextChanged(text),
-              onLike: _handleLike,
-              onCameraTap: _handleCamera,
-              onGalleryTap: _handleGallery,
-              onMicStart: _startRecording,
-              onMicStop: _stopRecording,
-              onMicCancel: _cancelRecording,
-              isRecording: _isRecording,
-              recordingDuration: _recordingDuration,
-              focusNode: _inputFocusNode,
-            ),
+              if (_replyingTo != null)
+                ReplyPreviewBar(
+                  username: _replyingTo!.sender?.username ?? 'user',
+                  text: _replyingTo!.content,
+                  imageUrl: _replyingTo!.mediaUrl,
+                  onCancel: () => setState(() => _replyingTo = null),
+                ),
+
+              ChatInputBar(
+                onSend: _handleSend,
+                onChanged: (text) => ref
+                    .read(typingProvider(widget.conversationId).notifier)
+                    .onTextChanged(text),
+                onLike: _handleLike,
+                onCameraTap: _handleCamera,
+                onGalleryTap: _handleGallery,
+                onMicStart: _startRecording,
+                onMicStop: _stopRecording,
+                onMicCancel: _cancelRecording,
+                isRecording: _isRecording,
+                recordingDuration: _recordingDuration,
+                focusNode: _inputFocusNode,
+              ),
+            ],
           ],
         ),
+      ),
+    );
+  }
+
+  Widget _buildRequestPreviewBlock(
+    BuildContext context,
+    Conversation conversation,
+    bool isDark,
+  ) {
+    final otherUser = conversation.otherUser;
+    final displayName = otherUser?.username ?? 'this user';
+
+    return Container(
+      decoration: BoxDecoration(
+        color: isDark ? const Color(0xFF121212) : const Color(0xFFF9F9F9),
+        border: Border(
+          top: BorderSide(
+            color: isDark ? Colors.grey[950]! : Colors.grey[200]!,
+            width: 0.5,
+          ),
+        ),
+      ),
+      padding: EdgeInsets.only(
+        left: 24,
+        right: 24,
+        top: 20,
+        bottom: MediaQuery.of(context).padding.bottom + 20,
+      ),
+      child: Column(
+        mainAxisSize: MainAxisSize.min,
+        crossAxisAlignment: CrossAxisAlignment.stretch,
+        children: [
+          Row(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              Icon(
+                LucideIcons.info,
+                size: 16,
+                color: isDark ? Colors.grey[400] : Colors.grey[600],
+              ),
+              const SizedBox(width: 10),
+              Expanded(
+                child: Text(
+                  "The sender won't know you've seen this until you accept. You can choose to accept or decline future messages from $displayName.",
+                  style: TextStyle(
+                    fontSize: 12.5,
+                    height: 1.45,
+                    fontWeight: FontWeight.w400,
+                    color: isDark ? Colors.grey[400] : Colors.grey[600],
+                    fontFamily: 'SF Pro Text',
+                  ),
+                ),
+              ),
+            ],
+          ),
+          const SizedBox(height: 24),
+          Row(
+            children: [
+              Expanded(
+                child: GestureDetector(
+                  onTap: () async {
+                    HapticFeedback.mediumImpact();
+                    final confirm = await showCupertinoModalPopup<bool>(
+                      context: context,
+                      builder: (context) => CupertinoActionSheet(
+                        title: Text('Delete message request from $displayName?'),
+                        message: const Text('This will delete the chat history. They won\'t be notified, but they can still message you again if you haven\'t blocked them.'),
+                        actions: [
+                          CupertinoActionSheetAction(
+                            isDestructiveAction: true,
+                            onPressed: () => Navigator.pop(context, true),
+                            child: const Text('Delete'),
+                          ),
+                        ],
+                        cancelButton: CupertinoActionSheetAction(
+                          onPressed: () => Navigator.pop(context, false),
+                          child: const Text('Cancel'),
+                        ),
+                      ),
+                    );
+
+                    if (confirm == true && context.mounted) {
+                      ref.read(inboxProvider.notifier).rejectRequest(conversation.id);
+                      context.pop();
+                    }
+                  },
+                  child: Container(
+                    height: 46,
+                    decoration: BoxDecoration(
+                      color: isDark ? const Color(0xFF262626) : const Color(0xFFEFEFEF),
+                      borderRadius: BorderRadius.circular(10),
+                    ),
+                    alignment: Alignment.center,
+                    child: Text(
+                      'Decline',
+                      style: TextStyle(
+                        fontSize: 14,
+                        fontWeight: FontWeight.w600,
+                        color: isDark ? Colors.red[400] : Colors.red[600],
+                        fontFamily: 'SF Pro Text',
+                      ),
+                    ),
+                  ),
+                ),
+              ),
+              const SizedBox(width: 12),
+              Expanded(
+                child: GestureDetector(
+                  onTap: () async {
+                    HapticFeedback.mediumImpact();
+                    await ref.read(inboxProvider.notifier).acceptRequest(conversation.id);
+                    if (context.mounted) {
+                      ref.read(chatProvider(conversation.id).notifier).markAsRead();
+                    }
+                  },
+                  child: Container(
+                    height: 46,
+                    decoration: BoxDecoration(
+                      gradient: const LinearGradient(
+                        colors: [
+                          Color(0xFF3797EF),
+                          Color(0xFF007FFF),
+                        ],
+                        begin: Alignment.topLeft,
+                        end: Alignment.bottomRight,
+                      ),
+                      borderRadius: BorderRadius.circular(10),
+                      boxShadow: [
+                        BoxShadow(
+                          color: const Color(0xFF3797EF).withOpacity(0.3),
+                          blurRadius: 10,
+                          offset: const Offset(0, 4),
+                        ),
+                      ],
+                    ),
+                    alignment: Alignment.center,
+                    child: const Text(
+                      'Accept',
+                      style: TextStyle(
+                        fontSize: 14,
+                        fontWeight: FontWeight.w700,
+                        color: Colors.white,
+                        fontFamily: 'SF Pro Text',
+                      ),
+                    ),
+                  ),
+                ),
+              ),
+            ],
+          ),
+        ],
       ),
     );
   }
@@ -722,45 +841,15 @@ class _ChatPageState extends ConsumerState<ChatPage> {
                   final size = MediaQuery.of(context).size;
                   _showHeartBurst(Offset(size.width / 2, size.height / 2));
                 },
-                onLongPress: () {
+                onLongPress: (offset, size) {
                   HapticFeedback.heavyImpact();
-                  
-                  // Get the render box for positioning
-                  try {
-                    final RenderBox? renderBox =
-                        context.findRenderObject() as RenderBox?;
-                    
-                    if (renderBox != null && renderBox.hasSize) {
-                      final offset = renderBox.localToGlobal(Offset.zero);
-                      _showMessageOptions(
-                        context,
-                        message,
-                        isOwn,
-                        offset,
-                        renderBox.size,
-                      );
-                    } else {
-                      // Fallback: show at center of screen
-                      final size = MediaQuery.of(context).size;
-                      _showMessageOptions(
-                        context,
-                        message,
-                        isOwn,
-                        Offset(size.width / 2, size.height / 2),
-                        const Size(200, 50),
-                      );
-                    }
-                  } catch (e) {
-                    // Fallback: show at center of screen
-                    final size = MediaQuery.of(context).size;
-                    _showMessageOptions(
-                      context,
-                      message,
-                      isOwn,
-                      Offset(size.width / 2, size.height / 2),
-                      const Size(200, 50),
-                    );
-                  }
+                  _showMessageOptions(
+                    context,
+                    message,
+                    isOwn,
+                    offset,
+                    size,
+                  );
                 },
                 statusRow: isOwn && isLastInGroup
                     ? StatusRow(

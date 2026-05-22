@@ -10,6 +10,7 @@ const {
   Reel,
   Story,
   Block,
+  Follower,
   sequelize,
 } = require('../models');
 const { getBlockedUserIds } = require('../utils/block.utils');
@@ -70,6 +71,11 @@ const formatConversation = (conv, currentUserId) => {
       : null,
     unread_count: c.unread_count || 0,
     disappearing_duration: c.disappearing_duration || null,
+    is_accepted: (() => {
+      const myParticipant = (c.participantRecords || []).find(p => p.user_id === currentUserId) 
+        || (conv.participantRecords || []).find(p => p.user_id === currentUserId);
+      return myParticipant ? myParticipant.is_accepted : true;
+    })(),
     created_at: c.created_at || c.createdAt,
   };
 };
@@ -241,6 +247,13 @@ const createOrGetConversation = async (req, res) => {
             attributes: ['id', 'username', 'full_name', 'profile_pic_url', 'is_verified'],
             through: { attributes: [] },
           },
+          {
+            model: ConversationParticipant,
+            as: 'participantRecords',
+            where: { conversation_id: existingConversation.id },
+            attributes: ['last_read_at', 'is_muted', 'is_accepted', 'user_id'],
+            required: false,
+          }
         ],
       });
 
@@ -256,17 +269,38 @@ const createOrGetConversation = async (req, res) => {
       created_by: currentUserId,
     });
 
+    // Check follows in either direction
+    const followAtoB = await Follower.findOne({
+      where: {
+        follower_id: currentUserId,
+        following_id: targetUserId,
+        status: 'accepted',
+      },
+    });
+
+    const followBtoA = await Follower.findOne({
+      where: {
+        follower_id: targetUserId,
+        following_id: currentUserId,
+        status: 'accepted',
+      },
+    });
+
+    const isMutualOrSingleFollow = !!(followAtoB || followBtoA);
+
     // 5. ADD BOTH USERS AS PARTICIPANTS
     await ConversationParticipant.bulkCreate([
       {
         conversation_id: conversation.id,
         user_id: currentUserId,
         role: 'member',
+        is_accepted: true,
       },
       {
         conversation_id: conversation.id,
         user_id: targetUserId,
         role: 'member',
+        is_accepted: isMutualOrSingleFollow,
       },
     ]);
 
@@ -279,6 +313,13 @@ const createOrGetConversation = async (req, res) => {
           attributes: ['id', 'username', 'full_name', 'profile_pic_url', 'is_verified'],
           through: { attributes: [] },
         },
+        {
+          model: ConversationParticipant,
+          as: 'participantRecords',
+          where: { conversation_id: conversation.id },
+          attributes: ['last_read_at', 'is_muted', 'is_accepted', 'user_id'],
+          required: false,
+        }
       ],
     });
 
@@ -306,15 +347,16 @@ const getInbox = async (req, res) => {
     const page = parseInt(req.query.page) || 1;
     const limit = parseInt(req.query.limit) || 20;
     const offset = (page - 1) * limit;
+    const isRequests = req.query.requests === 'true';
 
-    console.log(`📬 Fetching inbox for user: ${currentUserId} (Page: ${page}, Limit: ${limit})`);
+    console.log(`📬 Fetching inbox for user: ${currentUserId} (Page: ${page}, Limit: ${limit}, Requests: ${isRequests})`);
 
-    // 1. Get all conversations where current user is a participant
-    // We use a two-step approach to avoid issues with findAndCountAll + include + limit
+    // 1. Get all conversations where current user is a participant and match requests filter
     const participantRecords = await ConversationParticipant.findAll({
       where: {
         user_id: currentUserId,
         left_at: null,
+        is_accepted: !isRequests,
       },
       attributes: ['conversation_id'],
     });
@@ -322,12 +364,20 @@ const getInbox = async (req, res) => {
     const conversationIds = participantRecords.map(p => p.conversation_id);
 
     if (conversationIds.length === 0) {
-      console.log('📭 User has no conversations.');
+      console.log('📭 User has no conversations matching filter.');
+      const requestCount = isRequests ? 0 : await ConversationParticipant.count({
+        where: {
+          user_id: currentUserId,
+          left_at: null,
+          is_accepted: false,
+        },
+      });
       return paginatedResponse(res, 'Inbox is empty', [], {
         page,
         totalPages: 0,
         totalItems: 0,
         limit,
+        request_count: requestCount,
       });
     }
 
@@ -346,7 +396,7 @@ const getInbox = async (req, res) => {
           model: ConversationParticipant,
           as: 'participantRecords',
           where: { user_id: currentUserId },
-          attributes: ['last_read_at', 'is_muted'],
+          attributes: ['last_read_at', 'is_muted', 'is_accepted'],
         },
       ],
       order: [
@@ -358,12 +408,8 @@ const getInbox = async (req, res) => {
       distinct: true,
     });
 
-    console.log(`✅ Found ${conversations.length} conversations for the user.`);
+    console.log(`✅ Found ${conversations.length} conversations matching filter.`);
 
-    // Build a single efficient query: count messages not sent by current user
-    // that were created AFTER the current user's last_read_at for each conversation.
-    // Using raw SQL with a JOIN on conversation_participants to apply per-conversation
-    // last_read_at thresholds in one round-trip — avoids N+1 and stale counts.
     const activeConversationIds = conversations.map(c => c.id);
     const [unreadRows] = await sequelize.query(`
       SELECT
@@ -405,12 +451,20 @@ const getInbox = async (req, res) => {
         return formatted;
       })
       .filter((conv) => {
-        // If it's a DM (not group), check if the other user is blocked
         if (!conv.is_group && conv.other_user) {
           return !blockedUserIds.includes(conv.other_user.id);
         }
         return true;
       });
+
+    // Count pending message requests if not already in requests view
+    const requestCount = isRequests ? 0 : await ConversationParticipant.count({
+      where: {
+        user_id: currentUserId,
+        left_at: null,
+        is_accepted: false,
+      },
+    });
 
     return paginatedResponse(
       res,
@@ -421,6 +475,7 @@ const getInbox = async (req, res) => {
         totalPages: Math.ceil(count / limit),
         totalItems: count,
         limit,
+        request_count: requestCount,
       }
     );
 
@@ -473,6 +528,13 @@ const getConversation = async (req, res) => {
               where: { left_at: null },
             },
           },
+          {
+            model: ConversationParticipant,
+            as: 'participantRecords',
+            where: { conversation_id: conversationId },
+            attributes: ['last_read_at', 'is_muted', 'is_accepted', 'user_id'],
+            required: false,
+          }
         ],
       }
     );
@@ -1600,6 +1662,64 @@ const reactToMessage = async (req, res) => {
   }
 };
 
+const acceptConversationRequest = async (req, res) => {
+  try {
+    const { id: conversationId } = req.params;
+    const currentUserId = req.user.id;
+
+    console.log(`👍 Accept Conversation: ${conversationId} for user ${currentUserId}`);
+
+    const [updatedCount] = await ConversationParticipant.update(
+      { is_accepted: true },
+      {
+        where: {
+          conversation_id: conversationId,
+          user_id: currentUserId,
+          left_at: null,
+        },
+      }
+    );
+
+    if (updatedCount === 0) {
+      return errorResponse(res, 404, 'Conversation request not found or already accepted.');
+    }
+
+    return successResponse(res, 200, 'Conversation request accepted successfully.');
+  } catch (error) {
+    console.error('❌ Accept conversation request error:', error);
+    return errorResponse(res, 500, 'Failed to accept conversation request.', error.message);
+  }
+};
+
+const rejectConversationRequest = async (req, res) => {
+  try {
+    const { id: conversationId } = req.params;
+    const currentUserId = req.user.id;
+
+    console.log(`👎 Reject Conversation: ${conversationId} for user ${currentUserId}`);
+
+    const [updatedCount] = await ConversationParticipant.update(
+      { left_at: new Date() },
+      {
+        where: {
+          conversation_id: conversationId,
+          user_id: currentUserId,
+          left_at: null,
+        },
+      }
+    );
+
+    if (updatedCount === 0) {
+      return errorResponse(res, 404, 'Conversation request not found or already rejected.');
+    }
+
+    return successResponse(res, 200, 'Conversation request rejected successfully.');
+  } catch (error) {
+    console.error('❌ Reject conversation request error:', error);
+    return errorResponse(res, 500, 'Failed to reject conversation request.', error.message);
+  }
+};
+
 module.exports = {
   createOrGetConversation,
   getInbox,
@@ -1616,4 +1736,6 @@ module.exports = {
   setDisappearingMessages,
   searchMessages,
   reactToMessage,
+  acceptConversationRequest,
+  rejectConversationRequest,
 };

@@ -5,6 +5,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:lucide_icons/lucide_icons.dart';
 import '../../../../core/theme/chat_theme.dart';
+import '../../../../shared/widgets/verified_badge.dart';
 
 class ChatAppBar extends StatelessWidget {
   final String username;
@@ -122,12 +123,7 @@ class ChatAppBar extends StatelessWidget {
                             ),
                             if (isVerified) ...[
                               const SizedBox(width: 3),
-                              const Icon(
-                                LucideIcons
-                                    .badgeCheck,
-                                color: ChatColors.blue,
-                                size: 13,
-                              ),
+                              const VerifiedBadge(size: 13),
                             ],
                           ],
                         ),

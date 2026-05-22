@@ -13,14 +13,16 @@ class DioClient {
     _dio = Dio(_buildOptions(AppConstants.dynamicBaseUrl));
     _refreshDio = Dio(_buildOptions(AppConstants.dynamicBaseUrl));
 
+    _authInterceptor = _AuthInterceptor(
+      storage: _storage,
+      refreshDio: _refreshDio,
+      onRefreshStateChanged: _setRefreshing,
+      isRefreshing: () => _isRefreshing,
+      updateBaseUrl: _updateBaseUrl,
+    );
+
     _dio.interceptors.addAll([
-      _AuthInterceptor(
-        storage: _storage,
-        refreshDio: _refreshDio,
-        onRefreshStateChanged: _setRefreshing,
-        isRefreshing: () => _isRefreshing,
-        updateBaseUrl: _updateBaseUrl,
-      ),
+      _authInterceptor,
       _loggerInterceptor(),
     ]);
 
@@ -31,9 +33,14 @@ class DioClient {
 
   late final Dio _dio;
   late final Dio _refreshDio;
+  late final _AuthInterceptor _authInterceptor;
   final FlutterSecureStorage _storage = const FlutterSecureStorage();
 
   bool _isRefreshing = false;
+
+  void resetTokenCache() {
+    _authInterceptor.resetCache();
+  }
 
   BaseOptions _buildOptions(String baseUrl) {
     return BaseOptions(
@@ -155,6 +162,10 @@ class _AuthInterceptor extends Interceptor {
   final bool Function() _isRefreshing;
   final void Function(String) _updateBaseUrl;
   String? _cachedToken;
+
+  void resetCache() {
+    _cachedToken = null;
+  }
 
   static const _skipInterceptorKey = 'skipAuthInterceptor';
   static const _retryKey = 'authRetryAttempted';
