@@ -7,6 +7,7 @@ import 'package:go_router/go_router.dart';
 import '../../../../../../core/router/navigation_extensions.dart';
 import '../../../../../../core/theme/app_theme.dart';
 import '../../../../../auth/presentation/providers/auth_provider.dart';
+import '../../../../../../shared/widgets/user_story_avatar.dart';
 import '../../follow_service.dart';
 import '../providers/widgets/follow_button.dart';
 
@@ -469,22 +470,13 @@ class _UserListItem extends StatelessWidget {
     return ListTile(
       onTap: () => context.pushIfNotCurrent('/profile/$username'),
       contentPadding: const EdgeInsets.symmetric(horizontal: 16, vertical: 4),
-      leading: Container(
-        width: 44,
-        height: 44,
-        decoration: BoxDecoration(
-          shape: BoxShape.circle,
-          color: AppColors.border,
-        ),
-        child: ClipOval(
-          child: profilePicUrl != null
-              ? CachedNetworkImage(
-                  imageUrl: profilePicUrl,
-                  fit: BoxFit.cover,
-                  errorWidget: (_, __, ___) => _defaultAvatar(username),
-                )
-              : _defaultAvatar(username),
-        ),
+      leading: UserStoryAvatar(
+        userId: userId,
+        profilePicUrl: profilePicUrl,
+        username: username,
+        size: 44,
+        showPresence: false,
+        isClickable: true,
       ),
       title: Row(
         children: [
@@ -510,22 +502,6 @@ class _UserListItem extends StatelessWidget {
       trailing: showRemoveOption
           ? _RemoveButton(onRemove: onRemove)
           : FollowButton(targetUserId: userId, compact: true),
-    );
-  }
-
-  Widget _defaultAvatar(String username) {
-    return Container(
-      color: AppColors.border,
-      child: Center(
-        child: Text(
-          username.isNotEmpty ? username[0].toUpperCase() : '?',
-          style: const TextStyle(
-            fontSize: 18,
-            fontWeight: FontWeight.bold,
-            color: AppColors.textSecondary,
-          ),
-        ),
-      ),
     );
   }
 }

@@ -1,6 +1,6 @@
 import 'package:flutter/cupertino.dart';
 import 'package:flutter/services.dart';
-import 'package:lucide_icons/lucide_icons.dart';
+import 'package:flutter_lucide/flutter_lucide.dart';
 import 'chat_ui_constants.dart';
 
 class MessageBubbleWrapper extends StatefulWidget {
@@ -73,8 +73,8 @@ class _MessageBubbleWrapperState extends State<MessageBubbleWrapper>
                         ((_dragOffset.abs() / _maxDragOffset).clamp(0.0, 1.0) *
                             0.5),
                     child: const Icon(
-                      LucideIcons.cornerUpLeft,
-                      size: 20,
+                      LucideIcons.corner_up_left,
+                      size: 22,
                       color: ChatUIConstants.textSecondaryLight,
                     ),
                   ),
@@ -223,7 +223,7 @@ class StatusRow extends StatelessWidget {
           if (status == 'seen') ...[
             const Text(
               "Seen",
-              style: const TextStyle(
+              style: TextStyle(
                 fontSize: 11,
                 color: ChatUIConstants.verifiedBlue,
                 decoration: TextDecoration.none,
@@ -234,7 +234,7 @@ class StatusRow extends StatelessWidget {
           if (status == 'failed') ...[
             const Text(
               "Failed",
-              style: const TextStyle(
+              style: TextStyle(
                 fontSize: 11,
                 color: ChatUIConstants.likeRed,
                 decoration: TextDecoration.none,
@@ -264,19 +264,19 @@ class StatusRow extends StatelessWidget {
         );
       case 'delivered':
         return const Icon(
-          LucideIcons.checkCheck,
+          LucideIcons.check_check,
           size: 11,
           color: ChatUIConstants.textSecondaryLight,
         );
       case 'seen':
         return const Icon(
-          LucideIcons.checkCheck,
+          LucideIcons.check_check,
           size: 11,
           color: ChatUIConstants.verifiedBlue,
         );
       case 'failed':
         return const Icon(
-          LucideIcons.alertCircle,
+          LucideIcons.circle_alert,
           size: 11,
           color: ChatUIConstants.likeRed,
         );

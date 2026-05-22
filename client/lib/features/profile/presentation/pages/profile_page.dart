@@ -10,6 +10,7 @@ import 'package:url_launcher/url_launcher.dart';
 import '../../../../core/router/app_router.dart';
 import '../../../../core/router/main_shell.dart';
 import '../../../../shared/widgets/app_snackbar.dart';
+import '../../../../shared/widgets/user_story_avatar.dart';
 import '../../../follow/data/repositories/presentation/providers/follow_provider.dart';
 import '../../../follow/data/repositories/presentation/providers/widgets/follow_button.dart';
 import '../../../story/presentation/widgets/highlights_bar.dart';
@@ -219,25 +220,13 @@ class _ProfilePageState extends ConsumerState<ProfilePage>
   }
 
   Widget _buildAvatar(ProfileModel profile) {
-    return Container(
-      width: 79, // Match profile_header_avatar_size_new
-      height: 79,
-      padding: const EdgeInsets.all(3),
-      decoration: BoxDecoration(
-        shape: BoxShape.circle,
-        border: Border.all(
-          color: Colors.grey.withValues(alpha: 0.1),
-          width: 1,
-        ),
-      ),
-      child: CircleAvatar(
-        backgroundColor: AppColors.border,
-        backgroundImage: profile.profilePicUrl != null 
-          ? NetworkImage(profile.profilePicUrl!) : null,
-        child: profile.profilePicUrl == null
-            ? Icon(LucideIcons.user, color: Colors.white, size: 36)
-            : null,
-      ),
+    return UserStoryAvatar(
+      userId: profile.id,
+      profilePicUrl: profile.profilePicUrl,
+      username: profile.username,
+      size: 79,
+      showPresence: false,
+      isClickable: true,
     );
   }
 

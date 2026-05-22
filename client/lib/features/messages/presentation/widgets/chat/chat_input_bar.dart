@@ -1,6 +1,6 @@
 import 'package:flutter/cupertino.dart';
 import 'package:flutter/services.dart';
-import 'package:lucide_icons/lucide_icons.dart';
+import 'package:flutter_lucide/flutter_lucide.dart';
 import 'chat_ui_constants.dart';
 
 class ChatInputBar extends StatefulWidget {
@@ -169,7 +169,7 @@ class _ChatInputBarState extends State<ChatInputBar>
                     },
                     child: Icon(
                       LucideIcons.smile,
-                      size: 21,
+                      size: 23,
                       color: isDark
                           ? ChatUIConstants.textPrimaryDark
                           : ChatUIConstants.textPrimaryLight,
@@ -225,7 +225,7 @@ class _ChatInputBarState extends State<ChatInputBar>
           shape: BoxShape.circle,
           color: filled ? ChatUIConstants.verifiedBlue : null,
         ),
-        child: Icon(icon, size: filled ? 17 : 23, color: iconColor),
+        child: Icon(icon, size: filled ? 19 : 25, color: iconColor),
       ),
     );
   }
@@ -262,13 +262,13 @@ class _ChatInputBarState extends State<ChatInputBar>
           color: ChatUIConstants.verifiedBlue,
           shape: BoxShape.circle,
         ),
-        child: const Icon(LucideIcons.send, size: 15, color: Color(0xFFFFFFFF)),
+        child: const Icon(LucideIcons.send, size: 16, color: Color(0xFFFFFFFF)),
       ),
     );
   }
 
   Widget _buildLikeButton() {
-    return LikeButton(key: const ValueKey('like_button'), onTap: widget.onLike);
+    return const SizedBox.shrink(key: ValueKey('empty_button'));
   }
 }
 
@@ -331,12 +331,10 @@ class _LikeButtonState extends State<LikeButton>
           padding: const EdgeInsets.all(5),
           child: Icon(
             LucideIcons.heart,
-            size: 28,
-            color:
-                (isDark
-                        ? ChatUIConstants.textPrimaryDark
-                        : ChatUIConstants.textPrimaryLight)
-                    .withOpacity(0.85),
+            size: 30,
+            color: isDark
+                ? ChatUIConstants.textPrimaryDark
+                : ChatUIConstants.textPrimaryLight,
           ),
         ),
       ),
@@ -480,7 +478,7 @@ class _AudioRecordingBarState extends State<AudioRecordingBar>
               ),
               child: const Icon(
                 LucideIcons.send,
-                size: 18,
+                size: 20,
                 color: Color(0xFFFFFFFF),
               ),
             ),

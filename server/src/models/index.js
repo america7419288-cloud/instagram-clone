@@ -425,6 +425,19 @@ const syncDatabase = async () => {
       `✅ Database synced (alter: ${shouldAlter}) in ${isProduction ? 'production' : 'development'} mode`
     );
 
+    // Safe ALTER TYPE queries for message_type enum (Postgres-specific, non-blocking)
+    try {
+      await sequelize.query("ALTER TYPE enum_messages_message_type ADD VALUE IF NOT EXISTS 'post'");
+      await sequelize.query("ALTER TYPE enum_messages_message_type ADD VALUE IF NOT EXISTS 'reel'");
+      await sequelize.query("ALTER TYPE enum_messages_message_type ADD VALUE IF NOT EXISTS 'story'");
+      await sequelize.query("ALTER TYPE enum_messages_message_type ADD VALUE IF NOT EXISTS 'profile'");
+      await sequelize.query("ALTER TYPE enum_messages_message_type ADD VALUE IF NOT EXISTS 'like'");
+      await sequelize.query("ALTER TYPE enum_messages_message_type ADD VALUE IF NOT EXISTS 'gif'");
+      console.log('✅ Message type enum values ensured in database');
+    } catch (enumError) {
+      console.warn('⚠️ Warning: Failed to alter message_type enum:', enumError.message);
+    }
+
     // Step 2: Safe additive migrations — idempotent, never drops data.
     // ADD COLUMN IF NOT EXISTS and CREATE TABLE IF NOT EXISTS are safe to run
     // on every server startup against both dev and production databases.

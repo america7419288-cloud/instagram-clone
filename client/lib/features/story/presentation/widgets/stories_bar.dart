@@ -24,7 +24,7 @@ class StoriesBar extends ConsumerWidget {
     final currentUser = ref.watch(currentUserProvider);
 
     return Container(
-      height: 102,
+      height: 110,
       padding: const EdgeInsets.only(top: 8, bottom: 4),
       decoration: const BoxDecoration(
         color: Colors.transparent,

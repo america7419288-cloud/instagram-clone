@@ -73,6 +73,9 @@ class MessageRepository {
     String? postId,
     String? replyToId,
     String? tempId,
+    String? sharedUsername,
+    String? sharedCaption,
+    String? sharedThumbnailUrl,
   }) async {
     final effectiveTempId = tempId ?? _uuid.v4();
     final optimisticMessage = Message(
@@ -86,6 +89,12 @@ class MessageRepository {
       replyToId: replyToId,
       messageType: messageType,
       localPath: mediaPath, // for local preview while uploading
+      postId: messageType == 'post' ? postId : null,
+      reelId: messageType == 'reel' ? postId : null,
+      storyId: messageType == 'story' ? postId : null,
+      sharedUsername: sharedUsername,
+      sharedCaption: sharedCaption,
+      sharedThumbnailUrl: sharedThumbnailUrl,
     );
 
     // Save to local DB immediately for UI update
@@ -126,6 +135,10 @@ class MessageRepository {
 
   Future<void> deleteMessage(String conversationId, String messageId) async {
     await _api.deleteMessage(conversationId, messageId);
+    await _localDb.deleteMessage(messageId);
+  }
+
+  Future<void> deleteLocalMessage(String messageId) async {
     await _localDb.deleteMessage(messageId);
   }
 

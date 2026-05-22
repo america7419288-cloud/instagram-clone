@@ -125,21 +125,30 @@ class Message {
     String? sThumbnail;
     String? sPostId;
 
-    if (json['sharedPost'] != null) {
-      final post = json['sharedPost'];
-      sUsername = post['user']?['username'];
-      sCaption = post['caption'];
-      sPostId = post['id'];
-    } else if (json['sharedReel'] != null) {
-      final reel = json['sharedReel'];
-      sUsername = reel['user']?['username'];
-      sCaption = reel['caption'];
-      sPostId = reel['id'];
-      sThumbnail = reel['thumbnailUrl'];
-    } else if (json['sharedStory'] != null) {
-      final story = json['sharedStory'];
-      sUsername = story['user']?['username'];
-      sPostId = story['id'];
+    final sharedPostData = json['shared_post'] ?? json['sharedPost'];
+    final sharedReelData = json['shared_reel'] ?? json['sharedReel'];
+    final sharedStoryData = json['shared_story'] ?? json['sharedStory'];
+
+    if (sharedPostData != null) {
+      sUsername = sharedPostData['user']?['username'];
+      sCaption = sharedPostData['caption'];
+      sPostId = sharedPostData['id']?.toString();
+      sThumbnail = sharedPostData['thumbnail'] ?? sharedPostData['thumbnailUrl'];
+      if (sThumbnail == null && sharedPostData['mediaFiles'] != null) {
+        final mediaFiles = sharedPostData['mediaFiles'] as List;
+        if (mediaFiles.isNotEmpty) {
+          sThumbnail = mediaFiles[0]['thumbnailUrl'] ?? mediaFiles[0]['url'];
+        }
+      }
+    } else if (sharedReelData != null) {
+      sUsername = sharedReelData['user']?['username'];
+      sCaption = sharedReelData['caption'];
+      sPostId = sharedReelData['id']?.toString();
+      sThumbnail = sharedReelData['thumbnail'] ?? sharedReelData['thumbnailUrl'];
+    } else if (sharedStoryData != null) {
+      sUsername = sharedStoryData['user']?['username'];
+      sPostId = sharedStoryData['id']?.toString();
+      sThumbnail = sharedStoryData['thumbnail'] ?? sharedStoryData['thumbnailUrl'];
     }
 
     final String? sharedPostId = json['shared_post_id'] ?? json['postId'] ?? sPostId;
@@ -160,9 +169,9 @@ class Message {
       mediaUrl: json['media_url'] ?? json['mediaUrl'],
       sender: sender,
       tempId: json['temp_id'] ?? json['tempId'],
-      postId: json['message_type'] == 'post' ? sharedPostId : (json['postId'] ?? json['post_id']),
-      reelId: json['message_type'] == 'reel' ? sharedPostId : (json['reelId'] ?? json['reel_id']),
-      storyId: json['message_type'] == 'story' ? sharedPostId : (json['storyId'] ?? json['story_id']),
+      postId: (json['message_type'] ?? json['messageType']) == 'post' ? sharedPostId : (json['postId'] ?? json['post_id']),
+      reelId: (json['message_type'] ?? json['messageType']) == 'reel' ? sharedPostId : (json['reelId'] ?? json['reel_id']),
+      storyId: (json['message_type'] ?? json['messageType']) == 'story' ? sharedPostId : (json['storyId'] ?? json['story_id']),
       reactions: json['reactions'] != null
           ? Map<String, int>.from(json['reactions'])
           : null,

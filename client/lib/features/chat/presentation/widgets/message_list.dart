@@ -38,6 +38,7 @@ class MessageList extends StatelessWidget {
     return ListView.builder(
       controller: scrollController,
       physics: const BouncingScrollPhysics(),
+      clipBehavior: Clip.none,
       padding: const EdgeInsets.symmetric(
           vertical: 12, horizontal: 12),
       itemCount: messages.length +

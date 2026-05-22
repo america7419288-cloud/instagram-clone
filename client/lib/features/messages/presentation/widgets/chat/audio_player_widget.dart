@@ -1,6 +1,6 @@
 import 'package:flutter/cupertino.dart';
 import 'package:flutter/services.dart';
-import 'package:lucide_icons/lucide_icons.dart';
+import 'package:flutter_lucide/flutter_lucide.dart';
 import 'dart:async';
 
 import 'chat_ui_constants.dart';
@@ -132,7 +132,7 @@ class _AudioPlayerWidgetState extends State<AudioPlayerWidget> {
       ),
       child: Icon(
         _isPlaying ? LucideIcons.pause : LucideIcons.play,
-        size: 17,
+        size: 19,
         color: widget.isSent
             ? CupertinoColors.white
             : (isDark

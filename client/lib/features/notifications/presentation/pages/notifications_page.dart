@@ -13,6 +13,7 @@ import '../../../../core/theme/app_theme.dart';
 import '../../../../shared/widgets/empty_state.dart';
 import '../../../../shared/widgets/error_view.dart';
 import '../../../../shared/widgets/spring_widget.dart';
+import '../../../../shared/widgets/user_story_avatar.dart';
 import '../../data/models/notification_model.dart';
 import '../providers/notification_provider.dart';
 
@@ -263,22 +264,13 @@ class _NotificationRow extends StatelessWidget {
 
   Widget _buildAvatar() {
     final sender = notification.sender;
-    return Container(
-      width: 44,
-      height: 44,
-      decoration: BoxDecoration(
-        shape: BoxShape.circle,
-        border: Border.all(color: AppColors.border, width: 0.5),
-      ),
-      child: ClipOval(
-        child: sender?.profilePicUrl != null
-            ? CachedNetworkImage(
-                imageUrl: sender!.profilePicUrl!,
-                fit: BoxFit.cover,
-                errorWidget: (_, __, ___) => _defaultAvatar(),
-              )
-            : _defaultAvatar(),
-      ),
+    return UserStoryAvatar(
+      userId: sender?.id ?? '',
+      profilePicUrl: sender?.profilePicUrl,
+      username: sender?.username,
+      size: 44,
+      showPresence: false,
+      isClickable: true,
     );
   }
 

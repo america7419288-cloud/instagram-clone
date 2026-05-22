@@ -224,11 +224,7 @@ class _ChatInputBarState
                     key: const ValueKey('send'),
                     onTap: widget.onSend,
                   )
-                : _LikeBtn(
-                    key: const ValueKey('like'),
-                    isDark: isDark,
-                    onTap: widget.onSendLike,
-                  ),
+                : const SizedBox.shrink(key: ValueKey('empty')),
           ),
 
         ],

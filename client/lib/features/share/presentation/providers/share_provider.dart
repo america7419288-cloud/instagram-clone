@@ -177,6 +177,9 @@ class ShareSheetNotifier extends Notifier<ShareSheetState> {
           currentUser.id,
           messageType: messageType,
           postId: postId,
+          sharedUsername: content.authorUsername,
+          sharedCaption: content.caption,
+          sharedThumbnailUrl: content.thumbnailUrl,
         );
       }
 

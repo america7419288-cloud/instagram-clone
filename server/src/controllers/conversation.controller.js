@@ -140,8 +140,11 @@ const formatMessage = (message) => {
     shared_story: m.sharedStory
       ? {
           id: m.sharedStory.id,
+          media_url: m.sharedStory.media_url,
+          thumbnail: m.sharedStory.thumbnail_url || m.sharedStory.media_url,
+          media_type: m.sharedStory.media_type,
+          caption: m.sharedStory.caption,
           user: m.sharedStory.user,
-          // Story media URL would go here if Story model has it
         }
       : null,
     
@@ -567,7 +570,7 @@ const getMessages = async (req, res) => {
         {
           model: Story,
           as: 'sharedStory',
-          attributes: ['id'],
+          attributes: ['id', 'media_url', 'thumbnail_url', 'media_type', 'caption'],
           include: [{ model: User, as: 'user', attributes: ['username', 'profile_pic_url'] }],
           required: false,
         },
@@ -808,7 +811,7 @@ const sendMessage = async (req, res) => {
         {
           model: Story,
           as: 'sharedStory',
-          attributes: ['id'],
+          attributes: ['id', 'media_url', 'thumbnail_url', 'media_type', 'caption'],
           include: [{ model: User, as: 'user', attributes: ['username', 'profile_pic_url'] }],
           required: false,
         },
@@ -942,6 +945,36 @@ const deleteMessage = async (req, res) => {
 
     console.log(`🗑️  Message unsent: ${messageId}`);
 
+    // Update conversation's last message if this was the last message
+    const lastMessage = await Message.findOne({
+      where: {
+        conversation_id: message.conversation_id,
+        is_deleted: false,
+      },
+      order: [['created_at', 'DESC']],
+    });
+
+    let preview = null;
+    let lastMessageAt = new Date();
+    let lastMessageSenderId = null;
+
+    if (lastMessage) {
+      preview = lastMessage.content
+        ? lastMessage.content.substring(0, 100)
+        : `Sent ${lastMessage.message_type === 'like' ? '❤️' : 'a ' + lastMessage.message_type}`;
+      lastMessageAt = lastMessage.createdAt || lastMessage.created_at;
+      lastMessageSenderId = lastMessage.sender_id;
+    }
+
+    await Conversation.update(
+      {
+        last_message: preview,
+        last_message_at: lastMessageAt,
+        last_message_sender_id: lastMessageSenderId,
+      },
+      { where: { id: message.conversation_id } }
+    );
+
     // ─── Broadcast deletion to conversation room in real-time ───
     const io = getIO();
     if (io) {
@@ -951,6 +984,28 @@ const deleteMessage = async (req, res) => {
         message_id: messageId,
         deleted_by: currentUserId,
         deleted_at: new Date(),
+      });
+
+      // Notify all participants about the inbox update to dynamically refresh their list
+      const allParticipants = await ConversationParticipant.findAll({
+        where: {
+          conversation_id: message.conversation_id,
+          left_at: null,
+        },
+        attributes: ['user_id'],
+        raw: true,
+      });
+
+      const senderUser = await User.findByPk(currentUserId, { attributes: ['username'] });
+      const senderUsername = senderUser ? senderUser.username : 'User';
+
+      allParticipants.forEach((p) => {
+        emitToUser(io, p.user_id, 'inbox-update', {
+          conversation_id: message.conversation_id,
+          last_message: preview || 'Message unsent',
+          last_message_at: lastMessageAt,
+          sender_username: senderUsername,
+        });
       });
     }
 

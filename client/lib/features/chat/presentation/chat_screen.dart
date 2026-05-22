@@ -123,6 +123,7 @@ class _ChatScreenState extends ConsumerState<ChatScreen>
           child: SafeArea(
             bottom: false,
             child: Stack(
+              clipBehavior: Clip.none,
               children: [
 
                 // ── Main column

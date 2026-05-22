@@ -15,6 +15,7 @@ import '../../../../core/theme/app_theme.dart';
 import '../../../../features/auth/presentation/providers/auth_provider.dart';
 import '../../../../shared/widgets/empty_state.dart';
 import '../../../../shared/widgets/error_view.dart';
+import '../../../../shared/widgets/user_story_avatar.dart';
 import '../../../chat/data/models/conversation.dart';
 import '../../../chat/presentation/providers/chat_notifiers.dart';
 import '../../../chat/presentation/providers/presence_provider.dart';
@@ -514,69 +515,13 @@ class _ConversationTile extends ConsumerWidget {
   }
 
   Widget _buildAvatar(bool isOnline, BuildContext context) {
-    final avatarUrl = conversation.otherUser?.profilePicUrl;
-    final name = conversation.otherUser?.username ?? '?';
-    final isDark = Theme.of(context).brightness == Brightness.dark;
-
-    final avatar = Container(
-      width: 56,
-      height: 56,
-      decoration: const BoxDecoration(
-        shape: BoxShape.circle,
-        color: AppColors.border,
-      ),
-      child: ClipOval(
-        child: avatarUrl != null
-            ? CachedNetworkImage(
-                imageUrl: avatarUrl,
-                fit: BoxFit.cover,
-                errorWidget: (_, __, ___) => _defaultAvatar(name),
-              )
-            : _defaultAvatar(name),
-      ),
-    );
-
-    if (!isOnline) return avatar;
-
-    // Green dot (bottom-right), same style as Instagram
-    return Stack(
-      clipBehavior: Clip.none,
-      children: [
-        avatar,
-        Positioned(
-          right: 0,
-          bottom: 0,
-          child: AnimatedContainer(
-            duration: const Duration(milliseconds: 250),
-            width: 14,
-            height: 14,
-            decoration: BoxDecoration(
-              color: const Color(0xFF00C853),
-              shape: BoxShape.circle,
-              border: Border.all(
-                color: isDark ? Colors.black : Colors.white,
-                width: 2,
-              ),
-            ),
-          ),
-        ),
-      ],
-    );
-  }
-
-  Widget _defaultAvatar(String name) {
-    return Container(
-      color: AppColors.border,
-      child: Center(
-        child: Text(
-          name.isNotEmpty ? name[0].toUpperCase() : '?',
-          style: const TextStyle(
-            fontSize: 22,
-            fontWeight: FontWeight.bold,
-            color: AppColors.textSecondary,
-          ),
-        ),
-      ),
+    return UserStoryAvatar(
+      userId: conversation.otherUser?.id ?? '',
+      profilePicUrl: conversation.otherUser?.profilePicUrl,
+      username: conversation.otherUser?.username,
+      size: 56,
+      showPresence: true,
+      isClickable: true,
     );
   }
 }

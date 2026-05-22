@@ -1,6 +1,6 @@
 import 'dart:async';
 import 'package:flutter/cupertino.dart';
-import 'package:lucide_icons/lucide_icons.dart';
+import 'package:flutter_lucide/flutter_lucide.dart';
 import 'package:cached_network_image/cached_network_image.dart';
 import 'package:just_audio/just_audio.dart';
 import 'chat_ui_constants.dart';
@@ -126,8 +126,8 @@ class ImageBubble extends StatelessWidget {
               const Center(child: CupertinoActivityIndicator()),
           errorWidget: (context, url, error) => const Center(
             child: Icon(
-              LucideIcons.imageOff,
-              size: 32,
+              LucideIcons.image_off,
+              size: 36,
               color: ChatUIConstants.textSecondaryLight,
             ),
           ),
@@ -183,7 +183,7 @@ class VideoBubble extends StatelessWidget {
                 ),
                 child: const Icon(
                   LucideIcons.play,
-                  size: 21,
+                  size: 24,
                   color: CupertinoColors.white,
                 ),
               ),
@@ -379,7 +379,7 @@ class _AudioBubbleState extends State<AudioBubble> {
       ),
       child: Icon(
         _isPlaying ? LucideIcons.pause : LucideIcons.play,
-        size: 17,
+        size: 19,
         color: widget.isSent
             ? CupertinoColors.white
             : (isDark
@@ -416,6 +416,276 @@ class _AudioBubbleState extends State<AudioBubble> {
             ),
           );
         }),
+      ),
+    );
+  }
+}
+
+class SharedPostBubble extends StatelessWidget {
+  final String? sharedUsername;
+  final String? sharedCaption;
+  final String? sharedThumbnailUrl;
+  final String messageType; // 'post', 'reel', 'story'
+  final bool isSent;
+  final VoidCallback? onTap;
+
+  const SharedPostBubble({
+    super.key,
+    required this.sharedUsername,
+    required this.sharedCaption,
+    required this.sharedThumbnailUrl,
+    required this.messageType,
+    required this.isSent,
+    this.onTap,
+  });
+
+  @override
+  Widget build(BuildContext context) {
+    final isDark = CupertinoTheme.of(context).brightness == Brightness.dark;
+    final isReel = messageType == 'reel';
+    final isStory = messageType == 'story';
+
+    // Premium card styling
+    final cardBgColor = isDark
+        ? const Color(0xFF1E1E1E)
+        : const Color(0xFFF2F2F7);
+
+    final borderColor = isDark
+        ? const Color(0xFF2C2C2E)
+        : const Color(0xFFE5E5EA);
+
+    final textColor = isDark
+        ? ChatUIConstants.textPrimaryDark
+        : ChatUIConstants.textPrimaryLight;
+
+    final subTextColor = isDark
+        ? ChatUIConstants.textSecondaryDark
+        : ChatUIConstants.textSecondaryLight;
+
+    // Header label
+    String typeLabel = 'Instagram Post';
+    IconData typeIcon = LucideIcons.image;
+    if (isReel) {
+      typeLabel = 'Instagram Reel';
+      typeIcon = LucideIcons.film;
+    } else if (isStory) {
+      typeLabel = 'Instagram Story';
+      typeIcon = LucideIcons.clock;
+    }
+
+    return GestureDetector(
+      onTap: onTap,
+      child: Container(
+        constraints: BoxConstraints(
+          maxWidth: MediaQuery.of(context).size.width * 0.72,
+          minWidth: 180,
+        ),
+        decoration: BoxDecoration(
+          color: cardBgColor,
+          borderRadius: BorderRadius.circular(16),
+          border: Border.all(
+            color: borderColor,
+            width: 0.8,
+          ),
+          boxShadow: [
+            BoxShadow(
+              color: CupertinoColors.black.withOpacity(isDark ? 0.25 : 0.04),
+              blurRadius: 6,
+              offset: const Offset(0, 3),
+            ),
+          ],
+        ),
+        child: Column(
+          mainAxisSize: MainAxisSize.min,
+          crossAxisAlignment: CrossAxisAlignment.stretch,
+          children: [
+            // 1. Header Bar: Profile avatar and Username
+            Padding(
+              padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 10),
+              child: Row(
+                children: [
+                  // Beautiful gradient avatar placeholder
+                  Container(
+                    width: 24,
+                    height: 24,
+                    decoration: const BoxDecoration(
+                      shape: BoxShape.circle,
+                      gradient: LinearGradient(
+                        colors: [
+                          Color(0xFFF99D1C),
+                          Color(0xFFE1306C),
+                          Color(0xFF833AB4),
+                        ],
+                        begin: Alignment.bottomLeft,
+                        end: Alignment.topRight,
+                      ),
+                    ),
+                    child: const Center(
+                      child: Icon(
+                        LucideIcons.user,
+                        size: 12,
+                        color: CupertinoColors.white,
+                      ),
+                    ),
+                  ),
+                  const SizedBox(width: 8),
+                  // Username & Type Metadata
+                  Expanded(
+                    child: Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      mainAxisSize: MainAxisSize.min,
+                      children: [
+                        Text(
+                          sharedUsername ?? 'instagram_user',
+                          style: TextStyle(
+                            fontFamily: ChatUIConstants.fontFamily,
+                            fontSize: 13,
+                            fontWeight: FontWeight.w600,
+                            color: textColor,
+                            decoration: TextDecoration.none,
+                          ),
+                          maxLines: 1,
+                          overflow: TextOverflow.ellipsis,
+                        ),
+                        const SizedBox(height: 1),
+                        Text(
+                          typeLabel,
+                          style: TextStyle(
+                            fontFamily: ChatUIConstants.fontFamily,
+                            fontSize: 10,
+                            fontWeight: FontWeight.w400,
+                            color: subTextColor,
+                            decoration: TextDecoration.none,
+                          ),
+                        ),
+                      ],
+                    ),
+                  ),
+                  Icon(
+                    typeIcon,
+                    size: 14,
+                    color: subTextColor,
+                  ),
+                ],
+              ),
+            ),
+
+            // 2. Media Preview Card
+            AspectRatio(
+              aspectRatio: isReel ? 0.8 : 1.0, // vertical layout for reels, square for posts/stories
+              child: Container(
+                color: isDark ? const Color(0xFF121212) : const Color(0xFFEFEFF4),
+                child: Stack(
+                  fit: StackFit.expand,
+                  children: [
+                    if (sharedThumbnailUrl != null && sharedThumbnailUrl!.isNotEmpty)
+                      CachedNetworkImage(
+                        imageUrl: sharedThumbnailUrl!,
+                        fit: BoxFit.cover,
+                        placeholder: (context, url) => const Center(
+                          child: CupertinoActivityIndicator(),
+                        ),
+                        errorWidget: (context, url, error) => Center(
+                          child: Icon(
+                            isReel ? LucideIcons.film : LucideIcons.image,
+                            size: 32,
+                            color: subTextColor.withOpacity(0.5),
+                          ),
+                        ),
+                      )
+                    else
+                      Center(
+                        child: Icon(
+                          isReel ? LucideIcons.film : LucideIcons.image,
+                          size: 36,
+                          color: subTextColor.withOpacity(0.5),
+                        ),
+                      ),
+
+                    // Play overlay for Reels
+                    if (isReel)
+                      Center(
+                        child: Container(
+                          width: 44,
+                          height: 44,
+                          decoration: BoxDecoration(
+                            shape: BoxShape.circle,
+                            color: CupertinoColors.black.withOpacity(0.45),
+                            border: Border.all(
+                              color: CupertinoColors.white.withOpacity(0.15),
+                              width: 0.5,
+                            ),
+                          ),
+                          child: const Center(
+                            child: Icon(
+                              LucideIcons.play,
+                              size: 18,
+                              color: CupertinoColors.white,
+                            ),
+                          ),
+                        ),
+                      ),
+                  ],
+                ),
+              ),
+            ),
+
+            // 3. Caption / Subtitle area
+            if (sharedCaption != null && sharedCaption!.isNotEmpty)
+              Padding(
+                padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 10),
+                child: RichText(
+                  maxLines: 2,
+                  overflow: TextOverflow.ellipsis,
+                  text: TextSpan(
+                    style: TextStyle(
+                      fontFamily: ChatUIConstants.fontFamily,
+                      fontSize: 12,
+                      color: textColor,
+                    ),
+                    children: [
+                      TextSpan(
+                        text: '${sharedUsername ?? 'instagram_user'} ',
+                        style: const TextStyle(fontWeight: FontWeight.w600),
+                      ),
+                      TextSpan(
+                        text: sharedCaption,
+                        style: TextStyle(
+                          fontWeight: FontWeight.w400,
+                          color: textColor.withOpacity(0.9),
+                        ),
+                      ),
+                    ],
+                  ),
+                ),
+              )
+            else
+              Padding(
+                padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 10),
+                child: Row(
+                  children: [
+                    Expanded(
+                      child: Text(
+                        isReel ? 'Watch this Reel' : (isStory ? 'View Story' : 'View Post'),
+                        style: TextStyle(
+                          fontFamily: ChatUIConstants.fontFamily,
+                          fontSize: 12,
+                          fontWeight: FontWeight.w500,
+                          color: textColor.withOpacity(0.8),
+                          decoration: TextDecoration.none,
+                        ),
+                      ),
+                    ),
+                    Icon(
+                      LucideIcons.chevron_right,
+                      size: 14,
+                      color: subTextColor,
+                    ),
+                  ],
+                ),
+              ),
+          ],
+        ),
       ),
     );
   }

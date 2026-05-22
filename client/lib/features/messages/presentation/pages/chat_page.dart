@@ -551,6 +551,7 @@ class _ChatPageState extends ConsumerState<ChatPage> {
             ChatAppBar(
               username: otherUser?.username ?? 'Chat',
               avatarUrl: otherUser?.profilePicUrl,
+              userId: otherUser?.id,
               statusText: statusText,
               isOnline: isOnline,
               isVerified: otherUser?.isVerified ?? false,
@@ -560,20 +561,24 @@ class _ChatPageState extends ConsumerState<ChatPage> {
             ),
 
             Expanded(
-              child: Stack(
-                children: [
-                  _buildMessageList(chatState, currentUser?.id ?? ''),
+              child: ClipRect(
+                clipper: BottomOverflowClipper(),
+                child: Stack(
+                  clipBehavior: Clip.none,
+                  children: [
+                    _buildMessageList(chatState, currentUser?.id ?? ''),
 
-                  Positioned(
-                    right: 16,
-                    bottom: 16,
-                    child: ScrollToBottomFAB(
-                      isVisible: _showScrollToBottom,
-                      onTap: () => _scrollToBottom(),
-                      unreadCount: 0, // Could be linked to unread state
+                    Positioned(
+                      right: 16,
+                      bottom: 16,
+                      child: ScrollToBottomFAB(
+                        isVisible: _showScrollToBottom,
+                        onTap: () => _scrollToBottom(),
+                        unreadCount: 0, // Could be linked to unread state
+                      ),
                     ),
-                  ),
-                ],
+                  ],
+                ),
               ),
             ),
 
@@ -639,6 +644,7 @@ class _ChatPageState extends ConsumerState<ChatPage> {
       reverse:
           true, // Instagram messages are usually reversed in Flutter for easier bottom-loading
       physics: const BouncingScrollPhysics(),
+      clipBehavior: Clip.none,
       padding: const EdgeInsets.symmetric(vertical: 12),
       itemCount: state.messages.length + (state.messages.isEmpty ? 0 : 1),
       itemBuilder: (context, index) {
@@ -673,17 +679,28 @@ class _ChatPageState extends ConsumerState<ChatPage> {
           }
         }
 
+        final isNewSent = index == 0 &&
+            isOwn &&
+            (message.isSending ||
+                DateTime.now().difference(message.createdAt).inMilliseconds < 1500);
+
         return TweenAnimationBuilder<double>(
           key: ValueKey(message.id),
           tween: Tween(begin: 0, end: 1),
-          duration: Duration(milliseconds: 180 + (index % 4) * 28),
-          curve: Curves.easeOutCubic,
+          duration: isNewSent
+              ? const Duration(milliseconds: 400)
+              : Duration(milliseconds: 180 + (index % 4) * 28),
+          curve: isNewSent ? Curves.easeOutBack : Curves.easeOutCubic,
           builder: (context, value, child) {
             return Opacity(
-              opacity: value,
+              opacity: value.clamp(0.0, 1.0),
               child: Transform.translate(
-                offset: Offset(0, (1 - value) * 10),
-                child: child,
+                offset: Offset(0, (1 - value) * (isNewSent ? 120.0 : 10.0)),
+                child: Transform.scale(
+                  scale: isNewSent ? (0.4 + (value * 0.6)) : 1.0,
+                  alignment: Alignment.bottomRight,
+                  child: child,
+                ),
               ),
             );
           },
@@ -821,6 +838,45 @@ class _ChatPageState extends ConsumerState<ChatPage> {
           audioUrl: message.mediaUrl ?? '',
           isSent: isOwn,
         );
+      case 'post':
+        return SharedPostBubble(
+          sharedUsername: message.sharedUsername,
+          sharedCaption: message.sharedCaption,
+          sharedThumbnailUrl: message.sharedThumbnailUrl,
+          messageType: 'post',
+          isSent: isOwn,
+          onTap: () {
+            if (message.postId != null && message.postId!.isNotEmpty) {
+              context.push('/post/${message.postId}');
+            }
+          },
+        );
+      case 'reel':
+        return SharedPostBubble(
+          sharedUsername: message.sharedUsername,
+          sharedCaption: message.sharedCaption,
+          sharedThumbnailUrl: message.sharedThumbnailUrl,
+          messageType: 'reel',
+          isSent: isOwn,
+          onTap: () {
+            if (message.reelId != null && message.reelId!.isNotEmpty) {
+              context.push('/reel/${message.reelId}');
+            }
+          },
+        );
+      case 'story':
+        return SharedPostBubble(
+          sharedUsername: message.sharedUsername,
+          sharedCaption: message.sharedCaption,
+          sharedThumbnailUrl: message.sharedThumbnailUrl,
+          messageType: 'story',
+          isSent: isOwn,
+          onTap: () {
+            if (message.storyId != null && message.storyId!.isNotEmpty) {
+              context.push('/story/${message.storyId}');
+            }
+          },
+        );
       default:
         return TextBubble(
           text: message.isEdited ? '${message.content} (edited)' : message.content,
@@ -899,3 +955,14 @@ class _EmptyState extends StatelessWidget {
     );
   }
 }
+
+class BottomOverflowClipper extends CustomClipper<Rect> {
+  @override
+  Rect getClip(Size size) {
+    return Rect.fromLTRB(0, 0, size.width, size.height + 250);
+  }
+
+  @override
+  bool shouldReclip(covariant CustomClipper<Rect> oldClipper) => false;
+}
+

@@ -182,6 +182,7 @@ class ChatNotifier extends Notifier<ChatState> {
 
       if (type == 'delete') {
         final messageId = data['message_id'];
+        unawaited(_repository.deleteLocalMessage(messageId));
         state = state.copyWith(
           messages: state.messages.where((m) => m.id != messageId).toList(),
         );

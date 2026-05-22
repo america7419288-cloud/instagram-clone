@@ -13,6 +13,7 @@ import 'package:go_router/go_router.dart';
 import '../../../../core/theme/app_theme.dart';
 import '../../../../shared/widgets/spring_widget.dart';
 import '../../../../shared/widgets/verified_badge.dart';
+import '../../../../shared/widgets/user_story_avatar.dart';
 import '../../../follow/data/repositories/presentation/providers/widgets/follow_button.dart';
 import 'providers/search_provider.dart';
 
@@ -354,12 +355,13 @@ class _UserResultTile extends StatelessWidget {
       onTap: () => context.push('/profile/${user['username']}'),
       child: ListTile(
         contentPadding: const EdgeInsets.symmetric(horizontal: 16, vertical: 4),
-        leading: CircleAvatar(
-          radius: 22,
-          backgroundImage: user['profile_pic_url'] != null ? CachedNetworkImageProvider(user['profile_pic_url']) : null,
-          backgroundColor: Theme.of(context).brightness == Brightness.dark
-              ? AppColors.darkShimmerBase
-              : AppColors.shimmerBase,
+        leading: UserStoryAvatar(
+          userId: user['id'] ?? '',
+          profilePicUrl: user['profile_pic_url'],
+          username: user['username'],
+          size: 44,
+          showPresence: false,
+          isClickable: true,
         ),
         title: Row(
           children: [

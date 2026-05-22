@@ -10,6 +10,7 @@ import '../../../../shared/widgets/app_snackbar.dart';
 import '../providers/message_search_provider.dart';
 import '../../../chat/presentation/providers/chat_notifiers.dart';
 import '../../../../shared/widgets/spring_widget.dart';
+import '../../../../shared/widgets/user_story_avatar.dart';
 
 class NewMessagePage extends ConsumerStatefulWidget {
   const NewMessagePage({super.key});
@@ -191,17 +192,13 @@ class _NewMessagePageState extends ConsumerState<NewMessagePage> {
             }
           },
           child: ListTile(
-            leading: CircleAvatar(
-              backgroundColor: AppColors.border,
-              backgroundImage: user.profilePicUrl != null
-                  ? CachedNetworkImageProvider(user.profilePicUrl!)
-                  : null,
-              child: user.profilePicUrl == null
-                  ? Text(
-                      user.username[0].toUpperCase(),
-                      style: const TextStyle(color: AppColors.textPrimary),
-                    )
-                  : null,
+            leading: UserStoryAvatar(
+              userId: user.id,
+              profilePicUrl: user.profilePicUrl,
+              username: user.username,
+              size: 40,
+              showPresence: false,
+              isClickable: true,
             ),
             title: Text(
               user.username,

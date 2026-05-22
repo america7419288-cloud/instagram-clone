@@ -1,5 +1,5 @@
 import 'package:flutter/cupertino.dart';
-import 'package:lucide_icons/lucide_icons.dart';
+import 'package:flutter_lucide/flutter_lucide.dart';
 import 'chat_ui_constants.dart';
 
 class TypingIndicator extends StatefulWidget {
@@ -334,8 +334,8 @@ class ScrollToBottomFAB extends StatelessWidget {
                       ],
                     ),
                     child: Icon(
-                      LucideIcons.chevronDown,
-                      size: 18,
+                      LucideIcons.chevron_down,
+                      size: 20,
                       color: isDark
                           ? ChatUIConstants.textPrimaryDark
                           : ChatUIConstants.textPrimaryLight,

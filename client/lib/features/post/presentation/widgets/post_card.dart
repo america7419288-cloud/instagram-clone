@@ -27,6 +27,7 @@ import '../../data/models/post_model.dart';
 import '../providers/feed_provider.dart';
 import 'package:instagram_client/shared/widgets/spring_widget.dart';
 import 'package:instagram_client/shared/widgets/story_ring.dart';
+import 'package:instagram_client/shared/widgets/user_story_avatar.dart';
 import 'video_player_widget.dart';
 import '../pages/comments_page.dart';
 import 'package:instagram_client/core/network/audio_stream_source.dart';
@@ -336,27 +337,14 @@ class _PostCardState extends ConsumerState<PostCard>
         padding: const EdgeInsets.symmetric(horizontal: 12),
         child: Row(
           children: [
-            // Avatar with story ring if active
-            BouncyTap(
-              onTap: () {
-                if (widget.post.hasActiveStory) {
-                  context.push('/story/${widget.post.userId}');
-                } else {
-                  context.push('/profile/${widget.post.username}');
-                }
-              },
-              child: StoryRing(
-                size: 32, // Standard IG header avatar size
-                hasUnseen: widget.post.hasActiveStory,
-                child: CircleAvatar(
-                  backgroundColor: AppColors.border,
-                  backgroundImage: widget.post.userAvatar != null 
-                    ? CachedNetworkImageProvider(widget.post.userAvatar!) : null,
-                  child: widget.post.userAvatar == null
-                    ? const Icon(LucideIcons.user, color: Colors.white, size: 14)
-                    : null,
-                ),
-              ),
+            // Avatar with live story ring
+            UserStoryAvatar(
+              userId: widget.post.userId,
+              profilePicUrl: widget.post.userAvatar,
+              username: widget.post.username,
+              size: 32,
+              showPresence: false,
+              isClickable: true,
             ),
             const SizedBox(width: 10),
             Expanded(

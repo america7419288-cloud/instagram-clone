@@ -1,13 +1,15 @@
 import 'package:flutter/cupertino.dart';
 import 'package:flutter/services.dart';
 import 'package:go_router/go_router.dart';
-import 'package:lucide_icons/lucide_icons.dart';
+import 'package:flutter_lucide/flutter_lucide.dart';
 
+import '../../../../../shared/widgets/user_story_avatar.dart';
 import 'chat_ui_constants.dart';
 
 class ChatAppBar extends StatelessWidget {
   final String username;
   final String? avatarUrl;
+  final String? userId;
   final String? statusText;
   final bool isOnline;
   final bool isVerified;
@@ -23,6 +25,7 @@ class ChatAppBar extends StatelessWidget {
     super.key,
     required this.username,
     this.avatarUrl,
+    this.userId,
     this.statusText,
     this.isOnline = false,
     this.isVerified = false,
@@ -64,8 +67,8 @@ class ChatAppBar extends StatelessWidget {
               context.pop();
             },
             child: Icon(
-              LucideIcons.chevronLeft,
-              size: 29,
+              LucideIcons.chevron_left,
+              size: 30,
               color: isDark
                   ? ChatUIConstants.textPrimaryDark
                   : ChatUIConstants.textPrimaryLight,
@@ -126,8 +129,8 @@ class ChatAppBar extends StatelessWidget {
                             if (isVerified) ...[
                               const SizedBox(width: 4),
                               const Icon(
-                                LucideIcons.badgeCheck,
-                                size: 13,
+                                LucideIcons.badge_check,
+                                size: 14,
                                 color: ChatUIConstants.verifiedBlue,
                               ),
                             ],
@@ -160,6 +163,17 @@ class ChatAppBar extends StatelessWidget {
   }
 
   Widget _buildAvatarContainer(bool isDark) {
+    if (userId != null) {
+      return UserStoryAvatar(
+        userId: userId!,
+        profilePicUrl: avatarUrl,
+        username: username,
+        size: 34,
+        showPresence: false,
+        isClickable: true,
+      );
+    }
+    
     if (!hasStory) return _buildBaseAvatar(34);
 
     return Container(
@@ -224,7 +238,7 @@ class ChatAppBar extends StatelessWidget {
       },
       child: Icon(
         icon,
-        size: 22,
+        size: 24,
         color: isDark
             ? ChatUIConstants.textPrimaryDark
             : ChatUIConstants.textPrimaryLight,

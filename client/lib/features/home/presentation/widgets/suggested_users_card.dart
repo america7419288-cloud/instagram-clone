@@ -4,8 +4,11 @@ import 'package:flutter/cupertino.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_lucide/flutter_lucide.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
+import 'package:go_router/go_router.dart';
+import '../../../../core/router/navigation_extensions.dart';
 import '../../../../shared/models/user_model.dart';
 import '../../../../shared/widgets/spring_widget.dart';
+import '../../../../shared/widgets/user_story_avatar.dart';
 import '../../../follow/data/repositories/presentation/providers/follow_provider.dart';
 import '../providers/suggestion_provider.dart';
 
@@ -142,58 +145,31 @@ class _UserSuggestionCard extends StatelessWidget {
               mainAxisAlignment: MainAxisAlignment.center,
               children: [
                 // Avatar with Story Ring
-                Container(
-                  width: 110,
-                  height: 110,
-                  padding: const EdgeInsets.all(2.5), // Gap for ring
-                  decoration: const BoxDecoration(
-                    shape: BoxShape.circle,
-                    gradient: SweepGradient(
-                      colors: [
-                        Color(0xFF833AB4), // Purple
-                        Color(0xFFF77737), // Orange
-                        Color(0xFFE1306C), // Pink/Red
-                        Color(0xFFC13584), // Magenta
-                        Color(0xFF833AB4), // Purple back
-                      ],
-                    ),
-                  ),
-                  child: Container(
-                    padding: const EdgeInsets.all(3), // White gap
-                    decoration: BoxDecoration(
-                      color: isDark ? Colors.black : Colors.white,
-                      shape: BoxShape.circle,
-                    ),
-                    child: Container(
-                      decoration: BoxDecoration(
-                        shape: BoxShape.circle,
-                        image: user.profilePicUrl != null
-                            ? DecorationImage(
-                                image: NetworkImage(user.profilePicUrl!),
-                                fit: BoxFit.cover,
-                              )
-                            : null,
-                        color: isDark ? const Color(0xFF2C2C2C) : const Color(0xFFEFEFEF),
-                      ),
-                      child: user.profilePicUrl == null
-                          ? Icon(LucideIcons.user, 
-                              size: 45, 
-                              color: isDark ? Colors.white24 : Colors.black26)
-                          : null,
-                    ),
+                GestureDetector(
+                  onTap: () => context.pushIfNotCurrent('/profile/${user.username}'),
+                  child: UserStoryAvatar(
+                    userId: user.id,
+                    profilePicUrl: user.profilePicUrl,
+                    username: user.username,
+                    size: 110,
+                    showPresence: false,
+                    isClickable: true,
                   ),
                 ),
                 const SizedBox(height: 14),
                 
                 // Username
-                Text(
-                  user.username,
-                  maxLines: 1,
-                  overflow: TextOverflow.ellipsis,
-                  style: TextStyle(
-                    color: isDark ? Colors.white : Colors.black,
-                    fontSize: 14,
-                    fontWeight: FontWeight.w600,
+                GestureDetector(
+                  onTap: () => context.pushIfNotCurrent('/profile/${user.username}'),
+                  child: Text(
+                    user.username,
+                    maxLines: 1,
+                    overflow: TextOverflow.ellipsis,
+                    style: TextStyle(
+                      color: isDark ? Colors.white : Colors.black,
+                      fontSize: 14,
+                      fontWeight: FontWeight.w600,
+                    ),
                   ),
                 ),
                 

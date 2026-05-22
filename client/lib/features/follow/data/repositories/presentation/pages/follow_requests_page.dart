@@ -2,11 +2,11 @@
 
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
-import 'package:cached_network_image/cached_network_image.dart';
 import 'package:go_router/go_router.dart';
 import '../../../../../../core/router/navigation_extensions.dart';
 import '../../../../../../core/theme/app_theme.dart';
 import '../../../../../../shared/widgets/app_snackbar.dart';
+import '../../../../../../shared/widgets/user_story_avatar.dart';
 import '../providers/follow_provider.dart';
 
 class FollowRequestsPage extends ConsumerWidget {
@@ -136,22 +136,13 @@ class _FollowRequestItemState extends State<_FollowRequestItem> {
           // Avatar
           GestureDetector(
             onTap: () => context.pushIfNotCurrent('/profile/$username'),
-            child: Container(
-              width: 52,
-              height: 52,
-              decoration: BoxDecoration(
-                shape: BoxShape.circle,
-                color: AppColors.border,
-              ),
-              child: ClipOval(
-                child: profilePicUrl != null
-                    ? CachedNetworkImage(
-                        imageUrl: profilePicUrl,
-                        fit: BoxFit.cover,
-                        errorWidget: (_, __, ___) => _defaultAvatar(username),
-                      )
-                    : _defaultAvatar(username),
-              ),
+            child: UserStoryAvatar(
+              userId: widget.requester['id'] as String? ?? '',
+              profilePicUrl: profilePicUrl,
+              username: username,
+              size: 52,
+              showPresence: false,
+              isClickable: true,
             ),
           ),
 
@@ -281,21 +272,5 @@ class _FollowRequestItemState extends State<_FollowRequestItem> {
     } catch (e) {
       setState(() => _isLoading = false);
     }
-  }
-
-  Widget _defaultAvatar(String username) {
-    return Container(
-      color: AppColors.border,
-      child: Center(
-        child: Text(
-          username.isNotEmpty ? username[0].toUpperCase() : '?',
-          style: const TextStyle(
-            fontSize: 20,
-            fontWeight: FontWeight.bold,
-            color: AppColors.textSecondary,
-          ),
-        ),
-      ),
-    );
   }
 }

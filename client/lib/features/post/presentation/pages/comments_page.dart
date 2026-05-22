@@ -15,6 +15,7 @@ import '../providers/comment_provider.dart';
 import '../../../../features/auth/presentation/providers/auth_provider.dart';
 import '../../../../shared/widgets/spring_widget.dart';
 import '../../../../shared/widgets/verified_badge.dart';
+import '../../../../shared/widgets/user_story_avatar.dart';
 import '../../../../features/menu/presentation/three_dot_menu.dart';
 import '../../../../features/menu/models/menu_context.dart';
 import '../../../../features/menu/models/menu_action.dart';
@@ -274,10 +275,12 @@ class _CommentsPageState extends ConsumerState<CommentsPage> {
             padding: const EdgeInsets.fromLTRB(16, 4, 16, 12),
             child: Row(
               children: [
-                CircleAvatar(
-                  radius: 12,
-                  backgroundImage: currentUser?.profilePicUrl != null ? CachedNetworkImageProvider(currentUser!.profilePicUrl!) : null,
-                  backgroundColor: AppColors.border,
+                UserStoryAvatar(
+                  userId: currentUser?.id ?? '',
+                  profilePicUrl: currentUser?.profilePicUrl,
+                  username: currentUser?.username,
+                  size: 24,
+                  isClickable: true,
                 ),
                 const SizedBox(width: 12),
                 Expanded(
@@ -332,10 +335,13 @@ class _CaptionItem extends StatelessWidget {
         children: [
           BouncyTap(
             onTap: () => context.push('/profile/${post.user?.username}'),
-            child: CircleAvatar(
-              radius: 16,
-              backgroundImage: post.user?.profilePicUrl != null ? CachedNetworkImageProvider(post.user!.profilePicUrl!) : null,
-              backgroundColor: AppColors.border,
+            child: UserStoryAvatar(
+              userId: post.userId,
+              profilePicUrl: post.userAvatar,
+              username: post.username,
+              size: 32,
+              showPresence: false,
+              isClickable: true,
             ),
           ),
           const SizedBox(width: 12),
@@ -478,10 +484,13 @@ class _CommentRow extends StatelessWidget {
         children: [
           BouncyTap(
             onTap: () => context.push('/profile/${comment.user?.username}'),
-            child: CircleAvatar(
-              radius: isReply ? 12 : 16,
-              backgroundImage: comment.user?.profilePicUrl != null ? CachedNetworkImageProvider(comment.user!.profilePicUrl!) : null,
-              backgroundColor: AppColors.border,
+            child: UserStoryAvatar(
+              userId: comment.user?.id ?? '',
+              profilePicUrl: comment.user?.profilePicUrl,
+              username: comment.user?.username,
+              size: isReply ? 24 : 32,
+              showPresence: false,
+              isClickable: true,
             ),
           ),
           const SizedBox(width: 12),

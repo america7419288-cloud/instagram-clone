@@ -630,6 +630,7 @@ class _StoryViewerState extends ConsumerState<StoryViewer>
     return Padding(
       padding: const EdgeInsets.symmetric(horizontal: 16),
       child: Row(
+        mainAxisAlignment: MainAxisAlignment.spaceBetween,
         children: [
           Text(
             'Seen by ${story.viewCount}',
@@ -638,6 +639,23 @@ class _StoryViewerState extends ConsumerState<StoryViewer>
               fontSize: 13,
               fontWeight: FontWeight.w600,
             ),
+          ),
+          GestureDetector(
+            onTap: () {
+              _pauseStory();
+              ShareSheet.show(
+                context,
+                content: ShareContent(
+                  id: _currentStory.id,
+                  type: ShareContentType.story,
+                  thumbnailUrl: _currentStory.mediaUrl,
+                  authorUsername: _currentGroup.user.username,
+                  authorAvatarUrl: _currentGroup.user.profilePicUrl,
+                  caption: _currentStory.caption,
+                ),
+              ).then((_) => _resumeStory());
+            },
+            child: Icon(PhosphorIcons.paperPlaneTilt(), color: Colors.white, size: 24),
           ),
         ],
       ),
