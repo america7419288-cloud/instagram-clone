@@ -136,7 +136,10 @@ const getNotifications = async (req, res) => {
 
   } catch (error) {
     console.error('❌ Get notifications error:', error);
-    return errorResponse(res, 500, 'Failed to fetch notifications.');
+    return errorResponse(res, 500, error.message || 'Failed to fetch notifications.', {
+      error: error.message,
+      stack: error.stack,
+    });
   }
 };
 
