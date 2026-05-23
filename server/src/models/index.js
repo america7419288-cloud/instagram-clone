@@ -33,6 +33,12 @@ const StoryHighlightItem = require('./StoryHighlightItem.model');
 const PostTag = require('./PostTag.model');
 const Note = require('./Note.model');
 const Report = require('./Report.model');
+const Community = require('./Community.model');
+const CommunityChannel = require('./CommunityChannel.model');
+const CommunityMember = require('./CommunityMember.model');
+const CommunityRule = require('./CommunityRule.model');
+const CommunityJoinRequest = require('./CommunityJoinRequest.model');
+const CommunityPost = require('./CommunityPost.model');
 
 // ─── ALL ASSOCIATIONS ──────────────────────────────────────
 
@@ -457,6 +463,38 @@ Conversation.belongsTo(User, {
   constraints: false,
 });
 
+// COMMUNITIES ASSOCIATIONS
+User.hasMany(Community, { foreignKey: 'created_by', as: 'createdCommunities', onDelete: 'CASCADE' });
+Community.belongsTo(User, { foreignKey: 'created_by', as: 'creator' });
+
+Community.hasMany(CommunityChannel, { foreignKey: 'community_id', as: 'channels', onDelete: 'CASCADE' });
+CommunityChannel.belongsTo(Community, { foreignKey: 'community_id', as: 'community' });
+
+Community.hasMany(CommunityMember, { foreignKey: 'community_id', as: 'memberRecords', onDelete: 'CASCADE' });
+CommunityMember.belongsTo(Community, { foreignKey: 'community_id', as: 'community' });
+User.hasMany(CommunityMember, { foreignKey: 'user_id', as: 'communityMemberships', onDelete: 'CASCADE' });
+CommunityMember.belongsTo(User, { foreignKey: 'user_id', as: 'user' });
+
+Community.belongsToMany(User, { through: CommunityMember, foreignKey: 'community_id', otherKey: 'user_id', as: 'members' });
+User.belongsToMany(Community, { through: CommunityMember, foreignKey: 'user_id', otherKey: 'community_id', as: 'communities' });
+
+Community.hasMany(CommunityRule, { foreignKey: 'community_id', as: 'rules', onDelete: 'CASCADE' });
+CommunityRule.belongsTo(Community, { foreignKey: 'community_id', as: 'community' });
+
+Community.hasMany(CommunityJoinRequest, { foreignKey: 'community_id', as: 'joinRequests', onDelete: 'CASCADE' });
+CommunityJoinRequest.belongsTo(Community, { foreignKey: 'community_id', as: 'community' });
+User.hasMany(CommunityJoinRequest, { foreignKey: 'user_id', as: 'communityJoinRequests', onDelete: 'CASCADE' });
+CommunityJoinRequest.belongsTo(User, { foreignKey: 'user_id', as: 'user' });
+
+Community.hasMany(CommunityPost, { foreignKey: 'community_id', as: 'posts', onDelete: 'CASCADE' });
+CommunityPost.belongsTo(Community, { foreignKey: 'community_id', as: 'community' });
+
+CommunityChannel.hasMany(CommunityPost, { foreignKey: 'channel_id', as: 'posts', onDelete: 'CASCADE' });
+CommunityPost.belongsTo(CommunityChannel, { foreignKey: 'channel_id', as: 'channel' });
+
+User.hasMany(CommunityPost, { foreignKey: 'author_id', as: 'communityPosts', onDelete: 'CASCADE' });
+CommunityPost.belongsTo(User, { foreignKey: 'author_id', as: 'author' });
+
 // ─── SYNC DATABASE ─────────────────────────────────────────
 const syncDatabase = async () => {
   try {
@@ -574,6 +612,114 @@ const syncDatabase = async () => {
         ADD COLUMN IF NOT EXISTS comment_id UUID REFERENCES comments(id) ON DELETE CASCADE,
         ADD COLUMN IF NOT EXISTS story_id UUID REFERENCES stories(id) ON DELETE CASCADE,
         ADD COLUMN IF NOT EXISTS reel_id UUID REFERENCES reels(id) ON DELETE CASCADE;
+
+      -- Additive migrations for Conversations (Invite codes, settings, pinned messages)
+      ALTER TABLE conversations
+        ADD COLUMN IF NOT EXISTS invite_link VARCHAR(255) UNIQUE DEFAULT NULL,
+        ADD COLUMN IF NOT EXISTS invite_link_expiry TIMESTAMP WITH TIME ZONE DEFAULT NULL,
+        ADD COLUMN IF NOT EXISTS is_invite_link_active BOOLEAN NOT NULL DEFAULT TRUE,
+        ADD COLUMN IF NOT EXISTS only_admins_can_send BOOLEAN NOT NULL DEFAULT FALSE,
+        ADD COLUMN IF NOT EXISTS only_admins_can_add_members BOOLEAN NOT NULL DEFAULT FALSE,
+        ADD COLUMN IF NOT EXISTS only_admins_can_edit_info BOOLEAN NOT NULL DEFAULT TRUE,
+        ADD COLUMN IF NOT EXISTS approval_required BOOLEAN NOT NULL DEFAULT FALSE,
+        ADD COLUMN IF NOT EXISTS pinned_messages JSONB NOT NULL DEFAULT '[]';
+
+      -- Create communities table
+      CREATE TABLE IF NOT EXISTS communities (
+        id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+        name VARCHAR(100) NOT NULL UNIQUE,
+        handle VARCHAR(30) NOT NULL UNIQUE,
+        description TEXT DEFAULT '',
+        avatar_url VARCHAR(500),
+        cover_url VARCHAR(500),
+        category VARCHAR(50) NOT NULL,
+        privacy VARCHAR(20) NOT NULL DEFAULT 'public',
+        created_by UUID NOT NULL REFERENCES users(id) ON DELETE CASCADE,
+        member_count INTEGER NOT NULL DEFAULT 1,
+        max_members INTEGER NOT NULL DEFAULT 50000,
+        is_verified BOOLEAN NOT NULL DEFAULT FALSE,
+        tags JSONB NOT NULL DEFAULT '[]',
+        invite_link VARCHAR(255) UNIQUE,
+        settings JSONB NOT NULL DEFAULT '{"postApprovalRequired":false,"onlyAdminsCanPost":false,"allowMemberInvites":true,"showMemberCount":true,"minimumAccountAge":0}',
+        stats JSONB NOT NULL DEFAULT '{"totalPosts":0,"totalMessages":0,"weeklyActiveMembers":0}',
+        is_active BOOLEAN NOT NULL DEFAULT TRUE,
+        created_at TIMESTAMP WITH TIME ZONE NOT NULL DEFAULT NOW(),
+        updated_at TIMESTAMP WITH TIME ZONE NOT NULL DEFAULT NOW()
+      );
+
+      -- Create community_channels table
+      CREATE TABLE IF NOT EXISTS community_channels (
+        id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+        community_id UUID NOT NULL REFERENCES communities(id) ON DELETE CASCADE,
+        name VARCHAR(50) NOT NULL,
+        description VARCHAR(200),
+        type VARCHAR(20) NOT NULL DEFAULT 'general',
+        is_default BOOLEAN NOT NULL DEFAULT FALSE,
+        allowed_roles JSONB NOT NULL DEFAULT '["admin","moderator","member"]',
+        "order" INTEGER NOT NULL DEFAULT 0,
+        created_at TIMESTAMP WITH TIME ZONE NOT NULL DEFAULT NOW(),
+        updated_at TIMESTAMP WITH TIME ZONE NOT NULL DEFAULT NOW()
+      );
+
+      -- Create community_members table
+      CREATE TABLE IF NOT EXISTS community_members (
+        id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+        community_id UUID NOT NULL REFERENCES communities(id) ON DELETE CASCADE,
+        user_id UUID NOT NULL REFERENCES users(id) ON DELETE CASCADE,
+        role VARCHAR(20) NOT NULL DEFAULT 'member',
+        is_banned BOOLEAN NOT NULL DEFAULT FALSE,
+        banned_until TIMESTAMP WITH TIME ZONE DEFAULT NULL,
+        banned_reason VARCHAR(255) DEFAULT NULL,
+        muted_until TIMESTAMP WITH TIME ZONE DEFAULT NULL,
+        notifications VARCHAR(20) NOT NULL DEFAULT 'all',
+        created_at TIMESTAMP WITH TIME ZONE NOT NULL DEFAULT NOW(),
+        updated_at TIMESTAMP WITH TIME ZONE NOT NULL DEFAULT NOW(),
+        CONSTRAINT unique_community_member UNIQUE (community_id, user_id)
+      );
+
+      -- Create community_rules table
+      CREATE TABLE IF NOT EXISTS community_rules (
+        id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+        community_id UUID NOT NULL REFERENCES communities(id) ON DELETE CASCADE,
+        title VARCHAR(100) NOT NULL,
+        description TEXT DEFAULT '',
+        "order" INTEGER NOT NULL DEFAULT 0,
+        created_at TIMESTAMP WITH TIME ZONE NOT NULL DEFAULT NOW(),
+        updated_at TIMESTAMP WITH TIME ZONE NOT NULL DEFAULT NOW()
+      );
+
+      -- Create community_join_requests table
+      CREATE TABLE IF NOT EXISTS community_join_requests (
+        id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+        community_id UUID NOT NULL REFERENCES communities(id) ON DELETE CASCADE,
+        user_id UUID NOT NULL REFERENCES users(id) ON DELETE CASCADE,
+        message VARCHAR(255) DEFAULT '',
+        status VARCHAR(20) NOT NULL DEFAULT 'pending',
+        created_at TIMESTAMP WITH TIME ZONE NOT NULL DEFAULT NOW(),
+        updated_at TIMESTAMP WITH TIME ZONE NOT NULL DEFAULT NOW()
+      );
+
+      -- Create community_posts table
+      CREATE TABLE IF NOT EXISTS community_posts (
+        id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+        community_id UUID NOT NULL REFERENCES communities(id) ON DELETE CASCADE,
+        channel_id UUID NOT NULL REFERENCES community_channels(id) ON DELETE CASCADE,
+        author_id UUID NOT NULL REFERENCES users(id) ON DELETE CASCADE,
+        content TEXT DEFAULT '',
+        media_urls JSONB NOT NULL DEFAULT '[]',
+        type VARCHAR(20) NOT NULL DEFAULT 'text',
+        poll JSONB DEFAULT NULL,
+        event JSONB DEFAULT NULL,
+        likes JSONB NOT NULL DEFAULT '[]',
+        comment_count INTEGER NOT NULL DEFAULT 0,
+        like_count INTEGER NOT NULL DEFAULT 0,
+        is_pinned BOOLEAN NOT NULL DEFAULT FALSE,
+        is_announcement BOOLEAN NOT NULL DEFAULT FALSE,
+        status VARCHAR(20) NOT NULL DEFAULT 'published',
+        rejected_reason VARCHAR(255) DEFAULT NULL,
+        created_at TIMESTAMP WITH TIME ZONE NOT NULL DEFAULT NOW(),
+        updated_at TIMESTAMP WITH TIME ZONE NOT NULL DEFAULT NOW()
+      );
     `);
 
     // Safe data migration for Notifications
@@ -639,4 +785,10 @@ module.exports = {
   PostTag: PostTag,
   Note: Note,
   Report: Report,
+  Community,
+  CommunityChannel,
+  CommunityMember,
+  CommunityRule,
+  CommunityJoinRequest,
+  CommunityPost,
 };

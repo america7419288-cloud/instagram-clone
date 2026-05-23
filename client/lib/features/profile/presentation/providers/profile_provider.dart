@@ -57,7 +57,6 @@ class ProfileState {
 class ProfileNotifier extends Notifier<ProfileState> {
   late ProfileService _service;
   late String username;
-  Timer? _refreshTimer;
 
   @override
   ProfileState build() {
@@ -65,18 +64,6 @@ class ProfileNotifier extends Notifier<ProfileState> {
     
     // Initial load
     Future.microtask(() => loadProfile());
-    
-    // ─── PERIODIC REFRESH ─────────────────────────────────────
-    // Refresh profile every 20 seconds to keep stats updated
-    _refreshTimer = Timer.periodic(const Duration(seconds: 20), (_) {
-      if (!state.isLoading) {
-        refresh();
-      }
-    });
-
-    ref.onDispose(() {
-      _refreshTimer?.cancel();
-    });
 
     return const ProfileState();
   }

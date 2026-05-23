@@ -118,7 +118,7 @@ class ActiveFriendItem extends ConsumerWidget {
         onTap: itemTapHandler,
         behavior: HitTestBehavior.opaque,
         child: SizedBox(
-          width: 92,
+          width: 104,
           child: Column(
             mainAxisAlignment: MainAxisAlignment.center,
             crossAxisAlignment: CrossAxisAlignment.center,
@@ -137,8 +137,8 @@ class ActiveFriendItem extends ConsumerWidget {
                   // NOTE BUBBLE (above avatar)
                   if (activeNote != null)
                     Positioned(
-                      top: -26, // Shifted up beautifully
-                      left: 14, // Aligned slightly right of center to match the bottom-left pointer tail
+                      top: -28, // Shifted up beautifully
+                      left: 20, // Aligned slightly right of center to match the bottom-left pointer tail
                       child: NoteBubble(
                         note: activeNote,
                         animateEntry: true,
@@ -180,8 +180,8 @@ class ActiveFriendItem extends ConsumerWidget {
       children: [
         // Avatar frame
         Container(
-          width: 56,
-          height: 56,
+          width: 82,
+          height: 82,
           decoration: const BoxDecoration(shape: BoxShape.circle),
           child: CustomPaint(
             painter: DashedCirclePainter(
@@ -193,7 +193,7 @@ class ActiveFriendItem extends ConsumerWidget {
               child: Container(
                 decoration: const BoxDecoration(shape: BoxShape.circle),
                 child: ClipRRect(
-                  borderRadius: BorderRadius.circular(28),
+                  borderRadius: BorderRadius.circular(41),
                   child: avatarUrl.isNotEmpty
                       ? CachedNetworkImage(
                           imageUrl: avatarUrl,
@@ -213,8 +213,8 @@ class ActiveFriendItem extends ConsumerWidget {
             bottom: 0,
             right: 0,
             child: Container(
-              width: 18,
-              height: 18,
+              width: 20,
+              height: 20,
               decoration: BoxDecoration(
                 color: const Color(0xFF0095F6),
                 shape: BoxShape.circle,
@@ -226,7 +226,7 @@ class ActiveFriendItem extends ConsumerWidget {
               child: const Icon(
                 Icons.add,
                 color: Colors.white,
-                size: 12,
+                size: 13,
               ),
             ),
           ),
@@ -240,13 +240,13 @@ class ActiveFriendItem extends ConsumerWidget {
       children: [
         // Profile picture
         Container(
-          width: 56,
-          height: 56,
+          width: 82,
+          height: 82,
           decoration: const BoxDecoration(
             shape: BoxShape.circle,
           ),
           child: ClipRRect(
-            borderRadius: BorderRadius.circular(28),
+            borderRadius: BorderRadius.circular(41),
             child: CachedNetworkImage(
               imageUrl: friend!.avatarUrl,
               fit: BoxFit.cover,
@@ -261,15 +261,15 @@ class ActiveFriendItem extends ConsumerWidget {
           const Positioned(
             bottom: -3,
             right: -3,
-            child: PulsingDot(size: 11),
+            child: PulsingDot(size: 13),
           )
         else if (friend!.lastActiveTime != null)
           Positioned(
             bottom: 0,
             right: 0,
             child: Container(
-              width: 12,
-              height: 12,
+              width: 14,
+              height: 14,
               decoration: BoxDecoration(
                 color: const Color(0xFF09C167),
                 shape: BoxShape.circle,

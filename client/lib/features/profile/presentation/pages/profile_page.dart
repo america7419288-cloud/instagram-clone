@@ -150,52 +150,60 @@ class _ProfilePageState extends ConsumerState<ProfilePage>
   Widget _buildProfile(ProfileState state, FollowState followState, bool isDark) {
     final profile = state.profile!;
 
-    return NestedScrollView(
-      controller: _scrollController,
-      headerSliverBuilder: (context, innerBoxIsScrolled) {
-        return [
-          SliverToBoxAdapter(
-            child: Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                _buildHeader(profile, followState),
-                _buildBio(profile),
-                _buildActionButtons(profile, followState, isDark),
-                _buildHighlights(profile, followState),
-              ],
-            ),
-          ),
-          if (!followState.isBlocked)
-            SliverPersistentHeader(
-              pinned: true,
-              delegate: _ProfileTabDelegate(
-                TabBar(
-                  controller: _tabController,
-                  indicatorColor: isDark ? Colors.white : Colors.black,
-                  indicatorWeight: 1,
-                  labelColor: isDark ? Colors.white : Colors.black,
-                  unselectedLabelColor: Colors.grey,
-                  tabs: [
-                    Tab(icon: Icon(LucideIcons.layout_grid, size: 24, color: isDark ? Colors.white : Colors.black)),
-                    Tab(icon: Icon(LucideIcons.clapperboard, size: 24, color: isDark ? Colors.white : Colors.black)),
-                    Tab(icon: Icon(LucideIcons.contact, size: 24, color: isDark ? Colors.white : Colors.black)),
-                  ],
-                ),
-                isDark: isDark,
+    return RefreshIndicator(
+      onRefresh: () async {
+        await ref.read(profileProvider(widget.username).notifier).refresh();
+      },
+      color: isDark ? Colors.white : Colors.black,
+      backgroundColor: isDark ? const Color(0xFF1C1C1E) : Colors.white,
+      child: NestedScrollView(
+        controller: _scrollController,
+        physics: const AlwaysScrollableScrollPhysics(),
+        headerSliverBuilder: (context, innerBoxIsScrolled) {
+          return [
+            SliverToBoxAdapter(
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  _buildHeader(profile, followState),
+                  _buildBio(profile),
+                  _buildActionButtons(profile, followState, isDark),
+                  _buildHighlights(profile, followState),
+                ],
               ),
             ),
-        ];
-      },
-      body: followState.isBlocked
-          ? _buildBlockedView(profile, isDark)
-          : TabBarView(
-              controller: _tabController,
-              children: [
-                _buildPostsGrid(state, profile, followState),
-                const Center(child: Text('Reels')),
-                _TaggedGrid(username: profile.username),
-              ],
-            ),
+            if (!followState.isBlocked)
+              SliverPersistentHeader(
+                pinned: true,
+                delegate: _ProfileTabDelegate(
+                  TabBar(
+                    controller: _tabController,
+                    indicatorColor: isDark ? Colors.white : Colors.black,
+                    indicatorWeight: 1,
+                    labelColor: isDark ? Colors.white : Colors.black,
+                    unselectedLabelColor: Colors.grey,
+                    tabs: [
+                      Tab(icon: Icon(LucideIcons.layout_grid, size: 24, color: isDark ? Colors.white : Colors.black)),
+                      Tab(icon: Icon(LucideIcons.clapperboard, size: 24, color: isDark ? Colors.white : Colors.black)),
+                      Tab(icon: Icon(LucideIcons.contact, size: 24, color: isDark ? Colors.white : Colors.black)),
+                    ],
+                  ),
+                  isDark: isDark,
+                ),
+              ),
+          ];
+        },
+        body: followState.isBlocked
+            ? _buildBlockedView(profile, isDark)
+            : TabBarView(
+                controller: _tabController,
+                children: [
+                  _buildPostsGrid(state, profile, followState),
+                  const Center(child: Text('Reels')),
+                  _TaggedGrid(username: profile.username),
+                ],
+              ),
+      ),
     );
   }
 

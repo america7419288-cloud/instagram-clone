@@ -264,6 +264,33 @@ const setupSocketServer = (httpServer) => {
       });
     });
 
+    // ─── EVENT: JOIN COMMUNITY ROOM ────────────────────────
+    socket.on('join-community', async ({ community_id }) => {
+      try {
+        if (!community_id) return;
+
+        const roomName = `community:${community_id}`;
+        socket.join(roomName);
+
+        console.log(`📥 ${username} joined community room: ${roomName}`);
+
+        socket.emit('joined-community', {
+          community_id,
+          message: `Joined community room successfully`,
+        });
+      } catch (error) {
+        console.error('Join community room error:', error.message);
+        socket.emit('error', { message: 'Failed to join community room.' });
+      }
+    });
+
+    // ─── EVENT: LEAVE COMMUNITY ROOM ───────────────────────
+    socket.on('leave-community', ({ community_id }) => {
+      const roomName = `community:${community_id}`;
+      socket.leave(roomName);
+      console.log(`📤 ${username} left community room: ${roomName}`);
+    });
+
     // ─── EVENT: SEND MESSAGE ────────────────────────────────
     // When a message is sent via API, this broadcasts it
     // to all other participants in real-time

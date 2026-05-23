@@ -68,7 +68,7 @@ class ActiveFriendsBar extends ConsumerWidget {
     }
 
     return Container(
-      height: 125, // Height increased to perfectly accommodate the note speech bubbles without clipping
+      height: 154, // Increased to accommodate larger 82px avatars + note bubbles
       margin: const EdgeInsets.only(top: 8),
       decoration: BoxDecoration(
         border: Border(
@@ -92,7 +92,7 @@ class ActiveFriendsBar extends ConsumerWidget {
         child: ListView.builder(
           scrollDirection: Axis.horizontal,
           physics: const BouncingScrollPhysics(),
-          padding: const EdgeInsets.only(left: 16, right: 24, top: 18), // Increased top padding to 18 to make room for bubbles
+          padding: const EdgeInsets.only(left: 16, right: 24, top: 24), // Increased top padding to 24 to make room for bubbles
           itemCount: mergedFriends.length + 1, // +1 for "Your Note"
           itemBuilder: (context, index) {
             final double delay = (index * 0.06).clamp(0.0, 0.4);

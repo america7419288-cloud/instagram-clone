@@ -108,94 +108,107 @@ class _InboxAppBarState extends State<InboxAppBar> {
     final iconColor = isDark ? Colors.white : Colors.black;
 
     // Fade out username title as scrollOffset goes past 20.
-    final double titleOpacity = (1.0 - (widget.scrollOffset / 20.0)).clamp(0.0, 1.0);
+    final double titleOpacity =
+        (1.0 - (widget.scrollOffset / 20.0)).clamp(0.0, 1.0);
 
     return Container(
       color: bgColor,
       child: SafeArea(
         bottom: false,
-        child: Container(
+        child: SizedBox(
           height: 44,
-          padding: const EdgeInsets.symmetric(horizontal: 8),
-          child: Row(
+          child: Stack(
+            alignment: Alignment.center,
             children: [
-              // BACK BUTTON
-              GestureDetector(
-                onTap: widget.onBackTap,
-                behavior: HitTestBehavior.opaque,
-                child: Padding(
-                  padding: const EdgeInsets.all(4.0),
-                  child: Icon(
-                    LucideIcons.chevron_left,
-                    color: iconColor,
-                    size: 28,
-                  ),
-                ),
-              ),
-              const SizedBox(width: 8),
-
-              // USERNAME & DROPDOWN
-              Expanded(
-                child: Opacity(
-                  opacity: titleOpacity,
-                  child: GestureDetector(
-                    onTap: _handleDropdownTap,
-                    behavior: HitTestBehavior.opaque,
-                    child: Row(
-                      mainAxisSize: MainAxisSize.min,
-                      children: [
-                        Flexible(
-                          child: Text(
-                            widget.username,
-                            style: TextStyle(
-                              fontFamily: 'SF Pro Display',
-                              fontSize: 17,
-                              fontWeight: FontWeight.w700,
-                              color: iconColor,
-                            ),
-                            overflow: TextOverflow.ellipsis,
-                          ),
-                        ),
-                        const SizedBox(width: 4),
-                        AnimatedRotation(
-                          turns: _isDropdownOpen ? 0.5 : 0.0,
-                          duration: const Duration(milliseconds: 200),
-                          child: Icon(
-                            LucideIcons.chevron_down,
-                            color: iconColor,
-                            size: 16,
-                          ),
-                        ),
-                      ],
+              // ── LEFT: back button ──────────────────────────
+              Positioned(
+                left: 8,
+                child: GestureDetector(
+                  onTap: widget.onBackTap,
+                  behavior: HitTestBehavior.opaque,
+                  child: Padding(
+                    padding: const EdgeInsets.all(4.0),
+                    child: Icon(
+                      LucideIcons.chevron_left,
+                      color: iconColor,
+                      size: 28,
                     ),
                   ),
                 ),
               ),
 
-              // RIGHT ACTION BUTTONS
-              GestureDetector(
-                onTap: widget.onVideoCallTap,
-                behavior: HitTestBehavior.opaque,
-                child: Padding(
-                  padding: const EdgeInsets.symmetric(horizontal: 8.0, vertical: 4.0),
-                  child: Icon(
-                    LucideIcons.video,
-                    color: iconColor,
-                    size: 26,
+              // ── CENTER: username + dropdown ────────────────
+              Opacity(
+                opacity: titleOpacity,
+                child: GestureDetector(
+                  onTap: _handleDropdownTap,
+                  behavior: HitTestBehavior.opaque,
+                  child: Row(
+                    mainAxisSize: MainAxisSize.min,
+                    children: [
+                      ConstrainedBox(
+                        constraints: BoxConstraints(
+                          maxWidth: MediaQuery.of(context).size.width * 0.5,
+                        ),
+                        child: Text(
+                          widget.username,
+                          style: TextStyle(
+                            fontSize: 17,
+                            fontWeight: FontWeight.w800,
+                            color: iconColor,
+                            letterSpacing: -0.3,
+                          ),
+                          overflow: TextOverflow.ellipsis,
+                        ),
+                      ),
+                      const SizedBox(width: 4),
+                      AnimatedRotation(
+                        turns: _isDropdownOpen ? 0.5 : 0.0,
+                        duration: const Duration(milliseconds: 200),
+                        child: Icon(
+                          LucideIcons.chevron_down,
+                          color: iconColor,
+                          size: 16,
+                        ),
+                      ),
+                    ],
                   ),
                 ),
               ),
-              const SizedBox(width: 4),
-              GestureDetector(
-                onTap: widget.onComposeTap,
-                behavior: HitTestBehavior.opaque,
-                child: Padding(
-                  padding: const EdgeInsets.only(left: 8.0, right: 16.0, top: 4.0, bottom: 4.0),
-                  child: Icon(
-                    LucideIcons.square_pen,
-                    color: iconColor,
-                    size: 24,
-                  ),
+
+              // ── RIGHT: action buttons ──────────────────────
+              Positioned(
+                right: 8,
+                child: Row(
+                  mainAxisSize: MainAxisSize.min,
+                  children: [
+                    GestureDetector(
+                      onTap: widget.onVideoCallTap,
+                      behavior: HitTestBehavior.opaque,
+                      child: Padding(
+                        padding: const EdgeInsets.symmetric(
+                            horizontal: 8.0, vertical: 4.0),
+                        child: Icon(
+                          LucideIcons.video,
+                          color: iconColor,
+                          size: 26,
+                        ),
+                      ),
+                    ),
+                    GestureDetector(
+                      onTap: widget.onComposeTap,
+                      behavior: HitTestBehavior.opaque,
+                      child: Padding(
+                        padding: const EdgeInsets.only(
+                            left: 8.0, right: 8.0, top: 4.0, bottom: 4.0),
+                        child: Icon(
+                          LucideIcons.square_pen,
+                          color: iconColor,
+                          size: 24,
+                        ),
+                      ),
+                    ),
+                  ],
                 ),
               ),
             ],

@@ -16,6 +16,7 @@ import '../widgets/conversation_tile.dart';
 import '../../notes/pages/note_create_sheet.dart';
 import '../../notes/controllers/notes_controller.dart';
 import '../../chat/presentation/providers/chat_providers.dart';
+import '../../chat/presentation/providers/chat_notifiers.dart';
 
 class InboxPage extends ConsumerStatefulWidget {
   const InboxPage({super.key});
@@ -134,6 +135,15 @@ class _InboxPageState extends ConsumerState<InboxPage>
     final existingNote = ref.read(notesProvider).myNote;
     NoteCreateSheet.show(context, existingNote: existingNote);
   }
+
+  Future<void> _onRefresh() async {
+    // Refresh inbox conversations, active friends, and notes in parallel
+    await Future.wait([
+      ref.read(inboxProvider.notifier).refresh(),
+      ref.read(notesProvider.notifier).fetchNotesFeed(),
+      ref.read(authProvider.notifier).refreshUser(),
+    ]);
+  }
   @override
   Widget build(BuildContext context) {
     final isDark = Theme.of(context).brightness == Brightness.dark;
@@ -149,7 +159,12 @@ class _InboxPageState extends ConsumerState<InboxPage>
       body: AnimatedBuilder(
         animation: _entryController,
         builder: (context, _) {
-          return CustomScrollView(
+          return RefreshIndicator(
+            onRefresh: _onRefresh,
+            displacement: 60,
+            color: isDark ? Colors.white : Colors.black,
+            backgroundColor: isDark ? const Color(0xFF1C1C1E) : Colors.white,
+            child: CustomScrollView(
             controller: _scrollController,
             physics: const AlwaysScrollableScrollPhysics(
               parent: BouncingScrollPhysics(),
@@ -258,6 +273,7 @@ class _InboxPageState extends ConsumerState<InboxPage>
                 child: SizedBox(height: 80),
               ),
             ],
+          ),
           );
         },
       ),

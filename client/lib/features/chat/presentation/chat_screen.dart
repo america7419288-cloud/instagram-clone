@@ -15,6 +15,7 @@ import 'widgets/message_list.dart';
 import 'widgets/chat_input_bar.dart';
 import 'widgets/reply_preview.dart';
 import 'widgets/reaction_overlay.dart';
+import 'widgets/group_info_sheet.dart';
 
 class ChatScreen extends ConsumerStatefulWidget {
   final String conversationId;
@@ -141,7 +142,15 @@ class _ChatScreenState extends ConsumerState<ChatScreen>
                       isDark: isDark,
                       onBack: () =>
                           Navigator.of(context).pop(),
-                      onInfoTap: () {},
+                      onInfoTap: () {
+                        HapticFeedback.mediumImpact();
+                        GroupInfoSheet.show(
+                          context,
+                          conversationId: widget.conversationId,
+                          groupName: widget.username,
+                          groupAvatar: widget.avatarUrl,
+                        );
+                      },
                       onCall: () {},
                       onVideo: () {},
                     ),

@@ -1897,6 +1897,716 @@ const rejectConversationRequest = async (req, res) => {
   }
 };
 
+// ─────────────────────────────────────────────────────────────
+// ADVANCED GROUP CONTROLLERS
+// ─────────────────────────────────────────────────────────────
+
+const getGroupMembers = async (req, res) => {
+  try {
+    const { id: conversationId } = req.params;
+    const currentUserId = req.user.id;
+
+    // Verify participant
+    const isParticipant = await ConversationParticipant.findOne({
+      where: { conversation_id: conversationId, user_id: currentUserId, left_at: null }
+    });
+    if (!isParticipant) {
+      return errorResponse(res, 403, 'You are not a participant in this conversation.');
+    }
+
+    const members = await ConversationParticipant.findAll({
+      where: { conversation_id: conversationId, left_at: null },
+      include: [
+        {
+          model: User,
+          as: 'user',
+          attributes: ['id', 'username', 'full_name', 'profile_pic_url', 'is_verified'],
+        }
+      ]
+    });
+
+    return successResponse(res, 200, 'Group members fetched successfully.', { members });
+  } catch (error) {
+    console.error('❌ Get group members error:', error);
+    return errorResponse(res, 500, 'Failed to fetch group members.', error.message);
+  }
+};
+
+const addGroupMembers = async (req, res) => {
+  try {
+    const { id: conversationId } = req.params;
+    const { participant_ids } = req.body;
+    const currentUserId = req.user.id;
+
+    const conversation = await Conversation.findByPk(conversationId);
+    if (!conversation) {
+      return errorResponse(res, 404, 'Conversation not found.');
+    }
+
+    // Get requester participant record
+    const requester = await ConversationParticipant.findOne({
+      where: { conversation_id: conversationId, user_id: currentUserId, left_at: null }
+    });
+    if (!requester) {
+      return errorResponse(res, 403, 'You are not a participant in this group.');
+    }
+
+    // Check admin privileges if settings restrict adding
+    if (conversation.only_admins_can_add_members && requester.role !== 'admin' && conversation.created_by !== currentUserId) {
+      return errorResponse(res, 403, 'Only admins can add members to this group.');
+    }
+
+    // Check capacity (max 250 members)
+    const activeMembersCount = await ConversationParticipant.count({
+      where: { conversation_id: conversationId, left_at: null }
+    });
+    if (activeMembersCount + participant_ids.length > 250) {
+      return errorResponse(res, 400, 'Adding these participants would exceed the maximum 250 members limit.');
+    }
+
+    // Filter user IDs to insert
+    const uniqueIds = Array.from(new Set(participant_ids.filter(id => id !== currentUserId)));
+    const existingParticipants = await ConversationParticipant.findAll({
+      where: { conversation_id: conversationId, user_id: { [Op.in]: uniqueIds } }
+    });
+    
+    const existingMap = new Map(existingParticipants.map(p => [p.user_id, p]));
+    const idsToAdd = [];
+    const idsToReactivate = [];
+
+    for (const uid of uniqueIds) {
+      const p = existingMap.get(uid);
+      if (!p) {
+        idsToAdd.push(uid);
+      } else if (p.left_at !== null) {
+        idsToReactivate.push(uid);
+      }
+    }
+
+    if (idsToAdd.length === 0 && idsToReactivate.length === 0) {
+      return errorResponse(res, 400, 'All selected users are already members of this group.');
+    }
+
+    // Add new participants
+    if (idsToAdd.length > 0) {
+      await ConversationParticipant.bulkCreate(idsToAdd.map(uid => ({
+        conversation_id: conversationId,
+        user_id: uid,
+        role: 'member',
+      })));
+    }
+
+    // Reactivate participants who had left
+    if (idsToReactivate.length > 0) {
+      await ConversationParticipant.update(
+        { left_at: null, role: 'member' },
+        { where: { conversation_id: conversationId, user_id: { [Op.in]: idsToReactivate } } }
+      );
+    }
+
+    // Generate system message
+    const users = await User.findAll({
+      where: { id: { [Op.in]: [...idsToAdd, ...idsToReactivate] } },
+      attributes: ['username']
+    });
+    const joinedNames = users.map(u => u.username).join(', ');
+    
+    const systemMessage = await Message.create({
+      conversation_id: conversationId,
+      sender_id: currentUserId,
+      content: `${req.user.username} added ${joinedNames} to the group.`,
+      message_type: 'text',
+    });
+
+    await conversation.update({
+      last_message: systemMessage.content,
+      last_message_at: systemMessage.created_at,
+      last_message_sender_id: currentUserId,
+    });
+
+    // Broadcast socket updates
+    const io = req.app.get('io');
+    if (io) {
+      io.to(`conversation:${conversationId}`).emit('new-message', formatMessage(systemMessage));
+      [...idsToAdd, ...idsToReactivate].forEach(uid => {
+        emitToUser(io, uid, 'inbox-update', {
+          conversation_id: conversationId,
+          last_message: systemMessage,
+          last_message_at: systemMessage.created_at,
+        });
+      });
+    }
+
+    return successResponse(res, 200, 'Group members added successfully.');
+  } catch (error) {
+    console.error('❌ Add group members error:', error);
+    return errorResponse(res, 500, 'Failed to add group members.', error.message);
+  }
+};
+
+const removeGroupMember = async (req, res) => {
+  try {
+    const { id: conversationId, userId } = req.params;
+    const currentUserId = req.user.id;
+
+    const conversation = await Conversation.findByPk(conversationId);
+    if (!conversation) {
+      return errorResponse(res, 404, 'Group not found.');
+    }
+
+    const remover = await ConversationParticipant.findOne({
+      where: { conversation_id: conversationId, user_id: currentUserId, left_at: null }
+    });
+    const target = await ConversationParticipant.findOne({
+      where: { conversation_id: conversationId, user_id: userId, left_at: null }
+    });
+
+    if (!remover) {
+      return errorResponse(res, 403, 'You are not a participant in this group.');
+    }
+    if (!target) {
+      return errorResponse(res, 404, 'Target member is not in this group.');
+    }
+
+    // Check roles: Owner (creatorId) > Admin > Member
+    const isOwner = conversation.created_by === currentUserId;
+    const isTargetOwner = conversation.created_by === userId;
+
+    if (isTargetOwner) {
+      return errorResponse(res, 403, 'Cannot remove the group owner.');
+    }
+
+    if (remover.role !== 'admin' && !isOwner && currentUserId !== userId) {
+      return errorResponse(res, 403, 'Only admins or the owner can remove members.');
+    }
+
+    // Admins cannot remove other admins (only owner can)
+    if (remover.role === 'admin' && target.role === 'admin' && !isOwner && currentUserId !== userId) {
+      return errorResponse(res, 403, 'Only the owner can remove other admins.');
+    }
+
+    // Mark as left
+    await target.update({ left_at: new Date() });
+
+    const targetUser = await User.findByPk(userId, { attributes: ['username'] });
+    
+    const systemMessage = await Message.create({
+      conversation_id: conversationId,
+      sender_id: currentUserId,
+      content: currentUserId === userId 
+        ? `${targetUser.username} left the group.`
+        : `${targetUser.username} was removed from the group by ${req.user.username}.`,
+      message_type: 'text',
+    });
+
+    await conversation.update({
+      last_message: systemMessage.content,
+      last_message_at: systemMessage.created_at,
+      last_message_sender_id: currentUserId,
+    });
+
+    // Broadcast socket updates
+    const io = req.app.get('io');
+    if (io) {
+      io.to(`conversation:${conversationId}`).emit('new-message', formatMessage(systemMessage));
+      emitToUser(io, userId, 'group-removed', { conversation_id: conversationId });
+      io.to(`conversation:${conversationId}`).emit('member-removed', {
+        conversation_id: conversationId,
+        user_id: userId,
+      });
+    }
+
+    return successResponse(res, 200, 'Member removed successfully.');
+  } catch (error) {
+    console.error('❌ Remove group member error:', error);
+    return errorResponse(res, 500, 'Failed to remove group member.', error.message);
+  }
+};
+
+const updateGroupMemberRole = async (req, res) => {
+  try {
+    const { id: conversationId, userId } = req.params;
+    const { role } = req.body; // 'admin' or 'member'
+    const currentUserId = req.user.id;
+
+    if (!['admin', 'member'].includes(role)) {
+      return errorResponse(res, 400, 'Invalid role. Use admin or member.');
+    }
+
+    const conversation = await Conversation.findByPk(conversationId);
+    if (!conversation) {
+      return errorResponse(res, 404, 'Group not found.');
+    }
+
+    const updater = await ConversationParticipant.findOne({
+      where: { conversation_id: conversationId, user_id: currentUserId, left_at: null }
+    });
+    const target = await ConversationParticipant.findOne({
+      where: { conversation_id: conversationId, user_id: userId, left_at: null }
+    });
+
+    if (!updater || (updater.role !== 'admin' && conversation.created_by !== currentUserId)) {
+      return errorResponse(res, 403, 'Only admins or the owner can update roles.');
+    }
+    if (!target) {
+      return errorResponse(res, 404, 'Target member is not in this group.');
+    }
+
+    if (conversation.created_by === userId) {
+      return errorResponse(res, 403, 'Cannot change owner role.');
+    }
+
+    await target.update({ role });
+
+    // Broadcast socket update
+    const io = req.app.get('io');
+    if (io) {
+      io.to(`conversation:${conversationId}`).emit('member-role-updated', {
+        conversation_id: conversationId,
+        user_id: userId,
+        role,
+      });
+    }
+
+    return successResponse(res, 200, `Role updated to ${role} successfully.`);
+  } catch (error) {
+    console.error('❌ Update group role error:', error);
+    return errorResponse(res, 500, 'Failed to update group role.', error.message);
+  }
+};
+
+const updateGroupMemberNickname = async (req, res) => {
+  try {
+    const { id: conversationId, userId } = req.params;
+    const { nickname } = req.body;
+    const currentUserId = req.user.id;
+
+    // Verify participant
+    const isParticipant = await ConversationParticipant.findOne({
+      where: { conversation_id: conversationId, user_id: currentUserId, left_at: null }
+    });
+    if (!isParticipant) {
+      return errorResponse(res, 403, 'You are not a participant in this group.');
+    }
+
+    const target = await ConversationParticipant.findOne({
+      where: { conversation_id: conversationId, user_id: userId, left_at: null }
+    });
+    if (!target) {
+      return errorResponse(res, 404, 'Target member is not in this group.');
+    }
+
+    await target.update({ nickname: nickname ? nickname.trim() : null });
+
+    const io = req.app.get('io');
+    if (io) {
+      io.to(`conversation:${conversationId}`).emit('member-nickname-updated', {
+        conversation_id: conversationId,
+        user_id: userId,
+        nickname,
+      });
+    }
+
+    return successResponse(res, 200, 'Nickname updated successfully.');
+  } catch (error) {
+    console.error('❌ Update nickname error:', error);
+    return errorResponse(res, 500, 'Failed to update nickname.', error.message);
+  }
+};
+
+const muteGroupMember = async (req, res) => {
+  try {
+    const { id: conversationId, userId } = req.params;
+    const { duration } = req.body; // duration in seconds, or 'forever' / null
+    const currentUserId = req.user.id;
+
+    // Only self mute
+    if (currentUserId !== userId) {
+      return errorResponse(res, 403, 'You can only mute notifications for yourself.');
+    }
+
+    const participant = await ConversationParticipant.findOne({
+      where: { conversation_id: conversationId, user_id: currentUserId, left_at: null }
+    });
+    if (!participant) {
+      return errorResponse(res, 404, 'Participant record not found.');
+    }
+
+    let mutedUntil = null;
+    if (duration) {
+      mutedUntil = duration === 'forever' 
+        ? new Date(2100, 0, 1) // effectively forever
+        : new Date(Date.now() + parseInt(duration) * 1000);
+    }
+
+    await participant.update({
+      is_muted: !!duration,
+      muted_until: mutedUntil,
+    });
+
+    return successResponse(res, 200, 'Notification settings updated successfully.', {
+      is_muted: !!duration,
+      muted_until: mutedUntil,
+    });
+  } catch (error) {
+    console.error('❌ Mute member error:', error);
+    return errorResponse(res, 500, 'Failed to update notifications.', error.message);
+  }
+};
+
+const getGroupInviteLink = async (req, res) => {
+  try {
+    const { id: conversationId } = req.params;
+    const currentUserId = req.user.id;
+
+    const conversation = await Conversation.findByPk(conversationId);
+    if (!conversation || !conversation.is_group) {
+      return errorResponse(res, 404, 'Group not found.');
+    }
+
+    // Verify participant
+    const isParticipant = await ConversationParticipant.findOne({
+      where: { conversation_id: conversationId, user_id: currentUserId, left_at: null }
+    });
+    if (!isParticipant) {
+      return errorResponse(res, 403, 'You are not a participant in this group.');
+    }
+
+    // Generate if not present
+    if (!conversation.invite_link || !conversation.is_invite_link_active) {
+      const inviteCode = require('crypto').randomBytes(8).toString('hex');
+      await conversation.update({
+        invite_link: inviteCode,
+        is_invite_link_active: true,
+        invite_link_expiry: null,
+      });
+    }
+
+    return successResponse(res, 200, 'Invite link fetched successfully.', {
+      invite_link: conversation.invite_link,
+      is_active: conversation.is_invite_link_active,
+      expiry: conversation.invite_link_expiry,
+    });
+  } catch (error) {
+    console.error('❌ Get invite link error:', error);
+    return errorResponse(res, 500, 'Failed to fetch invite link.', error.message);
+  }
+};
+
+const resetGroupInviteLink = async (req, res) => {
+  try {
+    const { id: conversationId } = req.params;
+    const currentUserId = req.user.id;
+
+    const conversation = await Conversation.findByPk(conversationId);
+    if (!conversation || !conversation.is_group) {
+      return errorResponse(res, 404, 'Group not found.');
+    }
+
+    // Verify admin or owner privileges
+    const isParticipant = await ConversationParticipant.findOne({
+      where: { conversation_id: conversationId, user_id: currentUserId, left_at: null }
+    });
+    if (!isParticipant || (isParticipant.role !== 'admin' && conversation.created_by !== currentUserId)) {
+      return errorResponse(res, 403, 'Only admins or the owner can reset the invite link.');
+    }
+
+    const inviteCode = require('crypto').randomBytes(8).toString('hex');
+    await conversation.update({
+      invite_link: inviteCode,
+      is_invite_link_active: true,
+      invite_link_expiry: null,
+    });
+
+    return successResponse(res, 200, 'Invite link reset successfully.', {
+      invite_link: inviteCode,
+    });
+  } catch (error) {
+    console.error('❌ Reset invite link error:', error);
+    return errorResponse(res, 500, 'Failed to reset invite link.', error.message);
+  }
+};
+
+const joinGroupViaInviteLink = async (req, res) => {
+  try {
+    const { inviteCode } = req.params;
+    const currentUserId = req.user.id;
+
+    const conversation = await Conversation.findOne({
+      where: {
+        invite_link: inviteCode,
+        is_invite_link_active: true,
+        is_group: true,
+      }
+    });
+
+    if (!conversation) {
+      return errorResponse(res, 404, 'Invalid or expired group invite link.');
+    }
+
+    // Check if already participant
+    const participant = await ConversationParticipant.findOne({
+      where: { conversation_id: conversation.id, user_id: currentUserId }
+    });
+
+    if (participant && participant.left_at === null) {
+      return successResponse(res, 200, 'You are already a member of this group.', { conversation_id: conversation.id });
+    }
+
+    // Check capacity
+    const activeCount = await ConversationParticipant.count({
+      where: { conversation_id: conversation.id, left_at: null }
+    });
+    if (activeCount >= 250) {
+      return errorResponse(res, 400, 'This group has reached its maximum capacity of 250 members.');
+    }
+
+    if (participant) {
+      // Reactivate member
+      await participant.update({ left_at: null, role: 'member' });
+    } else {
+      // Create participant record
+      await ConversationParticipant.create({
+        conversation_id: conversation.id,
+        user_id: currentUserId,
+        role: 'member',
+        is_accepted: true,
+      });
+    }
+
+    const systemMessage = await Message.create({
+      conversation_id: conversation.id,
+      sender_id: currentUserId,
+      content: `${req.user.username} joined the group via invite link.`,
+      message_type: 'text',
+    });
+
+    await conversation.update({
+      last_message: systemMessage.content,
+      last_message_at: systemMessage.created_at,
+      last_message_sender_id: currentUserId,
+    });
+
+    const io = req.app.get('io');
+    if (io) {
+      io.to(`conversation:${conversation.id}`).emit('new-message', formatMessage(systemMessage));
+      emitToUser(io, currentUserId, 'inbox-update', {
+        conversation_id: conversation.id,
+        last_message: systemMessage,
+        last_message_at: systemMessage.created_at,
+      });
+    }
+
+    return successResponse(res, 200, 'Joined group successfully.', { conversation_id: conversation.id });
+  } catch (error) {
+    console.error('❌ Join group error:', error);
+    return errorResponse(res, 500, 'Failed to join group.', error.message);
+  }
+};
+
+const getPinnedMessages = async (req, res) => {
+  try {
+    const { id: conversationId } = req.params;
+    const currentUserId = req.user.id;
+
+    // Verify participant
+    const isParticipant = await ConversationParticipant.findOne({
+      where: { conversation_id: conversationId, user_id: currentUserId, left_at: null }
+    });
+    if (!isParticipant) {
+      return errorResponse(res, 403, 'You are not a participant in this conversation.');
+    }
+
+    const conversation = await Conversation.findByPk(conversationId);
+    if (!conversation) {
+      return errorResponse(res, 404, 'Conversation not found.');
+    }
+
+    const pinnedArray = conversation.pinned_messages || [];
+    const messageIds = pinnedArray.map(p => p.messageId);
+
+    const messages = await Message.findAll({
+      where: { id: { [Op.in]: messageIds }, conversation_id: conversationId },
+      include: [
+        {
+          model: User,
+          as: 'sender',
+          attributes: ['id', 'username', 'profile_pic_url'],
+        }
+      ]
+    });
+
+    // Map pinned metadata with corresponding message payloads
+    const formatted = pinnedArray.map(pinnedMeta => {
+      const msgObj = messages.find(m => m.id === pinnedMeta.messageId);
+      return {
+        pinned_by: pinnedMeta.pinnedBy,
+        pinned_at: pinnedMeta.pinnedAt,
+        message: msgObj ? formatMessage(msgObj) : null,
+      };
+    }).filter(item => item.message !== null);
+
+    return successResponse(res, 200, 'Pinned messages fetched successfully.', { pinned_messages: formatted });
+  } catch (error) {
+    console.error('❌ Get pinned messages error:', error);
+    return errorResponse(res, 500, 'Failed to fetch pinned messages.', error.message);
+  }
+};
+
+const pinGroupMessage = async (req, res) => {
+  try {
+    const { id: conversationId, messageId } = req.params;
+    const currentUserId = req.user.id;
+
+    const conversation = await Conversation.findByPk(conversationId);
+    if (!conversation) {
+      return errorResponse(res, 404, 'Conversation not found.');
+    }
+
+    // Verify admin or owner privileges
+    const isParticipant = await ConversationParticipant.findOne({
+      where: { conversation_id: conversationId, user_id: currentUserId, left_at: null }
+    });
+    if (!isParticipant || (isParticipant.role !== 'admin' && conversation.created_by !== currentUserId)) {
+      return errorResponse(res, 403, 'Only admins or the owner can pin messages.');
+    }
+
+    // Verify message belongs to this conversation
+    const message = await Message.findOne({
+      where: { id: messageId, conversation_id: conversationId }
+    });
+    if (!message) {
+      return errorResponse(res, 404, 'Message not found in this conversation.');
+    }
+
+    const pinnedArray = [...(conversation.pinned_messages || [])];
+    if (pinnedArray.some(p => p.messageId === messageId)) {
+      return errorResponse(res, 400, 'Message is already pinned.');
+    }
+
+    if (pinnedArray.length >= 3) {
+      return errorResponse(res, 400, 'Maximum of 3 pinned messages allowed. Unpin an existing one first.');
+    }
+
+    pinnedArray.push({
+      messageId,
+      pinnedBy: currentUserId,
+      pinnedAt: new Date(),
+    });
+
+    await conversation.update({ pinned_messages: pinnedArray });
+
+    const io = req.app.get('io');
+    if (io) {
+      io.to(`conversation:${conversationId}`).emit('message-pinned', {
+        conversation_id: conversationId,
+        message_id: messageId,
+        pinned_by: currentUserId,
+      });
+    }
+
+    return successResponse(res, 200, 'Message pinned successfully.');
+  } catch (error) {
+    console.error('❌ Pin message error:', error);
+    return errorResponse(res, 500, 'Failed to pin message.', error.message);
+  }
+};
+
+const unpinGroupMessage = async (req, res) => {
+  try {
+    const { id: conversationId, messageId } = req.params;
+    const currentUserId = req.user.id;
+
+    const conversation = await Conversation.findByPk(conversationId);
+    if (!conversation) {
+      return errorResponse(res, 404, 'Conversation not found.');
+    }
+
+    // Verify admin or owner privileges
+    const isParticipant = await ConversationParticipant.findOne({
+      where: { conversation_id: conversationId, user_id: currentUserId, left_at: null }
+    });
+    if (!isParticipant || (isParticipant.role !== 'admin' && conversation.created_by !== currentUserId)) {
+      return errorResponse(res, 403, 'Only admins or the owner can unpin messages.');
+    }
+
+    const pinnedArray = (conversation.pinned_messages || []).filter(p => p.messageId !== messageId);
+    await conversation.update({ pinned_messages: pinnedArray });
+
+    const io = req.app.get('io');
+    if (io) {
+      io.to(`conversation:${conversationId}`).emit('message-unpinned', {
+        conversation_id: conversationId,
+        message_id: messageId,
+      });
+    }
+
+    return successResponse(res, 200, 'Message unpinned successfully.');
+  } catch (error) {
+    console.error('❌ Unpin message error:', error);
+    return errorResponse(res, 500, 'Failed to unpin message.', error.message);
+  }
+};
+
+const updateGroupSettings = async (req, res) => {
+  try {
+    const { id: conversationId } = req.params;
+    const {
+      name,
+      only_admins_can_send,
+      only_admins_can_add_members,
+      only_admins_can_edit_info,
+      approval_required
+    } = req.body;
+    const currentUserId = req.user.id;
+
+    const conversation = await Conversation.findByPk(conversationId);
+    if (!conversation || !conversation.is_group) {
+      return errorResponse(res, 404, 'Group not found.');
+    }
+
+    const requester = await ConversationParticipant.findOne({
+      where: { conversation_id: conversationId, user_id: currentUserId, left_at: null }
+    });
+    if (!requester) {
+      return errorResponse(res, 403, 'You are not a participant in this group.');
+    }
+
+    // Only admins can edit settings
+    if (requester.role !== 'admin' && conversation.created_by !== currentUserId) {
+      return errorResponse(res, 403, 'Only admins or the owner can update group settings.');
+    }
+
+    const updates = {};
+    if (name !== undefined) updates.name = name.trim();
+    if (only_admins_can_send !== undefined) updates.only_admins_can_send = !!only_admins_can_send;
+    if (only_admins_can_add_members !== undefined) updates.only_admins_can_add_members = !!only_admins_can_add_members;
+    if (only_admins_can_edit_info !== undefined) updates.only_admins_can_edit_info = !!only_admins_can_edit_info;
+    if (approval_required !== undefined) updates.approval_required = !!approval_required;
+
+    await conversation.update(updates);
+
+    const io = req.app.get('io');
+    if (io) {
+      io.to(`conversation:${conversationId}`).emit('group-settings-updated', {
+        conversation_id: conversationId,
+        settings: {
+          name: conversation.name,
+          only_admins_can_send: conversation.only_admins_can_send,
+          only_admins_can_add_members: conversation.only_admins_can_add_members,
+          only_admins_can_edit_info: conversation.only_admins_can_edit_info,
+          approval_required: conversation.approval_required,
+        }
+      });
+    }
+
+    return successResponse(res, 200, 'Group settings updated successfully.', { conversation });
+  } catch (error) {
+    console.error('❌ Update group settings error:', error);
+    return errorResponse(res, 500, 'Failed to update group settings.', error.message);
+  }
+};
+
 module.exports = {
   createOrGetConversation,
   getInbox,
@@ -1919,4 +2629,17 @@ module.exports = {
   muteConversation,
   unmuteConversation,
   getMuteStatus,
+  getGroupMembers,
+  addGroupMembers,
+  removeGroupMember,
+  updateGroupMemberRole,
+  updateGroupMemberNickname,
+  muteGroupMember,
+  getGroupInviteLink,
+  resetGroupInviteLink,
+  joinGroupViaInviteLink,
+  getPinnedMessages,
+  pinGroupMessage,
+  unpinGroupMessage,
+  updateGroupSettings,
 };

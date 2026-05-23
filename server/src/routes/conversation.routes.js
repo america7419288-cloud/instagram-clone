@@ -25,6 +25,19 @@ const {
   muteConversation,
   unmuteConversation,
   getMuteStatus,
+  getGroupMembers,
+  addGroupMembers,
+  removeGroupMember,
+  updateGroupMemberRole,
+  updateGroupMemberNickname,
+  muteGroupMember,
+  getGroupInviteLink,
+  resetGroupInviteLink,
+  joinGroupViaInviteLink,
+  getPinnedMessages,
+  pinGroupMessage,
+  unpinGroupMessage,
+  updateGroupSettings,
 } = require('../controllers/conversation.controller');
 
 const { protect } = require('../middleware/auth.middleware');
@@ -47,6 +60,9 @@ router.post('/', protect, createOrGetConversation);
 
 // POST create group conversation (MUST be registered before dynamic /:id to prevent param collision)
 router.post('/group', protect, createGroupConversation);
+
+// POST join group via invite link (BEFORE /:id parameter)
+router.post('/join/:inviteCode', protect, joinGroupViaInviteLink);
 
 // GET single conversation
 router.get('/:id', protect, getConversation);
@@ -95,5 +111,42 @@ router.post('/:id/accept', protect, acceptConversationRequest);
 
 // POST reject conversation request
 router.post('/:id/reject', protect, rejectConversationRequest);
+
+// ─── ADVANCED GROUP ROUTES ──────────────────────────────────
+// GET group members list
+router.get('/:id/members', protect, getGroupMembers);
+
+// POST add group members
+router.post('/:id/members', protect, addGroupMembers);
+
+// DELETE remove group member
+router.delete('/:id/members/:userId', protect, removeGroupMember);
+
+// PUT update group member role (admin/member)
+router.put('/:id/members/:userId/role', protect, updateGroupMemberRole);
+
+// PUT update group member nickname
+router.put('/:id/members/:userId/nickname', protect, updateGroupMemberNickname);
+
+// POST mute group member (notifications toggle)
+router.post('/:id/members/:userId/mute', protect, muteGroupMember);
+
+// GET group invite link
+router.get('/:id/invite-link', protect, getGroupInviteLink);
+
+// POST reset group invite link
+router.post('/:id/invite-link/reset', protect, resetGroupInviteLink);
+
+// GET pinned group messages
+router.get('/:id/pinned', protect, getPinnedMessages);
+
+// POST pin message in group
+router.post('/:id/messages/:messageId/pin', protect, pinGroupMessage);
+
+// DELETE unpin message in group
+router.delete('/:id/messages/:messageId/pin', protect, unpinGroupMessage);
+
+// PUT update group settings
+router.put('/:id/settings', protect, updateGroupSettings);
 
 module.exports = router;
