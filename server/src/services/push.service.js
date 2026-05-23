@@ -173,16 +173,21 @@ const sendPushNotification = async ({
     type,
     senderUsername,
     extra = {},
+    richResult = false,
 }) => {
     // ─── Guard: no token → skip silently ─────────────────
-    if (!fcmToken) return false;
+    if (!fcmToken) {
+        return richResult ? { success: false, error: 'FCM token is empty' } : false;
+    }
 
     const messaging = getMessaging();
 
     // ─── Guard: Firebase not initialized ─────────────────
     if (!messaging) {
-        console.warn('⚠️ Push: Firebase not ready, skipping push');
-        return false;
+        const { getFirebaseInitError } = require('../config/firebase');
+        const initErr = getFirebaseInitError() || 'Firebase Messaging is not initialized on the server.';
+        console.warn('⚠️ Push: Firebase not ready, skipping push:', initErr);
+        return richResult ? { success: false, error: initErr } : false;
     }
 
     try {
@@ -246,7 +251,7 @@ const sendPushNotification = async ({
 
         const response = await messaging.send(message);
         console.log(`✅ Push sent [${type}] to token ...${fcmToken.slice(-8)}`);
-        return true;
+        return richResult ? { success: true } : true;
 
     } catch (error) {
         // ─── Handle invalid/expired tokens ────────────────
@@ -257,14 +262,18 @@ const sendPushNotification = async ({
             console.warn(
                 `⚠️ Push: Invalid FCM token ...${fcmToken.slice(-8)} - should be cleared`
             );
-            // Return special value to indicate token should be cleared
-            return 'invalid_token';
+            return richResult 
+                ? { success: false, status: 'invalid_token', error: error.message }
+                : 'invalid_token';
         }
 
         console.error(`❌ Push error [${type}]:`, error.message);
-        return false;
+        return richResult 
+            ? { success: false, status: 'failed', error: error.message, code: error.code }
+            : false;
     }
 };
+
 
 // ─────────────────────────────────────────────────────
 // SEND TO MULTIPLE TOKENS (batch)

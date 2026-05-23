@@ -5,6 +5,7 @@ const path = require('path');
 const fs = require('fs');
 
 let firebaseInitialized = false;
+let firebaseInitError = null;
 
 const initializeFirebase = () => {
     if (firebaseInitialized) return admin;
@@ -23,6 +24,8 @@ const initializeFirebase = () => {
                 const serviceAccount = require(resolvedPath);
                 credential = admin.credential.cert(serviceAccount);
                 console.log('🔥 Firebase: Using service account file');
+            } else {
+                firebaseInitError = `serviceAccountKey.json not found at: ${resolvedPath}`;
             }
         }
 
@@ -46,25 +49,31 @@ const initializeFirebase = () => {
                 client_x509_cert_url: `https://www.googleapis.com/robot/v1/metadata/x509/${process.env.FIREBASE_CLIENT_EMAIL
                     }`,
             };
-        // ─── Validate all required fields are present ────
-        const required = [
-            'project_id', 'private_key', 'client_email', 'private_key_id'
-        ];
-        const missing = required.filter(k => !serviceAccount[k] ||
-            serviceAccount[k].includes('xxxxx') ||
-            serviceAccount[k].includes('your-project')
-        );
-        if (missing.length > 0) {
-            console.error(`❌ Firebase: Incomplete env vars — missing/placeholder: ${missing.join(', ')}`);
-            console.error('   Set correct values in Render env vars or use FIREBASE_SERVICE_ACCOUNT_PATH');
-            return null;
-        }
-        credential = admin.credential.cert(serviceAccount);
-        console.log(`🔥 Firebase: Using env vars (project: ${serviceAccount.project_id})`);
+            // ─── Validate all required fields are present ────
+            const required = [
+                'project_id', 'private_key', 'client_email', 'private_key_id'
+            ];
+            const missing = required.filter(k => !serviceAccount[k] ||
+                serviceAccount[k].includes('xxxxx') ||
+                serviceAccount[k].includes('your-project')
+            );
+            if (missing.length > 0) {
+                const errStr = `Incomplete env vars — missing/placeholder: ${missing.join(', ')}`;
+                console.error(`❌ Firebase: ${errStr}`);
+                console.error('   Set correct values in Render env vars or use FIREBASE_SERVICE_ACCOUNT_PATH');
+                firebaseInitError = errStr;
+                return null;
+            }
+            credential = admin.credential.cert(serviceAccount);
+            console.log(`🔥 Firebase: Using env vars (project: ${serviceAccount.project_id})`);
         }
 
         if (!credential) {
-            console.warn('⚠️ Firebase: No credentials found. Push notifications disabled.');
+            const errStr = 'No credentials found. Ensure serviceAccountKey.json exists or FIREBASE_* env vars are set.';
+            console.warn(`⚠️ Firebase: ${errStr}`);
+            if (!firebaseInitError) {
+                firebaseInitError = errStr;
+            }
             return null;
         }
 
@@ -74,11 +83,13 @@ const initializeFirebase = () => {
         }
 
         firebaseInitialized = true;
+        firebaseInitError = null;
         console.log('✅ Firebase Admin initialized');
         return admin;
 
     } catch (error) {
         console.error('❌ Firebase initialization error:', error.message);
+        firebaseInitError = `Initialization catch error: ${error.message}`;
         return null;
     }
 };
@@ -89,9 +100,17 @@ const getMessaging = () => {
     if (!app) return null;
     try {
         return app.messaging();
-    } catch (_) {
+    } catch (e) {
+        firebaseInitError = `Get messaging instance error: ${e.message}`;
         return null;
     }
 };
 
-module.exports = { initializeFirebase, getMessaging };
+const getFirebaseInitError = () => {
+    if (!firebaseInitialized) {
+        initializeFirebase();
+    }
+    return firebaseInitError;
+};
+
+module.exports = { initializeFirebase, getMessaging, getFirebaseInitError };

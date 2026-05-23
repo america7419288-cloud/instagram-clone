@@ -317,6 +317,16 @@ const triggerTestPush = async (req, res) => {
       );
     }
 
+    const { getFirebaseInitError } = require('../config/firebase');
+    const initError = getFirebaseInitError();
+    if (initError) {
+      return errorResponse(
+        res,
+        500,
+        `Firebase is NOT properly configured on your server/Render dashboard. Error: ${initError}`
+      );
+    }
+
     const { sendPushNotification } = require('../services/push.service');
 
     console.log(`🔔 Sending developer test push to user: ${user.username}...`);
@@ -328,19 +338,23 @@ const triggerTestPush = async (req, res) => {
       extra: {
         message: 'Developer Test: Push notifications are working perfectly! 🚀',
       },
+      richResult: true, // Request rich diagnostics details on failure
     });
 
-    if (result === 'invalid_token') {
-      await user.update({ fcmToken: null });
+    if (!result.success) {
+      if (result.status === 'invalid_token') {
+        await user.update({ fcmToken: null });
+        return errorResponse(
+          res,
+          400,
+          `FCM Token is invalid or expired. Error: ${result.error || 'Token expired'}. Please re-authenticate your mobile app.`
+        );
+      }
       return errorResponse(
         res,
-        400,
-        'Your registered FCM token is invalid or expired. Please re-authenticate your mobile app.'
+        500,
+        `Firebase rejected push dispatch. Error: ${result.error || 'Unknown dispatch failure'}`
       );
-    }
-
-    if (!result) {
-      return errorResponse(res, 500, 'Failed to dispatch push notification. Check server console logs.');
     }
 
     return successResponse(res, 200, 'Test push notification dispatched successfully! 🚀 Check your phone!', {
