@@ -152,6 +152,21 @@ class PushNotificationService {
       criticalAlert: false,
     );
 
+    // Request Android local notification permission (required for Android 13+)
+    if (Platform.isAndroid) {
+      try {
+        final localNotificationsPlugin = _localNotifications
+            .resolvePlatformSpecificImplementation<
+                AndroidFlutterLocalNotificationsPlugin>();
+        if (localNotificationsPlugin != null) {
+          final grantedAndroid = await localNotificationsPlugin.requestNotificationsPermission();
+          debugPrint('📱 Android local notifications permission: $grantedAndroid');
+        }
+      } catch (e) {
+        debugPrint('⚠️ Error requesting Android local notification permission: $e');
+      }
+    }
+
     final granted = settings.authorizationStatus ==
         AuthorizationStatus.authorized ||
         settings.authorizationStatus ==

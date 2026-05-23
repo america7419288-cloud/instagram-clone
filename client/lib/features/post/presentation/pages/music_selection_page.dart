@@ -61,9 +61,8 @@ class _MusicSelectionPageState extends ConsumerState<MusicSelectionPage> {
 
     try {
       final dioClient = ref.read(dioClientProvider);
-      await _audioPlayer.setAudioSource(
-        BackendStreamAudioSource(dioClient.dio, track.id),
-      );
+      final source = await BackendStreamAudioSource.getPlayableSource(dioClient.dio, track.id);
+      await _audioPlayer.setAudioSource(source);
       
       await _audioPlayer.seek(_selectedStartTime);
 

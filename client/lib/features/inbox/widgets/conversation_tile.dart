@@ -7,6 +7,8 @@ import 'package:flutter_lucide/flutter_lucide.dart';
 import '../models/conversation_model.dart';
 import 'conversation_avatar.dart';
 import 'typing_indicator.dart';
+import '../../messages/presentation/widgets/chat/mute_bottom_sheet.dart';
+import '../../messages/presentation/widgets/chat/report_sheet.dart';
 
 class ConversationTile extends StatefulWidget {
   final ConversationModel conversation;
@@ -14,8 +16,10 @@ class ConversationTile extends StatefulWidget {
   final AnimationController entryController;
   final VoidCallback onTap;
   final VoidCallback onDelete;
-  final VoidCallback onMute;
-  final VoidCallback onToggleRead;
+  final ValueChanged<String>? onMute;
+  final VoidCallback? onUnmute;
+  final VoidCallback? onToggleRead;
+  final Future<void> Function(String type, String desc)? onReport;
 
   const ConversationTile({
     super.key,
@@ -24,8 +28,10 @@ class ConversationTile extends StatefulWidget {
     required this.entryController,
     required this.onTap,
     required this.onDelete,
-    required this.onMute,
-    required this.onToggleRead,
+    this.onMute,
+    this.onUnmute,
+    this.onToggleRead,
+    this.onReport,
   });
 
   @override
@@ -119,7 +125,21 @@ class _ConversationTileState extends State<ConversationTile>
                 title: Text(conv.isMuted ? 'Unmute Notifications' : 'Mute Notifications'),
                 onTap: () {
                   Navigator.pop(context);
-                  widget.onMute();
+                  if (conv.isMuted) {
+                    widget.onUnmute?.call();
+                  } else {
+                    showModalBottomSheet(
+                      context: context,
+                      backgroundColor: Colors.transparent,
+                      builder: (_) => MuteBottomSheet(
+                        username: conv.username,
+                        onMuteSelected: (duration) {
+                          Navigator.pop(context);
+                          widget.onMute?.call(duration);
+                        },
+                      ),
+                    );
+                  }
                 },
               ),
               ListTile(
@@ -127,7 +147,7 @@ class _ConversationTileState extends State<ConversationTile>
                 title: Text(conv.isUnread ? 'Mark as Read' : 'Mark as Unread'),
                 onTap: () {
                   Navigator.pop(context);
-                  widget.onToggleRead();
+                  widget.onToggleRead?.call();
                 },
               ),
               ListTile(
@@ -151,7 +171,20 @@ class _ConversationTileState extends State<ConversationTile>
               ListTile(
                 leading: const Icon(LucideIcons.flag, color: Colors.red),
                 title: const Text('Report', style: TextStyle(color: Colors.red)),
-                onTap: () => Navigator.pop(context),
+                onTap: () {
+                  Navigator.pop(context);
+                  showModalBottomSheet(
+                    context: context,
+                    isScrollControlled: true,
+                    backgroundColor: Colors.transparent,
+                    builder: (_) => ReportSheet(
+                      targetName: conv.username,
+                      onSubmitReport: (type, desc) async {
+                        await widget.onReport?.call(type, desc);
+                      },
+                    ),
+                  );
+                },
               ),
               const SizedBox(height: 12),
             ],
@@ -222,7 +255,7 @@ class _ConversationTileState extends State<ConversationTile>
                 onDismissed: () {},
                 confirmDismiss: () async {
                   HapticFeedback.lightImpact();
-                  widget.onToggleRead();
+                  widget.onToggleRead?.call();
                   _triggerBlueFlash();
                   return false; // Snaps back immediately!
                 },

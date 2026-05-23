@@ -15,6 +15,7 @@ import '../../../chat/presentation/providers/typing_provider.dart';
 import '../../../chat/presentation/providers/presence_provider.dart';
 import '../../../chat/data/models/conversation.dart';
 import '../../../chat/data/models/message.dart';
+import '../../../chat/data/models/chat_user.dart';
 import '../../../../features/auth/presentation/providers/auth_provider.dart';
 
 // UI Components
@@ -25,10 +26,12 @@ import '../widgets/chat/message_bubbles.dart';
 import '../widgets/chat/message_bubble_wrapper.dart';
 import '../widgets/chat/chat_overlays.dart';
 import '../widgets/chat/popup_menu/message_popup_menu.dart';
-import 'package:flutter/material.dart' show Colors, Material;
+import 'package:flutter/material.dart' show Colors, Material, Divider;
 import '../widgets/chat/reaction_overlay.dart';
 import '../widgets/chat/message_edit_dialog.dart';
 import '../widgets/chat/disappearing_message_dialog.dart';
+import '../../../../shared/widgets/user_story_avatar.dart';
+import '../../../../shared/widgets/verified_badge.dart';
 
 class ChatPage extends ConsumerStatefulWidget {
   final String conversationId;
@@ -530,7 +533,7 @@ class _ChatPageState extends ConsumerState<ChatPage> {
                 child: Stack(
                   clipBehavior: Clip.none,
                   children: [
-                    _buildMessageList(chatState, currentUser?.id ?? ''),
+                    _buildMessageList(chatState, currentUser?.id ?? '', otherUser, isDark),
 
                     Positioned(
                       right: 16,
@@ -749,7 +752,8 @@ class _ChatPageState extends ConsumerState<ChatPage> {
     );
   }
 
-  Widget _buildMessageList(ChatState state, String currentUserId) {
+  Widget _buildMessageList(
+      ChatState state, String currentUserId, ChatUser? otherUser, bool isDark) {
     if (state.isLoading && state.messages.isEmpty) {
       return const Center(child: CupertinoActivityIndicator());
     }
@@ -768,8 +772,102 @@ class _ChatPageState extends ConsumerState<ChatPage> {
       itemCount: state.messages.length + (state.messages.isEmpty ? 0 : 1),
       itemBuilder: (context, index) {
         if (index == state.messages.length) {
-          // This would be the "top" of the list (earliest message)
-          return const SizedBox(height: 20);
+          // Earliest message top - render the IG standard chat profile preview banner!
+          return Container(
+            padding: const EdgeInsets.symmetric(vertical: 36, horizontal: 20),
+            child: Column(
+              mainAxisSize: MainAxisSize.min,
+              children: [
+                // 1. Big Avatar
+                if (otherUser != null)
+                  UserStoryAvatar(
+                    userId: otherUser.id,
+                    profilePicUrl: otherUser.profilePicUrl,
+                    username: otherUser.username,
+                    size: 72,
+                    showPresence: false,
+                    isClickable: true,
+                  )
+                else
+                  Container(
+                    width: 72,
+                    height: 72,
+                    decoration: BoxDecoration(
+                      color: isDark ? const Color(0xFF262626) : const Color(0xFFEFEFEF),
+                      shape: BoxShape.circle,
+                    ),
+                    child: Icon(
+                      LucideIcons.user, 
+                      size: 36, 
+                      color: isDark ? Colors.white54 : Colors.black45,
+                    ),
+                  ),
+                const SizedBox(height: 12),
+                
+                // 2. Username with Verified Badge
+                Row(
+                  mainAxisAlignment: MainAxisAlignment.center,
+                  mainAxisSize: MainAxisSize.min,
+                  children: [
+                    Flexible(
+                      child: Text(
+                        otherUser?.username ?? 'Instagram User',
+                        style: TextStyle(
+                          fontSize: 18,
+                          fontWeight: FontWeight.bold,
+                          fontFamily: 'Instagram-Sans',
+                          color: isDark ? Colors.white : Colors.black,
+                        ),
+                        maxLines: 1,
+                        overflow: TextOverflow.ellipsis,
+                      ),
+                    ),
+                    if (otherUser?.isVerified ?? false) ...[
+                      const SizedBox(width: 4),
+                      const VerifiedBadge(size: 15),
+                    ],
+                  ],
+                ),
+                const SizedBox(height: 4),
+                
+                // 3. Full Name
+                if (otherUser?.fullName != null) ...[
+                  Text(
+                    otherUser!.fullName!,
+                    style: TextStyle(
+                      fontSize: 13,
+                      fontWeight: FontWeight.w400,
+                      color: isDark ? Colors.white54 : Colors.black54,
+                    ),
+                  ),
+                  const SizedBox(height: 16),
+                ],
+                
+                // 4. View Profile Button
+                CupertinoButton(
+                  padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 6),
+                  color: isDark ? const Color(0xFF262626) : const Color(0xFFEFEFEF),
+                  borderRadius: BorderRadius.circular(8),
+                  minSize: 0,
+                  onPressed: () => _openProfile(otherUser?.username),
+                  child: Text(
+                    'View Profile',
+                    style: TextStyle(
+                      fontSize: 13,
+                      fontWeight: FontWeight.w600,
+                      color: isDark ? Colors.white : Colors.black,
+                    ),
+                  ),
+                ),
+                const SizedBox(height: 24),
+                Divider(
+                  height: 0.5,
+                  thickness: 0.5,
+                  color: isDark ? const Color(0xFF262626) : const Color(0xFFEFEFEF),
+                ),
+              ],
+            ),
+          );
         }
 
         final message = state.messages[index];

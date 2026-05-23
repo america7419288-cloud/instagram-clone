@@ -180,27 +180,69 @@ class _MessagePopupMenuState extends State<MessagePopupMenu>
   // Smart Positioning Calculation
   bool _isEmojiBarFlipped = false;
 
+  double _getAdjustedMessageTop() {
+    final screenHeight = MediaQuery.of(context).size.height;
+    final topPadding = MediaQuery.of(context).padding.top;
+    final displayHeight = widget.messageSize.height.clamp(0.0, 320.0);
+
+    double top = widget.messagePosition.dy;
+    
+    // Clamp top position to avoid header collision (header is topPadding + 56px) and screen bottom.
+    // Leaves at least topPadding + 68px of margin from the top, and 80px from the bottom.
+    final double lower = topPadding + 68.0;
+    final double upper = (screenHeight - displayHeight - 80.0).clamp(lower, screenHeight);
+    top = top.clamp(lower, upper);
+    return top;
+  }
+
+  bool _isMenuBelowTheMessage() {
+    final screenHeight = MediaQuery.of(context).size.height;
+    final topPadding = MediaQuery.of(context).padding.top;
+    final bottomPadding = MediaQuery.of(context).padding.bottom;
+    
+    final minSafeY = topPadding + 60.0;
+    final maxSafeY = screenHeight - bottomPadding - 60.0;
+    
+    final adjustedTop = _getAdjustedMessageTop();
+    final displayHeight = widget.messageSize.height.clamp(0.0, 320.0);
+    final messageBottom = adjustedTop + displayHeight;
+    
+    final spaceAbove = adjustedTop - minSafeY;
+    final spaceBelow = maxSafeY - messageBottom;
+    
+    return spaceBelow >= spaceAbove;
+  }
+
   Offset _getEmojiBarPosition() {
     final screenWidth = MediaQuery.of(context).size.width;
+    final screenHeight = MediaQuery.of(context).size.height;
+    final topPadding = MediaQuery.of(context).padding.top;
+    final bottomPadding = MediaQuery.of(context).padding.bottom;
+    
+    final minSafeY = topPadding + 60.0;
+    final maxSafeY = screenHeight - bottomPadding - 60.0;
+    
+    final displayHeight = widget.messageSize.height.clamp(0.0, 320.0);
+    final adjustedTop = _getAdjustedMessageTop();
+    final messageBottom = adjustedTop + displayHeight;
     final msgRight = widget.messagePosition.dx + widget.messageSize.width;
-    final msgTop = widget.messagePosition.dy;
 
-    double left;
-    if (widget.isMine) {
-      left = msgRight - _emojiBarWidth;
-    } else {
-      left = widget.messagePosition.dx;
-    }
-
+    double left = widget.isMine ? (msgRight - _emojiBarWidth) : widget.messagePosition.dx;
     left = left.clamp(8.0, screenWidth - _emojiBarWidth - 8);
 
-    double top = msgTop - 52 - 8; // 52 bar height + 8 gap
-    if (top < MediaQuery.of(context).padding.top + 8) {
-      _isEmojiBarFlipped = true;
-      top = msgTop + widget.messageSize.height + 8;
-    } else {
+    double top;
+    if (_isMenuBelowTheMessage()) {
+      // Menu is below message, so Emoji Bar is above message
       _isEmojiBarFlipped = false;
+      top = adjustedTop - 52.0 - 8.0;
+    } else {
+      // Menu is above message, so Emoji Bar is below message
+      _isEmojiBarFlipped = true;
+      top = messageBottom + 8.0;
     }
+
+    // Clamp top coordinate to remain fully inside visible screen safety margins
+    top = top.clamp(minSafeY, maxSafeY - 52.0);
 
     return Offset(left, top);
   }
@@ -208,35 +250,33 @@ class _MessagePopupMenuState extends State<MessagePopupMenu>
   Offset _getMenuPosition() {
     final screenWidth = MediaQuery.of(context).size.width;
     final screenHeight = MediaQuery.of(context).size.height;
-    final msgBottom = widget.messagePosition.dy + widget.messageSize.height;
+    final topPadding = MediaQuery.of(context).padding.top;
+    final bottomPadding = MediaQuery.of(context).padding.bottom;
+    
+    final minSafeY = topPadding + 60.0;
+    final maxSafeY = screenHeight - bottomPadding - 60.0;
+    
+    final displayHeight = widget.messageSize.height.clamp(0.0, 320.0);
+    final adjustedTop = _getAdjustedMessageTop();
+    final messageBottom = adjustedTop + displayHeight;
     final msgRight = widget.messagePosition.dx + widget.messageSize.width;
 
-    double left;
-    if (widget.isMine) {
-      left = msgRight - 200; // right-aligned
-    } else {
-      left = widget.messagePosition.dx; // left-aligned
-    }
-
+    double left = widget.isMine ? (msgRight - 200.0) : widget.messagePosition.dx;
     left = left.clamp(8.0, screenWidth - 208.0);
 
     final menuHeight = _getMenuItems().length * 44.0;
-    double top = msgBottom + 8;
+    double top;
 
-    if (_isEmojiBarFlipped || top + menuHeight > screenHeight - 100) {
-      // Flip above the message
-      top = widget.messagePosition.dy - menuHeight - 8;
-      if (!_isEmojiBarFlipped) {
-        // If emoji bar is above message, push menu further up to avoid overlap
-        top -= (52 + 8);
-      }
+    if (_isMenuBelowTheMessage()) {
+      // Place action menu below the message
+      top = messageBottom + 8.0;
     } else {
-      // Below message
-      if (_isEmojiBarFlipped) {
-        // If emoji bar is also below message, push menu further down
-        top += (52 + 8);
-      }
+      // Place action menu above the message
+      top = adjustedTop - menuHeight - 8.0;
     }
+
+    // Clamp top coordinate to remain fully inside visible screen safety margins
+    top = top.clamp(minSafeY, maxSafeY - menuHeight);
 
     return Offset(left, top);
   }
@@ -292,15 +332,43 @@ class _MessagePopupMenuState extends State<MessagePopupMenu>
   }
 
   Widget _buildFloatingMessage() {
+    final displayHeight = widget.messageSize.height.clamp(0.0, 320.0);
+    final top = _getAdjustedMessageTop() + _messageLift.value;
+
     return Positioned(
       left: widget.messagePosition.dx,
-      top: widget.messagePosition.dy + _messageLift.value,
+      top: top,
       width: widget.messageSize.width,
-      height: widget.messageSize.height,
+      height: displayHeight,
       child: IgnorePointer(
         child: Transform.scale(
           scale: _messageScale.value,
-          child: widget.messageWidget,
+          child: ClipRRect(
+            borderRadius: BorderRadius.circular(16),
+            child: ShaderMask(
+              shaderCallback: (Rect bounds) {
+                if (widget.messageSize.height > 320.0) {
+                  return const LinearGradient(
+                    begin: Alignment.topCenter,
+                    end: Alignment.bottomCenter,
+                    colors: [Colors.white, Colors.white, Colors.transparent],
+                    stops: [0.0, 0.85, 1.0],
+                  ).createShader(bounds);
+                }
+                return const LinearGradient(
+                  colors: [Colors.white, Colors.white],
+                ).createShader(bounds);
+              },
+              blendMode: BlendMode.dstIn,
+              child: SizedBox(
+                height: displayHeight,
+                child: SingleChildScrollView(
+                  physics: const NeverScrollableScrollPhysics(),
+                  child: widget.messageWidget,
+                ),
+              ),
+            ),
+          ),
         ),
       ),
     );

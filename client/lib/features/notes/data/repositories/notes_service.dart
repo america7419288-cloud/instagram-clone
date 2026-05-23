@@ -28,12 +28,53 @@ class NotesService {
   }
 
   /// Create/Share a new note (replaces any existing note of the user)
-  Future<NoteModel> createNote(String text, NoteAudience audience) async {
+  Future<NoteModel> createNote(
+    String text,
+    NoteAudience audience, {
+    String? noteType,
+    
+    // Music
+    String? musicTrackId,
+    String? musicTrackName,
+    String? musicArtistName,
+    String? musicAlbumArt,
+    String? musicPreviewUrl,
+    int? musicDuration,
+    String? musicPlatform,
+    
+    // GIF
+    String? gifId,
+    String? gifUrl,
+    String? gifPreviewUrl,
+    String? gifTitle,
+    int? gifWidth,
+    int? gifHeight,
+    String? gifSource,
+  }) async {
     final response = await _client.post(
       AppConstants.notesUrl,
       data: {
         'text': text,
         'audience': audience == NoteAudience.closeFriends ? 'close_friends' : 'followers',
+        if (noteType != null) 'noteType': noteType,
+        
+        // Music
+        if (musicTrackId != null) 'musicTrackId': musicTrackId,
+        if (musicTrackName != null) 'musicTrackName': musicTrackName,
+        if (musicArtistName != null) 'musicArtistName': musicArtistName,
+        if (musicAlbumArt != null) 'musicAlbumArt': musicAlbumArt,
+        if (musicPreviewUrl != null) 'musicPreviewUrl': musicPreviewUrl,
+        if (musicDuration != null) 'musicDuration': musicDuration,
+        if (musicPlatform != null) 'musicPlatform': musicPlatform,
+        
+        // GIF
+        if (gifId != null) 'gifId': gifId,
+        if (gifUrl != null) 'gifUrl': gifUrl,
+        if (gifPreviewUrl != null) 'gifPreviewUrl': gifPreviewUrl,
+        if (gifTitle != null) 'gifTitle': gifTitle,
+        if (gifWidth != null) 'gifWidth': gifWidth,
+        if (gifHeight != null) 'gifHeight': gifHeight,
+        if (gifSource != null) 'gifSource': gifSource,
       },
     );
     if (response.data['success'] == true) {

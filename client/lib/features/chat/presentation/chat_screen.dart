@@ -7,6 +7,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:lucide_icons/lucide_icons.dart';
 import 'providers/chat_notifiers.dart';
 import 'providers/typing_provider.dart';
+import '../../auth/presentation/providers/auth_provider.dart';
 import '../models/message.dart' as mock;
 import '../../../../core/theme/chat_theme.dart';
 import 'widgets/chat_app_bar.dart';
@@ -105,8 +106,9 @@ class _ChatScreenState extends ConsumerState<ChatScreen>
     final chatState = ref.watch(chatProvider(widget.conversationId));
     final typingState = ref.watch(typingProvider(widget.conversationId));
     
+    final currentUserId = ref.watch(currentUserProvider)?.id;
     // Map production messages to mock UI messages
-    final displayMessages = chatState.messages.map((m) => m.toChatMessage(isMe: m.is_me)).toList();
+    final displayMessages = chatState.messages.map((m) => m.toChatMessage(isMe: m.senderId == currentUserId)).toList();
 
     return AnnotatedRegion<SystemUiOverlayStyle>(
       value: isDark
@@ -163,9 +165,8 @@ class _ChatScreenState extends ConsumerState<ChatScreen>
                     // Reply preview
                     if (_replyingTo != null)
                       ReplyPreview(
-                        message: _replyingTo!,
-                        onCancel: () => setState(() => _replyingTo = null),
-                        isDark: isDark,
+                        reply: _replyingTo!,
+                        onClear: () => setState(() => _replyingTo = null),
                       ),
 
                     // Input bar

@@ -234,7 +234,7 @@ class _MessageBubbleWrapperState
 
     if (m.isDeleted) {
       return DeletedBubble(
-        isMe: m.isFromMe,
+        message: m,
         isDark: widget.isDark,
       );
     }
@@ -245,8 +245,7 @@ class _MessageBubbleWrapperState
           return _EmojiBubble(text: m.text!);
         }
         return TextBubble(
-          text: m.text ?? '',
-          isMe: m.isFromMe,
+          message: m,
           isFirst: widget.isFirst,
           isLast: widget.isLast,
           isDark: widget.isDark,
@@ -254,27 +253,20 @@ class _MessageBubbleWrapperState
 
       case MessageType.image:
         return ImageBubble(
-          url: m.mediaUrl ?? '',
-          isMe: m.isFromMe,
-          aspectRatio: m.aspectRatio ?? 1,
-          isDisappearing: m.isDisappearing,
-          viewed: m.disappearingViewed,
+          message: m,
           isDark: widget.isDark,
-          onTap: () =>
-              widget.onTapImage(m.mediaUrl ?? ''),
         );
 
       case MessageType.audio:
         return AudioBubble(
-          data: m.audioData!,
-          isMe: m.isFromMe,
+          message: m,
           isDark: widget.isDark,
         );
 
       case MessageType.video:
         return VideoBubble(
-          thumbnail: m.thumbnailUrl ?? '',
-          isMe: m.isFromMe,
+          message: m,
+          isDark: widget.isDark,
         );
 
       case MessageType.reel:
@@ -286,8 +278,7 @@ class _MessageBubbleWrapperState
 
       default:
         return TextBubble(
-          text: m.text ?? '',
-          isMe: m.isFromMe,
+          message: m,
           isFirst: widget.isFirst,
           isLast: widget.isLast,
           isDark: widget.isDark,

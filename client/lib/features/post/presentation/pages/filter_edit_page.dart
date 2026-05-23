@@ -9,6 +9,7 @@ import 'package:flutter_lucide/flutter_lucide.dart';
 import 'package:colorfilter_generator/colorfilter_generator.dart';
 import 'package:colorfilter_generator/presets.dart';
 import 'package:colorfilter_generator/addons.dart';
+import 'package:video_player/video_player.dart';
 import 'finalize_post_page.dart';
 
 // ── Edit tool model ────────────────────────────────────────
@@ -63,7 +64,14 @@ class _FilterEditPageState extends State<FilterEditPage>
   // Transform controllers
   late List<TransformationController> _txCtrls;
 
+  bool _isComparing = false;
+
   List<_Tool> get _tools => _toolSets[_currentPage];
+
+  bool _isVideo(File f) {
+    final ext = f.path.split('.').last.toLowerCase();
+    return ['mp4', 'mov', 'avi', 'mkv', 'm4v'].contains(ext);
+  }
 
   @override
   void initState() {
@@ -223,66 +231,144 @@ class _FilterEditPageState extends State<FilterEditPage>
     return SizedBox(
       width: screenW,
       height: screenW,
-      child: Stack(
-        fit: StackFit.expand,
-        children: [
-          PageView.builder(
-            controller: _pageCtrl,
-            itemCount: widget.images.length,
-            onPageChanged: (i) =>
-                setState(() { _currentPage = i; _activeTool = null; }),
-            itemBuilder: (_, i) => ColorFiltered(
-              colorFilter: _buildFilter(i),
-              child: InteractiveViewer(
-                transformationController: _txCtrls[i],
-                minScale: 1.0,
-                maxScale: 4.0,
-                child: Image.file(widget.images[i], fit: BoxFit.cover),
-              ),
-            ),
-          ),
-          // Page count badge
-          if (widget.images.length > 1)
-            Positioned(
-              top: 12, right: 12,
-              child: Container(
-                padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 5),
-                decoration: BoxDecoration(
-                  color: Colors.black.withOpacity(0.55),
-                  borderRadius: BorderRadius.circular(12),
-                ),
-                child: Text(
-                  '${_currentPage + 1}/${widget.images.length}',
-                  style: const TextStyle(
-                      color: Colors.white,
-                      fontSize: 12,
-                      fontWeight: FontWeight.w600,
-                      fontFamily: 'SF-Pro'),
-                ),
-              ),
-            ),
-          // Page dots
-          if (widget.images.length > 1)
-            Positioned(
-              bottom: 10, left: 0, right: 0,
-              child: Row(
-                mainAxisAlignment: MainAxisAlignment.center,
-                children: List.generate(widget.images.length, (i) {
-                  final active = i == _currentPage;
-                  return AnimatedContainer(
-                    duration: const Duration(milliseconds: 180),
-                    margin: const EdgeInsets.symmetric(horizontal: 2.5),
-                    width: active ? 6 : 5,
-                    height: active ? 6 : 5,
-                    decoration: BoxDecoration(
-                      shape: BoxShape.circle,
-                      color: active ? Colors.white : Colors.white54,
+      child: GestureDetector(
+        onLongPressStart: (_) {
+          HapticFeedback.mediumImpact();
+          setState(() => _isComparing = true);
+        },
+        onLongPressEnd: (_) {
+          HapticFeedback.lightImpact();
+          setState(() => _isComparing = false);
+        },
+        onLongPressCancel: () {
+          setState(() => _isComparing = false);
+        },
+        child: Stack(
+          fit: StackFit.expand,
+          children: [
+            PageView.builder(
+              controller: _pageCtrl,
+              physics: _isComparing ? const NeverScrollableScrollPhysics() : const ClampingScrollPhysics(),
+              itemCount: widget.images.length,
+              onPageChanged: (i) =>
+                  setState(() { _currentPage = i; _activeTool = null; }),
+              itemBuilder: (_, i) {
+                return Stack(
+                  fit: StackFit.expand,
+                  children: [
+                    // Original un-filtered / un-adjusted image
+                    InteractiveViewer(
+                      transformationController: _txCtrls[i],
+                      minScale: 1.0,
+                      maxScale: 4.0,
+                      child: _isVideo(widget.images[i])
+                          ? _VideoPreviewItem(file: widget.images[i])
+                          : Image.file(widget.images[i], fit: BoxFit.cover),
                     ),
-                  );
-                }),
-              ),
+                    // Filtered and Adjusted Image with fading
+                    AnimatedOpacity(
+                      opacity: _isComparing ? 0.0 : 1.0,
+                      duration: const Duration(milliseconds: 150),
+                      curve: Curves.easeInOut,
+                      child: IgnorePointer(
+                        ignoring: _isComparing,
+                        child: ColorFiltered(
+                          colorFilter: _buildFilter(i),
+                          child: InteractiveViewer(
+                            transformationController: _txCtrls[i],
+                            minScale: 1.0,
+                            maxScale: 4.0,
+                            child: _isVideo(widget.images[i])
+                                ? _VideoPreviewItem(file: widget.images[i])
+                                : Image.file(widget.images[i], fit: BoxFit.cover),
+                          ),
+                        ),
+                      ),
+                    ),
+                  ],
+                );
+              },
             ),
-        ],
+            // Page count badge
+            if (widget.images.length > 1)
+              Positioned(
+                top: 12, right: 12,
+                child: Container(
+                  padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 5),
+                  decoration: BoxDecoration(
+                    color: Colors.black.withOpacity(0.55),
+                    borderRadius: BorderRadius.circular(12),
+                  ),
+                  child: Text(
+                    '${_currentPage + 1}/${widget.images.length}',
+                    style: const TextStyle(
+                        color: Colors.white,
+                        fontSize: 12,
+                        fontWeight: FontWeight.w600,
+                        fontFamily: 'SF-Pro'),
+                  ),
+                ),
+              ),
+            // Page dots
+            if (widget.images.length > 1)
+              Positioned(
+                bottom: 10, left: 0, right: 0,
+                child: Row(
+                  mainAxisAlignment: MainAxisAlignment.center,
+                  children: List.generate(widget.images.length, (i) {
+                    final active = i == _currentPage;
+                    return AnimatedContainer(
+                      duration: const Duration(milliseconds: 180),
+                      margin: const EdgeInsets.symmetric(horizontal: 2.5),
+                      width: active ? 6 : 5,
+                      height: active ? 6 : 5,
+                      decoration: BoxDecoration(
+                        shape: BoxShape.circle,
+                        color: active ? Colors.white : Colors.white54,
+                      ),
+                    );
+                  }),
+                ),
+              ),
+            // Comparing ORIGINAL overlay badge
+            if (_isComparing)
+              Positioned(
+                top: 16,
+                left: 16,
+                child: ClipRRect(
+                  borderRadius: BorderRadius.circular(20),
+                  child: BackdropFilter(
+                    filter: ui.ImageFilter.blur(sigmaX: 8, sigmaY: 8),
+                    child: Container(
+                      padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
+                      decoration: BoxDecoration(
+                        color: Colors.black.withOpacity(0.5),
+                        borderRadius: BorderRadius.circular(20),
+                        border: Border.all(color: Colors.white24, width: 0.5),
+                      ),
+                      child: Row(
+                        mainAxisSize: MainAxisSize.min,
+                        children: [
+                          const Icon(LucideIcons.eye, color: Colors.white, size: 13),
+                          const SizedBox(width: 6),
+                          Text(
+                            'ORIGINAL PREVIEW',
+                            style: TextStyle(
+                              color: Colors.white.withOpacity(0.9),
+                              fontSize: 10,
+                              fontWeight: FontWeight.w700,
+                              letterSpacing: 1.0,
+                              fontFamily: 'SF-Pro',
+                            ),
+                          ),
+                        ],
+                      ),
+                    ),
+                  ),
+                ),
+              ),
+          ],
+        ),
       ),
     );
   }
@@ -362,88 +448,135 @@ class _FilterEditPageState extends State<FilterEditPage>
                     });
                   }
                 },
-                child: Container(
-                  margin: const EdgeInsets.only(right: 12),
-                  child: Column(
-                    mainAxisSize: MainAxisSize.min,
-                    children: [
-                      AnimatedContainer(
-                        duration: const Duration(milliseconds: 150),
-                        width: isSel ? 68 : 62,
-                        height: isSel ? 68 : 62,
-                        decoration: BoxDecoration(
-                          borderRadius: BorderRadius.circular(4),
-                          border: Border.all(
-                            color: isSel ? Colors.white : Colors.transparent,
-                            width: 2,
+                child: AnimatedScale(
+                  scale: isSel ? 1.04 : 0.96,
+                  duration: const Duration(milliseconds: 200),
+                  curve: Curves.easeOutBack,
+                  child: Container(
+                    margin: const EdgeInsets.only(right: 14, top: 4, bottom: 4),
+                    child: Column(
+                      mainAxisSize: MainAxisSize.min,
+                      children: [
+                        AnimatedContainer(
+                          duration: const Duration(milliseconds: 200),
+                          curve: Curves.easeOutCubic,
+                          padding: const EdgeInsets.all(2.5),
+                          decoration: BoxDecoration(
+                            shape: BoxShape.rectangle,
+                            borderRadius: BorderRadius.circular(10),
+                            border: Border.all(
+                              color: isSel ? const Color(0xFF0095F6) : Colors.white12,
+                              width: 2.0,
+                            ),
+                            boxShadow: isSel ? [
+                              BoxShadow(
+                                color: const Color(0xFF0095F6).withOpacity(0.3),
+                                blurRadius: 6,
+                                spreadRadius: 1,
+                              )
+                            ] : null,
                           ),
-                        ),
-                        child: ClipRRect(
-                          borderRadius: BorderRadius.circular(3),
-                          child: ColorFiltered(
-                            colorFilter: i == 0
-                                ? const ColorFilter.mode(
-                                    Colors.transparent, BlendMode.dst)
-                                : ColorFilter.matrix(filter.matrix),
-                            child: Image.file(
-                              widget.images[_currentPage],
-                              fit: BoxFit.cover,
+                          child: ClipRRect(
+                            borderRadius: BorderRadius.circular(6),
+                            child: SizedBox(
+                              width: 60,
+                              height: 60,
+                              child: ColorFiltered(
+                                colorFilter: i == 0
+                                    ? const ColorFilter.mode(
+                                        Colors.transparent, BlendMode.dst)
+                                    : ColorFilter.matrix(filter.matrix),
+                                child: _isVideo(widget.images[_currentPage])
+                                    ? _VideoPreviewItem(
+                                        file: widget.images[_currentPage],
+                                        isThumb: true,
+                                      )
+                                    : Image.file(
+                                        widget.images[_currentPage],
+                                        fit: BoxFit.cover,
+                                      ),
+                              ),
                             ),
                           ),
                         ),
-                      ),
-                      const SizedBox(height: 5),
-                      Text(
-                        filter.name,
-                        style: TextStyle(
-                          color: isSel ? Colors.white : Colors.white60,
-                          fontSize: 10,
-                          fontWeight: isSel ? FontWeight.w600 : FontWeight.w400,
-                          fontFamily: 'SF-Pro',
+                        const SizedBox(height: 6),
+                        Row(
+                          mainAxisSize: MainAxisSize.min,
+                          children: [
+                            if (isSel) ...[
+                              const Icon(LucideIcons.check,
+                                  color: Color(0xFF0095F6), size: 10),
+                              const SizedBox(width: 3),
+                            ],
+                            Text(
+                              filter.name,
+                              style: TextStyle(
+                                color: isSel ? const Color(0xFF0095F6) : Colors.white60,
+                                fontSize: 10.5,
+                                fontWeight: isSel ? FontWeight.w700 : FontWeight.w500,
+                                fontFamily: 'SF-Pro',
+                              ),
+                            ),
+                          ],
                         ),
-                      ),
-                    ],
+                      ],
+                    ),
                   ),
                 ),
               );
             },
           ),
         ),
-        // Intensity slider
-        AnimatedContainer(
+        // Intensity slider with PremiumSlider
+        AnimatedSize(
           duration: const Duration(milliseconds: 220),
-          height: _showIntensitySlider ? 52 : 0,
-          color: Colors.black,
+          curve: Curves.easeOutCubic,
           child: _showIntensitySlider
-              ? Padding(
-                  padding: const EdgeInsets.symmetric(horizontal: 20),
-                  child: Row(
+              ? Container(
+                  padding: const EdgeInsets.fromLTRB(20, 8, 20, 16),
+                  color: Colors.black,
+                  child: Column(
                     children: [
-                      const Text('0',
-                          style: TextStyle(
-                              color: Colors.white38,
-                              fontSize: 12,
-                              fontFamily: 'SF-Pro')),
-                      Expanded(
-                        child: CupertinoSlider(
-                          value: _filterIntensity[_currentPage],
-                          min: 0,
-                          max: 100,
-                          activeColor: Colors.white,
-                          thumbColor: Colors.white,
-                          onChanged: (v) => setState(
-                              () => _filterIntensity[_currentPage] = v),
+                      _PremiumSlider(
+                        value: _filterIntensity[_currentPage],
+                        min: 0,
+                        max: 100,
+                        onChanged: (v) => setState(() {
+                          _filterIntensity[_currentPage] = v;
+                        }),
+                        onReset: () => setState(() {
+                          _filterIntensity[_currentPage] = 100.0;
+                        }),
+                      ),
+                      const SizedBox(height: 4),
+                      Padding(
+                        padding: const EdgeInsets.symmetric(horizontal: 4),
+                        child: Row(
+                          mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                          children: [
+                            Text('Original (0)',
+                                style: TextStyle(
+                                    color: Colors.white.withOpacity(0.35),
+                                    fontSize: 11,
+                                    fontFamily: 'SF-Pro')),
+                            Text('Double tap to reset (100)',
+                                style: TextStyle(
+                                    color: Colors.white.withOpacity(0.25),
+                                    fontSize: 10,
+                                    fontStyle: FontStyle.italic,
+                                    fontFamily: 'SF-Pro')),
+                            Text('Full (100)',
+                                style: TextStyle(
+                                    color: Colors.white.withOpacity(0.35),
+                                    fontSize: 11,
+                                    fontFamily: 'SF-Pro')),
+                          ],
                         ),
                       ),
-                      const Text('100',
-                          style: TextStyle(
-                              color: Colors.white38,
-                              fontSize: 12,
-                              fontFamily: 'SF-Pro')),
                     ],
                   ),
                 )
-              : null,
+              : const SizedBox.shrink(),
         ),
       ],
     );
@@ -521,83 +654,298 @@ class _FilterEditPageState extends State<FilterEditPage>
   }
 
   Widget _buildInlineSlider(_Tool tool) {
-    final screenW = MediaQuery.of(context).size.width;
     return Container(
       padding: const EdgeInsets.fromLTRB(20, 0, 20, 16),
       color: Colors.black,
       child: Column(
         children: [
-          Stack(
-            alignment: Alignment.center,
-            children: [
-              CupertinoSlider(
-                value: tool.value,
-                min: tool.min,
-                max: tool.max,
-                divisions: ((tool.max - tool.min).round()),
-                activeColor: const Color(0xFF0095F6),
-                thumbColor: Colors.white,
-                onChanged: (v) {
-                  HapticFeedback.selectionClick();
-                  setState(() => tool.value = v);
-                },
-              ),
-              if (tool.hasZeroCenter)
-                Positioned(
-                  left: screenW / 2 - 20,
-                  child: Container(
-                      width: 1.5, height: 12, color: Colors.white30),
-                ),
-            ],
+          const SizedBox(height: 10),
+          _PremiumSlider(
+            value: tool.value,
+            min: tool.min,
+            max: tool.max,
+            onChanged: (v) {
+              setState(() => tool.value = v);
+            },
+            onReset: () {
+              setState(() => tool.value = 0.0);
+            },
           ),
+          const SizedBox(height: 8),
           Padding(
             padding: const EdgeInsets.symmetric(horizontal: 4),
             child: Row(
               mainAxisAlignment: MainAxisAlignment.spaceBetween,
               children: [
                 Text('${tool.min.round()}',
-                    style: const TextStyle(
-                        color: Colors.white38,
+                    style: TextStyle(
+                        color: Colors.white.withOpacity(0.35),
                         fontSize: 11,
                         fontFamily: 'SF-Pro')),
-                Container(
-                  padding: const EdgeInsets.symmetric(
-                      horizontal: 10, vertical: 3),
-                  decoration: BoxDecoration(
-                    color: Colors.white12,
-                    borderRadius: BorderRadius.circular(10),
-                  ),
-                  child: Text(
-                    tool.value > 0
-                        ? '+${tool.value.round()}'
-                        : '${tool.value.round()}',
-                    style: const TextStyle(
-                        color: Colors.white,
-                        fontSize: 12,
-                        fontWeight: FontWeight.w500,
-                        fontFamily: 'SF-Pro'),
-                  ),
-                ),
+                Text('Double tap slider to reset',
+                    style: TextStyle(
+                        color: Colors.white.withOpacity(0.25),
+                        fontSize: 10,
+                        fontStyle: FontStyle.italic,
+                        fontFamily: 'SF-Pro')),
                 Text('+${tool.max.round()}',
-                    style: const TextStyle(
-                        color: Colors.white38,
+                    style: TextStyle(
+                        color: Colors.white.withOpacity(0.35),
                         fontSize: 11,
                         fontFamily: 'SF-Pro')),
               ],
             ),
           ),
-          if (tool.isChanged)
-            CupertinoButton(
-              padding: const EdgeInsets.only(top: 4),
-              onPressed: () => setState(() => tool.value = 0),
-              child: const Text('Reset',
-                  style: TextStyle(
-                      color: Colors.white38,
-                      fontSize: 13,
-                      fontFamily: 'SF-Pro')),
-            ),
         ],
       ),
     );
   }
 }
+
+// ── PREMIUM HAPTIC SLIDER WITH TOOLTIP & ACCURATE PHYSICS ───────
+class _PremiumSlider extends StatefulWidget {
+  final double value;
+  final double min;
+  final double max;
+  final ValueChanged<double> onChanged;
+  final VoidCallback? onReset;
+
+  const _PremiumSlider({
+    required this.value,
+    required this.min,
+    required this.max,
+    required this.onChanged,
+    this.onReset,
+  });
+
+  @override
+  State<_PremiumSlider> createState() => _PremiumSliderState();
+}
+
+class _PremiumSliderState extends State<_PremiumSlider> {
+  bool _isDragging = false;
+
+  void _handleDrag(DragUpdateDetails details, double trackWidth) {
+    final localX = details.localPosition.dx;
+    final pct = (localX / trackWidth).clamp(0.0, 1.0);
+    final newValue = widget.min + pct * (widget.max - widget.min);
+    widget.onChanged(newValue);
+  }
+
+  void _handleTap(TapUpDetails details, double trackWidth) {
+    final localX = details.localPosition.dx;
+    final pct = (localX / trackWidth).clamp(0.0, 1.0);
+    final newValue = widget.min + pct * (widget.max - widget.min);
+    widget.onChanged(newValue);
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    final range = widget.max - widget.min;
+    final normalizedValue = ((widget.value - widget.min) / range).clamp(0.0, 1.0);
+    final isCentered = widget.min < 0 && widget.max > 0;
+    final zeroPos = isCentered ? (-widget.min / range).clamp(0.0, 1.0) : 0.0;
+
+    return GestureDetector(
+      onDoubleTap: () {
+        HapticFeedback.mediumImpact();
+        if (widget.onReset != null) {
+          widget.onReset!();
+        } else {
+          widget.onChanged(0.0);
+        }
+      },
+      child: LayoutBuilder(
+        builder: (context, constraints) {
+          final width = constraints.maxWidth;
+          return Stack(
+            clipBehavior: Clip.none,
+            alignment: Alignment.center,
+            children: [
+              // Value Tooltip above the slider
+              Positioned(
+                top: -34,
+                left: (normalizedValue * width - 20).clamp(0.0, width - 40),
+                child: AnimatedScale(
+                  scale: _isDragging ? 1.1 : 0.0,
+                  duration: const Duration(milliseconds: 180),
+                  curve: Curves.easeOutBack,
+                  child: Container(
+                    padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
+                    decoration: BoxDecoration(
+                      color: const Color(0xFF0095F6),
+                      borderRadius: BorderRadius.circular(6),
+                      boxShadow: [
+                        BoxShadow(
+                          color: Colors.black.withOpacity(0.35),
+                          blurRadius: 4,
+                          offset: const Offset(0, 2),
+                        )
+                      ],
+                    ),
+                    child: Text(
+                      widget.value > 0
+                          ? '+${widget.value.round()}'
+                          : '${widget.value.round()}',
+                      style: const TextStyle(
+                        color: Colors.white,
+                        fontSize: 11,
+                        fontWeight: FontWeight.bold,
+                        fontFamily: 'SF-Pro',
+                      ),
+                    ),
+                  ),
+                ),
+              ),
+              // Track & gestures
+              GestureDetector(
+                behavior: HitTestBehavior.opaque,
+                onHorizontalDragStart: (_) {
+                  setState(() => _isDragging = true);
+                  HapticFeedback.selectionClick();
+                },
+                onHorizontalDragUpdate: (details) => _handleDrag(details, width),
+                onHorizontalDragEnd: (_) {
+                  setState(() => _isDragging = false);
+                  HapticFeedback.lightImpact();
+                },
+                onTapUp: (details) => _handleTap(details, width),
+                child: SizedBox(
+                  height: 30,
+                  child: Stack(
+                    alignment: Alignment.center,
+                    children: [
+                      // Inactive track background
+                      Container(
+                        height: 4,
+                        decoration: BoxDecoration(
+                          color: Colors.white.withOpacity(0.18),
+                          borderRadius: BorderRadius.circular(2),
+                        ),
+                      ),
+                      // Centered tick mark if zero center
+                      if (isCentered)
+                        Positioned(
+                          left: zeroPos * width - 1,
+                          child: Container(
+                            width: 2,
+                            height: 10,
+                            color: Colors.white.withOpacity(0.45),
+                          ),
+                        ),
+                      // Active track filling with gradient
+                      Positioned(
+                        left: isCentered
+                            ? (normalizedValue < zeroPos ? normalizedValue * width : zeroPos * width)
+                            : 0,
+                        right: isCentered
+                            ? (normalizedValue < zeroPos ? (1.0 - zeroPos) * width : (1.0 - normalizedValue) * width)
+                            : (1.0 - normalizedValue) * width,
+                        child: Container(
+                          height: 4,
+                          decoration: BoxDecoration(
+                            gradient: const LinearGradient(
+                              colors: [Color(0xFF00C6FF), Color(0xFF0095F6)],
+                              begin: Alignment.centerLeft,
+                              end: Alignment.centerRight,
+                            ),
+                            borderRadius: BorderRadius.circular(2),
+                          ),
+                        ),
+                      ),
+                      // Sliding Thumb
+                      Positioned(
+                        left: normalizedValue * width - 10,
+                        child: AnimatedContainer(
+                          duration: const Duration(milliseconds: 50),
+                          width: 20,
+                          height: 20,
+                          decoration: BoxDecoration(
+                            color: Colors.white,
+                            shape: BoxShape.circle,
+                            boxShadow: [
+                              BoxShadow(
+                                color: Colors.black.withOpacity(0.3),
+                                blurRadius: 4,
+                                spreadRadius: 1,
+                                offset: const Offset(0, 1),
+                              ),
+                            ],
+                            border: Border.all(
+                              color: const Color(0xFF0095F6).withOpacity(_isDragging ? 0.8 : 0.0),
+                              width: 2.0,
+                            ),
+                          ),
+                        ),
+                      ),
+                    ],
+                  ),
+                ),
+              ),
+            ],
+          );
+        },
+      ),
+    );
+  }
+}
+
+// ── Video Preview Item ─────────────────────────────────────
+
+class _VideoPreviewItem extends StatefulWidget {
+  final File file;
+  final bool isThumb;
+  const _VideoPreviewItem({required this.file, this.isThumb = false});
+
+  @override
+  State<_VideoPreviewItem> createState() => _VideoPreviewItemState();
+}
+
+class _VideoPreviewItemState extends State<_VideoPreviewItem> {
+  VideoPlayerController? _ctrl;
+  bool _initialized = false;
+
+  @override
+  void initState() {
+    super.initState();
+    _ctrl = VideoPlayerController.file(widget.file);
+    _ctrl!.initialize().then((_) {
+      if (mounted) {
+        setState(() => _initialized = true);
+        if (!widget.isThumb) {
+          _ctrl!.setLooping(true);
+          _ctrl!.play();
+        }
+      }
+    });
+  }
+
+  @override
+  void dispose() {
+    _ctrl?.dispose();
+    super.dispose();
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    if (!_initialized) {
+      return Container(
+        color: Colors.black,
+        child: const Center(
+          child: CupertinoActivityIndicator(color: Colors.white),
+        ),
+      );
+    }
+    return SizedBox.expand(
+      child: FittedBox(
+        fit: BoxFit.cover,
+        child: SizedBox(
+          width: _ctrl!.value.size.width,
+          height: _ctrl!.value.size.height,
+          child: VideoPlayer(_ctrl!),
+        ),
+      ),
+    );
+  }
+}
+

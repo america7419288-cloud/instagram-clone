@@ -113,7 +113,9 @@ class InboxPageNotifier extends Notifier<InboxPageState> {
       final lastActiveTime = otherUser != null ? presenceState.lastSeen[otherUser.id] : null;
 
       ConversationState conversationState = ConversationState.read;
-      if (conv.unreadCount > 0) {
+      if (conv.isMuted) {
+        conversationState = ConversationState.muted;
+      } else if (conv.isUnread || conv.unreadCount > 0) {
         conversationState = ConversationState.unread;
       }
 
@@ -137,10 +139,10 @@ class InboxPageNotifier extends Notifier<InboxPageState> {
         lastMessageType: lastMsgType,
         lastMessageTime: conv.lastMessage?.createdAt ?? conv.updatedAt,
         isSentByMe: isOwn,
-        unreadCount: conv.unreadCount,
+        unreadCount: conv.isUnread && conv.unreadCount == 0 ? 1 : conv.unreadCount,
         isActive: isOnline,
         lastActiveTime: lastActiveTime,
-        isMuted: false, 
+        isMuted: conv.isMuted, 
         hasStory: false,
         isTyping: isTyping,
         state: conversationState,
@@ -161,11 +163,32 @@ class InboxPageNotifier extends Notifier<InboxPageState> {
   }
 
   void toggleReadState(String id) {
-    // Backend doesn't support manual unread toggle yet
+    try {
+      final conv = state.conversations.firstWhere((c) => c.id == id);
+      if (conv.state == ConversationState.unread) {
+        ref.read(inboxProvider.notifier).markAsRead(id);
+      } else {
+        ref.read(inboxProvider.notifier).markAsUnread(id);
+      }
+    } catch (e) {
+      // Guard against not found in active list (check requests)
+      try {
+        final conv = state.requests.firstWhere((c) => c.id == id);
+        if (conv.state == ConversationState.unread) {
+          ref.read(inboxProvider.notifier).markAsRead(id);
+        } else {
+          ref.read(inboxProvider.notifier).markAsUnread(id);
+        }
+      } catch (_) {}
+    }
   }
 
-  void muteConversation(String id) {
-    // Backend doesn't support muting conversation yet
+  void muteConversation(String id, {String duration = 'forever'}) {
+    ref.read(inboxProvider.notifier).muteConversation(id, duration);
+  }
+
+  void unmuteConversation(String id) {
+    ref.read(inboxProvider.notifier).unmuteConversation(id);
   }
 
   void deleteConversation(String id) {

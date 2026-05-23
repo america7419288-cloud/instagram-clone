@@ -15,6 +15,7 @@ import '../widgets/active_friends_bar.dart';
 import '../widgets/conversation_tile.dart';
 import '../../notes/pages/note_create_sheet.dart';
 import '../../notes/controllers/notes_controller.dart';
+import '../../chat/presentation/providers/chat_providers.dart';
 
 class InboxPage extends ConsumerStatefulWidget {
   const InboxPage({super.key});
@@ -242,8 +243,10 @@ class _InboxPageState extends ConsumerState<InboxPage>
                         entryController: _entryController,
                         onTap: () => _openChat(conv.id, conv.username),
                         onDelete: () => notifier.deleteConversation(conv.id),
-                        onMute: () => notifier.muteConversation(conv.id),
+                        onMute: (duration) => notifier.muteConversation(conv.id, duration: duration),
+                        onUnmute: () => notifier.unmuteConversation(conv.id),
                         onToggleRead: () => notifier.toggleReadState(conv.id),
+                        onReport: (type, desc) => ref.read(messageRepositoryProvider).reportUser(userId: conv.userId, reportType: type, description: desc),
                       );
                     },
                     childCount: inboxState.conversations.length,

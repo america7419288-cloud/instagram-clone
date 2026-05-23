@@ -125,11 +125,53 @@ class InboxNotifier extends Notifier<InboxState> {
     await loadConversations();
   }
 
-  void deleteConversation(String conversationId) {
+  Future<void> deleteConversation(String conversationId) async {
+    // Optimistic UI update
     state = state.copyWith(
       conversations: state.conversations.where((c) => c.id != conversationId).toList(),
       requests: state.requests.where((c) => c.id != conversationId).toList(),
     );
+    try {
+      await _repository.deleteConversation(conversationId);
+    } catch (e) {
+      loadConversations();
+    }
+  }
+
+  Future<void> markAsUnread(String conversationId) async {
+    try {
+      await _repository.markAsUnread(conversationId);
+      await loadConversations();
+    } catch (e) {
+      state = state.copyWith(error: e.toString());
+    }
+  }
+
+  Future<void> markAsRead(String conversationId) async {
+    try {
+      await _repository.markAsRead(conversationId);
+      await loadConversations();
+    } catch (e) {
+      state = state.copyWith(error: e.toString());
+    }
+  }
+
+  Future<void> muteConversation(String conversationId, String duration) async {
+    try {
+      await _repository.muteConversation(conversationId, duration);
+      await loadConversations();
+    } catch (e) {
+      state = state.copyWith(error: e.toString());
+    }
+  }
+
+  Future<void> unmuteConversation(String conversationId) async {
+    try {
+      await _repository.unmuteConversation(conversationId);
+      await loadConversations();
+    } catch (e) {
+      state = state.copyWith(error: e.toString());
+    }
   }
 }
 

@@ -227,6 +227,51 @@ class MessageRepository {
     await _localDb.deleteConversation(conversationId);
   }
 
+  Future<void> markAsUnread(String conversationId) async {
+    await _api.markAsUnread(conversationId);
+    final conv = _localDb.getConversation(conversationId);
+    if (conv != null) {
+      await _localDb.saveConversation(conv.copyWith(isUnread: true));
+    }
+  }
+
+  Future<void> muteConversation(String conversationId, String duration) async {
+    await _api.muteConversation(conversationId, duration);
+    final conv = _localDb.getConversation(conversationId);
+    if (conv != null) {
+      await _localDb.saveConversation(conv.copyWith(isMuted: true));
+    }
+  }
+
+  Future<void> unmuteConversation(String conversationId) async {
+    await _api.unmuteConversation(conversationId);
+    final conv = _localDb.getConversation(conversationId);
+    if (conv != null) {
+      await _localDb.saveConversation(conv.copyWith(isMuted: false));
+    }
+  }
+
+  Future<void> deleteConversation(String conversationId) async {
+    await _api.deleteConversation(conversationId);
+    await _localDb.deleteConversation(conversationId);
+  }
+
+  Future<void> reportUser({
+    required String userId,
+    required String reportType,
+    String? description,
+  }) async {
+    await _api.reportUser(userId: userId, reportType: reportType, description: description);
+  }
+
+  Future<void> reportMessage({
+    required String messageId,
+    required String reportType,
+    String? description,
+  }) async {
+    await _api.reportMessage(messageId: messageId, reportType: reportType, description: description);
+  }
+
   Future<void> clearLocalCache() async {
     await _localDb.clearAll();
   }

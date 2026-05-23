@@ -37,6 +37,12 @@ class Conversation {
   final int? disappearingDuration;
   final bool isAccepted;
 
+  // Phase 4 fields (not in Hive)
+  final bool isMuted;
+  final bool isUnread;
+  final DateTime? mutedUntil;
+  final DateTime? deletedAt;
+
   Conversation({
     required this.id,
     this.isGroup = false,
@@ -49,6 +55,10 @@ class Conversation {
     this.otherUser,
     this.disappearingDuration,
     this.isAccepted = true,
+    this.isMuted = false,
+    this.isUnread = false,
+    this.mutedUntil,
+    this.deletedAt,
   });
 
   factory Conversation.fromJson(Map<String, dynamic> json) {
@@ -82,6 +92,14 @@ class Conversation {
               ? int.tryParse(json['disappearingDuration'].toString())
               : null,
       isAccepted: json['is_accepted'] ?? json['isAccepted'] ?? true,
+      isMuted: json['is_muted'] ?? json['isMuted'] ?? false,
+      isUnread: json['is_unread'] ?? json['isUnread'] ?? false,
+      mutedUntil: json['muted_until'] != null
+          ? DateTime.tryParse(json['muted_until'].toString())
+          : null,
+      deletedAt: json['deleted_at'] != null
+          ? DateTime.tryParse(json['deleted_at'].toString())
+          : null,
     );
   }
 
@@ -97,6 +115,10 @@ class Conversation {
     ChatUser? otherUser,
     int? disappearingDuration,
     bool? isAccepted,
+    bool? isMuted,
+    bool? isUnread,
+    DateTime? mutedUntil,
+    DateTime? deletedAt,
   }) {
     return Conversation(
       id: id ?? this.id,
@@ -110,6 +132,10 @@ class Conversation {
       otherUser: otherUser ?? this.otherUser,
       disappearingDuration: disappearingDuration ?? this.disappearingDuration,
       isAccepted: isAccepted ?? this.isAccepted,
+      isMuted: isMuted ?? this.isMuted,
+      isUnread: isUnread ?? this.isUnread,
+      mutedUntil: mutedUntil ?? this.mutedUntil,
+      deletedAt: deletedAt ?? this.deletedAt,
     );
   }
 
@@ -126,6 +152,10 @@ class Conversation {
       'other_user': otherUser?.toJson(),
       'disappearing_duration': disappearingDuration,
       'is_accepted': isAccepted,
+      'is_muted': isMuted,
+      'is_unread': isUnread,
+      'muted_until': mutedUntil?.toIso8601String(),
+      'deleted_at': deletedAt?.toIso8601String(),
     };
   }
 }

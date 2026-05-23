@@ -9,6 +9,7 @@ import 'package:phosphor_flutter/phosphor_flutter.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 import 'package:image_picker/image_picker.dart';
+import 'package:video_player/video_player.dart';
 
 import '../../../../core/router/app_router.dart';
 import '../../../../shared/widgets/app_snackbar.dart';
@@ -38,6 +39,11 @@ class FinalizePostPage extends ConsumerStatefulWidget {
 }
 
 class _FinalizePostPageState extends ConsumerState<FinalizePostPage> {
+  bool _isVideo(File f) {
+    final ext = f.path.split('.').last.toLowerCase();
+    return ['mp4', 'mov', 'avi', 'mkv', 'm4v'].contains(ext);
+  }
+
   final _captionCtrl = TextEditingController();
   final _scrollCtrl = ScrollController();
 
@@ -211,8 +217,13 @@ class _FinalizePostPageState extends ConsumerState<FinalizePostPage> {
               // Thumbnail
               ClipRRect(
                 borderRadius: BorderRadius.circular(4),
-                child: Image.file(widget.images.first,
-                    width: 68, height: 68, fit: BoxFit.cover),
+                child: SizedBox(
+                  width: 68,
+                  height: 68,
+                  child: _isVideo(widget.images.first)
+                      ? _VideoPreviewItem(file: widget.images.first, isThumb: true)
+                      : Image.file(widget.images.first, fit: BoxFit.cover),
+                ),
               ),
               const SizedBox(width: 12),
               // Caption input
@@ -482,4 +493,63 @@ class _FinalizePostPageState extends ConsumerState<FinalizePostPage> {
       height: 0.33,
       margin: const EdgeInsets.only(left: 52),
       color: const Color(0xFFDBDBDB));
+}
+
+// ── Video Preview Item ─────────────────────────────────────
+
+class _VideoPreviewItem extends StatefulWidget {
+  final File file;
+  final bool isThumb;
+  const _VideoPreviewItem({required this.file, this.isThumb = false});
+
+  @override
+  State<_VideoPreviewItem> createState() => _VideoPreviewItemState();
+}
+
+class _VideoPreviewItemState extends State<_VideoPreviewItem> {
+  VideoPlayerController? _ctrl;
+  bool _initialized = false;
+
+  @override
+  void initState() {
+    super.initState();
+    _ctrl = VideoPlayerController.file(widget.file);
+    _ctrl!.initialize().then((_) {
+      if (mounted) {
+        setState(() => _initialized = true);
+        if (!widget.isThumb) {
+          _ctrl!.setLooping(true);
+          _ctrl!.play();
+        }
+      }
+    });
+  }
+
+  @override
+  void dispose() {
+    _ctrl?.dispose();
+    super.dispose();
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    if (!_initialized) {
+      return Container(
+        color: Colors.black,
+        child: const Center(
+          child: CupertinoActivityIndicator(color: Colors.white),
+        ),
+      );
+    }
+    return SizedBox.expand(
+      child: FittedBox(
+        fit: BoxFit.cover,
+        child: SizedBox(
+          width: _ctrl!.value.size.width,
+          height: _ctrl!.value.size.height,
+          child: VideoPlayer(_ctrl!),
+        ),
+      ),
+    );
+  }
 }

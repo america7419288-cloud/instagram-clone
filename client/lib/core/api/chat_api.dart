@@ -148,4 +148,51 @@ class ChatApi {
   Future<void> rejectConversationRequest(String conversationId) async {
     await _dio.post('/conversations/$conversationId/reject');
   }
+
+  Future<void> markAsUnread(String conversationId) async {
+    await _dio.put('/conversations/$conversationId/unread');
+  }
+
+  Future<void> muteConversation(String conversationId, String duration) async {
+    await _dio.post(
+      '/conversations/$conversationId/mute',
+      data: {'duration': duration},
+    );
+  }
+
+  Future<void> unmuteConversation(String conversationId) async {
+    await _dio.delete('/conversations/$conversationId/mute');
+  }
+
+  Future<void> deleteConversation(String conversationId) async {
+    await _dio.delete('/conversations/$conversationId');
+  }
+
+  Future<void> reportUser({
+    required String userId,
+    required String reportType,
+    String? description,
+  }) async {
+    await _dio.post(
+      '/reports/user/$userId',
+      data: {
+        'report_type': reportType,
+        'description': description ?? '',
+      },
+    );
+  }
+
+  Future<void> reportMessage({
+    required String messageId,
+    required String reportType,
+    String? description,
+  }) async {
+    await _dio.post(
+      '/reports/message/$messageId',
+      data: {
+        'report_type': reportType,
+        'description': description ?? '',
+      },
+    );
+  }
 }

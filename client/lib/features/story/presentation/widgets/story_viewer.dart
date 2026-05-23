@@ -141,7 +141,7 @@ class _StoryViewerState extends ConsumerState<StoryViewer>
     try {
       _audioPlayer ??= AudioPlayer();
       final dio = ref.read(dioClientProvider).dio;
-      final source = BackendStreamAudioSource(dio, music.id);
+      final source = await BackendStreamAudioSource.getPlayableSource(dio, music.id);
       
       await _audioPlayer!.setAudioSource(source);
       await _audioPlayer!.seek(Duration(seconds: music.startTime));

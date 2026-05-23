@@ -316,16 +316,24 @@ class _ProfilePageState extends ConsumerState<ProfilePage>
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          Text(
-            profile.fullName, 
-            style: TextStyle(
-              fontWeight: FontWeight.bold, 
-              fontSize: 14,
-              fontFamily: 'Instagram-Sans',
-              color: isDark ? Colors.white : Colors.black,
-            ),
+          Row(
+            children: [
+              Text(
+                profile.fullName, 
+                style: TextStyle(
+                  fontWeight: FontWeight.bold, 
+                  fontSize: 14,
+                  fontFamily: 'Instagram-Sans',
+                  color: isDark ? Colors.white : Colors.black,
+                ),
+              ),
+              if (profile.isVerified) ...[
+                const SizedBox(width: 4),
+                const VerifiedBadge(size: 14),
+              ],
+            ],
           ),
-          const SizedBox(height: 2),
+          const SizedBox(height: 4),
           if (profile.bio != null)
             Text(
               profile.bio!, 

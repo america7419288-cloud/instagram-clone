@@ -160,8 +160,6 @@ class _MessageRequestsPageState extends ConsumerState<MessageRequestsPage>
                     entryController: _entryController,
                     onTap: () => _openChat(conv.id, conv.username),
                     onDelete: () => ref.read(inboxProvider.notifier).rejectRequest(conv.id),
-                    onMute: () {}, // Not applicable for requests
-                    onToggleRead: () {}, // Not applicable for requests
                   );
                 },
                 childCount: inboxState.requests.length,

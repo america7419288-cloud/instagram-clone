@@ -118,10 +118,50 @@ class NotesNotifier extends Notifier<NotesState> {
   }
 
   /// Create and share a new note with followers or close friends
-  Future<void> shareNote(String text, NoteAudience audience) async {
+  Future<void> shareNote(
+    String text,
+    NoteAudience audience, {
+    String? noteType,
+    
+    // Music
+    String? musicTrackId,
+    String? musicTrackName,
+    String? musicArtistName,
+    String? musicAlbumArt,
+    String? musicPreviewUrl,
+    int? musicDuration,
+    String? musicPlatform,
+    
+    // GIF
+    String? gifId,
+    String? gifUrl,
+    String? gifPreviewUrl,
+    String? gifTitle,
+    int? gifWidth,
+    int? gifHeight,
+    String? gifSource,
+  }) async {
     try {
       final service = ref.read(notesServiceProvider);
-      final note = await service.createNote(text, audience);
+      final note = await service.createNote(
+        text,
+        audience,
+        noteType: noteType,
+        musicTrackId: musicTrackId,
+        musicTrackName: musicTrackName,
+        musicArtistName: musicArtistName,
+        musicAlbumArt: musicAlbumArt,
+        musicPreviewUrl: musicPreviewUrl,
+        musicDuration: musicDuration,
+        musicPlatform: musicPlatform,
+        gifId: gifId,
+        gifUrl: gifUrl,
+        gifPreviewUrl: gifPreviewUrl,
+        gifTitle: gifTitle,
+        gifWidth: gifWidth,
+        gifHeight: gifHeight,
+        gifSource: gifSource,
+      );
 
       state = state.copyWith(myNote: () => note);
 

@@ -166,7 +166,7 @@ class _PostCardState extends ConsumerState<PostCard>
     final dio = ref.read(dioClientProvider).dio;
     
     try {
-      final source = BackendStreamAudioSource(dio, widget.post.musicId!);
+      final source = await BackendStreamAudioSource.getPlayableSource(dio, widget.post.musicId!);
       await _audioPlayer!.setAudioSource(source);
       
       // Loop the 30s clip
