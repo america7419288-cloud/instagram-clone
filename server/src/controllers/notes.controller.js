@@ -74,10 +74,19 @@ const createNote = async (req, res) => {
     } = req.body;
 
     // 1. VALIDATE TEXT LIMIT
-    if (!text || text.trim().length === 0) {
+    const noteTypeFinal = noteType || note_type || 'text';
+    let cleanText = (text || '').trim();
+
+    if (noteTypeFinal === 'text' && cleanText.length === 0) {
       return errorResponse(res, 400, 'Note text cannot be empty.');
     }
-    if (text.length > 60) {
+
+    // Default to a single space to satisfy Sequelize allowNull: false & notEmpty validators
+    if (cleanText.length === 0) {
+      cleanText = ' ';
+    }
+
+    if (cleanText.length > 60) {
       return errorResponse(res, 400, 'Note cannot exceed 60 characters.');
     }
 
@@ -89,7 +98,7 @@ const createNote = async (req, res) => {
     // 3. CREATE NEW EPHEMERAL NOTE
     const note = await Note.create({
       user_id: userId,
-      text: text.trim(),
+      text: cleanText,
       audience: audience === 'close_friends' ? 'close_friends' : 'followers',
       expires_at: new Date(Date.now() + 24 * 60 * 60 * 1000), // Expires in 24 hours
 
