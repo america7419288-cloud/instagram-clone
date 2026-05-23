@@ -102,6 +102,60 @@ const YT_DLP_FLAGS = [
 ].join(' ');
 
 /**
+ * Public Invidious instances to resolve YouTube audio streams without bot blocks
+ */
+const INVIDIOUS_INSTANCES = [
+    'https://yewtu.be',
+    'https://invidious.nerdvpn.de',
+    'https://invidious.flokinet.to',
+    'https://vid.puffyan.us',
+    'https://invidious.projectsegfau.lt'
+];
+
+const fetchInvidiousStreamUrl = async (videoId) => {
+    for (const instance of INVIDIOUS_INSTANCES) {
+        try {
+            console.log(`🌐 Trying Invidious instance: ${instance} for video: ${videoId}`);
+            const url = `${instance}/api/v1/videos/${videoId}`;
+            
+            const data = await new Promise((resolve, reject) => {
+                const req = https.get(url, { timeout: 3500 }, (res) => {
+                    let body = '';
+                    res.on('data', chunk => body += chunk);
+                    res.on('end', () => {
+                        try {
+                            resolve(JSON.parse(body));
+                        } catch (e) {
+                            reject(e);
+                        }
+                    });
+                });
+                req.on('error', reject);
+                req.on('timeout', () => {
+                    req.destroy();
+                    reject(new Error('Timeout'));
+                });
+            });
+
+            if (data && data.adaptiveFormats) {
+                // Find an audio stream (mimeType starts with audio/)
+                const audioFormat = data.adaptiveFormats.find(f => 
+                    f.mimeType && f.mimeType.startsWith('audio/')
+                );
+                
+                if (audioFormat && audioFormat.url) {
+                    console.log(`✅ Successfully extracted stream via Invidious (${instance})`);
+                    return audioFormat.url;
+                }
+            }
+        } catch (e) {
+            console.warn(`⚠️ Failed to fetch stream from Invidious instance ${instance}: ${e.message}`);
+        }
+    }
+    return null;
+};
+
+/**
  * Proxy YouTube audio stream to bypass client-side DNS/403 issues
  * GET /api/music/stream/:videoId
  */
@@ -144,6 +198,15 @@ const streamMusic = async (req, res) => {
         }
 
         console.log(`🎵 Extracting fresh stream for video: ${videoId}`);
+
+        // Try Invidious API first (super fast & bot-bypass)
+        const invidiousUrl = await fetchInvidiousStreamUrl(videoId);
+        if (invidiousUrl) {
+            _handleExtractedUrl(videoId, invidiousUrl, filePath, range, res, req.headers);
+            return;
+        }
+
+        console.log(`⚠️ Invidious API bypassed. Falling back to local yt-dlp...`);
 
         // 3. Extract using yt-dlp
         const command = `${PYTHON_CMD} -m yt_dlp -g -f "ba/best" ${YT_DLP_FLAGS} "${videoId}"`;
