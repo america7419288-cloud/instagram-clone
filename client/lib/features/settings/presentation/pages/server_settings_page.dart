@@ -1,8 +1,11 @@
 import 'package:flutter/cupertino.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
+import 'package:dio/dio.dart';
 
 import '../../../../core/providers/server_config_provider.dart';
+import '../../../../core/network/dio_client.dart';
+
 
 class ServerSettingsPage extends ConsumerStatefulWidget {
   const ServerSettingsPage({super.key});
@@ -15,6 +18,48 @@ class _ServerSettingsPageState extends ConsumerState<ServerSettingsPage> {
   final _baseUrlController = TextEditingController();
   final _socketUrlController = TextEditingController();
   final _formKey = GlobalKey<FormState>();
+  bool _isTestingPush = false;
+
+  Future<void> _sendTestPush() async {
+    if (_isTestingPush) return;
+    setState(() => _isTestingPush = true);
+
+    try {
+      final client = ref.read(dioClientProvider);
+      final response = await client.post('/notifications/test-push');
+
+      if (mounted) {
+        final message = response.data['message'] ?? 'Test push notification dispatched successfully!';
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(
+            content: Text(message),
+            backgroundColor: Colors.green,
+          ),
+        );
+      }
+    } catch (e) {
+      if (mounted) {
+        String errorMsg = e.toString();
+        if (e is DioException) {
+          final data = e.response?.data;
+          if (data is Map && data.containsKey('message')) {
+            errorMsg = data['message'];
+          }
+        }
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(
+            content: Text('Failed: $errorMsg'),
+            backgroundColor: Colors.red,
+          ),
+        );
+      }
+    } finally {
+      if (mounted) {
+        setState(() => _isTestingPush = false);
+      }
+    }
+  }
+
 
   @override
   void initState() {
@@ -143,6 +188,46 @@ class _ServerSettingsPageState extends ConsumerState<ServerSettingsPage> {
                     ),
                   ),
                 ],
+              ),
+              const SizedBox(height: 40),
+              const Divider(color: Colors.grey),
+              const SizedBox(height: 20),
+              const Text(
+                'Developer Options',
+                style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold),
+              ),
+              const SizedBox(height: 8),
+              const Text(
+                'Test and verify end-to-end FCM push notification delivery to your account.',
+                style: TextStyle(color: Colors.grey, fontSize: 12),
+              ),
+              const SizedBox(height: 16),
+              SizedBox(
+                width: double.infinity,
+                child: ElevatedButton.icon(
+                  onPressed: _isTestingPush ? null : _sendTestPush,
+                  icon: _isTestingPush
+                      ? const SizedBox(
+                          width: 20,
+                          height: 20,
+                          child: CircularProgressIndicator(
+                            strokeWidth: 2,
+                            color: Colors.white,
+                          ),
+                        )
+                      : const Icon(Icons.notifications_active, color: Colors.white),
+                  label: Text(
+                    _isTestingPush ? 'Sending Test...' : 'Send Test Push Notification',
+                    style: const TextStyle(color: Colors.white, fontSize: 15, fontWeight: FontWeight.w600),
+                  ),
+                  style: ElevatedButton.styleFrom(
+                    backgroundColor: Colors.purple,
+                    padding: const EdgeInsets.symmetric(vertical: 16),
+                    shape: RoundedRectangleBorder(
+                      borderRadius: BorderRadius.circular(8),
+                    ),
+                  ),
+                ),
               ),
             ],
           ),

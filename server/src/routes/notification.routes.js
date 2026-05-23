@@ -10,6 +10,7 @@ const {
   markAsRead,
   deleteNotification,
   deleteAllNotifications,
+  triggerTestPush,
 } = require('../controllers/notification.controller');
 
 const { protect } = require('../middleware/auth.middleware');
@@ -17,8 +18,12 @@ const { protect } = require('../middleware/auth.middleware');
 // ─── ROUTES ────────────────────────────────────────────────
 // ⚠️ Specific routes BEFORE param routes
 
+// POST trigger test push notification
+router.post('/test-push', protect, triggerTestPush);
+
 // GET all notifications (paginated)
 router.get('/', protect, getNotifications);
+
 
 // GET unread count (for badge)
 router.get('/unread-count', protect, getUnreadCount);

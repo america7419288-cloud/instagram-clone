@@ -300,6 +300,59 @@ const deleteAllNotifications = async (req, res) => {
   }
 };
 
+const triggerTestPush = async (req, res) => {
+  try {
+    const userId = req.user.id;
+    const user = await User.findByPk(userId, { attributes: ['id', 'username', 'fcmToken'] });
+
+    if (!user) {
+      return errorResponse(res, 404, 'User not found.');
+    }
+
+    if (!user.fcmToken) {
+      return errorResponse(
+        res,
+        400,
+        `FCM token not registered for user "${user.username}". Make sure you allow push notification permission and log in from your mobile device.`
+      );
+    }
+
+    const { sendPushNotification } = require('../services/push.service');
+
+    console.log(`🔔 Sending developer test push to user: ${user.username}...`);
+
+    const result = await sendPushNotification({
+      fcmToken: user.fcmToken,
+      type: 'system',
+      senderUsername: 'system',
+      extra: {
+        message: 'Developer Test: Push notifications are working perfectly! 🚀',
+      },
+    });
+
+    if (result === 'invalid_token') {
+      await user.update({ fcmToken: null });
+      return errorResponse(
+        res,
+        400,
+        'Your registered FCM token is invalid or expired. Please re-authenticate your mobile app.'
+      );
+    }
+
+    if (!result) {
+      return errorResponse(res, 500, 'Failed to dispatch push notification. Check server console logs.');
+    }
+
+    return successResponse(res, 200, 'Test push notification dispatched successfully! 🚀 Check your phone!', {
+      recipient: user.username,
+      token_preview: `...${user.fcmToken.slice(-8)}`,
+    });
+  } catch (error) {
+    console.error('❌ Trigger test push error:', error);
+    return errorResponse(res, 500, `Error triggering test push: ${error.message}`);
+  }
+};
+
 module.exports = {
   getNotifications,
   getUnreadCount,
@@ -307,4 +360,6 @@ module.exports = {
   markAsRead,
   deleteNotification,
   deleteAllNotifications,
+  triggerTestPush,
 };
+
