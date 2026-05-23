@@ -42,6 +42,19 @@ import 'package:instagram_client/core/widgets/instagram_heart_animation.dart';
 import 'package:instagram_client/features/share/presentation/share_sheet.dart';
 import 'package:instagram_client/features/share/models/share_content.dart';
 
+class ZoomNotifier extends Notifier<bool> {
+  @override
+  bool build() => false;
+
+  void setZooming(bool value) {
+    state = value;
+  }
+}
+
+final isZoomingProvider = NotifierProvider<ZoomNotifier, bool>(
+  ZoomNotifier.new,
+);
+
 class PostCard extends ConsumerStatefulWidget {
   final PostModel post;
 
@@ -60,6 +73,11 @@ class _PostCardState extends ConsumerState<PostCard>
   late AnimationController _saveBounceController;
   late Animation<double> _saveBounceScale;
 
+  late AnimationController _zoomAnimationController;
+  double _startScale = 1.0;
+  double _startTranslationX = 0.0;
+  double _startTranslationY = 0.0;
+
   // ─── State ────────────────────────────────────────────
   bool _isLiked = false;
   int _likeCount = 0;
@@ -75,6 +93,7 @@ class _PostCardState extends ConsumerState<PostCard>
   List<PostTagModel> _tags = [];
   bool _showTags = false;
   bool _tagsLoaded = false;
+  int _activePointers = 0;
 
   final PageController _pageController = PageController();
   final TransformationController _transformationController = TransformationController();
@@ -118,6 +137,27 @@ class _PostCardState extends ConsumerState<PostCard>
       TweenSequenceItem(tween: Tween(begin: 0.8, end: 1.1), weight: 50),
       TweenSequenceItem(tween: Tween(begin: 1.1, end: 1.0), weight: 30),
     ]).animate(_saveBounceController);
+
+    _zoomAnimationController = AnimationController(
+      vsync: this,
+      duration: const Duration(milliseconds: 350),
+    );
+
+    final CurvedAnimation zoomCurve = CurvedAnimation(
+      parent: _zoomAnimationController,
+      curve: Curves.easeOutQuint,
+    );
+
+    _zoomAnimationController.addListener(() {
+      final double t = zoomCurve.value;
+      final double animatedScale = _startScale + (1.0 - _startScale) * t;
+      final double animatedX = _startTranslationX * (1.0 - t);
+      final double animatedY = _startTranslationY * (1.0 - t);
+
+      _transformationController.value = Matrix4.identity()
+        ..translate(animatedX, animatedY)
+        ..scale(animatedScale);
+    });
   }
 
   @override
@@ -207,6 +247,7 @@ class _PostCardState extends ConsumerState<PostCard>
     _saveBounceController.dispose();
     _pageController.dispose();
     _transformationController.dispose();
+    _zoomAnimationController.dispose();
     super.dispose();
   }
 
@@ -447,16 +488,71 @@ class _PostCardState extends ConsumerState<PostCard>
                     fit: BoxFit.contain, // Show full video without cropping
                   );
                 }
-                return InteractiveViewer(
-                  transformationController: _transformationController,
-                  clipBehavior: Clip.none,
-                  minScale: 1.0,
-                  maxScale: 4.0,
-                  onInteractionEnd: (_) => _transformationController.value = Matrix4.identity(),
-                  child: CachedNetworkImage(
-                    imageUrl: media.url,
-                    fit: BoxFit.contain, // Show full image without cropping
-                    width: width,
+                return Listener(
+                  onPointerDown: (event) {
+                    _activePointers++;
+                    if (_activePointers >= 2) {
+                      ref.read(isZoomingProvider.notifier).setZooming(true);
+                      final scrollable = Scrollable.maybeOf(context);
+                      if (scrollable != null) {
+                        try {
+                          scrollable.position.jumpTo(scrollable.position.pixels);
+                        } catch (_) {}
+                      }
+                    }
+                  },
+                  onPointerUp: (event) {
+                    _activePointers = (_activePointers - 1).clamp(0, 10);
+                  },
+                  onPointerCancel: (event) {
+                    _activePointers = (_activePointers - 1).clamp(0, 10);
+                  },
+                  child: InteractiveViewer(
+                    transformationController: _transformationController,
+                    clipBehavior: Clip.none,
+                    minScale: 1.0,
+                    maxScale: 4.0,
+                    onInteractionStart: (details) {
+                      if (_zoomAnimationController.isAnimating) {
+                        _zoomAnimationController.stop();
+                      }
+                      if (details.pointerCount >= 2) {
+                        ref.read(isZoomingProvider.notifier).setZooming(true);
+                        final scrollable = Scrollable.maybeOf(context);
+                        if (scrollable != null) {
+                          try {
+                            scrollable.position.jumpTo(scrollable.position.pixels);
+                          } catch (_) {}
+                        }
+                      }
+                    },
+                    onInteractionUpdate: (details) {
+                      if (details.scale != 1.0) {
+                        ref.read(isZoomingProvider.notifier).setZooming(true);
+                      }
+                    },
+                    onInteractionEnd: (details) {
+                      _activePointers = 0;
+                      final Matrix4 matrix = _transformationController.value;
+                      final double currentScale = matrix.storage[0];
+                      
+                      if (currentScale > 1.0) {
+                        _startScale = currentScale;
+                        _startTranslationX = matrix.storage[12];
+                        _startTranslationY = matrix.storage[13];
+                        
+                        _zoomAnimationController.forward(from: 0.0).then((_) {
+                          ref.read(isZoomingProvider.notifier).setZooming(false);
+                        });
+                      } else {
+                        ref.read(isZoomingProvider.notifier).setZooming(false);
+                      }
+                    },
+                    child: CachedNetworkImage(
+                      imageUrl: media.url,
+                      fit: BoxFit.contain, // Show full image without cropping
+                      width: width,
+                    ),
                   ),
                 );
               },

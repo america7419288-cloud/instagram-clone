@@ -52,7 +52,7 @@ class NotificationState {
 
     // This Week
     final thisWeek = notifications.where((n) {
-      if (n.createdAt == null) return false;
+      if (n.createdAt == null) return true; // Safe fallback: missing dates are shown in 'This Week'
       return now.difference(n.createdAt!).inDays < 7;
     }).toList();
 
@@ -120,7 +120,7 @@ class NotificationNotifier extends Notifier<NotificationState> {
     state = state.copyWith(isLoading: true, errorMessage: null, currentPage: 1);
     try {
       final result = await _service.getNotifications(page: 1);
-      final notifications = result['notifications'] as List<NotificationModel>;
+      final notifications = List<NotificationModel>.from(result['notifications'] as Iterable);
       final pagination = result['pagination'];
 
       state = state.copyWith(
@@ -143,7 +143,7 @@ class NotificationNotifier extends Notifier<NotificationState> {
     try {
       final nextPage = state.currentPage + 1;
       final result = await _service.getNotifications(page: nextPage);
-      final newNotifications = result['notifications'] as List<NotificationModel>;
+      final newNotifications = List<NotificationModel>.from(result['notifications'] as Iterable);
       final pagination = result['pagination'];
 
       state = state.copyWith(

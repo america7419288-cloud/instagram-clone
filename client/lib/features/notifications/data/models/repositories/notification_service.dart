@@ -15,7 +15,7 @@ class NotificationService {
   }) async {
     try {
       final response = await _dioClient.get(
-        '/notifications/',
+        '/notifications',
         queryParameters: {
           'page': page,
           'limit': limit,
@@ -26,7 +26,7 @@ class NotificationService {
       final data = response.data;
       final notifications =
           (data['data'] as List<dynamic>? ?? [])
-              .map((n) => NotificationModel.fromJson(
+              .map<NotificationModel>((n) => NotificationModel.fromJson(
                     n as Map<String, dynamic>,
                   ))
               .toList();
@@ -84,7 +84,7 @@ class NotificationService {
   // ─── DELETE ALL ──────────────────────────────────────────
   Future<void> deleteAllNotifications() async {
     try {
-      await _dioClient.delete('/notifications/');
+      await _dioClient.delete('/notifications');
     } on DioException catch (e) {
       throw _handleError(e);
     }

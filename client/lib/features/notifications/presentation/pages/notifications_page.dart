@@ -92,7 +92,21 @@ class _NotificationsPageState extends ConsumerState<NotificationsPage> {
             ),
 
           // ─── Notifications List ───────────────────────────
-          if (state.notifications.isEmpty && !state.isLoading)
+          if (state.errorMessage != null)
+            SliverFillRemaining(
+              hasScrollBody: false,
+              child: ErrorView(
+                message: state.errorMessage,
+                onRetry: () => ref.read(notificationProvider.notifier).refresh(),
+              ),
+            )
+          else if (state.isLoading && state.notifications.isEmpty)
+            const SliverFillRemaining(
+              child: Center(
+                child: CupertinoActivityIndicator(radius: 12),
+              ),
+            )
+          else if (state.notifications.isEmpty)
             const SliverFillRemaining(
               child: Center(child: EmptyState.notifications()),
             )
@@ -209,6 +223,8 @@ class _NotificationsPageState extends ConsumerState<NotificationsPage> {
 
     if (notification.referencePostId != null) {
       context.pushIfNotCurrent('/post/${notification.referencePostId}');
+    } else if (notification.referenceReelId != null) {
+      context.pushIfNotCurrent('/reel/${notification.referenceReelId}');
     } else if (notification.sender != null) {
       context.pushIfNotCurrent('/profile/${notification.sender!.username}');
     }

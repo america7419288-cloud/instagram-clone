@@ -58,6 +58,11 @@ Post.hasMany(PostMedia, {
   as: 'mediaFiles',
   onDelete: 'CASCADE',
 });
+Post.hasMany(PostMedia, {
+  foreignKey: 'postId',
+  as: 'media',
+  onDelete: 'CASCADE',
+});
 PostMedia.belongsTo(Post, {
   foreignKey: 'postId',
   as: 'post',
@@ -322,17 +327,38 @@ Notification.belongsTo(User, {
   as: 'sender',
 });
 Notification.belongsTo(Post, {
-  foreignKey: 'reference_post_id',
+  foreignKey: 'postId',
+  as: 'post',
+  constraints: false,
+});
+Notification.belongsTo(Comment, {
+  foreignKey: 'commentId',
+  as: 'comment',
+  constraints: false,
+});
+Notification.belongsTo(Story, {
+  foreignKey: 'storyId',
+  as: 'story',
+  constraints: false,
+});
+Notification.belongsTo(Reel, {
+  foreignKey: 'reelId',
+  as: 'reel',
+  constraints: false,
+});
+// Legacy aliases (keep for compatibility)
+Notification.belongsTo(Post, {
+  foreignKey: 'postId',
   as: 'referencePost',
   constraints: false,
 });
 Notification.belongsTo(Comment, {
-  foreignKey: 'reference_comment_id',
+  foreignKey: 'commentId',
   as: 'referenceComment',
   constraints: false,
 });
 Notification.belongsTo(Story, {
-  foreignKey: 'reference_story_id',
+  foreignKey: 'storyId',
   as: 'referenceStory',
   constraints: false,
 });

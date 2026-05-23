@@ -7,7 +7,6 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_lucide/flutter_lucide.dart';
 
 import '../../../../core/theme/app_theme.dart';
-import '../../../../shared/widgets/empty_state.dart';
 import '../../../../shared/widgets/error_view.dart';
 import '../../../../shared/widgets/spring_widget.dart';
 import '../providers/reel_provider.dart';
@@ -195,7 +194,7 @@ class _ReelsPageState extends ConsumerState<ReelsPage>
 // CUSTOM SNAP SCROLL PHYSICS
 // Makes each reel snap fully into view
 // ─────────────────────────────────────────────────────
-class _SnapPageScrollPhysics extends ScrollPhysics {
+class _SnapPageScrollPhysics extends PageScrollPhysics {
   const _SnapPageScrollPhysics({super.parent});
 
   @override
@@ -205,8 +204,8 @@ class _SnapPageScrollPhysics extends ScrollPhysics {
 
   @override
   SpringDescription get spring => const SpringDescription(
-        mass: 80,
+        mass: 0.5,
         stiffness: 100,
-        damping: 1,
+        damping: 20.0,
       );
 }

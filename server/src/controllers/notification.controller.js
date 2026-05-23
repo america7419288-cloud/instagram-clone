@@ -83,7 +83,7 @@ const getNotifications = async (req, res) => {
 
     const whereClause = {
       recipientId: userId,
-      senderId: { [Op.notIn]: blockedUserIds },
+      ...(blockedUserIds.length > 0 && { senderId: { [Op.notIn]: blockedUserIds } }),
       ...(type && { type }),
     };
 
@@ -110,6 +110,7 @@ const getNotifications = async (req, res) => {
               attributes: ['thumbnail_url', 'url'],
               order: [['order', 'ASC']],
               limit: 1,
+              separate: true,
             }],
           },
         ],

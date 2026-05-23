@@ -1,6 +1,5 @@
 // lib/features/reels/presentation/widgets/reel_card.dart
 
-import 'dart:io';
 import 'dart:math';
 import 'package:cached_network_image/cached_network_image.dart';
 import 'package:flutter/material.dart';
@@ -17,7 +16,6 @@ import '../../data/models/reel_model.dart';
 import '../providers/reel_provider.dart';
 import 'package:instagram_client/shared/widgets/spring_widget.dart';
 import 'package:instagram_client/shared/widgets/verified_badge.dart';
-import 'package:instagram_client/core/widgets/instagram_heart_animation.dart';
 import 'package:instagram_client/core/router/app_router.dart';
 import 'package:instagram_client/features/share/models/share_content.dart';
 import 'package:instagram_client/features/share/presentation/share_sheet.dart';
@@ -25,6 +23,7 @@ import 'package:instagram_client/features/menu/presentation/three_dot_menu.dart'
 import 'package:instagram_client/features/menu/models/menu_context.dart';
 import 'package:instagram_client/features/menu/models/menu_action.dart';
 import 'package:instagram_client/features/follow/data/repositories/presentation/providers/follow_provider.dart';
+import 'package:instagram_client/features/auth/presentation/providers/auth_provider.dart';
 import 'package:instagram_client/features/post/data/models/comment_model.dart';
 import 'package:instagram_client/features/post/presentation/providers/comment_provider.dart';
 
@@ -778,7 +777,7 @@ class _ReelCardState extends ConsumerState<ReelCard>
           ),
           child: Center(
             child: Icon(
-              _isPaused ? Icons.play_arrow_rounded : Icons.pause_rounded,
+              _isPaused ? LucideIcons.play : LucideIcons.pause,
               color: Colors.white,
               size: 56,
             ),
@@ -868,7 +867,7 @@ class _ReelCardState extends ConsumerState<ReelCard>
                             : null,
                         backgroundColor: Colors.white12,
                         child: widget.reel.userAvatar == null
-                            ? const Icon(Icons.person, color: Colors.white, size: 18)
+                            ? const Icon(LucideIcons.user, color: Colors.white, size: 18)
                             : null,
                       ),
                     ),
@@ -1032,7 +1031,8 @@ class _ReelCardState extends ConsumerState<ReelCard>
               );
             },
             child: Icon(
-              _isLiked ? Icons.favorite : Icons.favorite_border,
+              LucideIcons.heart,
+              fill: _isLiked ? 1.0 : 0.0,
               color: _isLiked ? const Color(0xFFED4956) : Colors.white,
               size: 30,
               shadows: const [
@@ -1128,6 +1128,77 @@ class _ReelCardState extends ConsumerState<ReelCard>
     );
   }
 
+  Widget _buildDoubleTapHeart(Offset position) {
+    return Positioned(
+      left: position.dx - 50,
+      top: position.dy - 50,
+      child: IgnorePointer(
+        child: TweenAnimationBuilder<double>(
+          duration: const Duration(milliseconds: 800),
+          tween: Tween(begin: 0.0, end: 1.0),
+          builder: (context, value, child) {
+            final scale = value < 0.5 ? value * 2 : 2 - value * 2;
+            final opacity = 1.0 - value;
+            return Transform.scale(
+              scale: scale,
+              child: Opacity(
+                opacity: opacity,
+                child: const Icon(
+                  LucideIcons.heart,
+                  fill: 1.0,
+                  color: Colors.white,
+                  size: 100,
+                  shadows: [
+                    Shadow(
+                      blurRadius: 10,
+                      color: Colors.black45,
+                    ),
+                  ],
+                ),
+              ),
+            );
+          },
+        ),
+      ),
+    );
+  }
+
+  Widget _buildFollowButton() {
+    // Don't show follow button if viewing own reel
+    final currentUserId = ref.read(authProvider).user?.id;
+    if (currentUserId == widget.reel.userId) {
+      return const SizedBox.shrink();
+    }
+
+    // Check if already following
+    final followState = ref.watch(
+      followProvider(widget.reel.userId),
+    );
+    final isFollowing = followState.isFollowing;
+
+    return GestureDetector(
+      onTap: () async {
+        await ref.read(followProvider(widget.reel.userId).notifier).toggleFollow();
+      },
+      child: Container(
+        padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
+        decoration: BoxDecoration(
+          color: isFollowing ? Colors.transparent : Colors.white,
+          border: isFollowing ? Border.all(color: Colors.white, width: 1) : null,
+          borderRadius: BorderRadius.circular(6),
+        ),
+        child: Text(
+          isFollowing ? 'Following' : 'Follow',
+          style: TextStyle(
+            color: isFollowing ? Colors.white : Colors.black,
+            fontSize: 13,
+            fontWeight: FontWeight.w600,
+          ),
+        ),
+      ),
+    );
+  }
+
   Widget _buildRotatingDisc() {
     return AnimatedBuilder(
       animation: _albumArtController,
@@ -1158,7 +1229,7 @@ class _ReelCardState extends ConsumerState<ReelCard>
         ),
         child: widget.reel.userAvatar == null
             ? const Center(
-                child: Icon(Icons.music_note, color: Colors.white, size: 16),
+                child: Icon(LucideIcons.music, color: Colors.white, size: 16),
               )
             : Center(
                 child: Container(
@@ -1625,7 +1696,7 @@ class _CommentsSheetState extends ConsumerState<_CommentsSheet> {
           const CircleAvatar(
             radius: 16,
             backgroundColor: Colors.white12,
-            child: Icon(Icons.person, color: Colors.white30, size: 16),
+            child: Icon(LucideIcons.user, color: Colors.white30, size: 16),
           ),
           const SizedBox(width: 10),
           Expanded(
@@ -1646,7 +1717,7 @@ class _CommentsSheetState extends ConsumerState<_CommentsSheet> {
                   hintStyle: const TextStyle(color: Colors.white38, fontSize: 14),
                   border: InputBorder.none,
                   contentPadding: const EdgeInsets.symmetric(horizontal: 14, vertical: 10),
-                  suffixIcon: const Icon(Icons.emoji_emotions_outlined, color: Colors.white38, size: 20),
+                  suffixIcon: const Icon(LucideIcons.smile, color: Colors.white38, size: 20),
                 ),
                 onChanged: (_) => setState(() {}),
               ),
@@ -1767,7 +1838,7 @@ class _CommentItem extends ConsumerWidget {
                     : null,
                 backgroundColor: Colors.white12,
                 child: comment.user?.profilePicUrl == null
-                    ? const Icon(Icons.person, color: Colors.white30, size: 16)
+                    ? const Icon(LucideIcons.user, color: Colors.white30, size: 16)
                     : null,
               ),
               const SizedBox(width: 12),
@@ -1837,7 +1908,8 @@ class _CommentItem extends ConsumerWidget {
                   mainAxisSize: MainAxisSize.min,
                   children: [
                     Icon(
-                      comment.isLiked ? Icons.favorite : Icons.favorite_border,
+                      LucideIcons.heart,
+                      fill: comment.isLiked ? 1.0 : 0.0,
                       size: 14,
                       color: comment.isLiked ? const Color(0xFFED4956) : Colors.white38,
                     ),

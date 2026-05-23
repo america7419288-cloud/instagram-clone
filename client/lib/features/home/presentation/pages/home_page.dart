@@ -93,9 +93,11 @@ class _HomePageContentState extends ConsumerState<HomePageContent> {
         backgroundColor: isDark ? Colors.black : Colors.white,
       child: CustomScrollView(
         controller: _scrollController,
-        physics: const BouncingScrollPhysics(
-          parent: AlwaysScrollableScrollPhysics(),
-        ),
+        physics: ref.watch(isZoomingProvider)
+            ? const NeverScrollableScrollPhysics()
+            : const BouncingScrollPhysics(
+                parent: AlwaysScrollableScrollPhysics(),
+              ),
         slivers: [
           // ─── Top Navigation Bar ──────────────────────────
           SliverAppBar(
