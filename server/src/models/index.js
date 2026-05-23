@@ -567,7 +567,27 @@ const syncDatabase = async () => {
       );
       CREATE INDEX IF NOT EXISTS idx_reports_reported_by ON reports (reported_by);
       CREATE INDEX IF NOT EXISTS idx_reports_reported_user_id ON reports (reported_user_id);
+
+      -- Additive migrations for Notifications table
+      ALTER TABLE notifications
+        ADD COLUMN IF NOT EXISTS post_id UUID REFERENCES posts(id) ON DELETE CASCADE,
+        ADD COLUMN IF NOT EXISTS comment_id UUID REFERENCES comments(id) ON DELETE CASCADE,
+        ADD COLUMN IF NOT EXISTS story_id UUID REFERENCES stories(id) ON DELETE CASCADE,
+        ADD COLUMN IF NOT EXISTS reel_id UUID REFERENCES reels(id) ON DELETE CASCADE;
     `);
+
+    // Safe data migration for Notifications
+    try {
+      await sequelize.query(`
+        UPDATE notifications SET post_id = reference_post_id WHERE post_id IS NULL AND reference_post_id IS NOT NULL;
+        UPDATE notifications SET comment_id = reference_comment_id WHERE comment_id IS NULL AND reference_comment_id IS NOT NULL;
+        UPDATE notifications SET story_id = reference_story_id WHERE story_id IS NULL AND reference_story_id IS NOT NULL;
+      `);
+      console.log('✅ Legacy notification columns data migrated successfully');
+    } catch (migError) {
+      // Safe to ignore if reference columns don't exist
+      console.log('ℹ️ Notification legacy columns not found or already migrated');
+    }
 
     console.log('✅ Database tables synced!');
     console.log('   → users, posts, post_media');
