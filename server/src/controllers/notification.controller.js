@@ -18,7 +18,7 @@ const formatNotification = (notification) => {
   let postThumbnail = null;
   if (n.post && n.post.media && n.post.media.length > 0) {
     const firstMedia = n.post.media[0];
-    postThumbnail = firstMedia.thumbnail_url || firstMedia.url;
+    postThumbnail = firstMedia.thumbnailUrl || firstMedia.thumbnail_url || firstMedia.small_url || firstMedia.url;
   }
 
   // Build human-readable message based on type
@@ -107,7 +107,7 @@ const getNotifications = async (req, res) => {
             include: [{
               model: PostMedia,
               as: 'media',
-              attributes: ['thumbnail_url', 'url'],
+              attributes: ['thumbnailUrl', 'url'],
               order: [['order', 'ASC']],
               limit: 1,
               separate: true,
