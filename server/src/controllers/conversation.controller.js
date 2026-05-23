@@ -1915,4 +1915,8 @@ module.exports = {
   reactToMessage,
   acceptConversationRequest,
   rejectConversationRequest,
+  markAsUnread,
+  muteConversation,
+  unmuteConversation,
+  getMuteStatus,
 };

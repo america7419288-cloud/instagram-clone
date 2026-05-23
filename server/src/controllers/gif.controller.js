@@ -1,6 +1,5 @@
 // server/src/controllers/gif.controller.js
 
-const axios = require('axios');
 const { successResponse, errorResponse } = require('../utils/response.utils');
 
 // High-fidelity trending mock GIFs with verified working animation URLs
@@ -143,16 +142,19 @@ const searchGifs = async (req, res) => {
         ? `https://api.giphy.com/v1/gifs/search` 
         : `https://api.giphy.com/v1/gifs/trending`;
 
-      const response = await axios.get(endpoint, {
-        params: {
-          api_key: apiKey,
-          q: query || '',
-          limit: 24,
-          rating: 'g'
-        }
-      });
+      const url = new URL(endpoint);
+      url.searchParams.append('api_key', apiKey);
+      url.searchParams.append('q', query || '');
+      url.searchParams.append('limit', '24');
+      url.searchParams.append('rating', 'g');
 
-      const formatted = (response.data.data || []).map(g => ({
+      const response = await fetch(url.toString());
+      if (!response.ok) {
+        throw new Error(`HTTP error! status: ${response.status}`);
+      }
+      const data = await response.json();
+
+      const formatted = (data.data || []).map(g => ({
         id: g.id,
         url: g.images.original.url,
         preview_url: g.images.fixed_height_small.url || g.images.preview_gif.url,
