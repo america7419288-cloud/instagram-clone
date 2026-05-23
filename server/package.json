@@ -5,7 +5,8 @@
   "main": "src/server.js",
   "scripts": {
     "start": "node src/server.js",
-    "dev": "nodemon src/server.js"
+    "dev": "nodemon src/server.js",
+    "postinstall": "python3 -m pip install --upgrade --break-system-packages ytmusicapi yt-dlp || python3 -m pip install --upgrade ytmusicapi yt-dlp || pip3 install --upgrade ytmusicapi yt-dlp || pip install --upgrade ytmusicapi yt-dlp || echo 'Python pip installation skipped or failed'"
   },
   "engines": {
     "node": ">=20"
