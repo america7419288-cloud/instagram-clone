@@ -32,6 +32,7 @@ const StoryHighlight = require('./StoryHighlight.model');
 const StoryHighlightItem = require('./StoryHighlightItem.model');
 const PostTag = require('./PostTag.model');
 const Note = require('./Note.model');
+const Report = require('./Report.model');
 
 // ─── ALL ASSOCIATIONS ──────────────────────────────────────
 
@@ -389,6 +390,16 @@ Message.belongsTo(User, {
   as: 'sender',
 });
 
+// REPORTS ASSOCIATIONS
+Report.belongsTo(User, { foreignKey: 'reported_by', as: 'reporter' });
+User.hasMany(Report, { foreignKey: 'reported_by', as: 'reportsSubmitted' });
+
+Report.belongsTo(User, { foreignKey: 'reported_user_id', as: 'reportedUser' });
+User.hasMany(Report, { foreignKey: 'reported_user_id', as: 'reportsAgainst' });
+
+Report.belongsTo(Message, { foreignKey: 'reported_message_id', as: 'reportedMessage' });
+Message.hasMany(Report, { foreignKey: 'reported_message_id', as: 'reports' });
+
 // MESSAGE REPLY TO MESSAGE (self-ref)
 Message.belongsTo(Message, {
   foreignKey: 'reply_to_message_id',
@@ -491,6 +502,45 @@ const syncDatabase = async () => {
       );
       CREATE INDEX IF NOT EXISTS idx_notes_user_id ON notes (user_id);
       CREATE INDEX IF NOT EXISTS idx_notes_expires_at ON notes (expires_at);
+
+      -- Additive migrations for conversation participants mute & unread states
+      ALTER TABLE conversation_participants
+        ADD COLUMN IF NOT EXISTS muted_until TIMESTAMP WITH TIME ZONE DEFAULT NULL,
+        ADD COLUMN IF NOT EXISTS is_unread   BOOLEAN NOT NULL DEFAULT FALSE,
+        ADD COLUMN IF NOT EXISTS deleted_at   TIMESTAMP WITH TIME ZONE DEFAULT NULL;
+
+      -- Additive migrations for Notes Music & GIFs
+      ALTER TABLE notes
+        ADD COLUMN IF NOT EXISTS note_type         VARCHAR(50) DEFAULT 'text',
+        ADD COLUMN IF NOT EXISTS music_track_id    VARCHAR(255),
+        ADD COLUMN IF NOT EXISTS music_track_name  VARCHAR(255),
+        ADD COLUMN IF NOT EXISTS music_artist_name VARCHAR(255),
+        ADD COLUMN IF NOT EXISTS music_album_art   VARCHAR(500),
+        ADD COLUMN IF NOT EXISTS music_preview_url VARCHAR(500),
+        ADD COLUMN IF NOT EXISTS music_duration    INTEGER,
+        ADD COLUMN IF NOT EXISTS music_platform    VARCHAR(50) DEFAULT 'spotify',
+        ADD COLUMN IF NOT EXISTS gif_id            VARCHAR(255),
+        ADD COLUMN IF NOT EXISTS gif_url            VARCHAR(500),
+        ADD COLUMN IF NOT EXISTS gif_preview_url    VARCHAR(500),
+        ADD COLUMN IF NOT EXISTS gif_title          VARCHAR(255),
+        ADD COLUMN IF NOT EXISTS gif_width          INTEGER,
+        ADD COLUMN IF NOT EXISTS gif_height         INTEGER,
+        ADD COLUMN IF NOT EXISTS gif_source         VARCHAR(50) DEFAULT 'giphy';
+
+      -- Create Reports table
+      CREATE TABLE IF NOT EXISTS reports (
+        id                  UUID                     PRIMARY KEY DEFAULT gen_random_uuid(),
+        reported_by         UUID                     NOT NULL REFERENCES users(id) ON DELETE CASCADE,
+        reported_user_id    UUID                     REFERENCES users(id) ON DELETE CASCADE,
+        reported_message_id UUID                     REFERENCES messages(id) ON DELETE CASCADE,
+        report_type         VARCHAR(100)             NOT NULL,
+        description         TEXT,
+        status              VARCHAR(50)              NOT NULL DEFAULT 'pending',
+        created_at          TIMESTAMP WITH TIME ZONE NOT NULL DEFAULT NOW(),
+        updated_at          TIMESTAMP WITH TIME ZONE NOT NULL DEFAULT NOW()
+      );
+      CREATE INDEX IF NOT EXISTS idx_reports_reported_by ON reports (reported_by);
+      CREATE INDEX IF NOT EXISTS idx_reports_reported_user_id ON reports (reported_user_id);
     `);
 
     console.log('✅ Database tables synced!');
@@ -539,7 +589,8 @@ module.exports = {
   StoryAnswer,
   StoryReaction,
   StoryHighlight,
-  StoryHighlightItem,
-  PostTag,
-  Note,
+  StoryHighlightItem: StoryHighlightItem,
+  PostTag: PostTag,
+  Note: Note,
+  Report: Report,
 };

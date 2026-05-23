@@ -54,6 +54,75 @@ const Note = sequelize.define(
         return now;
       },
     },
+
+    // Note Type: 'text' | 'music' | 'gif'
+    note_type: {
+      type: DataTypes.STRING(50),
+      defaultValue: 'text',
+      allowNull: false,
+    },
+
+    // Music Share attributes
+    music_track_id: {
+      type: DataTypes.STRING(255),
+      allowNull: true,
+    },
+    music_track_name: {
+      type: DataTypes.STRING(255),
+      allowNull: true,
+    },
+    music_artist_name: {
+      type: DataTypes.STRING(255),
+      allowNull: true,
+    },
+    music_album_art: {
+      type: DataTypes.STRING(500),
+      allowNull: true,
+    },
+    music_preview_url: {
+      type: DataTypes.STRING(500),
+      allowNull: true,
+    },
+    music_duration: {
+      type: DataTypes.INTEGER,
+      allowNull: true,
+    },
+    music_platform: {
+      type: DataTypes.STRING(50),
+      defaultValue: 'spotify',
+      allowNull: false,
+    },
+
+    // GIF share attributes
+    gif_id: {
+      type: DataTypes.STRING(255),
+      allowNull: true,
+    },
+    gif_url: {
+      type: DataTypes.STRING(500),
+      allowNull: true,
+    },
+    gif_preview_url: {
+      type: DataTypes.STRING(500),
+      allowNull: true,
+    },
+    gif_title: {
+      type: DataTypes.STRING(255),
+      allowNull: true,
+    },
+    gif_width: {
+      type: DataTypes.INTEGER,
+      allowNull: true,
+    },
+    gif_height: {
+      type: DataTypes.INTEGER,
+      allowNull: true,
+    },
+    gif_source: {
+      type: DataTypes.STRING(50),
+      defaultValue: 'giphy',
+      allowNull: false,
+    },
   },
   {
     tableName: 'notes',

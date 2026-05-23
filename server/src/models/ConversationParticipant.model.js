@@ -60,6 +60,25 @@ const ConversationParticipant = sequelize.define(
       allowNull: false,
     },
 
+    // Muted duration timestamp (NULL = unmuted or muted forever depending on duration check)
+    muted_until: {
+      type: DataTypes.DATE,
+      allowNull: true,
+    },
+
+    // Manually marked as unread
+    is_unread: {
+      type: DataTypes.BOOLEAN,
+      defaultValue: false,
+      allowNull: false,
+    },
+
+    // Soft delete timestamp for conversation inbox
+    deleted_at: {
+      type: DataTypes.DATE,
+      allowNull: true,
+    },
+
     // Has user accepted this conversation (for message requests)?
     is_accepted: {
       type: DataTypes.BOOLEAN,

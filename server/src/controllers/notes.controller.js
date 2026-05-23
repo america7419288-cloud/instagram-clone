@@ -19,6 +19,24 @@ const formatNote = (note, currentUserId) => {
     audience: n.audience === 'close_friends' ? 1 : 0,
     isOwn: n.user_id === currentUserId,
     replyCount: 0,
+
+    // Music & GIF attributes
+    noteType: n.note_type || 'text',
+    musicTrackId: n.music_track_id || null,
+    musicTrackName: n.music_track_name || null,
+    musicArtistName: n.music_artist_name || null,
+    musicAlbumArt: n.music_album_art || null,
+    musicPreviewUrl: n.music_preview_url || null,
+    musicDuration: n.music_duration || null,
+    musicPlatform: n.music_platform || 'spotify',
+
+    gifId: n.gif_id || null,
+    gifUrl: n.gif_url || null,
+    gifPreviewUrl: n.gif_preview_url || null,
+    gifTitle: n.gif_title || null,
+    gifWidth: n.gif_width || null,
+    gifHeight: n.gif_height || null,
+    gifSource: n.gif_source || 'giphy',
   };
 };
 
@@ -30,7 +48,30 @@ const formatNote = (note, currentUserId) => {
 const createNote = async (req, res) => {
   try {
     const userId = req.user.id;
-    const { text, audience = 'followers' } = req.body;
+    const {
+      text,
+      audience = 'followers',
+      noteType = 'text',
+      note_type = 'text',
+
+      // Music attributes
+      musicTrackId, music_track_id,
+      musicTrackName, music_track_name,
+      musicArtistName, music_artist_name,
+      musicAlbumArt, music_album_art,
+      musicPreviewUrl, music_preview_url,
+      musicDuration, music_duration,
+      musicPlatform, music_platform,
+
+      // GIF attributes
+      gifId, gif_id,
+      gifUrl, gif_url,
+      gifPreviewUrl, gif_preview_url,
+      gifTitle, gif_title,
+      gifWidth, gif_width,
+      gifHeight, gif_height,
+      gifSource, gif_source,
+    } = req.body;
 
     // 1. VALIDATE TEXT LIMIT
     if (!text || text.trim().length === 0) {
@@ -51,6 +92,24 @@ const createNote = async (req, res) => {
       text: text.trim(),
       audience: audience === 'close_friends' ? 'close_friends' : 'followers',
       expires_at: new Date(Date.now() + 24 * 60 * 60 * 1000), // Expires in 24 hours
+
+      note_type: noteType || note_type || 'text',
+
+      music_track_id: musicTrackId || music_track_id || null,
+      music_track_name: musicTrackName || music_track_name || null,
+      music_artist_name: musicArtistName || music_artist_name || null,
+      music_album_art: musicAlbumArt || music_album_art || null,
+      music_preview_url: musicPreviewUrl || music_preview_url || null,
+      music_duration: musicDuration || music_duration || null,
+      music_platform: musicPlatform || music_platform || 'spotify',
+
+      gif_id: gifId || gif_id || null,
+      gif_url: gifUrl || gif_url || null,
+      gif_preview_url: gifPreviewUrl || gif_preview_url || null,
+      gif_title: gifTitle || gif_title || null,
+      gif_width: gifWidth || gif_width || null,
+      gif_height: gifHeight || gif_height || null,
+      gif_source: gifSource || gif_source || 'giphy',
     });
 
     // 4. FETCH FULL DETAILS FOR RESPONSE

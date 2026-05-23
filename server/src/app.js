@@ -97,6 +97,8 @@ app.use('/api/v1/highlights', highlightRoutes);
 app.use('/api/v1/reels', reelRoutes);
 app.use('/api/v1/music', require('./routes/music.routes'));
 app.use('/api/v1/notes', require('./routes/notes.routes'));
+app.use('/api/v1/reports', require('./routes/report.routes'));
+app.use('/api/v1/gifs', require('./routes/gif.routes'));
 
 
 app.get('/api/v1/test', (req, res) => {

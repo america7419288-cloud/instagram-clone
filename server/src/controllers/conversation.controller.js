@@ -40,6 +40,13 @@ const formatConversation = (conv, currentUserId) => {
 
   const otherUser = otherParticipants[0] || null;
 
+  const myParticipant = (c.participantRecords || []).find(p => p.user_id === currentUserId) 
+    || (conv.participantRecords || []).find(p => p.user_id === currentUserId);
+
+  const isMuted = myParticipant 
+    ? (myParticipant.muted_until ? new Date(myParticipant.muted_until) > new Date() : !!myParticipant.is_muted)
+    : false;
+
   return {
     id: c.id,
     is_group: c.is_group,
@@ -71,11 +78,11 @@ const formatConversation = (conv, currentUserId) => {
       : null,
     unread_count: c.unread_count || 0,
     disappearing_duration: c.disappearing_duration || null,
-    is_accepted: (() => {
-      const myParticipant = (c.participantRecords || []).find(p => p.user_id === currentUserId) 
-        || (conv.participantRecords || []).find(p => p.user_id === currentUserId);
-      return myParticipant ? myParticipant.is_accepted : true;
-    })(),
+    is_accepted: myParticipant ? myParticipant.is_accepted : true,
+    is_muted: isMuted,
+    muted_until: myParticipant ? myParticipant.muted_until : null,
+    is_unread: myParticipant ? !!myParticipant.is_unread : false,
+    deleted_at: myParticipant ? myParticipant.deleted_at : null,
     created_at: c.created_at || c.createdAt,
   };
 };
@@ -357,6 +364,7 @@ const getInbox = async (req, res) => {
         user_id: currentUserId,
         left_at: null,
         is_accepted: !isRequests,
+        deleted_at: null, // Filter out soft-deleted conversations
       },
       attributes: ['conversation_id'],
     });
@@ -370,6 +378,7 @@ const getInbox = async (req, res) => {
           user_id: currentUserId,
           left_at: null,
           is_accepted: false,
+          deleted_at: null,
         },
       });
       return paginatedResponse(res, 'Inbox is empty', [], {
@@ -396,7 +405,7 @@ const getInbox = async (req, res) => {
           model: ConversationParticipant,
           as: 'participantRecords',
           where: { user_id: currentUserId },
-          attributes: ['last_read_at', 'is_muted', 'is_accepted'],
+          attributes: ['last_read_at', 'is_muted', 'muted_until', 'is_unread', 'is_accepted', 'deleted_at'],
         },
       ],
       order: [
@@ -532,7 +541,7 @@ const getConversation = async (req, res) => {
             model: ConversationParticipant,
             as: 'participantRecords',
             where: { conversation_id: conversationId },
-            attributes: ['last_read_at', 'is_muted', 'is_accepted', 'user_id'],
+            attributes: ['last_read_at', 'is_muted', 'muted_until', 'is_unread', 'is_accepted', 'user_id', 'deleted_at'],
             required: false,
           }
         ],
@@ -825,10 +834,18 @@ const sendMessage = async (req, res) => {
       { where: { id: conversationId } }
     );
 
-    // 5b. STAMP SENDER'S last_read_at — sending a message means you've read
-    //     everything up to this moment, so your own inbox won't show unread dot.
+    // 5b. STAMP SENDER'S last_read_at, and CLEAR deleted_at for ALL participants
+    //     so the conversation reappears in their inbox when a new message arrives.
     await ConversationParticipant.update(
-      { last_read_at: new Date() },
+      { deleted_at: null },
+      { where: { conversation_id: conversationId } }
+    );
+
+    await ConversationParticipant.update(
+      { 
+        last_read_at: new Date(),
+        is_unread: false
+      },
       {
         where: {
           conversation_id: conversationId,
@@ -1095,7 +1112,10 @@ const markAsRead = async (req, res) => {
     const currentUserId = req.user.id;
 
     await ConversationParticipant.update(
-      { last_read_at: new Date() },
+      { 
+        last_read_at: new Date(),
+        is_unread: false
+      },
       {
         where: {
           conversation_id: conversationId,
@@ -1117,6 +1137,134 @@ const markAsRead = async (req, res) => {
   }
 };
 
+const markAsUnread = async (req, res) => {
+  try {
+    const { id: conversationId } = req.params;
+    const currentUserId = req.user.id;
+
+    await ConversationParticipant.update(
+      { is_unread: true },
+      {
+        where: {
+          conversation_id: conversationId,
+          user_id: currentUserId,
+        },
+      }
+    );
+
+    return successResponse(
+      res,
+      200,
+      'Conversation marked as unread.',
+      {}
+    );
+  } catch (error) {
+    console.error('❌ Mark as unread error:', error);
+    return errorResponse(res, 500, 'Failed to mark as unread.');
+  }
+};
+
+const muteConversation = async (req, res) => {
+  try {
+    const { id: conversationId } = req.params;
+    const currentUserId = req.user.id;
+    const { duration } = req.body; // 'hour', '8hours', '1week', 'forever'
+
+    let mutedUntil = null;
+    if (duration === 'hour') {
+      mutedUntil = new Date(Date.now() + 1 * 60 * 60 * 1000);
+    } else if (duration === '8hours') {
+      mutedUntil = new Date(Date.now() + 8 * 60 * 60 * 1000);
+    } else if (duration === '1week') {
+      mutedUntil = new Date(Date.now() + 7 * 24 * 60 * 60 * 1000);
+    } // 'forever' leaves muted_until as null, and sets is_muted: true
+
+    await ConversationParticipant.update(
+      { 
+        is_muted: true,
+        muted_until: mutedUntil
+      },
+      {
+        where: {
+          conversation_id: conversationId,
+          user_id: currentUserId,
+        },
+      }
+    );
+
+    return successResponse(
+      res,
+      200,
+      'Conversation muted successfully.',
+      { muted_until: mutedUntil }
+    );
+  } catch (error) {
+    console.error('❌ Mute conversation error:', error);
+    return errorResponse(res, 500, 'Failed to mute conversation.');
+  }
+};
+
+const unmuteConversation = async (req, res) => {
+  try {
+    const { id: conversationId } = req.params;
+    const currentUserId = req.user.id;
+
+    await ConversationParticipant.update(
+      { 
+        is_muted: false,
+        muted_until: null
+      },
+      {
+        where: {
+          conversation_id: conversationId,
+          user_id: currentUserId,
+        },
+      }
+    );
+
+    return successResponse(
+      res,
+      200,
+      'Conversation unmuted successfully.',
+      {}
+    );
+  } catch (error) {
+    console.error('❌ Unmute conversation error:', error);
+    return errorResponse(res, 500, 'Failed to unmute conversation.');
+  }
+};
+
+const getMuteStatus = async (req, res) => {
+  try {
+    const { id: conversationId } = req.params;
+    const currentUserId = req.user.id;
+
+    const participant = await ConversationParticipant.findOne({
+      where: {
+        conversation_id: conversationId,
+        user_id: currentUserId,
+      },
+      attributes: ['is_muted', 'muted_until'],
+    });
+
+    if (!participant) {
+      return errorResponse(res, 404, 'Participant not found.');
+    }
+
+    const isMuted = participant.muted_until
+      ? new Date(participant.muted_until) > new Date()
+      : !!participant.is_muted;
+
+    return successResponse(res, 200, 'Mute status retrieved.', {
+      is_muted: isMuted,
+      muted_until: participant.muted_until,
+    });
+  } catch (error) {
+    console.error('❌ Get mute status error:', error);
+    return errorResponse(res, 500, 'Failed to get mute status.');
+  }
+};
+
 // ─────────────────────────────────────────────────────────────
 // @route   GET /api/v1/conversations/unread-count
 // @desc    Get total unread message count across all conversations
@@ -1132,14 +1280,23 @@ const getUnreadCount = async (req, res) => {
         user_id: currentUserId,
         left_at: null,
       },
-      attributes: ['conversation_id', 'last_read_at'],
+      attributes: ['conversation_id', 'last_read_at', 'is_muted', 'muted_until', 'is_unread', 'deleted_at'],
       raw: true,
     });
 
     let totalUnread = 0;
 
     for (const participant of participants) {
-      const unreadCount = await Message.count({
+      // Exclude muted or soft-deleted conversations from the notification count
+      const isMuted = participant.muted_until
+        ? new Date(participant.muted_until) > new Date()
+        : !!participant.is_muted;
+
+      if (isMuted || participant.deleted_at) {
+        continue;
+      }
+
+      let unreadCount = await Message.count({
         where: {
           conversation_id: participant.conversation_id,
           sender_id: { [Op.ne]: currentUserId },
@@ -1149,6 +1306,13 @@ const getUnreadCount = async (req, res) => {
           }),
         },
       });
+
+      // If there are no physical unread messages but the conversation is manually marked as unread,
+      // count it as 1 unread notification
+      if (unreadCount === 0 && participant.is_unread) {
+        unreadCount = 1;
+      }
+
       totalUnread += unreadCount;
     }
 
@@ -1195,19 +1359,32 @@ const leaveConversation = async (req, res) => {
       );
     }
 
-    // Mark as left (soft delete)
-    await participant.update({ left_at: new Date() });
+    // Check if group conversation
+    const conversation = await Conversation.findByPk(conversationId);
+    
+    if (conversation && conversation.is_group) {
+      // For groups: permanently leave (setting both left_at and deleted_at)
+      await participant.update({ 
+        left_at: new Date(),
+        deleted_at: new Date()
+      });
+    } else {
+      // For DMs: soft-delete/hide conversation from inbox (setting deleted_at only)
+      await participant.update({ 
+        deleted_at: new Date() 
+      });
+    }
 
     return successResponse(
       res,
       200,
-      'Conversation hidden successfully.',
+      'Conversation deleted successfully.',
       {}
     );
 
   } catch (error) {
-    console.error('❌ Leave conversation error:', error);
-    return errorResponse(res, 500, 'Failed to leave conversation.');
+    console.error('❌ Leave/delete conversation error:', error);
+    return errorResponse(res, 500, 'Failed to leave or delete conversation.');
   }
 };
 

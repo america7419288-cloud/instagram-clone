@@ -11,6 +11,7 @@ const {
   sendMessage,
   deleteMessage,
   markAsRead,
+  markAsUnread,
   getUnreadCount,
   leaveConversation,
   debugConversation,
@@ -21,6 +22,9 @@ const {
   reactToMessage,
   acceptConversationRequest,
   rejectConversationRequest,
+  muteConversation,
+  unmuteConversation,
+  getMuteStatus,
 } = require('../controllers/conversation.controller');
 
 const { protect } = require('../middleware/auth.middleware');
@@ -47,7 +51,7 @@ router.post('/group', protect, createGroupConversation);
 // GET single conversation
 router.get('/:id', protect, getConversation);
 
-// DELETE leave/hide conversation
+// DELETE leave/hide/soft-delete conversation
 router.delete('/:id', protect, leaveConversation);
 
 // GET messages in conversation
@@ -68,6 +72,18 @@ router.delete('/:id/messages/:messageId', protect, deleteMessage);
 // PUT mark as read
 router.put('/:id/read', protect, markAsRead);
 
+// PUT mark as unread
+router.put('/:id/unread', protect, markAsUnread);
+
+// POST mute conversation
+router.post('/:id/mute', protect, muteConversation);
+
+// DELETE unmute conversation
+router.delete('/:id/mute', protect, unmuteConversation);
+
+// GET mute status of conversation
+router.get('/:id/mute-status', protect, getMuteStatus);
+
 // PUT disappearing messages duration
 router.put('/:id/disappearing', protect, setDisappearingMessages);
 
@@ -80,4 +96,4 @@ router.post('/:id/accept', protect, acceptConversationRequest);
 // POST reject conversation request
 router.post('/:id/reject', protect, rejectConversationRequest);
 
-module.exports = router;
+module.exports = router;
