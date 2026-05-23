@@ -327,38 +327,38 @@ Notification.belongsTo(User, {
   as: 'sender',
 });
 Notification.belongsTo(Post, {
-  foreignKey: 'postId',
+  foreignKey: 'post_id',
   as: 'post',
   constraints: false,
 });
 Notification.belongsTo(Comment, {
-  foreignKey: 'commentId',
+  foreignKey: 'comment_id',
   as: 'comment',
   constraints: false,
 });
 Notification.belongsTo(Story, {
-  foreignKey: 'storyId',
+  foreignKey: 'story_id',
   as: 'story',
   constraints: false,
 });
 Notification.belongsTo(Reel, {
-  foreignKey: 'reelId',
+  foreignKey: 'reel_id',
   as: 'reel',
   constraints: false,
 });
 // Legacy aliases (keep for compatibility)
 Notification.belongsTo(Post, {
-  foreignKey: 'postId',
+  foreignKey: 'post_id',
   as: 'referencePost',
   constraints: false,
 });
 Notification.belongsTo(Comment, {
-  foreignKey: 'commentId',
+  foreignKey: 'comment_id',
   as: 'referenceComment',
   constraints: false,
 });
 Notification.belongsTo(Story, {
-  foreignKey: 'storyId',
+  foreignKey: 'story_id',
   as: 'referenceStory',
   constraints: false,
 });
