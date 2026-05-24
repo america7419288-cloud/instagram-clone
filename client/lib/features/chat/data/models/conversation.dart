@@ -42,6 +42,7 @@ class Conversation {
   final bool isUnread;
   final DateTime? mutedUntil;
   final DateTime? deletedAt;
+  final bool? onlyAdminsCanSend;
 
   Conversation({
     required this.id,
@@ -59,6 +60,7 @@ class Conversation {
     this.isUnread = false,
     this.mutedUntil,
     this.deletedAt,
+    this.onlyAdminsCanSend = false,
   });
 
   factory Conversation.fromJson(Map<String, dynamic> json) {
@@ -100,6 +102,7 @@ class Conversation {
       deletedAt: json['deleted_at'] != null
           ? DateTime.tryParse(json['deleted_at'].toString())
           : null,
+      onlyAdminsCanSend: json['only_admins_can_send'] ?? json['onlyAdminsCanSend'] ?? false,
     );
   }
 
@@ -119,6 +122,7 @@ class Conversation {
     bool? isUnread,
     DateTime? mutedUntil,
     DateTime? deletedAt,
+    bool? onlyAdminsCanSend,
   }) {
     return Conversation(
       id: id ?? this.id,
@@ -136,6 +140,7 @@ class Conversation {
       isUnread: isUnread ?? this.isUnread,
       mutedUntil: mutedUntil ?? this.mutedUntil,
       deletedAt: deletedAt ?? this.deletedAt,
+      onlyAdminsCanSend: onlyAdminsCanSend ?? this.onlyAdminsCanSend,
     );
   }
 
@@ -156,6 +161,7 @@ class Conversation {
       'is_unread': isUnread,
       'muted_until': mutedUntil?.toIso8601String(),
       'deleted_at': deletedAt?.toIso8601String(),
+      'only_admins_can_send': onlyAdminsCanSend,
     };
   }
 }

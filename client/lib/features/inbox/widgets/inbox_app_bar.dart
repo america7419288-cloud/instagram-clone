@@ -11,6 +11,7 @@ class InboxAppBar extends StatefulWidget {
   final VoidCallback onComposeTap;
   final VoidCallback onVideoCallTap;
   final VoidCallback? onDropdownTap;
+  final VoidCallback onCommunitiesTap;
 
   const InboxAppBar({
     super.key,
@@ -20,6 +21,7 @@ class InboxAppBar extends StatefulWidget {
     required this.onComposeTap,
     required this.onVideoCallTap,
     this.onDropdownTap,
+    required this.onCommunitiesTap,
   });
 
   @override
@@ -192,6 +194,19 @@ class _InboxAppBarState extends State<InboxAppBar> {
                           LucideIcons.video,
                           color: iconColor,
                           size: 26,
+                        ),
+                      ),
+                    ),
+                    GestureDetector(
+                      onTap: widget.onCommunitiesTap,
+                      behavior: HitTestBehavior.opaque,
+                      child: Padding(
+                        padding: const EdgeInsets.symmetric(
+                            horizontal: 8.0, vertical: 4.0),
+                        child: Icon(
+                          LucideIcons.users,
+                          color: iconColor,
+                          size: 25,
                         ),
                       ),
                     ),

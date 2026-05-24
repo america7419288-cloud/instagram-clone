@@ -147,6 +147,6 @@ router.post('/:id/messages/:messageId/pin', protect, pinGroupMessage);
 router.delete('/:id/messages/:messageId/pin', protect, unpinGroupMessage);
 
 // PUT update group settings
-router.put('/:id/settings', protect, updateGroupSettings);
+router.put('/:id/settings', protect, uploadPostMedia.single('avatar'), updateGroupSettings);
 
 module.exports = router;

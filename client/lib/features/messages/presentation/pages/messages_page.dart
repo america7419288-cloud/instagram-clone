@@ -443,7 +443,9 @@ class _ConversationTile extends ConsumerWidget {
                             children: [
                               Flexible(
                                 child: Text(
-                                  conversation.otherUser?.username ?? 'Chat',
+                                  conversation.isGroup
+                                      ? (conversation.name ?? 'Group')
+                                      : (conversation.otherUser?.username ?? 'Chat'),
                                   style: TextStyle(
                                     fontWeight: hasUnread
                                         ? FontWeight.w600
@@ -527,6 +529,25 @@ class _ConversationTile extends ConsumerWidget {
   }
 
   Widget _buildAvatar(bool isOnline, BuildContext context) {
+    if (conversation.isGroup) {
+      return Container(
+        width: 56,
+        height: 56,
+        decoration: BoxDecoration(
+          shape: BoxShape.circle,
+          color: Colors.grey.withValues(alpha: 0.2),
+          image: conversation.avatarUrl != null
+              ? DecorationImage(
+                  image: CachedNetworkImageProvider(conversation.avatarUrl!),
+                  fit: BoxFit.cover,
+                )
+              : null,
+        ),
+        child: conversation.avatarUrl == null
+            ? Icon(LucideIcons.users, color: AppColors.textPrimary)
+            : null,
+      );
+    }
     return UserStoryAvatar(
       userId: conversation.otherUser?.id ?? '',
       profilePicUrl: conversation.otherUser?.profilePicUrl,

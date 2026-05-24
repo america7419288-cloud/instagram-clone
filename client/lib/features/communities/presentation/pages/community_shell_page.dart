@@ -226,16 +226,28 @@ class _CommunityShellPageState extends ConsumerState<CommunityShellPage> {
             const Divider(color: Colors.white12, height: 1),
 
             // Channels List Header
-            const Padding(
-              padding: EdgeInsets.symmetric(horizontal: 16, vertical: 12),
-              child: Text(
-                'CHANNELS',
-                style: TextStyle(
-                  color: Colors.white38,
-                  fontSize: 11,
-                  fontWeight: FontWeight.w900,
-                  letterSpacing: 1.0,
-                ),
+            Padding(
+              padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
+              child: Row(
+                mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                children: [
+                  const Text(
+                    'CHANNELS',
+                    style: TextStyle(
+                      color: Colors.white38,
+                      fontSize: 11,
+                      fontWeight: FontWeight.w900,
+                      letterSpacing: 1.0,
+                    ),
+                  ),
+                  if (_isAdminOrMod)
+                    IconButton(
+                      icon: Icon(LucideIcons.plus, color: isDark ? Colors.white54 : Colors.black54, size: 16),
+                      onPressed: () => _showCreateChannelSheet(context),
+                      padding: EdgeInsets.zero,
+                      constraints: const BoxConstraints(),
+                    ),
+                ],
               ),
             ),
 
@@ -352,6 +364,106 @@ class _CommunityShellPageState extends ConsumerState<CommunityShellPage> {
               );
         },
       ),
+    );
+  }
+
+  void _showCreateChannelSheet(BuildContext context) {
+    HapticFeedback.mediumImpact();
+    final isDark = Theme.of(context).brightness == Brightness.dark;
+    final nameCtrl = TextEditingController();
+    String selectedType = 'text';
+
+    showModalBottomSheet(
+      context: context,
+      isScrollControlled: true,
+      backgroundColor: Colors.transparent,
+      builder: (context) {
+        return StatefulBuilder(
+          builder: (context, setModalState) {
+            return Padding(
+              padding: EdgeInsets.only(bottom: MediaQuery.of(context).viewInsets.bottom),
+              child: Container(
+                decoration: BoxDecoration(
+                  color: isDark ? const Color(0xFF1C1C1E) : Colors.white,
+                  borderRadius: const BorderRadius.vertical(top: Radius.circular(24)),
+                  border: Border.all(color: isDark ? Colors.white10 : Colors.black12),
+                ),
+                padding: const EdgeInsets.all(20),
+                child: Column(
+                  mainAxisSize: MainAxisSize.min,
+                  crossAxisAlignment: CrossAxisAlignment.stretch,
+                  children: [
+                    Text('Create Channel', style: TextStyle(color: isDark ? Colors.white : Colors.black, fontSize: 18, fontWeight: FontWeight.bold)),
+                    const SizedBox(height: 16),
+                    TextField(
+                      controller: nameCtrl,
+                      style: TextStyle(color: isDark ? Colors.white : Colors.black),
+                      decoration: InputDecoration(
+                        hintText: 'Channel name',
+                        hintStyle: TextStyle(color: isDark ? Colors.white30 : Colors.black38),
+                        prefixIcon: Icon(LucideIcons.hash, color: isDark ? Colors.white54 : Colors.black54),
+                        filled: true,
+                        fillColor: isDark ? Colors.white10 : Colors.black.withOpacity(0.05),
+                        border: OutlineInputBorder(borderRadius: BorderRadius.circular(12), borderSide: BorderSide.none),
+                      ),
+                    ),
+                    const SizedBox(height: 16),
+                    DropdownButtonFormField<String>(
+                      value: selectedType,
+                      dropdownColor: isDark ? const Color(0xFF1C1C1E) : Colors.white,
+                      style: TextStyle(color: isDark ? Colors.white : Colors.black),
+                      decoration: InputDecoration(
+                        filled: true,
+                        fillColor: isDark ? Colors.white10 : Colors.black.withOpacity(0.05),
+                        border: OutlineInputBorder(borderRadius: BorderRadius.circular(12), borderSide: BorderSide.none),
+                      ),
+                      items: const [
+                        DropdownMenuItem(value: 'text', child: Text('Text')),
+                        DropdownMenuItem(value: 'announcement', child: Text('Announcement')),
+                        DropdownMenuItem(value: 'media', child: Text('Media')),
+                        DropdownMenuItem(value: 'event', child: Text('Event')),
+                      ],
+                      onChanged: (val) {
+                        if (val != null) {
+                          setModalState(() => selectedType = val);
+                        }
+                      },
+                    ),
+                    const SizedBox(height: 24),
+                    ElevatedButton(
+                      style: ElevatedButton.styleFrom(
+                        backgroundColor: const Color(0xFFFD1D1D),
+                        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+                        padding: const EdgeInsets.symmetric(vertical: 14),
+                      ),
+                      onPressed: () async {
+                        if (nameCtrl.text.trim().isEmpty) return;
+                        HapticFeedback.lightImpact();
+                        try {
+                          await ref.read(communityRepositoryProvider).createChannel(
+                            widget.communityId,
+                            name: nameCtrl.text.trim().toLowerCase().replaceAll(' ', '-'),
+                            type: selectedType,
+                          );
+                          if (context.mounted) {
+                            Navigator.pop(context); // Close sheet
+                            ref.invalidate(channelsProvider(widget.communityId)); // Refresh channels
+                          }
+                        } catch (e) {
+                          if (context.mounted) {
+                            ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text('Error: $e')));
+                          }
+                        }
+                      },
+                      child: const Text('Create', style: TextStyle(color: Colors.white, fontSize: 16, fontWeight: FontWeight.bold)),
+                    ),
+                  ],
+                ),
+              ),
+            );
+          },
+        );
+      },
     );
   }
 }

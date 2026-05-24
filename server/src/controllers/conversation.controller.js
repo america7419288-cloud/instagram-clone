@@ -731,11 +731,18 @@ const sendMessage = async (req, res) => {
       );
     }
 
-    // 2.1 CHECK IF BLOCKED (for DMs)
+    // 2.0 CHECK ONLY ADMINS CAN SEND (AND FETCH CONVERSATION FOR DM CHECKS)
     const conversation = await Conversation.findByPk(conversationId, {
       include: [{ model: User, as: 'participants', attributes: ['id'] }]
     });
 
+    if (conversation && conversation.is_group && conversation.only_admins_can_send) {
+      if (participant.role !== 'admin' && conversation.created_by !== senderId) {
+        return errorResponse(res, 403, 'Only admins can send messages in this group.');
+      }
+    }
+
+    // 2.1 CHECK IF BLOCKED (for DMs)
     if (conversation && !conversation.is_group) {
       const otherParticipant = conversation.participants.find(p => p.id !== senderId);
       if (otherParticipant) {
@@ -942,13 +949,16 @@ const sendMessage = async (req, res) => {
             conversation_id: conversationId,
             user_id: { [Op.ne]: senderId },
           },
-          attributes: ['user_id'],
+          attributes: ['user_id', 'is_muted', 'muted_until'],
         });
 
         // Send push to each recipient
-        for (const participant of participants) {
+        for (const p of participants) {
+          const isMuted = p.is_muted || (p.muted_until && new Date(p.muted_until) > new Date());
+          if (isMuted) continue;
+
           await createMessageNotification({
-            recipientId: participant.userId || participant.user_id,
+            recipientId: p.userId || p.user_id,
             senderId,
             conversationId: conversationId,
             messageText: content,
@@ -1079,7 +1089,7 @@ const deleteMessage = async (req, res) => {
       const senderUsername = senderUser ? senderUser.username : 'User';
 
       allParticipants.forEach((p) => {
-        emitToUser(io, p.user_id, 'inbox-update', {
+        io.to(`user:${p.user_id}`).emit('inbox-update', {
           conversation_id: message.conversation_id,
           last_message: preview || 'Message unsent',
           last_message_at: lastMessageAt,
@@ -2584,6 +2594,17 @@ const updateGroupSettings = async (req, res) => {
     if (only_admins_can_edit_info !== undefined) updates.only_admins_can_edit_info = !!only_admins_can_edit_info;
     if (approval_required !== undefined) updates.approval_required = !!approval_required;
 
+    // ─── Avatar Upload ─────────────────────────────────────────
+    if (req.file) {
+      console.log(`📤 Uploading group avatar: ${req.file.mimetype}`);
+      const uploadResult = await uploadImageToCloudinary(
+        req.file.buffer,
+        req.file.mimetype,
+        'instagram-clone/group-avatars'
+      );
+      updates.avatar_url = uploadResult.url;
+    }
+
     await conversation.update(updates);
 
     const io = req.app.get('io');
@@ -2592,6 +2613,7 @@ const updateGroupSettings = async (req, res) => {
         conversation_id: conversationId,
         settings: {
           name: conversation.name,
+          avatar_url: conversation.avatar_url,
           only_admins_can_send: conversation.only_admins_can_send,
           only_admins_can_add_members: conversation.only_admins_can_add_members,
           only_admins_can_edit_info: conversation.only_admins_can_edit_info,

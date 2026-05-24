@@ -17,6 +17,7 @@ import '../../notes/pages/note_create_sheet.dart';
 import '../../notes/controllers/notes_controller.dart';
 import '../../chat/presentation/providers/chat_providers.dart';
 import '../../chat/presentation/providers/chat_notifiers.dart';
+import '../../communities/presentation/pages/community_discover_page.dart';
 
 class InboxPage extends ConsumerStatefulWidget {
   const InboxPage({super.key});
@@ -186,6 +187,14 @@ class _InboxPageState extends ConsumerState<InboxPage>
                     },
                     onComposeTap: _openNewMessage,
                     onVideoCallTap: _openVideoCall,
+                    onCommunitiesTap: () {
+                      Navigator.push(
+                        context,
+                        MaterialPageRoute(
+                          builder: (context) => const CommunityDiscoverPage(),
+                        ),
+                      );
+                    },
                   ),
                 ),
               ),

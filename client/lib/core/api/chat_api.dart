@@ -149,6 +149,52 @@ class ChatApi {
     await _dio.post('/conversations/$conversationId/reject');
   }
 
+  Future<void> updateGroupSettings(String conversationId, {
+    String? name,
+    bool? onlyAdminsCanSend,
+    bool? onlyAdminsCanAddMembers,
+    bool? onlyAdminsCanEditInfo,
+    bool? approvalRequired,
+    String? avatarPath,
+  }) async {
+    dynamic data;
+    if (avatarPath != null) {
+      final formData = FormData.fromMap({
+        if (name != null) 'name': name,
+        if (onlyAdminsCanSend != null) 'only_admins_can_send': onlyAdminsCanSend,
+        if (onlyAdminsCanAddMembers != null) 'only_admins_can_add_members': onlyAdminsCanAddMembers,
+        if (onlyAdminsCanEditInfo != null) 'only_admins_can_edit_info': onlyAdminsCanEditInfo,
+        if (approvalRequired != null) 'approval_required': approvalRequired,
+      });
+      formData.files.add(MapEntry(
+        'avatar',
+        await MultipartFile.fromFile(avatarPath),
+      ));
+      data = formData;
+    } else {
+      data = {
+        if (name != null) 'name': name,
+        if (onlyAdminsCanSend != null) 'only_admins_can_send': onlyAdminsCanSend,
+        if (onlyAdminsCanAddMembers != null) 'only_admins_can_add_members': onlyAdminsCanAddMembers,
+        if (onlyAdminsCanEditInfo != null) 'only_admins_can_edit_info': onlyAdminsCanEditInfo,
+        if (approvalRequired != null) 'approval_required': approvalRequired,
+      };
+    }
+    await _dio.put('/conversations/$conversationId/settings', data: data);
+  }
+
+  Future<void> updateGroupMemberRole(String conversationId, String userId, String role) async {
+    await _dio.put('/conversations/$conversationId/members/$userId/role', data: {'role': role});
+  }
+
+  Future<void> removeGroupMember(String conversationId, String userId) async {
+    await _dio.delete('/conversations/$conversationId/members/$userId');
+  }
+
+  Future<void> addGroupMembers(String conversationId, List<String> userIds) async {
+    await _dio.post('/conversations/$conversationId/members', data: {'user_ids': userIds});
+  }
+
   Future<void> markAsUnread(String conversationId) async {
     await _dio.put('/conversations/$conversationId/unread');
   }

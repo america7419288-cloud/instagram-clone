@@ -256,6 +256,37 @@ class MessageRepository {
     await _localDb.deleteConversation(conversationId);
   }
 
+  Future<void> updateGroupSettings(String conversationId, {
+    String? name,
+    bool? onlyAdminsCanSend,
+    bool? onlyAdminsCanAddMembers,
+    bool? onlyAdminsCanEditInfo,
+    bool? approvalRequired,
+    String? avatarPath,
+  }) async {
+    await _api.updateGroupSettings(
+      conversationId,
+      name: name,
+      onlyAdminsCanSend: onlyAdminsCanSend,
+      onlyAdminsCanAddMembers: onlyAdminsCanAddMembers,
+      onlyAdminsCanEditInfo: onlyAdminsCanEditInfo,
+      approvalRequired: approvalRequired,
+      avatarPath: avatarPath,
+    );
+  }
+
+  Future<void> updateGroupMemberRole(String conversationId, String userId, String role) async {
+    await _api.updateGroupMemberRole(conversationId, userId, role);
+  }
+
+  Future<void> removeGroupMember(String conversationId, String userId) async {
+    await _api.removeGroupMember(conversationId, userId);
+  }
+
+  Future<void> addGroupMembers(String conversationId, List<String> userIds) async {
+    await _api.addGroupMembers(conversationId, userIds);
+  }
+
   Future<void> reportUser({
     required String userId,
     required String reportType,

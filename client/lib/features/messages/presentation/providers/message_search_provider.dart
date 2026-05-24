@@ -32,11 +32,28 @@ class MessageSearchNotifier extends Notifier<MessageSearchState> {
   SearchService get _searchService => ref.read(searchServiceProvider);
 
   @override
-  MessageSearchState build() => MessageSearchState();
+  MessageSearchState build() {
+    Future.microtask(() => loadSuggestions());
+    return MessageSearchState();
+  }
+
+  Future<void> loadSuggestions() async {
+    state = state.copyWith(isLoading: true, error: null);
+    try {
+      final list = await _searchService.getSuggestions();
+      final users = list.map((u) => UserModel.fromJson(u)).toList();
+      state = state.copyWith(users: users, isLoading: false);
+    } catch (e) {
+      state = state.copyWith(
+        isLoading: false,
+        error: e.toString().replaceAll('Exception: ', ''),
+      );
+    }
+  }
 
   Future<void> search(String query) async {
     if (query.trim().isEmpty) {
-      state = state.copyWith(users: [], isLoading: false);
+      loadSuggestions();
       return;
     }
 
@@ -61,6 +78,7 @@ class MessageSearchNotifier extends Notifier<MessageSearchState> {
 
   void clear() {
     state = MessageSearchState();
+    loadSuggestions();
   }
 }
 

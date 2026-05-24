@@ -1,6 +1,6 @@
 // server/src/controllers/user.controller.js
 
-const { User, Follower, Block, Post, sequelize } = require('../models');
+const { User, Follower, Block, Post, ConversationParticipant, sequelize } = require('../models');
 const { successResponse, errorResponse } = require('../utils/response.utils');
 const {
   uploadProfilePictureToCloudinary,
@@ -406,6 +406,7 @@ const searchUsers = async (req, res) => {
       q,             // Search query
       page = 1,
       limit = 20,
+      exclude_conversation_id, // Filter out members
     } = req.query;
 
     // 1. VALIDATE QUERY
@@ -425,6 +426,15 @@ const searchUsers = async (req, res) => {
     const offset = (parseInt(page) - 1) * parseInt(limit);
 
     const blockedUserIds = await getBlockedUserIds(currentUserId);
+    let excludedUserIds = [...blockedUserIds];
+
+    if (exclude_conversation_id) {
+      const participants = await ConversationParticipant.findAll({
+        where: { conversation_id: exclude_conversation_id, left_at: null },
+        attributes: ['user_id']
+      });
+      excludedUserIds = [...excludedUserIds, ...participants.map(p => p.user_id)];
+    }
 
     // 2. SEARCH USERS
     // Search in username AND full name
@@ -437,8 +447,8 @@ const searchUsers = async (req, res) => {
         [Op.and]: [
           // Not the current user
           { id: { [Op.ne]: currentUserId } },
-          // Not a blocked user
-          { id: { [Op.notIn]: blockedUserIds } },
+          // Not a blocked or excluded user
+          { id: { [Op.notIn]: excludedUserIds } },
           // Active and not banned
           { is_active: true },
           { is_banned: false },

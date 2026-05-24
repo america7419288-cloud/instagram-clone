@@ -84,7 +84,11 @@ class InboxNotifier extends Notifier<InboxState> {
     return conversation;
   }
 
+  bool _isFetching = false;
+
   Future<void> loadConversations() async {
+    if (_isFetching) return;
+    _isFetching = true;
     state = state.copyWith(isLoading: true);
     try {
       final results = await Future.wait([
@@ -98,6 +102,8 @@ class InboxNotifier extends Notifier<InboxState> {
       );
     } catch (e) {
       state = state.copyWith(isLoading: false, error: e.toString());
+    } finally {
+      _isFetching = false;
     }
   }
 
@@ -488,6 +494,56 @@ class ChatNotifier extends Notifier<ChatState> {
   Future<void> setDisappearingMessages(int? durationSeconds) async {
     try {
       await _repository.setDisappearingMessages(conversationId, durationSeconds);
+      await ref.read(inboxProvider.notifier).loadConversations();
+    } catch (e) {
+      state = state.copyWith(error: e.toString());
+    }
+  }
+  Future<void> updateGroupSettings({
+    String? name,
+    bool? onlyAdminsCanSend,
+    bool? onlyAdminsCanAddMembers,
+    bool? onlyAdminsCanEditInfo,
+    bool? approvalRequired,
+    String? avatarPath,
+  }) async {
+    try {
+      await _repository.updateGroupSettings(
+        conversationId,
+        name: name,
+        onlyAdminsCanSend: onlyAdminsCanSend,
+        onlyAdminsCanAddMembers: onlyAdminsCanAddMembers,
+        onlyAdminsCanEditInfo: onlyAdminsCanEditInfo,
+        approvalRequired: approvalRequired,
+        avatarPath: avatarPath,
+      );
+      await ref.read(inboxProvider.notifier).loadConversations();
+    } catch (e) {
+      state = state.copyWith(error: e.toString());
+    }
+  }
+
+  Future<void> updateGroupMemberRole(String userId, String role) async {
+    try {
+      await _repository.updateGroupMemberRole(conversationId, userId, role);
+      await ref.read(inboxProvider.notifier).loadConversations();
+    } catch (e) {
+      state = state.copyWith(error: e.toString());
+    }
+  }
+
+  Future<void> removeGroupMember(String userId) async {
+    try {
+      await _repository.removeGroupMember(conversationId, userId);
+      await ref.read(inboxProvider.notifier).loadConversations();
+    } catch (e) {
+      state = state.copyWith(error: e.toString());
+    }
+  }
+
+  Future<void> addGroupMembers(List<String> userIds) async {
+    try {
+      await _repository.addGroupMembers(conversationId, userIds);
       await ref.read(inboxProvider.notifier).loadConversations();
     } catch (e) {
       state = state.copyWith(error: e.toString());

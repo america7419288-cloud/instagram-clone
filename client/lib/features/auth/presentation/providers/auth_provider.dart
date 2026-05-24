@@ -298,11 +298,11 @@ class AuthNotifier extends Notifier<AuthState> {
     try {
       // ─── Disconnect current socket ────────────────────
       _disconnectSocket();
-      await _clearUserScopedProviders();
-
       // ─── Set new active account ───────────────────────
       await _accountManager.setActiveAccount(userId);
       DioClient().resetTokenCache();
+      
+      await _clearUserScopedProviders();
 
       // ─── Load new account data ────────────────────────
       final user = await _authService.getMe();

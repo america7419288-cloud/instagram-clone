@@ -11,6 +11,7 @@ class SearchService {
     required String query,
     int page = 1,
     int limit = 20,
+    String? excludeConversationId,
   }) async {
     try {
       final response = await _dioClient.get(
@@ -19,6 +20,7 @@ class SearchService {
           'q': query,
           'page': page,
           'limit': limit,
+          if (excludeConversationId != null) 'exclude_conversation_id': excludeConversationId,
         },
       );
 

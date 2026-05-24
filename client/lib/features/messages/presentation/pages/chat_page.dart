@@ -16,6 +16,7 @@ import '../../../chat/presentation/providers/presence_provider.dart';
 import '../../../chat/data/models/conversation.dart';
 import '../../../chat/data/models/message.dart';
 import '../../../chat/data/models/chat_user.dart';
+import '../../../chat/presentation/widgets/group_info_sheet.dart';
 import '../../../../features/auth/presentation/providers/auth_provider.dart';
 
 // UI Components
@@ -26,7 +27,7 @@ import '../widgets/chat/message_bubbles.dart';
 import '../widgets/chat/message_bubble_wrapper.dart';
 import '../widgets/chat/chat_overlays.dart';
 import '../widgets/chat/popup_menu/message_popup_menu.dart';
-import 'package:flutter/material.dart' show Colors, Material, Divider;
+import 'package:flutter/material.dart' show Colors, Material, Divider, CircleAvatar;
 import '../widgets/chat/reaction_overlay.dart';
 import '../widgets/chat/message_edit_dialog.dart';
 import '../widgets/chat/disappearing_message_dialog.dart';
@@ -516,15 +517,41 @@ class _ChatPageState extends ConsumerState<ChatPage> {
         child: Column(
           children: [
             ChatAppBar(
-              username: otherUser?.username ?? 'Chat',
-              avatarUrl: otherUser?.profilePicUrl,
-              userId: otherUser?.id,
-              statusText: statusText,
-              isOnline: isOnline,
-              isVerified: otherUser?.isVerified ?? false,
-              hasStory: true,
-              onProfileTap: () => _openProfile(otherUser?.username),
-              onMoreTap: _showChatOptions,
+              username: conversation.isGroup
+                  ? (conversation.name ?? 'Group Chat')
+                  : (otherUser?.username ?? 'Chat'),
+              avatarUrl: conversation.isGroup
+                  ? conversation.avatarUrl
+                  : otherUser?.profilePicUrl,
+              userId: conversation.isGroup ? null : otherUser?.id,
+              statusText: conversation.isGroup
+                  ? '${conversation.participants.length} members'
+                  : statusText,
+              isOnline: conversation.isGroup ? false : isOnline,
+              isVerified: conversation.isGroup ? false : (otherUser?.isVerified ?? false),
+              hasStory: !conversation.isGroup,
+              onProfileTap: () {
+                if (conversation.isGroup) {
+                  HapticFeedback.mediumImpact();
+                  GroupInfoSheet.show(
+                    context,
+                    conversation: conversation,
+                  );
+                } else {
+                  _openProfile(otherUser?.username);
+                }
+              },
+              onMoreTap: () {
+                if (conversation.isGroup) {
+                  HapticFeedback.mediumImpact();
+                  GroupInfoSheet.show(
+                    context,
+                    conversation: conversation,
+                  );
+                } else {
+                  _showChatOptions();
+                }
+              },
             ),
 
             Expanded(
@@ -533,7 +560,7 @@ class _ChatPageState extends ConsumerState<ChatPage> {
                 child: Stack(
                   clipBehavior: Clip.none,
                   children: [
-                    _buildMessageList(chatState, currentUser?.id ?? '', otherUser, isDark),
+                    _buildMessageList(chatState, currentUser?.id ?? '', conversation, otherUser, isDark),
 
                     Positioned(
                       right: 16,
@@ -753,7 +780,7 @@ class _ChatPageState extends ConsumerState<ChatPage> {
   }
 
   Widget _buildMessageList(
-      ChatState state, String currentUserId, ChatUser? otherUser, bool isDark) {
+      ChatState state, String currentUserId, Conversation conversation, ChatUser? otherUser, bool isDark) {
     if (state.isLoading && state.messages.isEmpty) {
       return const Center(child: CupertinoActivityIndicator());
     }
@@ -779,7 +806,25 @@ class _ChatPageState extends ConsumerState<ChatPage> {
               mainAxisSize: MainAxisSize.min,
               children: [
                 // 1. Big Avatar
-                if (otherUser != null)
+                if (conversation.isGroup)
+                  Container(
+                    width: 72,
+                    height: 72,
+                    decoration: BoxDecoration(
+                      color: isDark ? const Color(0xFF262626) : const Color(0xFFEFEFEF),
+                      shape: BoxShape.circle,
+                      image: conversation.avatarUrl != null
+                          ? DecorationImage(
+                              image: NetworkImage(conversation.avatarUrl!),
+                              fit: BoxFit.cover,
+                            )
+                          : null,
+                    ),
+                    child: conversation.avatarUrl == null
+                        ? Icon(LucideIcons.users, size: 36, color: isDark ? Colors.white54 : Colors.black45)
+                        : null,
+                  )
+                else if (otherUser != null)
                   UserStoryAvatar(
                     userId: otherUser.id,
                     profilePicUrl: otherUser.profilePicUrl,
@@ -811,7 +856,9 @@ class _ChatPageState extends ConsumerState<ChatPage> {
                   children: [
                     Flexible(
                       child: Text(
-                        otherUser?.username ?? 'Instagram User',
+                        conversation.isGroup 
+                            ? (conversation.name ?? 'Group Chat') 
+                            : (otherUser?.username ?? 'Instagram User'),
                         style: TextStyle(
                           fontSize: 18,
                           fontWeight: FontWeight.bold,
@@ -822,7 +869,7 @@ class _ChatPageState extends ConsumerState<ChatPage> {
                         overflow: TextOverflow.ellipsis,
                       ),
                     ),
-                    if (otherUser?.isVerified ?? false) ...[
+                    if (!conversation.isGroup && (otherUser?.isVerified ?? false)) ...[
                       const SizedBox(width: 4),
                       const VerifiedBadge(size: 15),
                     ],
@@ -831,7 +878,17 @@ class _ChatPageState extends ConsumerState<ChatPage> {
                 const SizedBox(height: 4),
                 
                 // 3. Full Name
-                if (otherUser?.fullName != null) ...[
+                if (conversation.isGroup) ...[
+                   Text(
+                     '${conversation.participants.length} members',
+                     style: TextStyle(
+                       fontSize: 13,
+                       fontWeight: FontWeight.w400,
+                       color: isDark ? Colors.white54 : Colors.black54,
+                     ),
+                   ),
+                   const SizedBox(height: 16),
+                ] else if (otherUser?.fullName != null) ...[
                   Text(
                     otherUser!.fullName!,
                     style: TextStyle(
@@ -849,9 +906,18 @@ class _ChatPageState extends ConsumerState<ChatPage> {
                   color: isDark ? const Color(0xFF262626) : const Color(0xFFEFEFEF),
                   borderRadius: BorderRadius.circular(8),
                   minSize: 0,
-                  onPressed: () => _openProfile(otherUser?.username),
+                  onPressed: () {
+                    if (conversation.isGroup) {
+                      GroupInfoSheet.show(
+                        context,
+                        conversation: conversation,
+                      );
+                    } else {
+                      _openProfile(otherUser?.username);
+                    }
+                  },
                   child: Text(
-                    'View Profile',
+                    conversation.isGroup ? 'View Group' : 'View Profile',
                     style: TextStyle(
                       fontSize: 13,
                       fontWeight: FontWeight.w600,

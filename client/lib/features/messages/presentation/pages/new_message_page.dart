@@ -125,6 +125,8 @@ class _NewMessagePageState extends ConsumerState<NewMessagePage> {
       );
     }
 
+    final showGroupRow = _searchController.text.trim().isEmpty;
+
     if (state.users.isEmpty && _searchController.text.isNotEmpty) {
       return const Center(
         child: Text(
@@ -134,20 +136,88 @@ class _NewMessagePageState extends ConsumerState<NewMessagePage> {
       );
     }
 
-    if (state.users.isEmpty) {
-      return const Padding(
-        padding: EdgeInsets.all(16.0),
-        child: Text(
-          'Suggested',
-          style: TextStyle(fontWeight: FontWeight.bold, fontSize: 16),
-        ),
-      );
-    }
+    final listCount = state.users.length + (showGroupRow ? 1 : 0);
 
     return ListView.builder(
-      itemCount: state.users.length,
+      itemCount: listCount,
       itemBuilder: (context, index) {
-        final user = state.users[index];
+        if (showGroupRow && index == 0) {
+          return Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              BouncyTap(
+                onTap: () {
+                  context.push('/messages/group/create');
+                },
+                child: Padding(
+                  padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 14),
+                  child: Row(
+                    children: [
+                      Container(
+                        width: 44,
+                        height: 44,
+                        decoration: BoxDecoration(
+                          shape: BoxShape.circle,
+                          border: Border.all(color: AppColors.border),
+                        ),
+                        child: const Icon(
+                          LucideIcons.users,
+                          color: AppColors.textPrimary,
+                          size: 20,
+                        ),
+                      ),
+                      const SizedBox(width: 12),
+                      const Expanded(
+                        child: Column(
+                          crossAxisAlignment: CrossAxisAlignment.start,
+                          children: [
+                            Text(
+                              'Create Group Chat',
+                              style: TextStyle(
+                                fontSize: 15,
+                                fontWeight: FontWeight.bold,
+                                color: AppColors.textPrimary,
+                              ),
+                            ),
+                            SizedBox(height: 2),
+                            Text(
+                              'Chat with up to 250 friends',
+                              style: TextStyle(
+                                fontSize: 12,
+                                color: AppColors.textSecondary,
+                              ),
+                            ),
+                          ],
+                        ),
+                      ),
+                      const Icon(
+                        LucideIcons.chevron_right,
+                        size: 16,
+                        color: AppColors.textSecondary,
+                      ),
+                    ],
+                  ),
+                ),
+              ),
+              const Divider(height: 1),
+              if (state.users.isNotEmpty)
+                const Padding(
+                  padding: EdgeInsets.fromLTRB(16, 16, 16, 8),
+                  child: Text(
+                    'Suggested',
+                    style: TextStyle(
+                      fontWeight: FontWeight.bold,
+                      fontSize: 15,
+                      color: AppColors.textPrimary,
+                    ),
+                  ),
+                ),
+            ],
+          );
+        }
+
+        final userIndex = showGroupRow ? index - 1 : index;
+        final user = state.users[userIndex];
         return BouncyTap(
           onTap: () async {
             // Create or get conversation
