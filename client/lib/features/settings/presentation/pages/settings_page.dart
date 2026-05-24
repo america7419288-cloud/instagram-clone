@@ -10,6 +10,13 @@ import '../../../../core/router/app_router.dart';
 import '../../../../core/theme/app_theme.dart';
 import '../../../../core/providers/theme_provider.dart';
 import '../../../auth/presentation/providers/auth_provider.dart';
+import 'saved_posts_page.dart';
+import 'notifications_settings_page.dart';
+import 'close_friends_page.dart';
+import 'muted_accounts_page.dart';
+import 'blocked_accounts_page.dart';
+import 'archive_page.dart';
+import 'privacy_settings_page.dart';
 
 class SettingsPage extends ConsumerWidget {
   const SettingsPage({super.key});
@@ -88,12 +95,11 @@ class SettingsPage extends ConsumerWidget {
               margin: const EdgeInsets.symmetric(horizontal: 16, vertical: 0),
               backgroundColor: Colors.transparent,
               children: [
-                _buildTile(LucideIcons.bookmark, 'Saved', () {}),
-                _buildTile(LucideIcons.bell, 'Notifications', () {}),
-                _buildTile(LucideIcons.clock, 'Time spent', () {}),
-                _buildTile(LucideIcons.shield_check, 'Close Friends', () {}),
-                _buildTile(LucideIcons.star, 'Favorites', () {}),
-                _buildTile(LucideIcons.volume_x, 'Muted', () {}),
+                _buildTile(LucideIcons.bookmark, 'Saved', () => Navigator.push(context, CupertinoPageRoute(builder: (_) => const SavedPostsPage()))),
+                _buildTile(LucideIcons.archive, 'Archive', () => Navigator.push(context, CupertinoPageRoute(builder: (_) => const ArchivePage()))),
+                _buildTile(LucideIcons.bell, 'Notifications', () => Navigator.push(context, CupertinoPageRoute(builder: (_) => const NotificationsSettingsPage()))),
+                _buildTile(LucideIcons.shield_check, 'Close Friends', () => Navigator.push(context, CupertinoPageRoute(builder: (_) => const CloseFriendsPage()))),
+                _buildTile(LucideIcons.volume_x, 'Muted accounts', () => Navigator.push(context, CupertinoPageRoute(builder: (_) => const MutedAccountsPage()))),
               ],
             ),
 
@@ -103,10 +109,9 @@ class SettingsPage extends ConsumerWidget {
               margin: const EdgeInsets.symmetric(horizontal: 16, vertical: 0),
               backgroundColor: Colors.transparent,
               children: [
-                _buildTile(LucideIcons.lock, 'Account Privacy', () {}),
-                _buildTile(LucideIcons.users, 'Close Friends', () {}),
-                _buildTile(LucideIcons.circle_slash, 'Blocked', () {}),
-                _buildTile(LucideIcons.circle_play, 'Story', () {}),
+                _buildTile(LucideIcons.lock, 'Account Privacy', () => Navigator.push(context, CupertinoPageRoute(builder: (_) => const PrivacySettingsPage()))),
+                _buildTile(LucideIcons.users, 'Close Friends', () => Navigator.push(context, CupertinoPageRoute(builder: (_) => const CloseFriendsPage()))),
+                _buildTile(LucideIcons.circle_slash, 'Blocked', () => Navigator.push(context, CupertinoPageRoute(builder: (_) => const BlockedAccountsPage()))),
               ],
             ),
 
@@ -117,12 +122,12 @@ class SettingsPage extends ConsumerWidget {
               backgroundColor: Colors.transparent,
               children: [
                 _buildTile(LucideIcons.message_circle, 'Messages and story replies', () {}),
-                _buildTile(LucideIcons.at_sign, 'Tags and mentions', () {}),
-                _buildTile(LucideIcons.message_square, 'Comments', () {}),
-                _buildTile(LucideIcons.repeat, 'Sharing and remixes', () {}),
+                _buildTile(LucideIcons.at_sign, 'Tags and mentions', () => Navigator.push(context, CupertinoPageRoute(builder: (_) => const PrivacySettingsPage()))),
+                _buildTile(LucideIcons.message_square, 'Comments', () => Navigator.push(context, CupertinoPageRoute(builder: (_) => const PrivacySettingsPage()))),
+                _buildTile(LucideIcons.repeat, 'Sharing and remixes', () => Navigator.push(context, CupertinoPageRoute(builder: (_) => const PrivacySettingsPage()))),
               ],
             ),
-
+ 
             // ─── SECTION: WHAT YOU SEE ────────────────────────
             _buildSectionHeader('What you see', headerStyle),
             CupertinoListSection.insetGrouped(
@@ -130,9 +135,9 @@ class SettingsPage extends ConsumerWidget {
               backgroundColor: Colors.transparent,
               children: [
                 _buildTile(LucideIcons.star, 'Favorites', () {}),
-                _buildTile(LucideIcons.volume_x, 'Muted accounts', () {}),
+                _buildTile(LucideIcons.volume_x, 'Muted accounts', () => Navigator.push(context, CupertinoPageRoute(builder: (_) => const MutedAccountsPage()))),
                 _buildTile(LucideIcons.lightbulb, 'Suggested content', () {}),
-                _buildTile(LucideIcons.heart, 'Like and share counts', () {}),
+                _buildTile(LucideIcons.heart, 'Like and share counts', () => Navigator.push(context, CupertinoPageRoute(builder: (_) => const PrivacySettingsPage()))),
               ],
             ),
 

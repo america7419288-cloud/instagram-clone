@@ -39,6 +39,11 @@ const CommunityMember = require('./CommunityMember.model');
 const CommunityRule = require('./CommunityRule.model');
 const CommunityJoinRequest = require('./CommunityJoinRequest.model');
 const CommunityPost = require('./CommunityPost.model');
+const UserSettings = require('./UserSettings.model');
+const SavedCollection = require('./SavedCollection.model');
+const Archive = require('./Archive.model');
+const CloseFriend = require('./CloseFriend.model');
+const MutedAccount = require('./MutedAccount.model');
 
 // ─── ALL ASSOCIATIONS ──────────────────────────────────────
 
@@ -49,6 +54,32 @@ User.hasMany(Post, {
   onDelete: 'CASCADE',
 });
 Post.belongsTo(User, { foreignKey: 'user_id', as: 'user' });
+
+// USER → SETTINGS
+User.hasOne(UserSettings, { foreignKey: 'userId', as: 'settings', onDelete: 'CASCADE' });
+UserSettings.belongsTo(User, { foreignKey: 'userId', as: 'user' });
+
+// USER → SAVED COLLECTIONS
+User.hasMany(SavedCollection, { foreignKey: 'userId', as: 'savedCollections', onDelete: 'CASCADE' });
+SavedCollection.belongsTo(User, { foreignKey: 'userId', as: 'user' });
+
+// SAVED POST → SAVED COLLECTION
+SavedCollection.hasMany(SavedPost, { foreignKey: 'collectionId', as: 'savedPosts', onDelete: 'SET NULL' });
+SavedPost.belongsTo(SavedCollection, { foreignKey: 'collectionId', as: 'collection' });
+
+// USER → ARCHIVES
+User.hasMany(Archive, { foreignKey: 'userId', as: 'archives', onDelete: 'CASCADE' });
+Archive.belongsTo(User, { foreignKey: 'userId', as: 'user' });
+
+// USER → CLOSE FRIENDS
+User.hasMany(CloseFriend, { foreignKey: 'userId', as: 'closeFriends', onDelete: 'CASCADE' });
+CloseFriend.belongsTo(User, { foreignKey: 'userId', as: 'user' });
+CloseFriend.belongsTo(User, { foreignKey: 'friendId', as: 'friend' });
+
+// USER → MUTED ACCOUNTS
+User.hasMany(MutedAccount, { foreignKey: 'userId', as: 'mutedAccounts', onDelete: 'CASCADE' });
+MutedAccount.belongsTo(User, { foreignKey: 'userId', as: 'user' });
+MutedAccount.belongsTo(User, { foreignKey: 'mutedUserId', as: 'mutedUser' });
 
 // USER → NOTES
 User.hasMany(Note, {
@@ -720,6 +751,72 @@ const syncDatabase = async () => {
         created_at TIMESTAMP WITH TIME ZONE NOT NULL DEFAULT NOW(),
         updated_at TIMESTAMP WITH TIME ZONE NOT NULL DEFAULT NOW()
       );
+
+      CREATE TABLE IF NOT EXISTS saved_collections (
+        id            UUID                     PRIMARY KEY DEFAULT gen_random_uuid(),
+        user_id       UUID                     NOT NULL REFERENCES users(id) ON DELETE CASCADE,
+        name          VARCHAR(60)              NOT NULL,
+        cover_post_id UUID                     REFERENCES posts(id) ON DELETE SET NULL,
+        post_count    INTEGER                  NOT NULL DEFAULT 0,
+        is_default    BOOLEAN                  NOT NULL DEFAULT FALSE,
+        created_at    TIMESTAMP WITH TIME ZONE NOT NULL DEFAULT NOW(),
+        updated_at    TIMESTAMP WITH TIME ZONE NOT NULL DEFAULT NOW()
+      );
+      CREATE INDEX IF NOT EXISTS idx_saved_collections_user_id ON saved_collections (user_id);
+
+      ALTER TABLE saved_posts
+        ADD COLUMN IF NOT EXISTS collection_id UUID REFERENCES saved_collections(id) ON DELETE SET NULL;
+
+      CREATE TABLE IF NOT EXISTS user_settings (
+        id               UUID                     PRIMARY KEY DEFAULT gen_random_uuid(),
+        user_id          UUID                     NOT NULL UNIQUE REFERENCES users(id) ON DELETE CASCADE,
+        privacy          JSONB                    NOT NULL DEFAULT '{"isPrivateAccount":false,"showActivityStatus":true,"allowStoryReplies":"everyone","allowTagging":"everyone","allowMentions":"everyone","showSuggestedAccounts":true}',
+        comments         JSONB                    NOT NULL DEFAULT '{"allowComments":"everyone","filterOffensiveComments":true,"manualFilter":false,"filteredWords":[],"allowCommentLikes":true,"pinComments":true}',
+        likes_and_shares JSONB                    NOT NULL DEFAULT '{"hideLikeCount":false,"hideOthersLikeCount":false,"allowSharing":"everyone","allowStorySharing":true,"allowReelSharing":true}',
+        notifications    JSONB                    NOT NULL DEFAULT '{"pushEnabled":true,"likes":"everyone","comments":"everyone","commentLikes":true,"newFollowers":true,"followRequests":true,"acceptedFollowRequests":true,"mentions":"everyone","tags":true,"directMessages":true,"groupRequests":true,"liveVideos":true,"reels":true,"stories":true,"emailNotifications":true,"smsNotifications":false,"pauseAll":false,"pauseUntil":null}',
+        timestamp        JSONB                    NOT NULL DEFAULT '{"showTimestamp":true,"format":"relative","use24HourFormat":false,"showSeenTimestamp":true}',
+        archive          JSONB                    NOT NULL DEFAULT '{"autoArchiveStories":true,"autoArchivePosts":false,"showArchiveInProfile":false}',
+        saved            JSONB                    NOT NULL DEFAULT '{"defaultCollection":"All Posts","showSavedCount":false}',
+        created_at       TIMESTAMP WITH TIME ZONE NOT NULL DEFAULT NOW(),
+        updated_at       TIMESTAMP WITH TIME ZONE NOT NULL DEFAULT NOW()
+      );
+      CREATE INDEX IF NOT EXISTS idx_user_settings_user_id ON user_settings (user_id);
+
+      CREATE TABLE IF NOT EXISTS archives (
+        id            UUID                     PRIMARY KEY DEFAULT gen_random_uuid(),
+        user_id       UUID                     NOT NULL REFERENCES users(id) ON DELETE CASCADE,
+        content_id    UUID                     NOT NULL,
+        content_type  VARCHAR(20)              NOT NULL,
+        archived_at   TIMESTAMP WITH TIME ZONE NOT NULL DEFAULT NOW(),
+        auto_archived BOOLEAN                  NOT NULL DEFAULT FALSE,
+        created_at    TIMESTAMP WITH TIME ZONE NOT NULL DEFAULT NOW(),
+        updated_at    TIMESTAMP WITH TIME ZONE NOT NULL DEFAULT NOW()
+      );
+      CREATE INDEX IF NOT EXISTS idx_archives_user_id_content_type_archived_at ON archives (user_id, content_type, archived_at);
+
+      CREATE TABLE IF NOT EXISTS close_friends (
+        id         UUID                     PRIMARY KEY DEFAULT gen_random_uuid(),
+        user_id    UUID                     NOT NULL REFERENCES users(id) ON DELETE CASCADE,
+        friend_id  UUID                     NOT NULL REFERENCES users(id) ON DELETE CASCADE,
+        added_at   TIMESTAMP WITH TIME ZONE NOT NULL DEFAULT NOW(),
+        created_at TIMESTAMP WITH TIME ZONE NOT NULL DEFAULT NOW(),
+        updated_at TIMESTAMP WITH TIME ZONE NOT NULL DEFAULT NOW(),
+        CONSTRAINT unique_user_friend_close UNIQUE (user_id, friend_id)
+      );
+      CREATE INDEX IF NOT EXISTS idx_close_friends_user_id ON close_friends (user_id);
+
+      CREATE TABLE IF NOT EXISTS muted_accounts (
+        id            UUID                     PRIMARY KEY DEFAULT gen_random_uuid(),
+        user_id       UUID                     NOT NULL REFERENCES users(id) ON DELETE CASCADE,
+        muted_user_id UUID                     NOT NULL REFERENCES users(id) ON DELETE CASCADE,
+        mute_posts    BOOLEAN                  NOT NULL DEFAULT TRUE,
+        mute_stories  BOOLEAN                  NOT NULL DEFAULT FALSE,
+        muted_at      TIMESTAMP WITH TIME ZONE NOT NULL DEFAULT NOW(),
+        created_at    TIMESTAMP WITH TIME ZONE NOT NULL DEFAULT NOW(),
+        updated_at    TIMESTAMP WITH TIME ZONE NOT NULL DEFAULT NOW(),
+        CONSTRAINT unique_user_muted_relationship UNIQUE (user_id, muted_user_id)
+      );
+      CREATE INDEX IF NOT EXISTS idx_muted_accounts_user_id ON muted_accounts (user_id);
     `);
 
     // Safe data migration for Notifications
@@ -791,4 +888,9 @@ module.exports = {
   CommunityRule,
   CommunityJoinRequest,
   CommunityPost,
+  UserSettings,
+  SavedCollection,
+  Archive,
+  CloseFriend,
+  MutedAccount,
 };

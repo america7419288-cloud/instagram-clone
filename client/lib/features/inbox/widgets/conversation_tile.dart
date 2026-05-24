@@ -1,6 +1,7 @@
 // lib/features/inbox/widgets/conversation_tile.dart
 
 import 'package:flutter/material.dart';
+import 'package:flutter/cupertino.dart' show CupertinoActivityIndicator;
 import 'package:flutter/services.dart';
 import 'package:flutter_slidable/flutter_slidable.dart';
 import 'package:flutter_lucide/flutter_lucide.dart';
@@ -431,8 +432,8 @@ class _ConversationTileState extends State<ConversationTile>
                               const SizedBox(
                                 width: 12,
                                 height: 12,
-                                child: CircularProgressIndicator(
-                                  strokeWidth: 1.5,
+                                child: CupertinoActivityIndicator(
+                                  radius: 6,
                                   color: Colors.grey,
                                 ),
                               )
