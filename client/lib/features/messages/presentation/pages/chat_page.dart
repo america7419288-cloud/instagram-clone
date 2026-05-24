@@ -391,6 +391,17 @@ class _ChatPageState extends ConsumerState<ChatPage> {
     Offset offset,
     Size size,
   ) {
+    final inboxState = ref.read(inboxProvider);
+    final conversation = inboxState.conversations.firstWhere(
+      (c) => c.id == widget.conversationId,
+      orElse: () => inboxState.requests.firstWhere(
+        (c) => c.id == widget.conversationId,
+        orElse: () => widget.conversation ?? Conversation(id: widget.conversationId, participants: [], updatedAt: DateTime.now()),
+      ),
+    );
+    final currentUser = ref.read(currentUserProvider);
+    final isGroupOwner = conversation.isGroup && conversation.createdBy == currentUser?.id;
+
     showGeneralDialog(
       context: context,
       barrierColor: Colors.transparent,
@@ -412,6 +423,7 @@ class _ChatPageState extends ConsumerState<ChatPage> {
           messagePosition: offset,
           messageSize: size,
           isMine: isOwn,
+          canUnsend: isOwn || isGroupOwner,
           onDismiss: () => Navigator.of(context).pop(),
           onReact: (emoji) {
             ref

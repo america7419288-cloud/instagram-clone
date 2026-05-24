@@ -86,7 +86,7 @@ class _MainShellState extends ConsumerState<MainShell> {
           isDark: isDark,
           inactiveAsset: 'assets/icons/24/Home.svg',
           activeAsset: 'assets/icons/24/Home (Filled).svg',
-          size: 24,
+          size: 28,
         ),
       ),
 
@@ -97,7 +97,7 @@ class _MainShellState extends ConsumerState<MainShell> {
           isDark: isDark,
           inactiveAsset: 'assets/icons/24/Search.svg',
           activeAsset: 'assets/icons/24/Search (Filled).svg',
-          size: 24,
+          size: 28,
         ),
       ),
 
@@ -108,7 +108,7 @@ class _MainShellState extends ConsumerState<MainShell> {
           isDark: isDark,
           inactiveAsset: 'assets/icons/24/Reels.svg',
           activeAsset: 'assets/icons/24/Reels (Filled).svg',
-          size: 24,
+          size: 28,
         ),
       ),
 
@@ -120,7 +120,7 @@ class _MainShellState extends ConsumerState<MainShell> {
           isDark: isDark,
           inactiveAsset: 'assets/icons/24/Share.svg', // paper airplane icon for DM
           activeAsset: 'assets/icons/24/Share.svg',
-          size: 24,
+          size: 28,
         ),
       ),
 

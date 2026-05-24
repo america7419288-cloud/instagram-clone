@@ -9,6 +9,7 @@ class MessagePopupMenu extends StatefulWidget {
   final Offset messagePosition; // global position
   final Size messageSize;
   final bool isMine;
+  final bool? canUnsend;
   final VoidCallback onDismiss;
   final Function(String emoji) onReact;
   final VoidCallback onReply;
@@ -26,6 +27,7 @@ class MessagePopupMenu extends StatefulWidget {
     required this.messagePosition,
     required this.messageSize,
     required this.isMine,
+    this.canUnsend,
     required this.onDismiss,
     required this.onReact,
     required this.onReply,
@@ -490,6 +492,7 @@ class _MessagePopupMenuState extends State<MessagePopupMenu>
 
   List<ActionMenuItem> _getMenuItems() {
     final isMine = widget.isMine;
+    final canUnsend = widget.canUnsend ?? isMine;
     final type = widget.message.messageType;
 
     List<ActionMenuItem> items = [];
@@ -595,7 +598,7 @@ class _MessagePopupMenuState extends State<MessagePopupMenu>
     }
 
     // Destructive action (last item always)
-    if (isMine) {
+    if (canUnsend) {
       items.add(ActionMenuItem(
         label: 'Unsend',
         icon: Icons.delete_outline_rounded,

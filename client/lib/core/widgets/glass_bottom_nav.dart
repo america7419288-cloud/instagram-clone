@@ -225,7 +225,7 @@ class _GlassBottomNavState extends State<GlassBottomNav>
     return AnimatedBuilder(
       animation: Listenable.merge([_entryCtrl, _hideCtrl]),
       builder: (context, child) {
-        final hideY = _hideOffset.value * (60 + bottom);
+        final hideY = _hideOffset.value * (52 + bottom);
         return SlideTransition(
           position: _entrySlide,
           child: FadeTransition(
@@ -262,9 +262,9 @@ class _GlassBottomNavState extends State<GlassBottomNav>
       child: ClipRRect(
         borderRadius: BorderRadius.circular(32),
         child: BackdropFilter(
-          filter: ImageFilter.blur(sigmaX: 22, sigmaY: 22),
+          filter: ImageFilter.blur(sigmaX: 14, sigmaY: 14),
           child: Container(
-            height: 64,
+            height: 54,
             decoration: BoxDecoration(
               borderRadius: BorderRadius.circular(32),
               gradient: LinearGradient(
@@ -297,7 +297,7 @@ class _GlassBottomNavState extends State<GlassBottomNav>
   Widget _buildFullWidth(bool isDark, double bottom) {
     return ClipRect(
       child: BackdropFilter(
-        filter: ImageFilter.blur(sigmaX: 30, sigmaY: 30),
+        filter: ImageFilter.blur(sigmaX: 18, sigmaY: 18),
         child: Container(
           decoration: BoxDecoration(
             gradient: LinearGradient(
@@ -317,7 +317,7 @@ class _GlassBottomNavState extends State<GlassBottomNav>
           child: Column(
             mainAxisSize: MainAxisSize.min,
             children: [
-              SizedBox(height: 60, child: _buildItems(isDark)),
+              SizedBox(height: 52, child: _buildItems(isDark)),
               SizedBox(height: bottom),
             ],
           ),
@@ -330,7 +330,7 @@ class _GlassBottomNavState extends State<GlassBottomNav>
     return ClipRRect(
       borderRadius: const BorderRadius.vertical(top: Radius.circular(20)),
       child: BackdropFilter(
-        filter: ImageFilter.blur(sigmaX: 28, sigmaY: 28),
+        filter: ImageFilter.blur(sigmaX: 18, sigmaY: 18),
         child: Container(
           decoration: BoxDecoration(
             borderRadius: const BorderRadius.vertical(top: Radius.circular(20)),
@@ -367,7 +367,7 @@ class _GlassBottomNavState extends State<GlassBottomNav>
             mainAxisSize: MainAxisSize.min,
             children: [
               SizedBox(
-                height: 60,
+                height: 52,
                 child: Stack(
                   children: [
                     if (widget.indicatorStyle == IndicatorStyle.pill)
@@ -412,7 +412,7 @@ class _GlassBottomNavState extends State<GlassBottomNav>
         final itemW = MediaQuery.of(context).size.width / widget.items.length;
         return Positioned(
           left: _pillPos.value + (itemW / 2) - 26,
-          top: 12,
+          top: 8,
           child: Container(
             width: 52,
             height: 36,
@@ -496,7 +496,7 @@ class _NavItemWidgetState extends State<_NavItemWidget>
       onTap: widget.onTap,
       behavior: HitTestBehavior.opaque,
       child: SizedBox(
-        height: 60,
+        height: 52,
         child: AnimatedBuilder(
           animation: widget.tapScale,
           builder: (_, child) =>
@@ -658,8 +658,8 @@ Widget buildProfileNavItem({
   return AnimatedContainer(
     duration: const Duration(milliseconds: 220),
     curve: Curves.easeOutCubic,
-    width: isActive ? 28 : 26,
-    height: isActive ? 28 : 26,
+    width: isActive ? 30 : 28,
+    height: isActive ? 30 : 28,
     decoration: BoxDecoration(
       shape: BoxShape.circle,
       border: Border.all(

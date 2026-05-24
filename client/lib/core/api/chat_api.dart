@@ -191,6 +191,10 @@ class ChatApi {
     await _dio.delete('/conversations/$conversationId/members/$userId');
   }
 
+  Future<void> transferGroupOwnership(String conversationId, String newOwnerId) async {
+    await _dio.put('/conversations/$conversationId/transfer-ownership/$newOwnerId');
+  }
+
   Future<void> addGroupMembers(String conversationId, List<String> userIds) async {
     await _dio.post('/conversations/$conversationId/members', data: {'participant_ids': userIds});
   }

@@ -21,12 +21,14 @@ class SocketService {
   final _inboxController = StreamController<Map<String, dynamic>>.broadcast();
   final _presenceController = StreamController<Map<String, dynamic>>.broadcast();
   final _connectionController = StreamController<bool>.broadcast();
+  final _communityController = StreamController<Map<String, dynamic>>.broadcast();
 
   Stream<Map<String, dynamic>> get messageStream => _messageController.stream;
   Stream<Map<String, dynamic>> get typingStream => _typingController.stream;
   Stream<Map<String, dynamic>> get inboxStream => _inboxController.stream;
   Stream<Map<String, dynamic>> get presenceStream => _presenceController.stream;
   Stream<bool> get connectionStream => _connectionController.stream;
+  Stream<Map<String, dynamic>> get communityStream => _communityController.stream;
 
   bool _isConnected = false;
   bool get isConnected => _isConnected;
@@ -81,7 +83,12 @@ class SocketService {
 
       // Re-join active rooms on reconnection
       for (final roomId in _activeRooms) {
-        emit(SocketEvents.joinRoom, {SocketKeys.conversationId: roomId});
+        if (roomId.startsWith('community:')) {
+          final id = roomId.substring('community:'.length);
+          emit('join-community', {'community_id': id});
+        } else {
+          emit(SocketEvents.joinRoom, {SocketKeys.conversationId: roomId});
+        }
       }
     });
 
@@ -110,6 +117,14 @@ class SocketService {
     _socket?.on(SocketEvents.onlineUsers, (data) => _presenceController.add(_asMap(data)));
     _socket?.on(SocketEvents.userOnline, (data) => _presenceController.add({..._asMap(data), 'status': 'online'}));
     _socket?.on(SocketEvents.userOffline, (data) => _presenceController.add({..._asMap(data), 'status': 'offline'}));
+
+    // Communities Listeners
+    _socket?.on('new-community-post', (data) => _communityController.add({'event': 'new-post', 'data': _asMap(data)}));
+    _socket?.on('community-poll-updated', (data) => _communityController.add({'event': 'poll-updated', 'data': _asMap(data)}));
+    _socket?.on('community-event-updated', (data) => _communityController.add({'event': 'event-updated', 'data': _asMap(data)}));
+    _socket?.on('channel-created', (data) => _communityController.add({'event': 'channel-created', 'data': _asMap(data)}));
+    _socket?.on('channel-updated', (data) => _communityController.add({'event': 'channel-updated', 'data': _asMap(data)}));
+    _socket?.on('channel-deleted', (data) => _communityController.add({'event': 'channel-deleted', 'data': _asMap(data)}));
   }
 
   Map<String, dynamic> _asMap(dynamic data) {
@@ -142,6 +157,20 @@ class SocketService {
     _activeRooms.remove(conversationId);
     emit(SocketEvents.leaveRoom, {SocketKeys.conversationId: conversationId});
   }
+
+  void joinCommunity(String communityId) {
+    final roomId = 'community:$communityId';
+    _activeRooms.add(roomId);
+    if (_isConnected) {
+      emit('join-community', {'community_id': communityId});
+    }
+  }
+
+  void leaveCommunity(String communityId) {
+    final roomId = 'community:$communityId';
+    _activeRooms.remove(roomId);
+    emit('leave-community', {'community_id': communityId});
+  }
   void sendMessage(Map<String, dynamic> message) => emit(SocketEvents.sendMessage, message);
   void setTyping(String conversationId, bool isTyping) {
     emit(isTyping ? SocketEvents.typing : SocketEvents.stopTyping, {SocketKeys.conversationId: conversationId});
@@ -163,5 +192,6 @@ class SocketService {
     _inboxController.close();
     _presenceController.close();
     _connectionController.close();
+    _communityController.close();
   }
 }

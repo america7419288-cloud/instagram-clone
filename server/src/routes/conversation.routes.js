@@ -38,6 +38,7 @@ const {
   pinGroupMessage,
   unpinGroupMessage,
   updateGroupSettings,
+  transferGroupOwnership,
 } = require('../controllers/conversation.controller');
 
 const { protect } = require('../middleware/auth.middleware');
@@ -148,5 +149,8 @@ router.delete('/:id/messages/:messageId/pin', protect, unpinGroupMessage);
 
 // PUT update group settings
 router.put('/:id/settings', protect, uploadPostMedia.single('avatar'), updateGroupSettings);
+
+// PUT transfer group ownership
+router.put('/:id/transfer-ownership/:userId', protect, transferGroupOwnership);
 
 module.exports = router;

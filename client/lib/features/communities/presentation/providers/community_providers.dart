@@ -2,10 +2,10 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import '../../../../core/network/dio_client.dart';
 import '../../data/models/community.dart';
 import '../../data/models/community_channel.dart';
-import '../../data/models/community_member.dart';
 import '../../data/models/community_post.dart';
 import '../../data/models/community_rule.dart';
 import '../../data/repositories/community_repository.dart';
+import '../../../../core/socket/socket_service.dart';
 
 // ─── 1. REPOSITORY PROVIDER ─────────────────────────────────
 final communityRepositoryProvider = Provider<CommunityRepository>((ref) {
@@ -131,6 +131,89 @@ class CommunityFeedNotifier extends Notifier<AsyncValue<List<CommunityPost>>> {
 
   @override
   AsyncValue<List<CommunityPost>> build() {
+    // Join socket room
+    SocketService().joinCommunity(params.communityId);
+
+    // Listen to real-time events
+    final sub = SocketService().communityStream.listen((eventData) {
+      final event = eventData['event'];
+      final data = eventData['data'] as Map<String, dynamic>;
+
+      if (event == 'new-post') {
+        final post = CommunityPost.fromJson(data);
+        if (post.channelId == params.channelId) {
+          state.whenData((posts) {
+            // Avoid duplicates
+            if (!posts.any((p) => p.id == post.id)) {
+              state = AsyncValue.data([post, ...posts]);
+            }
+          });
+        }
+      } else if (event == 'poll-updated') {
+        final postId = data['post_id'] as String;
+        final poll = data['poll'] as Map<String, dynamic>;
+        state.whenData((posts) {
+          state = AsyncValue.data(posts.map((p) {
+            if (p.id == postId) {
+              return CommunityPost(
+                id: p.id,
+                communityId: p.communityId,
+                channelId: p.channelId,
+                authorId: p.authorId,
+                content: p.content,
+                mediaUrls: p.mediaUrls,
+                type: p.type,
+                poll: poll,
+                event: p.event,
+                likes: p.likes,
+                commentCount: p.commentCount,
+                likeCount: p.likeCount,
+                isPinned: p.isPinned,
+                isAnnouncement: p.isAnnouncement,
+                status: p.status,
+                author: p.author,
+                createdAt: p.createdAt,
+              );
+            }
+            return p;
+          }).toList());
+        });
+      } else if (event == 'event-updated') {
+        final postId = data['post_id'] as String;
+        final eventVal = data['event'] as Map<String, dynamic>;
+        state.whenData((posts) {
+          state = AsyncValue.data(posts.map((p) {
+            if (p.id == postId) {
+              return CommunityPost(
+                id: p.id,
+                communityId: p.communityId,
+                channelId: p.channelId,
+                authorId: p.authorId,
+                content: p.content,
+                mediaUrls: p.mediaUrls,
+                type: p.type,
+                poll: p.poll,
+                event: eventVal,
+                likes: p.likes,
+                commentCount: p.commentCount,
+                likeCount: p.likeCount,
+                isPinned: p.isPinned,
+                isAnnouncement: p.isAnnouncement,
+                status: p.status,
+                author: p.author,
+                createdAt: p.createdAt,
+              );
+            }
+            return p;
+          }).toList());
+        });
+      }
+    });
+
+    ref.onDispose(() {
+      sub.cancel();
+    });
+
     Future.microtask(() => fetch());
     return const AsyncValue.loading();
   }

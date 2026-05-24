@@ -3,12 +3,12 @@ import 'package:flutter/services.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_lucide/flutter_lucide.dart';
 import 'package:go_router/go_router.dart';
+import 'package:image_picker/image_picker.dart';
 import 'package:instagram_client/features/auth/presentation/providers/auth_provider.dart';
 import 'package:instagram_client/features/communities/presentation/widgets/community_post_card.dart';
 import 'package:instagram_client/features/communities/presentation/pages/community_post_create_sheet.dart';
 import '../../data/models/community.dart';
 import '../../data/models/community_channel.dart';
-import '../../data/models/community_post.dart';
 import '../providers/community_providers.dart';
 
 class CommunityShellPage extends ConsumerStatefulWidget {
@@ -24,6 +24,15 @@ class _CommunityShellPageState extends ConsumerState<CommunityShellPage> {
   final GlobalKey<ScaffoldState> _scaffoldKey = GlobalKey<ScaffoldState>();
   CommunityChannel? _selectedChannel;
   bool _isAdminOrMod = false;
+  bool _isEditingChannels = false;
+  final Set<String> _selectedChannelIds = {};
+  final TextEditingController _chatCtrl = TextEditingController();
+
+  @override
+  void dispose() {
+    _chatCtrl.dispose();
+    super.dispose();
+  }
 
   @override
   Widget build(BuildContext context) {
@@ -103,66 +112,252 @@ class _CommunityShellPageState extends ConsumerState<CommunityShellPage> {
       channelId: _selectedChannel!.id,
     );
     final feedAsync = ref.watch(communityFeedProvider(params));
+    final canWrite = !(_selectedChannel!.type == 'announcement') || _isAdminOrMod;
 
-    return feedAsync.when(
-      data: (posts) {
-        if (posts.isEmpty) {
-          return Center(
-            child: Column(
-              mainAxisAlignment: MainAxisAlignment.center,
-              children: [
-                const Icon(LucideIcons.message_square_dashed, size: 48, color: Colors.white24),
-                const SizedBox(height: 12),
-                Text(
-                  'No posts inside #${_selectedChannel!.name} yet',
-                  style: const TextStyle(color: Colors.white38, fontSize: 13, fontWeight: FontWeight.w600),
+    return Column(
+      children: [
+        Expanded(
+          child: feedAsync.when(
+            data: (posts) {
+              if (posts.isEmpty) {
+                return Center(
+                  child: Column(
+                    mainAxisAlignment: MainAxisAlignment.center,
+                    children: [
+                      const Icon(LucideIcons.message_square_dashed, size: 48, color: Colors.white24),
+                      const SizedBox(height: 12),
+                      Text(
+                        'No messages inside #${_selectedChannel!.name} yet',
+                        style: const TextStyle(color: Colors.white38, fontSize: 13, fontWeight: FontWeight.w600),
+                      ),
+                    ],
+                  ),
+                );
+              }
+
+              return RefreshIndicator(
+                onRefresh: () => ref.read(communityFeedProvider(params).notifier).fetch(),
+                color: Colors.white,
+                backgroundColor: const Color(0xFF1C1C1E),
+                child: ListView.builder(
+                  reverse: true,
+                  padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
+                  itemCount: posts.length,
+                  itemBuilder: (context, index) {
+                    final post = posts[index];
+                    return CommunityPostCard(
+                      post: post,
+                      currentUserId: currentUserId,
+                      isAdminOrMod: _isAdminOrMod,
+                      onLike: () {
+                        ref.read(communityFeedProvider(params).notifier).toggleLike(post.id, currentUserId);
+                      },
+                      onPin: () {
+                        ref.read(communityFeedProvider(params).notifier).togglePin(post.id);
+                      },
+                      onDelete: () {
+                        ref.read(communityFeedProvider(params).notifier).delete(post.id);
+                      },
+                      onVote: (optIdx) {
+                        ref.read(communityFeedProvider(params).notifier).vote(post.id, optIdx, currentUserId);
+                      },
+                      onRSVP: () {
+                        ref.read(communityFeedProvider(params).notifier).rsvp(post.id, currentUserId);
+                      },
+                    );
+                  },
                 ),
-              ],
-            ),
-          );
-        }
-
-        return RefreshIndicator(
-          onRefresh: () => ref.read(communityFeedProvider(params).notifier).fetch(),
-          color: Colors.white,
-          backgroundColor: const Color(0xFF1C1C1E),
-          child: ListView.builder(
-            padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
-            itemCount: posts.length,
-            itemBuilder: (context, index) {
-              final post = posts[index];
-              return CommunityPostCard(
-                post: post,
-                currentUserId: currentUserId,
-                isAdminOrMod: _isAdminOrMod,
-                onLike: () {
-                  ref.read(communityFeedProvider(params).notifier).toggleLike(post.id, currentUserId);
-                },
-                onPin: () {
-                  ref.read(communityFeedProvider(params).notifier).togglePin(post.id);
-                },
-                onDelete: () {
-                  ref.read(communityFeedProvider(params).notifier).delete(post.id);
-                },
-                onVote: (optIdx) {
-                  ref.read(communityFeedProvider(params).notifier).vote(post.id, optIdx, currentUserId);
-                },
-                onRSVP: () {
-                  ref.read(communityFeedProvider(params).notifier).rsvp(post.id, currentUserId);
-                },
               );
             },
+            loading: () => const Center(child: CircularProgressIndicator(color: Colors.white)),
+            error: (err, __) => Center(
+              child: Text(
+                'Failed to load posts: $err',
+                style: const TextStyle(color: Colors.white54),
+              ),
+            ),
           ),
-        );
-      },
-      loading: () => const Center(child: CircularProgressIndicator(color: Colors.white)),
-      error: (err, __) => Center(
-        child: Text(
-          'Failed to load posts: $err',
-          style: const TextStyle(color: Colors.white54),
+        ),
+        if (canWrite) _buildChatComposer(params),
+      ],
+    );
+  }
+
+  Widget _buildChatComposer(CommunityFeedParams params) {
+    final isDark = Theme.of(context).brightness == Brightness.dark;
+    return Container(
+      padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
+      decoration: BoxDecoration(
+        color: isDark ? const Color(0xFF121212) : Colors.white,
+        border: Border(
+          top: BorderSide(color: isDark ? Colors.white10 : Colors.black12, width: 0.5),
+        ),
+      ),
+      child: SafeArea(
+        top: false,
+        child: Row(
+          children: [
+            IconButton(
+              icon: Icon(LucideIcons.circle_plus, color: isDark ? Colors.white70 : Colors.black87),
+              onPressed: () => _openPostCreator(context),
+            ),
+            const SizedBox(width: 4),
+            Expanded(
+              child: Container(
+                decoration: BoxDecoration(
+                  color: isDark ? Colors.white.withOpacity(0.05) : Colors.black.withOpacity(0.03),
+                  borderRadius: BorderRadius.circular(24),
+                  border: Border.all(
+                    color: isDark ? Colors.white10 : Colors.black12,
+                  ),
+                ),
+                padding: const EdgeInsets.symmetric(horizontal: 16),
+                child: TextField(
+                  controller: _chatCtrl,
+                  style: TextStyle(
+                    color: isDark ? Colors.white : Colors.black,
+                    fontSize: 14,
+                  ),
+                  decoration: InputDecoration(
+                    hintText: 'Message #${_selectedChannel?.name ?? ""}',
+                    hintStyle: TextStyle(
+                      color: isDark ? Colors.white38 : Colors.black38,
+                      fontSize: 14,
+                    ),
+                    border: InputBorder.none,
+                    isDense: true,
+                    contentPadding: const EdgeInsets.symmetric(vertical: 10),
+                  ),
+                  textCapitalization: TextCapitalization.sentences,
+                  onSubmitted: (_) => _sendChatMessage(params),
+                ),
+              ),
+            ),
+            const SizedBox(width: 8),
+            GestureDetector(
+              onTap: () => _sendChatMessage(params),
+              child: Container(
+                padding: const EdgeInsets.all(10),
+                decoration: const BoxDecoration(
+                  shape: BoxShape.circle,
+                  gradient: LinearGradient(
+                    colors: [Color(0xFF833AB4), Color(0xFFFD1D1D)],
+                  ),
+                ),
+                child: const Icon(LucideIcons.send, color: Colors.white, size: 16),
+              ),
+            ),
+          ],
         ),
       ),
     );
+  }
+
+  void _sendChatMessage(CommunityFeedParams params) {
+    final text = _chatCtrl.text.trim();
+    if (text.isEmpty) return;
+    HapticFeedback.lightImpact();
+    ref.read(communityFeedProvider(params).notifier).addPost(
+          content: text,
+          type: 'text',
+        );
+    _chatCtrl.clear();
+  }
+
+  Future<void> _pickAndUploadAvatar(String communityId) async {
+    final picker = ImagePicker();
+    final image = await picker.pickImage(source: ImageSource.gallery, imageQuality: 70);
+    if (image == null) return;
+
+    HapticFeedback.mediumImpact();
+    
+    if (!mounted) return;
+    ScaffoldMessenger.of(context).showSnackBar(
+      const SnackBar(content: Text('Uploading community avatar...')),
+    );
+
+    try {
+      await ref.read(communityRepositoryProvider).updateAvatar(communityId, image.path);
+      ref.invalidate(communityDetailsProvider(communityId));
+      if (!mounted) return;
+      ScaffoldMessenger.of(context).clearSnackBars();
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(content: Text('Avatar updated successfully!')),
+      );
+    } catch (e) {
+      if (!mounted) return;
+      ScaffoldMessenger.of(context).clearSnackBars();
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(content: Text('Failed to update avatar: $e')),
+      );
+    }
+  }
+
+  Future<void> _bulkDeleteChannels(BuildContext context) async {
+    final count = _selectedChannelIds.length;
+    final isDark = Theme.of(context).brightness == Brightness.dark;
+    
+    final confirm = await showDialog<bool>(
+      context: context,
+      builder: (context) => AlertDialog(
+        backgroundColor: isDark ? const Color(0xFF1C1C1E) : Colors.white,
+        title: const Text('Delete Channels', style: TextStyle(fontWeight: FontWeight.bold)),
+        content: Text('Are you sure you want to permanently delete $count channel(s)? This action cannot be undone.'),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.pop(context, false),
+            child: const Text('Cancel', style: TextStyle(color: Colors.grey)),
+          ),
+          TextButton(
+            onPressed: () => Navigator.pop(context, true),
+            child: const Text('Delete', style: TextStyle(color: Color(0xFFFD1D1D), fontWeight: FontWeight.bold)),
+          ),
+        ],
+      ),
+    );
+
+    if (confirm != true) return;
+
+    HapticFeedback.mediumImpact();
+    
+    if (!mounted) return;
+    ScaffoldMessenger.of(context).showSnackBar(
+      const SnackBar(content: Text('Deleting channels...')),
+    );
+
+    try {
+      final repo = ref.read(communityRepositoryProvider);
+      
+      for (final id in _selectedChannelIds) {
+        await repo.deleteChannel(widget.communityId, id);
+      }
+
+      final wasCurrentDeleted = _selectedChannelIds.contains(_selectedChannel?.id);
+      ref.invalidate(channelsProvider(widget.communityId));
+
+      if (wasCurrentDeleted) {
+        setState(() {
+          _selectedChannel = null;
+        });
+      }
+
+      setState(() {
+        _isEditingChannels = false;
+        _selectedChannelIds.clear();
+      });
+
+      if (!mounted) return;
+      ScaffoldMessenger.of(context).clearSnackBars();
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(content: Text('Channels deleted successfully.')),
+      );
+    } catch (e) {
+      if (!mounted) return;
+      ScaffoldMessenger.of(context).clearSnackBars();
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(content: Text('Failed to delete channels: $e')),
+      );
+    }
   }
 
   // ─── CHANNELS DRAWER SIDEBAR ────────────────────────────────
@@ -187,15 +382,35 @@ class _CommunityShellPageState extends ConsumerState<CommunityShellPage> {
                   padding: const EdgeInsets.all(16.0),
                   child: Row(
                     children: [
-                      CircleAvatar(
-                        radius: 24,
-                        backgroundImage: community.avatarUrl != null && community.avatarUrl!.isNotEmpty
-                            ? NetworkImage(community.avatarUrl!)
-                            : null,
-                        backgroundColor: isDark ? Colors.white10 : Colors.black.withOpacity(0.1),
-                        child: community.avatarUrl == null || community.avatarUrl!.isEmpty
-                            ? const Icon(LucideIcons.users, color: Colors.white54, size: 22)
-                            : null,
+                      GestureDetector(
+                        onTap: _isAdminOrMod ? () => _pickAndUploadAvatar(community.id) : null,
+                        child: Stack(
+                          children: [
+                            CircleAvatar(
+                              radius: 24,
+                              backgroundImage: community.avatarUrl != null && community.avatarUrl!.isNotEmpty
+                                  ? NetworkImage(community.avatarUrl!)
+                                  : null,
+                              backgroundColor: isDark ? Colors.white10 : Colors.black.withOpacity(0.1),
+                              child: community.avatarUrl == null || community.avatarUrl!.isEmpty
+                                  ? const Icon(LucideIcons.users, color: Colors.white54, size: 22)
+                                  : null,
+                            ),
+                            if (_isAdminOrMod)
+                              Positioned(
+                                right: 0,
+                                bottom: 0,
+                                child: Container(
+                                  padding: const EdgeInsets.all(2),
+                                  decoration: const BoxDecoration(
+                                    color: Color(0xFFFD1D1D),
+                                    shape: BoxShape.circle,
+                                  ),
+                                  child: const Icon(LucideIcons.camera, color: Colors.white, size: 10),
+                                ),
+                              ),
+                          ],
+                        ),
                       ),
                       const SizedBox(width: 12),
                       Expanded(
@@ -209,9 +424,35 @@ class _CommunityShellPageState extends ConsumerState<CommunityShellPage> {
                               overflow: TextOverflow.ellipsis,
                             ),
                             const SizedBox(height: 2),
-                            Text(
-                              '@${community.handle}',
-                              style: const TextStyle(fontSize: 12, color: Colors.white38, fontWeight: FontWeight.w600),
+                            Row(
+                              children: [
+                                Text(
+                                  '@${community.handle}',
+                                  style: const TextStyle(fontSize: 12, color: Colors.white38, fontWeight: FontWeight.w600),
+                                ),
+                                const SizedBox(width: 8),
+                                Container(
+                                  padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
+                                  decoration: BoxDecoration(
+                                    color: isDark ? Colors.white10 : Colors.black.withOpacity(0.05),
+                                    borderRadius: BorderRadius.circular(8),
+                                  ),
+                                  child: Row(
+                                    children: [
+                                      Icon(LucideIcons.users, size: 10, color: isDark ? Colors.white38 : Colors.black45),
+                                      const SizedBox(width: 4),
+                                      Text(
+                                        '${community.memberCount}',
+                                        style: TextStyle(
+                                          fontSize: 10,
+                                          color: isDark ? Colors.white70 : Colors.black87,
+                                          fontWeight: FontWeight.w700,
+                                        ),
+                                      ),
+                                    ],
+                                  ),
+                                ),
+                              ],
                             ),
                           ],
                         ),
@@ -229,7 +470,6 @@ class _CommunityShellPageState extends ConsumerState<CommunityShellPage> {
             Padding(
               padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
               child: Row(
-                mainAxisAlignment: MainAxisAlignment.spaceBetween,
                 children: [
                   const Text(
                     'CHANNELS',
@@ -240,13 +480,52 @@ class _CommunityShellPageState extends ConsumerState<CommunityShellPage> {
                       letterSpacing: 1.0,
                     ),
                   ),
-                  if (_isAdminOrMod)
-                    IconButton(
-                      icon: Icon(LucideIcons.plus, color: isDark ? Colors.white54 : Colors.black54, size: 16),
-                      onPressed: () => _showCreateChannelSheet(context),
-                      padding: EdgeInsets.zero,
-                      constraints: const BoxConstraints(),
-                    ),
+                  const Spacer(),
+                  if (_isAdminOrMod) ...[
+                    if (_isEditingChannels) ...[
+                      IconButton(
+                        icon: Icon(
+                          LucideIcons.trash_2,
+                          color: _selectedChannelIds.isNotEmpty ? const Color(0xFFFD1D1D) : (isDark ? Colors.white38 : Colors.black38),
+                          size: 16,
+                        ),
+                        onPressed: _selectedChannelIds.isNotEmpty ? () => _bulkDeleteChannels(context) : null,
+                        padding: EdgeInsets.zero,
+                        constraints: const BoxConstraints(),
+                      ),
+                      const SizedBox(width: 12),
+                      IconButton(
+                        icon: Icon(LucideIcons.check, color: isDark ? Colors.white70 : Colors.black87, size: 16),
+                        onPressed: () {
+                          setState(() {
+                            _isEditingChannels = false;
+                            _selectedChannelIds.clear();
+                          });
+                        },
+                        padding: EdgeInsets.zero,
+                        constraints: const BoxConstraints(),
+                      ),
+                    ] else ...[
+                      IconButton(
+                        icon: Icon(LucideIcons.pencil, color: isDark ? Colors.white54 : Colors.black54, size: 16),
+                        onPressed: () {
+                          setState(() {
+                            _isEditingChannels = true;
+                            _selectedChannelIds.clear();
+                          });
+                        },
+                        padding: EdgeInsets.zero,
+                        constraints: const BoxConstraints(),
+                      ),
+                      const SizedBox(width: 12),
+                      IconButton(
+                        icon: Icon(LucideIcons.plus, color: isDark ? Colors.white54 : Colors.black54, size: 16),
+                        onPressed: () => _showCreateChannelSheet(context),
+                        padding: EdgeInsets.zero,
+                        constraints: const BoxConstraints(),
+                      ),
+                    ],
+                  ],
                 ],
               ),
             ),
@@ -267,6 +546,7 @@ class _CommunityShellPageState extends ConsumerState<CommunityShellPage> {
                     itemBuilder: (context, index) {
                       final channel = channels[index];
                       final isSelected = _selectedChannel?.id == channel.id;
+                      final isChecked = _selectedChannelIds.contains(channel.id);
 
                       IconData icon = LucideIcons.hash;
                       if (channel.type == 'announcement') icon = LucideIcons.megaphone;
@@ -289,11 +569,38 @@ class _CommunityShellPageState extends ConsumerState<CommunityShellPage> {
                         ),
                         selected: isSelected,
                         dense: true,
-                        onTap: () {
-                          HapticFeedback.lightImpact();
-                          setState(() => _selectedChannel = channel);
-                          context.pop(); // Close drawer
-                        },
+                        trailing: _isEditingChannels && !channel.isDefault
+                            ? Checkbox(
+                                activeColor: const Color(0xFFFD1D1D),
+                                value: isChecked,
+                                onChanged: (val) {
+                                  setState(() {
+                                    if (val == true) {
+                                      _selectedChannelIds.add(channel.id);
+                                    } else {
+                                      _selectedChannelIds.remove(channel.id);
+                                    }
+                                  });
+                                },
+                              )
+                            : null,
+                        onTap: _isEditingChannels
+                            ? (channel.isDefault
+                                ? null
+                                : () {
+                                    setState(() {
+                                      if (isChecked) {
+                                        _selectedChannelIds.remove(channel.id);
+                                      } else {
+                                        _selectedChannelIds.add(channel.id);
+                                      }
+                                    });
+                                  })
+                            : () {
+                                HapticFeedback.lightImpact();
+                                setState(() => _selectedChannel = channel);
+                                context.pop(); // Close drawer
+                              },
                       );
                     },
                   );

@@ -46,6 +46,7 @@ class Conversation {
   final bool? onlyAdminsCanAddMembers;
   final bool? onlyAdminsCanEditInfo;
   final bool? approvalRequired;
+  final String? createdBy;
 
   Conversation({
     required this.id,
@@ -67,6 +68,7 @@ class Conversation {
     this.onlyAdminsCanAddMembers = false,
     this.onlyAdminsCanEditInfo = false,
     this.approvalRequired = false,
+    this.createdBy,
   });
 
   factory Conversation.fromJson(Map<String, dynamic> json) {
@@ -112,6 +114,7 @@ class Conversation {
       onlyAdminsCanAddMembers: json['only_admins_can_add_members'] ?? json['onlyAdminsCanAddMembers'] ?? false,
       onlyAdminsCanEditInfo: json['only_admins_can_edit_info'] ?? json['onlyAdminsCanEditInfo'] ?? false,
       approvalRequired: json['approval_required'] ?? json['approvalRequired'] ?? false,
+      createdBy: json['created_by'] ?? json['createdBy'],
     );
   }
 
@@ -135,6 +138,7 @@ class Conversation {
     bool? onlyAdminsCanAddMembers,
     bool? onlyAdminsCanEditInfo,
     bool? approvalRequired,
+    String? createdBy,
   }) {
     return Conversation(
       id: id ?? this.id,
@@ -156,6 +160,7 @@ class Conversation {
       onlyAdminsCanAddMembers: onlyAdminsCanAddMembers ?? this.onlyAdminsCanAddMembers,
       onlyAdminsCanEditInfo: onlyAdminsCanEditInfo ?? this.onlyAdminsCanEditInfo,
       approvalRequired: approvalRequired ?? this.approvalRequired,
+      createdBy: createdBy ?? this.createdBy,
     );
   }
 
@@ -177,6 +182,7 @@ class Conversation {
       'muted_until': mutedUntil?.toIso8601String(),
       'deleted_at': deletedAt?.toIso8601String(),
       'only_admins_can_send': onlyAdminsCanSend,
+      'created_by': createdBy,
     };
   }
 }

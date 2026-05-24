@@ -518,12 +518,16 @@ const getMembers = async (req, res) => {
     const { communityId } = req.params;
     const userId = req.user.id;
 
-    // Check membership
+    // Check membership and role
     const isMember = await CommunityMember.findOne({
       where: { community_id: communityId, user_id: userId, is_banned: false },
     });
     if (!isMember) {
       return errorResponse(res, 403, 'You must be a member to see the member directory.');
+    }
+
+    if (isMember.role === 'member') {
+      return errorResponse(res, 403, 'Regular members are not allowed to view the member directory.');
     }
 
     const members = await CommunityMember.findAll({

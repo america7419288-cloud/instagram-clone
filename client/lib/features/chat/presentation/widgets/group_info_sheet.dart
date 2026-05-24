@@ -10,6 +10,8 @@ import 'dart:io';
 import 'package:image_picker/image_picker.dart';
 
 import '../../../chat/data/models/conversation.dart';
+import '../../../chat/data/models/chat_user.dart';
+import 'package:instagram_client/features/auth/presentation/providers/auth_provider.dart';
 
 class GroupInfoSheet extends ConsumerStatefulWidget {
   final Conversation conversation;
@@ -96,6 +98,88 @@ class _GroupInfoSheetState extends ConsumerState<GroupInfoSheet> {
     );
   }
 
+  // Shows a bottom sheet for managing a specific member (role change + remove)
+  void _showMemberActions(Conversation conversation, int index) {
+    final isDark = Theme.of(context).brightness == Brightness.dark;
+    final textColor = isDark ? Colors.white : Colors.black;
+    final mutedColor = isDark ? Colors.white54 : Colors.black54;
+    final member = conversation.participants[index];
+    final currentUser = ref.read(currentUserProvider);
+    final isOwner = conversation.createdBy == currentUser?.id;
+    final isSelf = member.id == currentUser?.id;
+    if (isSelf) return;
+
+    showModalBottomSheet(
+      context: context,
+      backgroundColor: Colors.transparent,
+      builder: (ctx) => BackdropFilter(
+        filter: ImageFilter.blur(sigmaX: 16, sigmaY: 16),
+        child: Material(
+          color: Colors.transparent,
+          child: Container(
+            decoration: BoxDecoration(
+              color: isDark ? const Color(0xFF1C1C1E) : Colors.white,
+              borderRadius: const BorderRadius.vertical(top: Radius.circular(24)),
+              border: Border.all(color: isDark ? Colors.white10 : Colors.black12),
+            ),
+            padding: const EdgeInsets.fromLTRB(16, 20, 16, 32),
+            child: Column(
+              mainAxisSize: MainAxisSize.min,
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                // Header
+                Center(
+                  child: Container(
+                    width: 36, height: 4,
+                    decoration: BoxDecoration(
+                      color: isDark ? Colors.white24 : Colors.black26,
+                      borderRadius: BorderRadius.circular(2),
+                    ),
+                  ),
+                ),
+                const SizedBox(height: 16),
+                Text(
+                  '@${member.username}',
+                  style: TextStyle(color: textColor, fontSize: 17, fontWeight: FontWeight.w700),
+                ),
+                Text(
+                  member.role.toUpperCase(),
+                  style: TextStyle(color: mutedColor, fontSize: 12),
+                ),
+                const SizedBox(height: 20),
+                // Change Role (admins & owners)
+                ListTile(
+                  leading: Icon(LucideIcons.shield, color: const Color(0xFF0095F6), size: 20),
+                  title: Text('Change Role', style: TextStyle(color: textColor, fontWeight: FontWeight.w600)),
+                  subtitle: Text('Make admin or set as member', style: TextStyle(color: mutedColor, fontSize: 12)),
+                  contentPadding: EdgeInsets.zero,
+                  onTap: () {
+                    Navigator.pop(ctx);
+                    _changeRole(conversation, index);
+                  },
+                ),
+                const Divider(height: 1),
+                // Remove member (owners can remove anyone; admins can only remove non-admins)
+                if (isOwner || member.role != 'admin')
+                  ListTile(
+                    leading: const Icon(LucideIcons.user_minus, color: Color(0xFFFD1D1D), size: 20),
+                    title: const Text('Remove from Group', style: TextStyle(color: Color(0xFFFD1D1D), fontWeight: FontWeight.w600)),
+                    contentPadding: EdgeInsets.zero,
+                    onTap: () async {
+                      Navigator.pop(ctx);
+                      HapticFeedback.heavyImpact();
+                      await ref.read(chatProvider(conversation.id).notifier).removeGroupMember(member.id);
+                    },
+                  ),
+              ],
+            ),
+          ),
+        ),
+      ),
+    );
+  }
+
+  // Shows only role change options
   void _changeRole(Conversation conversation, int index) {
     final isDark = Theme.of(context).brightness == Brightness.dark;
     showModalBottomSheet(
@@ -135,7 +219,7 @@ class _GroupInfoSheetState extends ConsumerState<GroupInfoSheet> {
     ),
     );
   }
-  
+
   Future<void> _pickAvatar(Conversation conversation) async {
     final picker = ImagePicker();
     final pickedFile = await picker.pickImage(source: ImageSource.gallery);
@@ -285,7 +369,7 @@ class _GroupInfoSheetState extends ConsumerState<GroupInfoSheet> {
                       title: const Text('Leave Group', style: TextStyle(color: Color(0xFFFD1D1D), fontWeight: FontWeight.bold)),
                       onTap: () {
                         HapticFeedback.heavyImpact();
-                        Navigator.pop(context);
+                        _handleLeaveGroup(conversation);
                       },
                     ),
                   ],
@@ -354,7 +438,244 @@ class _GroupInfoSheetState extends ConsumerState<GroupInfoSheet> {
     );
   }
 
+  void _handleLeaveGroup(Conversation conversation) {
+    final isDark = Theme.of(context).brightness == Brightness.dark;
+    final currentUser = ref.read(currentUserProvider);
+    final isOwner = conversation.createdBy == currentUser?.id;
+    final otherMembers = conversation.participants
+        .where((p) => p.id != currentUser?.id)
+        .toList();
+
+    if (isOwner && otherMembers.isNotEmpty) {
+      // Owner must transfer ownership before leaving
+      _showTransferOwnershipSheet(conversation, otherMembers, isDark);
+      return;
+    }
+
+    // Regular member or owner with no other members — just confirm and leave
+    showModalBottomSheet(
+      context: context,
+      backgroundColor: Colors.transparent,
+      builder: (ctx) => BackdropFilter(
+        filter: ImageFilter.blur(sigmaX: 16, sigmaY: 16),
+        child: Material(
+          color: Colors.transparent,
+          child: Container(
+            decoration: BoxDecoration(
+              color: isDark ? const Color(0xFF1C1C1E) : Colors.white,
+              borderRadius: const BorderRadius.vertical(top: Radius.circular(24)),
+              border: Border.all(color: isDark ? Colors.white10 : Colors.black12),
+            ),
+            padding: const EdgeInsets.fromLTRB(16, 20, 16, 32),
+            child: Column(
+              mainAxisSize: MainAxisSize.min,
+              children: [
+                Icon(LucideIcons.log_out, color: const Color(0xFFFD1D1D), size: 36),
+                const SizedBox(height: 12),
+                Text(
+                  'Leave Group?',
+                  style: TextStyle(
+                    color: isDark ? Colors.white : Colors.black,
+                    fontSize: 18, fontWeight: FontWeight.w700,
+                  ),
+                ),
+                const SizedBox(height: 8),
+                Text(
+                  'You will no longer be able to send or receive messages in this group.',
+                  textAlign: TextAlign.center,
+                  style: TextStyle(color: isDark ? Colors.white54 : Colors.black54, fontSize: 14),
+                ),
+                const SizedBox(height: 24),
+                Row(
+                  children: [
+                    Expanded(
+                      child: OutlinedButton(
+                        onPressed: () => Navigator.pop(ctx),
+                        style: OutlinedButton.styleFrom(
+                          padding: const EdgeInsets.symmetric(vertical: 14),
+                          shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+                          side: BorderSide(color: isDark ? Colors.white24 : Colors.black26),
+                        ),
+                        child: Text('Cancel', style: TextStyle(color: isDark ? Colors.white : Colors.black)),
+                      ),
+                    ),
+                    const SizedBox(width: 12),
+                    Expanded(
+                      child: ElevatedButton(
+                        onPressed: () async {
+                          Navigator.pop(ctx);
+                          Navigator.pop(context); // close group info sheet
+                          await ref.read(inboxProvider.notifier).deleteConversation(conversation.id);
+                        },
+                        style: ElevatedButton.styleFrom(
+                          backgroundColor: const Color(0xFFFD1D1D),
+                          padding: const EdgeInsets.symmetric(vertical: 14),
+                          shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+                        ),
+                        child: const Text('Leave', style: TextStyle(color: Colors.white, fontWeight: FontWeight.bold)),
+                      ),
+                    ),
+                  ],
+                ),
+              ],
+            ),
+          ),
+        ),
+      ),
+    );
+  }
+
+  void _showTransferOwnershipSheet(
+    Conversation conversation,
+    List<ChatUser> candidates,
+    bool isDark,
+  ) {
+    final textColor = isDark ? Colors.white : Colors.black;
+    final mutedColor = isDark ? Colors.white54 : Colors.black54;
+    final dividerColor = isDark ? Colors.white10 : Colors.black12;
+    final cardBg = isDark ? const Color(0xFF1C1C1E) : Colors.white;
+
+    showModalBottomSheet(
+      context: context,
+      backgroundColor: Colors.transparent,
+      isScrollControlled: true,
+      builder: (ctx) => BackdropFilter(
+        filter: ImageFilter.blur(sigmaX: 16, sigmaY: 16),
+        child: Material(
+          color: Colors.transparent,
+          child: DraggableScrollableSheet(
+            initialChildSize: 0.6,
+            minChildSize: 0.4,
+            maxChildSize: 0.9,
+            expand: false,
+            builder: (_, scrollController) => Container(
+              decoration: BoxDecoration(
+                color: cardBg,
+                borderRadius: const BorderRadius.vertical(top: Radius.circular(24)),
+                border: Border.all(color: dividerColor),
+              ),
+              child: Column(
+                children: [
+                  // Handle
+                  Padding(
+                    padding: const EdgeInsets.only(top: 12, bottom: 8),
+                    child: Container(
+                      width: 36, height: 4,
+                      decoration: BoxDecoration(
+                        color: dividerColor,
+                        borderRadius: BorderRadius.circular(2),
+                      ),
+                    ),
+                  ),
+                  // Title
+                  Padding(
+                    padding: const EdgeInsets.fromLTRB(20, 8, 20, 4),
+                    child: Column(
+                      children: [
+                        Icon(LucideIcons.crown, color: const Color(0xFFFFC107), size: 32),
+                        const SizedBox(height: 10),
+                        Text(
+                          'Transfer Ownership',
+                          style: TextStyle(color: textColor, fontSize: 18, fontWeight: FontWeight.w700),
+                        ),
+                        const SizedBox(height: 6),
+                        Text(
+                          'Choose a member to become the new group owner before you leave.',
+                          textAlign: TextAlign.center,
+                          style: TextStyle(color: mutedColor, fontSize: 13),
+                        ),
+                      ],
+                    ),
+                  ),
+                  Divider(color: dividerColor, height: 24),
+                  // Member list
+                  Expanded(
+                    child: ListView.separated(
+                      controller: scrollController,
+                      itemCount: candidates.length,
+                      separatorBuilder: (_, __) => Divider(color: dividerColor, height: 1),
+                      itemBuilder: (_, i) {
+                        final candidate = candidates[i];
+                        return ListTile(
+                          leading: CircleAvatar(
+                            radius: 20,
+                            backgroundImage: candidate.profilePicUrl != null
+                                ? NetworkImage(candidate.profilePicUrl!)
+                                : null,
+                            backgroundColor: dividerColor,
+                            child: candidate.profilePicUrl == null
+                                ? Icon(LucideIcons.user, size: 18, color: mutedColor)
+                                : null,
+                          ),
+                          title: Text(
+                            candidate.username,
+                            style: TextStyle(fontWeight: FontWeight.w600, color: textColor),
+                          ),
+                          subtitle: Text(
+                            candidate.role.toUpperCase(),
+                            style: TextStyle(fontSize: 11, color: mutedColor),
+                          ),
+                          trailing: ElevatedButton(
+                            onPressed: () async {
+                              Navigator.pop(ctx);
+                              HapticFeedback.mediumImpact();
+                              // 1. Transfer ownership
+                              await ref
+                                  .read(chatProvider(conversation.id).notifier)
+                                  .transferGroupOwnership(candidate.id);
+                              if (!mounted) return;
+                              // 2. Leave the group
+                              Navigator.pop(context); // close group info sheet
+                              await ref
+                                  .read(inboxProvider.notifier)
+                                  .deleteConversation(conversation.id);
+                            },
+                            style: ElevatedButton.styleFrom(
+                              backgroundColor: const Color(0xFFFD1D1D),
+                              padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
+                              shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(10)),
+                            ),
+                            child: const Text('Select', style: TextStyle(color: Colors.white, fontSize: 12, fontWeight: FontWeight.bold)),
+                          ),
+                        );
+                      },
+                    ),
+                  ),
+                  // Cancel button
+                  Padding(
+                    padding: const EdgeInsets.fromLTRB(20, 8, 20, 24),
+                    child: SizedBox(
+                      width: double.infinity,
+                      child: OutlinedButton(
+                        onPressed: () => Navigator.pop(ctx),
+                        style: OutlinedButton.styleFrom(
+                          padding: const EdgeInsets.symmetric(vertical: 14),
+                          shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+                          side: BorderSide(color: dividerColor),
+                        ),
+                        child: Text('Cancel', style: TextStyle(color: textColor)),
+                      ),
+                    ),
+                  ),
+                ],
+              ),
+            ),
+          ),
+        ),
+      ),
+    );
+  }
+
   Widget _buildMembersSection(Conversation conversation, bool isDark, Color textColor, Color mutedColor, Color dividerColor, Color cardBg) {
+      final currentUser = ref.watch(currentUserProvider);
+    final currentMember = conversation.participants.firstWhere(
+      (p) => p.id == currentUser?.id,
+      orElse: () => ChatUser(id: '', username: '', role: 'member'),
+    );
+    final isCurrentUserAdmin = currentMember.role == 'admin';
+    final isCurrentUserOwner = conversation.createdBy == currentUser?.id;
+    final canManageMembers = isCurrentUserAdmin || isCurrentUserOwner;
+
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
@@ -392,11 +713,19 @@ class _GroupInfoSheetState extends ConsumerState<GroupInfoSheet> {
             separatorBuilder: (_, __) => Divider(color: dividerColor, height: 1),
             itemBuilder: (context, index) {
               final member = conversation.participants[index];
+              final isSelf = member.id == currentUser?.id;
+              final isTargetOwner = conversation.createdBy == member.id;
+              // Show manage button: if current user can manage AND it's not themselves
+              // AND (owner can manage anyone, admin can manage non-admins/non-owners)
+              final showManageButton = canManageMembers &&
+                  !isSelf &&
+                  !isTargetOwner &&
+                  (isCurrentUserOwner || member.role != 'admin');
               return ListTile(
                 leading: GestureDetector(
                   onTap: () {
                     HapticFeedback.lightImpact();
-                    Navigator.pop(context); // Close modal first
+                    Navigator.pop(context);
                     context.push('/profile/${Uri.encodeComponent(member.username)}');
                   },
                   child: CircleAvatar(
@@ -409,19 +738,21 @@ class _GroupInfoSheetState extends ConsumerState<GroupInfoSheet> {
                 title: GestureDetector(
                   onTap: () {
                     HapticFeedback.lightImpact();
-                    Navigator.pop(context); // Close modal first
+                    Navigator.pop(context);
                     context.push('/profile/${Uri.encodeComponent(member.username)}');
                   },
                   child: Text(member.username, style: TextStyle(fontSize: 14, fontWeight: FontWeight.bold, color: textColor)),
                 ),
                 subtitle: Text(
-                  '${member.fullName ?? ''}${member.fullName != null && member.fullName!.isNotEmpty ? ' • ' : ''}${member.role.toUpperCase()}',
+                  '${member.fullName ?? ''}${member.fullName != null && member.fullName!.isNotEmpty ? ' \u2022 ' : ''}${isTargetOwner ? 'OWNER' : member.role.toUpperCase()}',
                   style: TextStyle(fontSize: 12, color: mutedColor),
                 ),
-                trailing: IconButton(
-                  icon: Icon(LucideIcons.shield, size: 14, color: mutedColor),
-                  onPressed: () => _changeRole(conversation, index),
-                ),
+                trailing: showManageButton
+                    ? IconButton(
+                        icon: Icon(LucideIcons.settings_2, size: 16, color: mutedColor),
+                        onPressed: () => _showMemberActions(conversation, index),
+                      )
+                    : null,
               );
             },
           ),

@@ -21,14 +21,21 @@ class _CommunityCreateSheetState extends ConsumerState<CommunityCreateSheet> {
   String _category = 'tech';
   String _privacy = 'public';
 
-  final List<String> _categories = [
-    'tech',
-    'gaming',
-    'music',
-    'sports',
-    'art',
-    'fashion',
-    'fitness',
+  static const _categories = [
+    {'key': 'tech',          'label': 'Tech',           'emoji': '💻'},
+    {'key': 'gaming',        'label': 'Gaming',         'emoji': '🎮'},
+    {'key': 'music',         'label': 'Music',          'emoji': '🎵'},
+    {'key': 'sports',        'label': 'Sports',         'emoji': '⚽'},
+    {'key': 'art',           'label': 'Art',            'emoji': '🎨'},
+    {'key': 'fashion',       'label': 'Fashion',        'emoji': '👗'},
+    {'key': 'fitness',       'label': 'Fitness',        'emoji': '💪'},
+    {'key': 'photography',   'label': 'Photography',    'emoji': '📸'},
+    {'key': 'food',          'label': 'Food',           'emoji': '🍕'},
+    {'key': 'nature',        'label': 'Nature',         'emoji': '🌿'},
+    {'key': 'science',       'label': 'Science',        'emoji': '🚀'},
+    {'key': 'education',     'label': 'Education',      'emoji': '📚'},
+    {'key': 'business',      'label': 'Business',       'emoji': '💼'},
+    {'key': 'entertainment', 'label': 'Entertainment',  'emoji': '🎬'},
   ];
 
   @override
@@ -77,14 +84,16 @@ class _CommunityCreateSheetState extends ConsumerState<CommunityCreateSheet> {
   @override
   Widget build(BuildContext context) {
     final isDark = Theme.of(context).brightness == Brightness.dark;
+    final textColor = isDark ? Colors.white : Colors.black;
+    final mutedColor = isDark ? Colors.white54 : Colors.black54;
     final safeBot = MediaQuery.of(context).padding.bottom;
 
     return BackdropFilter(
       filter: ImageFilter.blur(sigmaX: 20, sigmaY: 20),
       child: Container(
-        height: MediaQuery.of(context).size.height * 0.76,
+        height: MediaQuery.of(context).size.height * 0.85,
         decoration: BoxDecoration(
-          color: isDark ? Colors.black.withOpacity(0.76) : Colors.white.withOpacity(0.9),
+          color: isDark ? Colors.black.withValues(alpha: 0.76) : Colors.white.withValues(alpha: 0.97),
           borderRadius: const BorderRadius.vertical(top: Radius.circular(30)),
           border: Border.all(color: isDark ? Colors.white10 : Colors.black12),
         ),
@@ -98,7 +107,7 @@ class _CommunityCreateSheetState extends ConsumerState<CommunityCreateSheet> {
                 width: 40,
                 height: 4,
                 decoration: BoxDecoration(
-                  color: isDark ? Colors.white24 : Colors.black12,
+                  color: isDark ? Colors.white24 : Colors.black26,
                   borderRadius: BorderRadius.circular(2),
                 ),
               ),
@@ -108,9 +117,9 @@ class _CommunityCreateSheetState extends ConsumerState<CommunityCreateSheet> {
               Row(
                 mainAxisAlignment: MainAxisAlignment.spaceBetween,
                 children: [
-                  const Text(
+                  Text(
                     'New Community',
-                    style: TextStyle(fontSize: 18, fontWeight: FontWeight.w900),
+                    style: TextStyle(fontSize: 18, fontWeight: FontWeight.w900, color: textColor),
                   ),
                   GestureDetector(
                     onTap: _submit,
@@ -131,7 +140,7 @@ class _CommunityCreateSheetState extends ConsumerState<CommunityCreateSheet> {
                 ],
               ),
               const SizedBox(height: 16),
-              const Divider(color: Colors.white12, height: 1),
+              Divider(color: isDark ? Colors.white12 : Colors.black12, height: 1),
               const SizedBox(height: 16),
 
               // Form fields
@@ -142,17 +151,17 @@ class _CommunityCreateSheetState extends ConsumerState<CommunityCreateSheet> {
                     crossAxisAlignment: CrossAxisAlignment.start,
                     children: [
                       // Community Name
-                      _buildLabel('COMMUNITY NAME'),
+                      _buildLabel('COMMUNITY NAME', isDark),
                       TextFormField(
                         controller: _nameCtrl,
                         validator: (v) => v == null || v.trim().isEmpty ? 'Name is required' : null,
-                        style: const TextStyle(fontSize: 14),
+                        style: TextStyle(fontSize: 14, color: textColor),
                         decoration: _buildInputDecoration('Enter a matching community name', isDark),
                       ),
                       const SizedBox(height: 16),
 
                       // Community Handle
-                      _buildLabel('HANDLE'),
+                      _buildLabel('HANDLE', isDark),
                       TextFormField(
                         controller: _handleCtrl,
                         validator: (v) {
@@ -162,58 +171,75 @@ class _CommunityCreateSheetState extends ConsumerState<CommunityCreateSheet> {
                           }
                           return null;
                         },
-                        style: const TextStyle(fontSize: 14),
+                        style: TextStyle(fontSize: 14, color: textColor),
                         decoration: _buildInputDecoration('e.g. flutter_devs', isDark).copyWith(
-                          prefixIcon: const Icon(LucideIcons.at_sign, size: 16, color: Colors.white38),
+                          prefixIcon: Icon(LucideIcons.at_sign, size: 16, color: mutedColor),
                         ),
                       ),
                       const SizedBox(height: 16),
 
                       // Description
-                      _buildLabel('DESCRIPTION'),
+                      _buildLabel('DESCRIPTION', isDark),
                       TextFormField(
                         controller: _descCtrl,
                         maxLines: 3,
-                        style: const TextStyle(fontSize: 14),
+                        style: TextStyle(fontSize: 14, color: textColor),
                         decoration: _buildInputDecoration('What is this community about?', isDark),
                       ),
                       const SizedBox(height: 16),
 
-                      // Category Dropdown
-                      _buildLabel('CATEGORY'),
-                      Container(
-                        padding: const EdgeInsets.symmetric(horizontal: 12),
-                        decoration: BoxDecoration(
-                          color: isDark ? Colors.white.withOpacity(0.04) : Colors.black.withOpacity(0.03),
-                          borderRadius: BorderRadius.circular(14),
-                          border: Border.all(color: isDark ? Colors.white12 : Colors.black12),
-                        ),
-                        child: DropdownButtonHideUnderline(
-                          child: DropdownButton<String>(
-                            value: _category,
-                            isExpanded: true,
-                            dropdownColor: isDark ? const Color(0xFF1E1E1E) : Colors.white,
-                            style: TextStyle(
-                              color: isDark ? Colors.white : Colors.black,
-                              fontSize: 14,
-                              fontWeight: FontWeight.w600,
-                            ),
-                            items: _categories
-                                .map((cat) => DropdownMenuItem(
-                                      value: cat,
-                                      child: Text(cat.toUpperCase()),
-                                    ))
-                                .toList(),
-                            onChanged: (val) {
-                              if (val != null) setState(() => _category = val);
+                      // Category — Chip Selector
+                      _buildLabel('CATEGORY', isDark),
+                      Wrap(
+                        spacing: 8,
+                        runSpacing: 8,
+                        children: _categories.map((cat) {
+                          final isSelected = _category == cat['key'];
+                          return GestureDetector(
+                            onTap: () {
+                              HapticFeedback.selectionClick();
+                              setState(() => _category = cat['key']!);
                             },
-                          ),
-                        ),
+                            child: AnimatedContainer(
+                              duration: const Duration(milliseconds: 180),
+                              padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
+                              decoration: BoxDecoration(
+                                color: isSelected
+                                    ? const Color(0xFFFD1D1D).withValues(alpha: 0.12)
+                                    : (isDark ? Colors.white.withValues(alpha: 0.06) : Colors.black.withValues(alpha: 0.04)),
+                                borderRadius: BorderRadius.circular(20),
+                                border: Border.all(
+                                  color: isSelected
+                                      ? const Color(0xFFFD1D1D).withValues(alpha: 0.6)
+                                      : (isDark ? Colors.white12 : Colors.black12),
+                                  width: isSelected ? 1.5 : 1.0,
+                                ),
+                              ),
+                              child: Row(
+                                mainAxisSize: MainAxisSize.min,
+                                children: [
+                                  Text(cat['emoji']!, style: const TextStyle(fontSize: 14)),
+                                  const SizedBox(width: 6),
+                                  Text(
+                                    cat['label']!,
+                                    style: TextStyle(
+                                      fontSize: 13,
+                                      fontWeight: isSelected ? FontWeight.w700 : FontWeight.w500,
+                                      color: isSelected
+                                          ? const Color(0xFFFD1D1D)
+                                          : (isDark ? Colors.white70 : Colors.black87),
+                                    ),
+                                  ),
+                                ],
+                              ),
+                            ),
+                          );
+                        }).toList(),
                       ),
                       const SizedBox(height: 16),
 
                       // Privacy Picker
-                      _buildLabel('PRIVACY'),
+                      _buildLabel('PRIVACY', isDark),
                       Row(
                         children: [
                           Expanded(
@@ -225,6 +251,7 @@ class _CommunityCreateSheetState extends ConsumerState<CommunityCreateSheet> {
                           ),
                         ],
                       ),
+                      const SizedBox(height: 8),
                     ],
                   ),
                 ),
@@ -236,13 +263,13 @@ class _CommunityCreateSheetState extends ConsumerState<CommunityCreateSheet> {
     );
   }
 
-  Widget _buildLabel(String label) {
+  Widget _buildLabel(String label, bool isDark) {
     return Padding(
       padding: const EdgeInsets.only(bottom: 8, left: 4),
       child: Text(
         label,
-        style: const TextStyle(
-          color: Colors.white38,
+        style: TextStyle(
+          color: isDark ? Colors.white38 : Colors.black38,
           fontSize: 10,
           fontWeight: FontWeight.w900,
           letterSpacing: 1.0,
@@ -253,6 +280,7 @@ class _CommunityCreateSheetState extends ConsumerState<CommunityCreateSheet> {
 
   Widget _buildPrivacyCard(String value, String title, String subtitle, bool isDark) {
     final isSelected = _privacy == value;
+    final textColor = isDark ? Colors.white : Colors.black;
 
     return GestureDetector(
       onTap: () {
@@ -264,12 +292,12 @@ class _CommunityCreateSheetState extends ConsumerState<CommunityCreateSheet> {
         padding: const EdgeInsets.all(12),
         decoration: BoxDecoration(
           color: isSelected
-              ? const Color(0xFFFD1D1D).withOpacity(0.1)
-              : (isDark ? Colors.white.withOpacity(0.04) : Colors.black.withOpacity(0.02)),
+              ? const Color(0xFFFD1D1D).withValues(alpha: 0.1)
+              : (isDark ? Colors.white.withValues(alpha: 0.04) : Colors.black.withValues(alpha: 0.02)),
           borderRadius: BorderRadius.circular(16),
           border: Border.all(
             color: isSelected
-                ? const Color(0xFFFD1D1D).withOpacity(0.5)
+                ? const Color(0xFFFD1D1D).withValues(alpha: 0.5)
                 : (isDark ? Colors.white12 : Colors.black12),
             width: isSelected ? 1.5 : 1.0,
           ),
@@ -282,7 +310,7 @@ class _CommunityCreateSheetState extends ConsumerState<CommunityCreateSheet> {
                 Icon(
                   value == 'public' ? LucideIcons.globe : LucideIcons.lock,
                   size: 16,
-                  color: isSelected ? const Color(0xFFFD1D1D) : Colors.white60,
+                  color: isSelected ? const Color(0xFFFD1D1D) : (isDark ? Colors.white60 : Colors.black54),
                 ),
                 const SizedBox(width: 8),
                 Text(
@@ -290,7 +318,7 @@ class _CommunityCreateSheetState extends ConsumerState<CommunityCreateSheet> {
                   style: TextStyle(
                     fontSize: 13,
                     fontWeight: FontWeight.w800,
-                    color: isSelected ? const Color(0xFFFD1D1D) : Colors.white,
+                    color: isSelected ? const Color(0xFFFD1D1D) : textColor,
                   ),
                 ),
               ],
@@ -300,7 +328,9 @@ class _CommunityCreateSheetState extends ConsumerState<CommunityCreateSheet> {
               subtitle,
               style: TextStyle(
                 fontSize: 10,
-                color: isSelected ? const Color(0xFFFD1D1D).withOpacity(0.7) : Colors.white38,
+                color: isSelected
+                    ? const Color(0xFFFD1D1D).withValues(alpha: 0.7)
+                    : (isDark ? Colors.white38 : Colors.black38),
                 height: 1.3,
               ),
             ),
@@ -313,9 +343,9 @@ class _CommunityCreateSheetState extends ConsumerState<CommunityCreateSheet> {
   InputDecoration _buildInputDecoration(String hint, bool isDark) {
     return InputDecoration(
       hintText: hint,
-      hintStyle: const TextStyle(color: Colors.white38, fontSize: 13),
+      hintStyle: TextStyle(color: isDark ? Colors.white38 : Colors.black38, fontSize: 13),
       filled: true,
-      fillColor: isDark ? Colors.white.withOpacity(0.04) : Colors.black.withOpacity(0.03),
+      fillColor: isDark ? Colors.white.withValues(alpha: 0.04) : Colors.black.withValues(alpha: 0.03),
       contentPadding: const EdgeInsets.symmetric(horizontal: 16, vertical: 14),
       border: OutlineInputBorder(
         borderRadius: BorderRadius.circular(14),
@@ -328,6 +358,14 @@ class _CommunityCreateSheetState extends ConsumerState<CommunityCreateSheet> {
       enabledBorder: OutlineInputBorder(
         borderRadius: BorderRadius.circular(14),
         borderSide: BorderSide(color: isDark ? Colors.white12 : Colors.black12),
+      ),
+      errorBorder: OutlineInputBorder(
+        borderRadius: BorderRadius.circular(14),
+        borderSide: const BorderSide(color: Color(0xFFFD1D1D)),
+      ),
+      focusedErrorBorder: OutlineInputBorder(
+        borderRadius: BorderRadius.circular(14),
+        borderSide: const BorderSide(color: Color(0xFFFD1D1D)),
       ),
     );
   }

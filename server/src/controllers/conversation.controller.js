@@ -103,6 +103,7 @@ const formatConversation = (conv, currentUserId) => {
     muted_until: myParticipant ? myParticipant.muted_until : null,
     is_unread: myParticipant ? !!myParticipant.is_unread : false,
     deleted_at: myParticipant ? myParticipant.deleted_at : null,
+    created_by: c.created_by,
     created_at: c.created_at || c.createdAt,
   };
 };
@@ -1031,12 +1032,15 @@ const deleteMessage = async (req, res) => {
       return errorResponse(res, 404, 'Message not found.');
     }
 
-    // Only sender can unsend
-    if (message.sender_id !== currentUserId) {
+    // Only sender or group owner/creator can delete messages
+    const conversation = await Conversation.findByPk(message.conversation_id);
+    const isOwner = conversation && conversation.is_group && conversation.created_by === currentUserId;
+
+    if (message.sender_id !== currentUserId && !isOwner) {
       return errorResponse(
         res,
         403,
-        'You can only unsend your own messages.'
+        'You can only unsend your own messages or messages in group chats you own.'
       );
     }
 
@@ -2651,6 +2655,90 @@ const updateGroupSettings = async (req, res) => {
   }
 };
 
+// ─────────────────────────────────────────────────────────────
+// @route   PUT /api/v1/conversations/:id/transfer-ownership/:userId
+// @desc    Transfer group ownership to another participant
+// @access  Private (owner only)
+// ─────────────────────────────────────────────────────────────
+const transferGroupOwnership = async (req, res) => {
+  try {
+    const { id: conversationId, userId: newOwnerId } = req.params;
+    const currentUserId = req.user.id;
+
+    const conversation = await Conversation.findByPk(conversationId);
+    if (!conversation || !conversation.is_group) {
+      return errorResponse(res, 404, 'Group not found.');
+    }
+
+    // Only the current owner can transfer ownership
+    if (conversation.created_by !== currentUserId) {
+      return errorResponse(res, 403, 'Only the group owner can transfer ownership.');
+    }
+
+    // Cannot transfer to self
+    if (newOwnerId === currentUserId) {
+      return errorResponse(res, 400, 'Cannot transfer ownership to yourself.');
+    }
+
+    // Verify new owner is an active participant
+    const newOwnerParticipant = await ConversationParticipant.findOne({
+      where: { conversation_id: conversationId, user_id: newOwnerId, left_at: null },
+    });
+    if (!newOwnerParticipant) {
+      return errorResponse(res, 404, 'New owner must be an active member of the group.');
+    }
+
+    // Promote new owner to admin role in the participants table
+    await newOwnerParticipant.update({ role: 'admin' });
+
+    // Update conversation created_by to the new owner
+    await conversation.update({ created_by: newOwnerId });
+
+    // Demote old owner to member role (if they remain in the group)
+    const oldOwnerParticipant = await ConversationParticipant.findOne({
+      where: { conversation_id: conversationId, user_id: currentUserId, left_at: null },
+    });
+    if (oldOwnerParticipant) {
+      await oldOwnerParticipant.update({ role: 'member' });
+    }
+
+    // System message announcing the transfer
+    const [newOwnerUser, oldOwnerUser] = await Promise.all([
+      User.findByPk(newOwnerId, { attributes: ['username'] }),
+      User.findByPk(currentUserId, { attributes: ['username'] }),
+    ]);
+
+    const systemMessage = await Message.create({
+      conversation_id: conversationId,
+      sender_id: currentUserId,
+      content: `${oldOwnerUser?.username ?? 'Someone'} made ${newOwnerUser?.username ?? 'someone'} the new group owner.`,
+      message_type: 'text',
+    });
+
+    await conversation.update({
+      last_message: systemMessage.content,
+      last_message_at: systemMessage.created_at,
+      last_message_sender_id: currentUserId,
+    });
+
+    // Broadcast updates via socket
+    const io = req.app.get('io');
+    if (io) {
+      io.to(`conversation:${conversationId}`).emit('new-message', formatMessage(systemMessage));
+      io.to(`conversation:${conversationId}`).emit('ownership-transferred', {
+        conversation_id: conversationId,
+        new_owner_id: newOwnerId,
+        old_owner_id: currentUserId,
+      });
+    }
+
+    return successResponse(res, 200, 'Ownership transferred successfully.', { new_owner_id: newOwnerId });
+  } catch (error) {
+    console.error('❌ Transfer ownership error:', error);
+    return errorResponse(res, 500, 'Failed to transfer ownership.', error.message);
+  }
+};
+
 module.exports = {
   createOrGetConversation,
   getInbox,
@@ -2686,4 +2774,5 @@ module.exports = {
   pinGroupMessage,
   unpinGroupMessage,
   updateGroupSettings,
+  transferGroupOwnership,
 };

@@ -541,6 +541,15 @@ class ChatNotifier extends Notifier<ChatState> {
     }
   }
 
+  Future<void> transferGroupOwnership(String newOwnerId) async {
+    try {
+      await _repository.transferGroupOwnership(conversationId, newOwnerId);
+      await ref.read(inboxProvider.notifier).loadConversations();
+    } catch (e) {
+      state = state.copyWith(error: e.toString());
+    }
+  }
+
   Future<void> addGroupMembers(List<String> userIds) async {
     try {
       await _repository.addGroupMembers(conversationId, userIds);

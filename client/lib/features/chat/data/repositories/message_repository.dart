@@ -283,6 +283,10 @@ class MessageRepository {
     await _api.removeGroupMember(conversationId, userId);
   }
 
+  Future<void> transferGroupOwnership(String conversationId, String newOwnerId) async {
+    await _api.transferGroupOwnership(conversationId, newOwnerId);
+  }
+
   Future<void> addGroupMembers(String conversationId, List<String> userIds) async {
     await _api.addGroupMembers(conversationId, userIds);
   }
