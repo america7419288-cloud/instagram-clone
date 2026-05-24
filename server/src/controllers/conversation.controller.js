@@ -420,7 +420,7 @@ const getInbox = async (req, res) => {
     console.log(`✅ Found ${conversations.length} conversations matching filter.`);
 
     const activeConversationIds = conversations.map(c => c.id);
-    const [unreadRows] = await sequelize.query(`
+    const unreadRows = await sequelize.query(`
       SELECT
         m.conversation_id,
         COUNT(m.id) AS unread_count
