@@ -192,7 +192,7 @@ class ChatApi {
   }
 
   Future<void> addGroupMembers(String conversationId, List<String> userIds) async {
-    await _dio.post('/conversations/$conversationId/members', data: {'user_ids': userIds});
+    await _dio.post('/conversations/$conversationId/members', data: {'participant_ids': userIds});
   }
 
   Future<void> markAsUnread(String conversationId) async {

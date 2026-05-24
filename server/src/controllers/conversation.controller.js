@@ -78,6 +78,10 @@ const formatConversation = (conv, currentUserId) => {
       : null,
     unread_count: c.unread_count || 0,
     disappearing_duration: c.disappearing_duration || null,
+    only_admins_can_send: c.only_admins_can_send || false,
+    only_admins_can_add_members: c.only_admins_can_add_members || false,
+    only_admins_can_edit_info: c.only_admins_can_edit_info || false,
+    approval_required: c.approval_required || false,
     is_accepted: myParticipant ? myParticipant.is_accepted : true,
     is_muted: isMuted,
     muted_until: myParticipant ? myParticipant.muted_until : null,
@@ -1181,10 +1185,12 @@ const muteConversation = async (req, res) => {
     const { duration } = req.body; // 'hour', '8hours', '1week', 'forever'
 
     let mutedUntil = null;
-    if (duration === 'hour') {
+    if (duration === '1h' || duration === 'hour') {
       mutedUntil = new Date(Date.now() + 1 * 60 * 60 * 1000);
-    } else if (duration === '8hours') {
+    } else if (duration === '8h' || duration === '8hours') {
       mutedUntil = new Date(Date.now() + 8 * 60 * 60 * 1000);
+    } else if (duration === '24h' || duration === '24hours') {
+      mutedUntil = new Date(Date.now() + 24 * 60 * 60 * 1000);
     } else if (duration === '1week') {
       mutedUntil = new Date(Date.now() + 7 * 24 * 60 * 60 * 1000);
     } // 'forever' leaves muted_until as null, and sets is_muted: true

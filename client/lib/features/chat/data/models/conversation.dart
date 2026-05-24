@@ -43,6 +43,9 @@ class Conversation {
   final DateTime? mutedUntil;
   final DateTime? deletedAt;
   final bool? onlyAdminsCanSend;
+  final bool? onlyAdminsCanAddMembers;
+  final bool? onlyAdminsCanEditInfo;
+  final bool? approvalRequired;
 
   Conversation({
     required this.id,
@@ -61,6 +64,9 @@ class Conversation {
     this.mutedUntil,
     this.deletedAt,
     this.onlyAdminsCanSend = false,
+    this.onlyAdminsCanAddMembers = false,
+    this.onlyAdminsCanEditInfo = false,
+    this.approvalRequired = false,
   });
 
   factory Conversation.fromJson(Map<String, dynamic> json) {
@@ -103,6 +109,9 @@ class Conversation {
           ? DateTime.tryParse(json['deleted_at'].toString())
           : null,
       onlyAdminsCanSend: json['only_admins_can_send'] ?? json['onlyAdminsCanSend'] ?? false,
+      onlyAdminsCanAddMembers: json['only_admins_can_add_members'] ?? json['onlyAdminsCanAddMembers'] ?? false,
+      onlyAdminsCanEditInfo: json['only_admins_can_edit_info'] ?? json['onlyAdminsCanEditInfo'] ?? false,
+      approvalRequired: json['approval_required'] ?? json['approvalRequired'] ?? false,
     );
   }
 
@@ -123,6 +132,9 @@ class Conversation {
     DateTime? mutedUntil,
     DateTime? deletedAt,
     bool? onlyAdminsCanSend,
+    bool? onlyAdminsCanAddMembers,
+    bool? onlyAdminsCanEditInfo,
+    bool? approvalRequired,
   }) {
     return Conversation(
       id: id ?? this.id,
@@ -141,6 +153,9 @@ class Conversation {
       mutedUntil: mutedUntil ?? this.mutedUntil,
       deletedAt: deletedAt ?? this.deletedAt,
       onlyAdminsCanSend: onlyAdminsCanSend ?? this.onlyAdminsCanSend,
+      onlyAdminsCanAddMembers: onlyAdminsCanAddMembers ?? this.onlyAdminsCanAddMembers,
+      onlyAdminsCanEditInfo: onlyAdminsCanEditInfo ?? this.onlyAdminsCanEditInfo,
+      approvalRequired: approvalRequired ?? this.approvalRequired,
     );
   }
 

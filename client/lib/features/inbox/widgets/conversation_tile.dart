@@ -150,42 +150,54 @@ class _ConversationTileState extends State<ConversationTile>
                   widget.onToggleRead?.call();
                 },
               ),
-              ListTile(
-                leading: const Icon(LucideIcons.ban, color: Colors.orange),
-                title: const Text('Restrict', style: TextStyle(color: Colors.orange)),
-                onTap: () => Navigator.pop(context),
-              ),
-              ListTile(
-                leading: const Icon(LucideIcons.user_minus, color: Colors.red),
-                title: const Text('Block User', style: TextStyle(color: Colors.red)),
-                onTap: () => Navigator.pop(context),
-              ),
-              ListTile(
-                leading: const Icon(LucideIcons.trash_2, color: Colors.red),
-                title: const Text('Delete Chat', style: TextStyle(color: Colors.red)),
-                onTap: () {
-                  Navigator.pop(context);
-                  _confirmDeleteDialog(context);
-                },
-              ),
-              ListTile(
-                leading: const Icon(LucideIcons.flag, color: Colors.red),
-                title: const Text('Report', style: TextStyle(color: Colors.red)),
-                onTap: () {
-                  Navigator.pop(context);
-                  showModalBottomSheet(
-                    context: context,
-                    isScrollControlled: true,
-                    backgroundColor: Colors.transparent,
-                    builder: (_) => ReportSheet(
-                      targetName: conv.username,
-                      onSubmitReport: (type, desc) async {
-                        await widget.onReport?.call(type, desc);
-                      },
-                    ),
-                  );
-                },
-              ),
+              if (!conv.isGroup) ...[
+                ListTile(
+                  leading: const Icon(LucideIcons.ban, color: Colors.orange),
+                  title: const Text('Restrict', style: TextStyle(color: Colors.orange)),
+                  onTap: () => Navigator.pop(context),
+                ),
+                ListTile(
+                  leading: const Icon(LucideIcons.user_minus, color: Colors.red),
+                  title: const Text('Block User', style: TextStyle(color: Colors.red)),
+                  onTap: () => Navigator.pop(context),
+                ),
+                ListTile(
+                  leading: const Icon(LucideIcons.trash_2, color: Colors.red),
+                  title: const Text('Delete Chat', style: TextStyle(color: Colors.red)),
+                  onTap: () {
+                    Navigator.pop(context);
+                    _confirmDeleteDialog(context);
+                  },
+                ),
+                ListTile(
+                  leading: const Icon(LucideIcons.flag, color: Colors.red),
+                  title: const Text('Report', style: TextStyle(color: Colors.red)),
+                  onTap: () {
+                    Navigator.pop(context);
+                    showModalBottomSheet(
+                      context: context,
+                      isScrollControlled: true,
+                      backgroundColor: Colors.transparent,
+                      builder: (_) => ReportSheet(
+                        targetName: conv.username,
+                        onSubmitReport: (type, desc) async {
+                          await widget.onReport?.call(type, desc);
+                        },
+                      ),
+                    );
+                  },
+                ),
+              ] else ...[
+                ListTile(
+                  leading: const Icon(LucideIcons.log_out, color: Colors.red),
+                  title: const Text('Leave Group', style: TextStyle(color: Colors.red)),
+                  onTap: () {
+                    Navigator.pop(context);
+                    // Leave group logic (to be handled by controller later)
+                    widget.onDelete(); // currently maps to leave/delete
+                  },
+                ),
+              ],
               const SizedBox(height: 12),
             ],
           ),

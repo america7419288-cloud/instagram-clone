@@ -71,6 +71,36 @@ const Conversation = sequelize.define(
       type: DataTypes.INTEGER,
       allowNull: true,
     },
+
+    // Group Settings
+    only_admins_can_send: {
+      type: DataTypes.BOOLEAN,
+      defaultValue: false,
+    },
+    only_admins_can_add_members: {
+      type: DataTypes.BOOLEAN,
+      defaultValue: false,
+    },
+    only_admins_can_edit_info: {
+      type: DataTypes.BOOLEAN,
+      defaultValue: false,
+    },
+    approval_required: {
+      type: DataTypes.BOOLEAN,
+      defaultValue: false,
+    },
+    invite_link: {
+      type: DataTypes.STRING(20),
+      allowNull: true,
+    },
+    is_invite_link_active: {
+      type: DataTypes.BOOLEAN,
+      defaultValue: false,
+    },
+    invite_link_expiry: {
+      type: DataTypes.DATE,
+      allowNull: true,
+    },
   },
   {
     tableName: 'conversations',

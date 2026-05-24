@@ -816,11 +816,18 @@ const createChannel = async (req, res) => {
 
     const maxOrder = await CommunityChannel.max('order', { where: { community_id: communityId } }) || 0;
 
+    const allowedTypes = ['announcement', 'general', 'media', 'event'];
+    let validType = type || 'general';
+    if (!allowedTypes.includes(validType)) {
+      if (validType === 'text') validType = 'general';
+      else validType = 'general';
+    }
+
     const channel = await CommunityChannel.create({
       community_id: communityId,
       name: name.toLowerCase().trim().replace(/\s+/g, '-'),
       description: description?.trim() || '',
-      type: type || 'general',
+      type: validType,
       order: maxOrder + 1,
       allowed_roles: allowed_roles || ['admin', 'moderator', 'member'],
     });
