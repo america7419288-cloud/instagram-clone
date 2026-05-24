@@ -5,6 +5,7 @@ import 'dart:ui';
 import 'package:cached_network_image/cached_network_image.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
+import 'package:flutter_svg/flutter_svg.dart';
 
 // ─────────────────────────────────────────────────────────────
 // ENUMS
@@ -729,3 +730,44 @@ Widget buildIconsaxNavItem({
     ],
   );
 }
+
+Widget buildSvgNavItem({
+  required bool isActive,
+  required bool isDark,
+  required String inactiveAsset,
+  required String activeAsset,
+  double size = 24,
+}) {
+  final activeColor = isDark ? Colors.white : Colors.black;
+  final inactiveColor =
+      isDark ? Colors.white.withOpacity(0.50) : Colors.black.withOpacity(0.42);
+
+  return Stack(
+    alignment: Alignment.center,
+    children: [
+      AnimatedOpacity(
+        opacity: isActive ? 0.0 : 1.0,
+        duration: const Duration(milliseconds: 160),
+        curve: Curves.easeInOut,
+        child: SvgPicture.asset(
+          inactiveAsset,
+          colorFilter: ColorFilter.mode(inactiveColor, BlendMode.srcIn),
+          width: size,
+          height: size,
+        ),
+      ),
+      AnimatedOpacity(
+        opacity: isActive ? 1.0 : 0.0,
+        duration: const Duration(milliseconds: 160),
+        curve: Curves.easeInOut,
+        child: SvgPicture.asset(
+          activeAsset,
+          colorFilter: ColorFilter.mode(activeColor, BlendMode.srcIn),
+          width: size + 1.5,
+          height: size + 1.5,
+        ),
+      ),
+    ],
+  );
+}
+

@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
+import 'package:go_router/go_router.dart';
 import '../providers/chat_notifiers.dart';
 import '../../../search/presentation/pages/providers/search_provider.dart';
 import 'package:flutter/services.dart';
@@ -9,7 +10,6 @@ import 'dart:io';
 import 'package:image_picker/image_picker.dart';
 
 import '../../../chat/data/models/conversation.dart';
-import '../../../chat/data/models/chat_user.dart';
 
 class GroupInfoSheet extends ConsumerStatefulWidget {
   final Conversation conversation;
@@ -38,27 +38,16 @@ class GroupInfoSheet extends ConsumerStatefulWidget {
 }
 
 class _GroupInfoSheetState extends ConsumerState<GroupInfoSheet> {
-  late List<ChatUser> _members;
-  bool _isMuted = false;
-  String _disappearingDuration = 'Off';
-  bool _onlyAdminsCanSend = false;
   String? _localAvatarPath;
 
-  @override
-  void initState() {
-    super.initState();
-    _members = List<ChatUser>.from(widget.conversation.participants);
-    _isMuted = widget.conversation.isMuted ?? false;
-    _onlyAdminsCanSend = widget.conversation.onlyAdminsCanSend ?? false;
-    // Map existing disappearing duration
-    final duration = widget.conversation.disappearingDuration;
-    if (duration == null || duration == 0) _disappearingDuration = 'Off';
-    else if (duration <= 86400) _disappearingDuration = '24 Hours';
-    else if (duration <= 604800) _disappearingDuration = '7 Days';
-    else _disappearingDuration = '90 Days';
+  String _getDisappearingLabel(int? duration) {
+    if (duration == null || duration == 0) return 'Off';
+    if (duration <= 86400) return '24 Hours';
+    if (duration <= 604800) return '7 Days';
+    return '90 Days';
   }
 
-  void _muteGroup() {
+  void _muteGroup(Conversation conversation) {
     HapticFeedback.mediumImpact();
     final isDark = Theme.of(context).brightness == Brightness.dark;
     showModalBottomSheet(
@@ -66,12 +55,14 @@ class _GroupInfoSheetState extends ConsumerState<GroupInfoSheet> {
       backgroundColor: Colors.transparent,
       builder: (context) => BackdropFilter(
         filter: ImageFilter.blur(sigmaX: 16, sigmaY: 16),
-        child: Container(
-          decoration: BoxDecoration(
-            color: isDark ? const Color(0xFF1C1C1E) : Colors.white,
-            borderRadius: const BorderRadius.vertical(top: Radius.circular(24)),
-            border: Border.all(color: isDark ? Colors.white10 : Colors.black12),
-          ),
+        child: Material(
+          color: Colors.transparent,
+          child: Container(
+            decoration: BoxDecoration(
+              color: isDark ? const Color(0xFF1C1C1E) : Colors.white,
+              borderRadius: const BorderRadius.vertical(top: Radius.circular(24)),
+              border: Border.all(color: isDark ? Colors.white10 : Colors.black12),
+            ),
           padding: const EdgeInsets.all(16),
           child: Column(
             mainAxisSize: MainAxisSize.min,
@@ -86,14 +77,13 @@ class _GroupInfoSheetState extends ConsumerState<GroupInfoSheet> {
                   title: Text(duration, style: TextStyle(color: isDark ? Colors.white70 : Colors.black87)),
                   onTap: () {
                     HapticFeedback.lightImpact();
-                    setState(() => _isMuted = true);
                     final map = {
                       '1 Hour': '1h',
                       '8 Hours': '8h',
                       '24 Hours': '24h',
                       'Until I turn it back on': 'forever'
                     };
-                    ref.read(inboxProvider.notifier).muteConversation(widget.conversation.id, map[duration]!);
+                    ref.read(inboxProvider.notifier).muteConversation(conversation.id, map[duration]!);
                     Navigator.pop(context);
                   },
                 );
@@ -102,36 +92,39 @@ class _GroupInfoSheetState extends ConsumerState<GroupInfoSheet> {
           ),
         ),
       ),
+    ),
     );
   }
 
-  void _changeRole(int index) {
+  void _changeRole(Conversation conversation, int index) {
     final isDark = Theme.of(context).brightness == Brightness.dark;
     showModalBottomSheet(
       context: context,
       backgroundColor: Colors.transparent,
       builder: (context) => BackdropFilter(
         filter: ImageFilter.blur(sigmaX: 16, sigmaY: 16),
-        child: Container(
-          decoration: BoxDecoration(
-            color: isDark ? const Color(0xFF1C1C1E) : Colors.white,
-            borderRadius: const BorderRadius.vertical(top: Radius.circular(24)),
-            border: Border.all(color: isDark ? Colors.white10 : Colors.black12),
-          ),
+        child: Material(
+          color: Colors.transparent,
+          child: Container(
+            decoration: BoxDecoration(
+              color: isDark ? const Color(0xFF1C1C1E) : Colors.white,
+              borderRadius: const BorderRadius.vertical(top: Radius.circular(24)),
+              border: Border.all(color: isDark ? Colors.white10 : Colors.black12),
+            ),
           padding: const EdgeInsets.all(16),
           child: Column(
             mainAxisSize: MainAxisSize.min,
             children: [
               Text('Change Member Role', style: TextStyle(color: isDark ? Colors.white : Colors.black, fontSize: 16, fontWeight: FontWeight.bold)),
               const SizedBox(height: 12),
-              ...['admin', 'moderator', 'member'].map((role) {
+              ...['admin', 'member'].map((role) {
                 return ListTile(
                   title: Text(role.toUpperCase(), style: TextStyle(color: isDark ? Colors.white70 : Colors.black87, fontWeight: FontWeight.w700, fontSize: 13)),
                   onTap: () async {
                     HapticFeedback.lightImpact();
                     Navigator.pop(context);
-                    final member = _members[index];
-                    await ref.read(chatProvider(widget.conversation.id).notifier).updateGroupMemberRole(member.id, role);
+                    final member = conversation.participants[index];
+                    await ref.read(chatProvider(conversation.id).notifier).updateGroupMemberRole(member.id, role);
                   },
                 );
               }),
@@ -139,10 +132,11 @@ class _GroupInfoSheetState extends ConsumerState<GroupInfoSheet> {
           ),
         ),
       ),
+    ),
     );
   }
   
-  Future<void> _pickAvatar() async {
+  Future<void> _pickAvatar(Conversation conversation) async {
     final picker = ImagePicker();
     final pickedFile = await picker.pickImage(source: ImageSource.gallery);
     if (pickedFile != null) {
@@ -150,23 +144,23 @@ class _GroupInfoSheetState extends ConsumerState<GroupInfoSheet> {
       setState(() {
          _localAvatarPath = pickedFile.path;
       });
-      await ref.read(chatProvider(widget.conversation.id).notifier).updateGroupSettings(avatarPath: pickedFile.path);
+      await ref.read(chatProvider(conversation.id).notifier).updateGroupSettings(avatarPath: pickedFile.path);
       if (mounted) {
         ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text('Group avatar updated!')));
       }
     }
   }
 
-  void _addParticipant() {
+  void _addParticipant(Conversation conversation) {
     HapticFeedback.mediumImpact();
     showModalBottomSheet(
       context: context,
       backgroundColor: Colors.transparent,
       isScrollControlled: true,
       builder: (context) => _AddParticipantSheet(
-        conversationId: widget.conversation.id,
+        conversationId: conversation.id,
         onAdd: (userId) async {
-          await ref.read(chatProvider(widget.conversation.id).notifier).addGroupMembers([userId]);
+          await ref.read(chatProvider(conversation.id).notifier).addGroupMembers([userId]);
         },
       ),
     );
@@ -182,19 +176,31 @@ class _GroupInfoSheetState extends ConsumerState<GroupInfoSheet> {
     final dividerColor = isDark ? Colors.white10 : Colors.black12;
     final cardBg = isDark ? Colors.white.withOpacity(0.04) : Colors.black.withOpacity(0.02);
 
+    // Watch dynamic conversation
+    final inboxState = ref.watch(inboxProvider);
+    final conversation = inboxState.conversations.firstWhere(
+      (c) => c.id == widget.conversation.id,
+      orElse: () => inboxState.requests.firstWhere(
+        (c) => c.id == widget.conversation.id,
+        orElse: () => widget.conversation,
+      ),
+    );
+
     final avatarProvider = _localAvatarPath != null 
         ? FileImage(File(_localAvatarPath!)) 
-        : (widget.conversation.avatarUrl != null ? NetworkImage(widget.conversation.avatarUrl!) : null);
+        : (conversation.avatarUrl != null ? NetworkImage(conversation.avatarUrl!) : null);
 
     return BackdropFilter(
       filter: ImageFilter.blur(sigmaX: 20, sigmaY: 20),
-      child: Container(
-        height: MediaQuery.of(context).size.height * 0.85,
-        decoration: BoxDecoration(
-          color: isDark ? Colors.black.withOpacity(0.82) : Colors.white.withOpacity(0.95),
-          borderRadius: const BorderRadius.vertical(top: Radius.circular(30)),
-          border: Border.all(color: dividerColor),
-        ),
+      child: Material(
+        color: Colors.transparent,
+        child: Container(
+          height: MediaQuery.of(context).size.height * 0.85,
+          decoration: BoxDecoration(
+            color: isDark ? Colors.black.withOpacity(0.82) : Colors.white.withOpacity(0.95),
+            borderRadius: const BorderRadius.vertical(top: Radius.circular(30)),
+            border: Border.all(color: dividerColor),
+          ),
         padding: EdgeInsets.fromLTRB(16, 12, 16, safeBot + 16),
         child: Column(
           children: [
@@ -229,7 +235,7 @@ class _GroupInfoSheetState extends ConsumerState<GroupInfoSheet> {
                   children: [
                     // Group Avatar & Name
                     GestureDetector(
-                      onTap: _pickAvatar,
+                      onTap: () => _pickAvatar(conversation),
                       child: Stack(
                         alignment: Alignment.bottomRight,
                         children: [
@@ -255,22 +261,22 @@ class _GroupInfoSheetState extends ConsumerState<GroupInfoSheet> {
                     ),
                     const SizedBox(height: 12),
                     Text(
-                      widget.conversation.name ?? 'Group Chat',
+                      conversation.name ?? 'Group Chat',
                       style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold, color: textColor),
                     ),
                     const SizedBox(height: 4),
                     Text(
-                      'Group Chat • ${_members.length} members',
+                      'Group Chat • ${conversation.participants.length} members',
                       style: TextStyle(color: mutedColor, fontSize: 12, fontWeight: FontWeight.w600),
                     ),
                     const SizedBox(height: 24),
 
                     // Actions Tiles Group
-                    _buildSettingsSection(isDark, textColor, mutedColor, dividerColor, cardBg),
+                    _buildSettingsSection(conversation, isDark, textColor, mutedColor, dividerColor, cardBg),
                     const SizedBox(height: 24),
 
                     // Members List
-                    _buildMembersSection(isDark, textColor, mutedColor, dividerColor, cardBg),
+                    _buildMembersSection(conversation, isDark, textColor, mutedColor, dividerColor, cardBg),
                     const SizedBox(height: 24),
 
                     // Leave/Delete Group
@@ -289,10 +295,11 @@ class _GroupInfoSheetState extends ConsumerState<GroupInfoSheet> {
           ],
         ),
       ),
+    ),
     );
   }
 
-  Widget _buildSettingsSection(bool isDark, Color textColor, Color mutedColor, Color dividerColor, Color cardBg) {
+  Widget _buildSettingsSection(Conversation conversation, bool isDark, Color textColor, Color mutedColor, Color dividerColor, Color cardBg) {
     return Container(
       decoration: BoxDecoration(
         color: cardBg,
@@ -301,41 +308,45 @@ class _GroupInfoSheetState extends ConsumerState<GroupInfoSheet> {
       child: Column(
         children: [
           ListTile(
-            leading: Icon(_isMuted ? LucideIcons.bell_off : LucideIcons.bell, size: 20, color: textColor),
+            leading: Icon(conversation.isMuted ? LucideIcons.bell_off : LucideIcons.bell, size: 20, color: textColor),
             title: Text('Mute Notifications', style: TextStyle(color: textColor)),
             trailing: Text(
-              _isMuted ? 'Muted' : 'Off',
-              style: TextStyle(color: _isMuted ? const Color(0xFFFD1D1D) : mutedColor, fontSize: 13, fontWeight: FontWeight.bold),
+              conversation.isMuted ? 'Muted' : 'Off',
+              style: TextStyle(color: conversation.isMuted ? const Color(0xFFFD1D1D) : mutedColor, fontSize: 13, fontWeight: FontWeight.bold),
             ),
-            onTap: _muteGroup,
+            onTap: () {
+              if (conversation.isMuted) {
+                HapticFeedback.mediumImpact();
+                ref.read(inboxProvider.notifier).unmuteConversation(conversation.id);
+              } else {
+                _muteGroup(conversation);
+              }
+            },
           ),
           Divider(color: dividerColor, height: 1),
           ListTile(
             leading: Icon(LucideIcons.message_square_dashed, size: 20, color: textColor),
             title: Text('Disappearing Messages', style: TextStyle(color: textColor)),
             trailing: Text(
-              _disappearingDuration,
+              _getDisappearingLabel(conversation.disappearingDuration),
               style: TextStyle(color: mutedColor, fontSize: 13, fontWeight: FontWeight.bold),
             ),
             onTap: () {
               HapticFeedback.lightImpact();
-              setState(() {
-                _disappearingDuration = _disappearingDuration == 'Off' ? '24 Hours' : 'Off';
-              });
-              final seconds = _disappearingDuration == 'Off' ? 0 : 86400;
-              ref.read(chatProvider(widget.conversation.id).notifier).setDisappearingMessages(seconds);
+              final currentDuration = conversation.disappearingDuration;
+              final newDuration = (currentDuration == null || currentDuration == 0) ? 86400 : 0;
+              ref.read(chatProvider(conversation.id).notifier).setDisappearingMessages(newDuration);
             },
           ),
           Divider(color: dividerColor, height: 1),
           SwitchListTile(
             secondary: Icon(LucideIcons.shield_check, size: 20, color: textColor),
             title: Text('Only Admins Can Send', style: TextStyle(color: textColor)),
-            value: _onlyAdminsCanSend,
+            value: conversation.onlyAdminsCanSend ?? false,
             activeColor: const Color(0xFFFD1D1D),
             onChanged: (val) {
               HapticFeedback.mediumImpact();
-              setState(() => _onlyAdminsCanSend = val);
-              ref.read(chatProvider(widget.conversation.id).notifier).updateGroupSettings(onlyAdminsCanSend: val);
+              ref.read(chatProvider(conversation.id).notifier).updateGroupSettings(onlyAdminsCanSend: val);
             },
           ),
         ],
@@ -343,7 +354,7 @@ class _GroupInfoSheetState extends ConsumerState<GroupInfoSheet> {
     );
   }
 
-  Widget _buildMembersSection(bool isDark, Color textColor, Color mutedColor, Color dividerColor, Color cardBg) {
+  Widget _buildMembersSection(Conversation conversation, bool isDark, Color textColor, Color mutedColor, Color dividerColor, Color cardBg) {
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
@@ -357,7 +368,7 @@ class _GroupInfoSheetState extends ConsumerState<GroupInfoSheet> {
                 style: TextStyle(color: mutedColor, fontSize: 10, fontWeight: FontWeight.w900, letterSpacing: 1.0),
               ),
               GestureDetector(
-                onTap: _addParticipant,
+                onTap: () => _addParticipant(conversation),
                 child: Row(
                   children: [
                     const Icon(LucideIcons.circle_plus, size: 14, color: Color(0xFFFD1D1D)),
@@ -377,25 +388,39 @@ class _GroupInfoSheetState extends ConsumerState<GroupInfoSheet> {
           child: ListView.separated(
             shrinkWrap: true,
             physics: const NeverScrollableScrollPhysics(),
-            itemCount: _members.length,
+            itemCount: conversation.participants.length,
             separatorBuilder: (_, __) => Divider(color: dividerColor, height: 1),
             itemBuilder: (context, index) {
-              final member = _members[index];
+              final member = conversation.participants[index];
               return ListTile(
-                leading: CircleAvatar(
-                  radius: 18,
-                  backgroundImage: member.profilePicUrl != null ? NetworkImage(member.profilePicUrl!) : null,
-                  backgroundColor: dividerColor,
-                  child: member.profilePicUrl == null ? Icon(LucideIcons.user, size: 18, color: mutedColor) : null,
+                leading: GestureDetector(
+                  onTap: () {
+                    HapticFeedback.lightImpact();
+                    Navigator.pop(context); // Close modal first
+                    context.push('/profile/${Uri.encodeComponent(member.username)}');
+                  },
+                  child: CircleAvatar(
+                    radius: 18,
+                    backgroundImage: member.profilePicUrl != null ? NetworkImage(member.profilePicUrl!) : null,
+                    backgroundColor: dividerColor,
+                    child: member.profilePicUrl == null ? Icon(LucideIcons.user, size: 18, color: mutedColor) : null,
+                  ),
                 ),
-                title: Text(member.username, style: TextStyle(fontSize: 14, fontWeight: FontWeight.bold, color: textColor)),
+                title: GestureDetector(
+                  onTap: () {
+                    HapticFeedback.lightImpact();
+                    Navigator.pop(context); // Close modal first
+                    context.push('/profile/${Uri.encodeComponent(member.username)}');
+                  },
+                  child: Text(member.username, style: TextStyle(fontSize: 14, fontWeight: FontWeight.bold, color: textColor)),
+                ),
                 subtitle: Text(
-                  member.fullName ?? '',
+                  '${member.fullName ?? ''}${member.fullName != null && member.fullName!.isNotEmpty ? ' • ' : ''}${member.role.toUpperCase()}',
                   style: TextStyle(fontSize: 12, color: mutedColor),
                 ),
                 trailing: IconButton(
                   icon: Icon(LucideIcons.shield, size: 14, color: mutedColor),
-                  onPressed: () => _changeRole(index),
+                  onPressed: () => _changeRole(conversation, index),
                 ),
               );
             },
@@ -440,24 +465,26 @@ class _AddParticipantSheetState extends ConsumerState<_AddParticipantSheet> {
     final isDark = Theme.of(context).brightness == Brightness.dark;
     return BackdropFilter(
       filter: ImageFilter.blur(sigmaX: 16, sigmaY: 16),
-      child: Container(
-        height: MediaQuery.of(context).size.height * 0.7,
-        decoration: BoxDecoration(
-          color: isDark ? const Color(0xFF1C1C1E) : Colors.white,
-          borderRadius: const BorderRadius.vertical(top: Radius.circular(24)),
-          border: Border.all(color: isDark ? Colors.white10 : Colors.black12),
-        ),
-        padding: const EdgeInsets.all(16),
-        child: Column(
-          children: [
-            Row(
-              mainAxisAlignment: MainAxisAlignment.spaceBetween,
-              children: [
-                Text('Add Participants', style: TextStyle(color: isDark ? Colors.white : Colors.black, fontSize: 16, fontWeight: FontWeight.bold)),
-                IconButton(icon: Icon(LucideIcons.x, color: isDark ? Colors.white : Colors.black), onPressed: () => Navigator.pop(context)),
-              ],
-            ),
-            const SizedBox(height: 12),
+      child: Material(
+        color: Colors.transparent,
+        child: Container(
+          height: MediaQuery.of(context).size.height * 0.7,
+          decoration: BoxDecoration(
+            color: isDark ? const Color(0xFF1C1C1E) : Colors.white,
+            borderRadius: const BorderRadius.vertical(top: Radius.circular(24)),
+            border: Border.all(color: isDark ? Colors.white10 : Colors.black12),
+          ),
+          padding: const EdgeInsets.all(16),
+          child: Column(
+            children: [
+              Row(
+                mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                children: [
+                  Text('Add Participants', style: TextStyle(color: isDark ? Colors.white : Colors.black, fontSize: 16, fontWeight: FontWeight.bold)),
+                  IconButton(icon: Icon(LucideIcons.x, color: isDark ? Colors.white : Colors.black), onPressed: () => Navigator.pop(context)),
+                ],
+              ),
+              const SizedBox(height: 12),
             TextField(
               controller: _searchController,
               onChanged: _search,
@@ -500,6 +527,7 @@ class _AddParticipantSheetState extends ConsumerState<_AddParticipantSheet> {
           ],
         ),
       ),
+    ),
     );
   }
 }

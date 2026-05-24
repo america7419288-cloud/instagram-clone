@@ -67,6 +67,13 @@ class ShareSheetNotifier extends Notifier<ShareSheetState> {
         avatarUrl: conv.otherUser?.profilePicUrl ?? conv.avatarUrl,
         username: conv.otherUser?.username ?? conv.name ?? 'chat',
         type: conv.isGroup ? ShareTargetType.group : ShareTargetType.user,
+        memberAvatars: conv.isGroup
+            ? conv.participants
+                .map((p) => p.profilePicUrl)
+                .where((url) => url != null && url.isNotEmpty)
+                .cast<String>()
+                .toList()
+            : null,
         isRecent: true,
       );
     }).toList();

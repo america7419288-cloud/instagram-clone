@@ -60,13 +60,29 @@ const formatConversation = (conv, currentUserId) => {
       conversation_id: c.id
     } : null,
     last_message_at: c.last_message_at,
-    participants: (c.participants || []).map((p) => ({
-      id: p.id,
-      username: p.username,
-      full_name: p.fullName || p.full_name,
-      profile_pic_url: p.profile_pic_url,
-      is_verified: p.is_verified,
-    })),
+    participants: (c.participants || []).map((p) => {
+      let role = 'member';
+      if (p.ConversationParticipant && p.ConversationParticipant.role) {
+        role = p.ConversationParticipant.role;
+      } else if (p.conversation_participant && p.conversation_participant.role) {
+        role = p.conversation_participant.role;
+      } else if (p.through && p.through.role) {
+        role = p.through.role;
+      } else if (c.participantRecords) {
+        const record = c.participantRecords.find(r => r.user_id === p.id);
+        if (record && record.role) {
+          role = record.role;
+        }
+      }
+      return {
+        id: p.id,
+        username: p.username,
+        full_name: p.fullName || p.full_name,
+        profile_pic_url: p.profile_pic_url,
+        is_verified: p.is_verified,
+        role: role,
+      };
+    }),
     other_user: otherUser
       ? {
           id: otherUser.id,
@@ -256,7 +272,7 @@ const createOrGetConversation = async (req, res) => {
             model: User,
             as: 'participants',
             attributes: ['id', 'username', 'full_name', 'profile_pic_url', 'is_verified'],
-            through: { attributes: [] },
+            through: { attributes: ['role'] },
           },
           {
             model: ConversationParticipant,
@@ -322,7 +338,7 @@ const createOrGetConversation = async (req, res) => {
           model: User,
           as: 'participants',
           attributes: ['id', 'username', 'full_name', 'profile_pic_url', 'is_verified'],
-          through: { attributes: [] },
+          through: { attributes: ['role'] },
         },
         {
           model: ConversationParticipant,
@@ -403,7 +419,7 @@ const getInbox = async (req, res) => {
           model: User,
           as: 'participants',
           attributes: ['id', 'username', 'full_name', 'profile_pic_url', 'is_verified'],
-          through: { attributes: [] },
+          through: { attributes: ['role'] },
         },
         {
           model: ConversationParticipant,

@@ -87,6 +87,9 @@ flutter:
      - assets/images/
      - assets/extra_icons/
      - assets/icons/
+     - assets/icons/16/
+     - assets/icons/24/
+     - assets/icons/32/
      - assets/animations/
      - assets/animations/raw/
      - assets/animations/drawable/

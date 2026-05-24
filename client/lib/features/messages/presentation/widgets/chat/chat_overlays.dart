@@ -131,15 +131,21 @@ class ReplyPreviewBar extends StatelessWidget {
   Widget build(BuildContext context) {
     final isDark = CupertinoTheme.of(context).brightness == Brightness.dark;
     final bgColor = isDark
-        ? ChatUIConstants.surfaceDark
-        : ChatUIConstants.bgLight;
+        ? const Color(0xFF1C1C1E) // distinct slate dark
+        : const Color(0xFFF2F2F7); // distinct off-white
+    final secondaryTextColor = isDark
+        ? const Color(0xFFA8A8A8)
+        : const Color(0xFF666666);
+    final separatorColor = isDark
+        ? const Color(0xFF2C2C2E)
+        : const Color(0xFFE5E5EA);
 
     return Container(
       padding: const EdgeInsets.fromLTRB(16, 10, 12, 8),
       decoration: BoxDecoration(
         color: bgColor,
-        border: const Border(
-          top: BorderSide(color: ChatUIConstants.separatorLight, width: 0.33),
+        border: Border(
+          top: BorderSide(color: separatorColor, width: 0.33),
         ),
       ),
       child: Row(
@@ -172,9 +178,9 @@ class ReplyPreviewBar extends StatelessWidget {
                   text,
                   maxLines: 1,
                   overflow: TextOverflow.ellipsis,
-                  style: const TextStyle(
+                  style: TextStyle(
                     fontSize: 13,
-                    color: ChatUIConstants.textSecondaryLight,
+                    color: secondaryTextColor,
                     decoration: TextDecoration.none,
                   ),
                 ),
@@ -196,10 +202,10 @@ class ReplyPreviewBar extends StatelessWidget {
           CupertinoButton(
             padding: EdgeInsets.zero,
             onPressed: onCancel,
-            child: const Icon(
+            child: Icon(
               LucideIcons.x,
               size: 19,
-              color: ChatUIConstants.textSecondaryLight,
+              color: secondaryTextColor,
             ),
           ),
         ],

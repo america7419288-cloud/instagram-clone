@@ -19,12 +19,16 @@ class ChatUser {
   @HiveField(4)
   final bool isVerified;
 
+  // Non-Hive field
+  final String role;
+
   ChatUser({
     required this.id,
     required this.username,
     this.fullName,
     this.profilePicUrl,
     this.isVerified = false,
+    this.role = 'member',
   });
 
   factory ChatUser.fromJson(Map<String, dynamic> json) {
@@ -34,6 +38,7 @@ class ChatUser {
       fullName: json['full_name'] ?? json['fullName'],
       profilePicUrl: json['profile_pic_url'] ?? json['profilePicUrl'],
       isVerified: json['is_verified'] ?? json['isVerified'] ?? false,
+      role: json['role'] ?? 'member',
     );
   }
 
@@ -44,6 +49,7 @@ class ChatUser {
       'full_name': fullName,
       'profile_pic_url': profilePicUrl,
       'is_verified': isVerified,
+      'role': role,
     };
   }
 }

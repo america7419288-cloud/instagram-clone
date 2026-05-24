@@ -15,6 +15,7 @@ class MessageBubbleWrapper extends StatefulWidget {
   final Widget? statusRow;
   final Widget? reactionsChip;
   final Widget? replyQuote;
+  final VoidCallback? onAvatarTap;
 
   const MessageBubbleWrapper({
     super.key,
@@ -29,6 +30,7 @@ class MessageBubbleWrapper extends StatefulWidget {
     this.statusRow,
     this.reactionsChip,
     this.replyQuote,
+    this.onAvatarTap,
   });
 
   @override
@@ -166,15 +168,18 @@ class _MessageBubbleWrapperState extends State<MessageBubbleWrapper>
       width: 28,
       height: 28,
       child: widget.isLastInGroup && widget.senderAvatar != null
-          ? Container(
-              width: 28,
-              height: 28,
-              decoration: BoxDecoration(
-                shape: BoxShape.circle,
-                color: ChatUIConstants.separatorLight,
-                image: DecorationImage(
-                  image: NetworkImage(widget.senderAvatar!),
-                  fit: BoxFit.cover,
+          ? GestureDetector(
+              onTap: widget.onAvatarTap,
+              child: Container(
+                width: 28,
+                height: 28,
+                decoration: BoxDecoration(
+                  shape: BoxShape.circle,
+                  color: ChatUIConstants.separatorLight,
+                  image: DecorationImage(
+                    image: NetworkImage(widget.senderAvatar!),
+                    fit: BoxFit.cover,
+                  ),
                 ),
               ),
             )

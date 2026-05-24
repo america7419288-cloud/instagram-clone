@@ -3,7 +3,6 @@
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
-import 'package:iconsax_flutter/iconsax_flutter.dart';
 
 import '../widgets/glass_bottom_nav.dart';
 import '../../features/home/presentation/pages/home_page.dart';
@@ -82,45 +81,45 @@ class _MainShellState extends ConsumerState<MainShell> {
     return [
       // 0 — Home
       GlassNavItem(
-        builder: (isActive, isDark) => buildIconsaxNavItem(
+        builder: (isActive, isDark) => buildSvgNavItem(
           isActive: isActive,
           isDark: isDark,
-          inactiveIcon: Iconsax.home,
-          activeIcon: Iconsax.home_copy,
+          inactiveAsset: 'assets/icons/24/Home.svg',
+          activeAsset: 'assets/icons/24/Home (Filled).svg',
           size: 24,
         ),
       ),
 
       // 1 — Search / Explore
       GlassNavItem(
-        builder: (isActive, isDark) => buildIconsaxNavItem(
+        builder: (isActive, isDark) => buildSvgNavItem(
           isActive: isActive,
           isDark: isDark,
-          inactiveIcon: Iconsax.search_normal,
-          activeIcon: Iconsax.search_normal_1_copy,
+          inactiveAsset: 'assets/icons/24/Search.svg',
+          activeAsset: 'assets/icons/24/Search (Filled).svg',
           size: 24,
         ),
       ),
 
       // 2 — Reels
       GlassNavItem(
-        builder: (isActive, isDark) => buildIconsaxNavItem(
+        builder: (isActive, isDark) => buildSvgNavItem(
           isActive: isActive,
           isDark: isDark,
-          inactiveIcon: Iconsax.video_play,
-          activeIcon: Iconsax.video_play_copy,
-          size: 25,
+          inactiveAsset: 'assets/icons/24/Reels.svg',
+          activeAsset: 'assets/icons/24/Reels (Filled).svg',
+          size: 24,
         ),
       ),
 
       // 3 — Inbox (with unread badge)
       GlassNavItem(
         badgeCount: totalUnread > 0 ? totalUnread : null,
-        builder: (isActive, isDark) => buildIconsaxNavItem(
+        builder: (isActive, isDark) => buildSvgNavItem(
           isActive: isActive,
           isDark: isDark,
-          inactiveIcon: Iconsax.direct_normal,
-          activeIcon: Iconsax.direct_normal_copy,
+          inactiveAsset: 'assets/icons/24/Share.svg', // paper airplane icon for DM
+          activeAsset: 'assets/icons/24/Share.svg',
           size: 24,
         ),
       ),

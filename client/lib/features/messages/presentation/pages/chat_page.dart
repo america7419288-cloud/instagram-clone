@@ -494,6 +494,14 @@ class _ChatPageState extends ConsumerState<ChatPage> {
                   ),
             );
 
+    final currentUserId = currentUser?.id ?? '';
+    final onlyAdminsCanSend = conversation.isGroup && (conversation.onlyAdminsCanSend ?? false);
+    final participant = conversation.participants.firstWhere(
+      (p) => p.id == currentUserId,
+      orElse: () => ChatUser(id: '', username: '', role: 'member'),
+    );
+    final isCurrentUserAdmin = participant.role == 'admin';
+
     final otherUser = conversation.otherUser;
     final isOnline =
         otherUser != null &&
@@ -606,21 +614,56 @@ class _ChatPageState extends ConsumerState<ChatPage> {
                   onCancel: () => setState(() => _replyingTo = null),
                 ),
 
-              ChatInputBar(
-                onSend: _handleSend,
-                onChanged: (text) => ref
-                    .read(typingProvider(widget.conversationId).notifier)
-                    .onTextChanged(text),
-                onLike: _handleLike,
-                onCameraTap: _handleCamera,
-                onGalleryTap: _handleGallery,
-                onMicStart: _startRecording,
-                onMicStop: _stopRecording,
-                onMicCancel: _cancelRecording,
-                isRecording: _isRecording,
-                recordingDuration: _recordingDuration,
-                focusNode: _inputFocusNode,
-              ),
+              if (onlyAdminsCanSend && !isCurrentUserAdmin)
+                Container(
+                  width: double.infinity,
+                  padding: EdgeInsets.fromLTRB(
+                    16,
+                    16,
+                    16,
+                    16 + MediaQuery.of(context).padding.bottom,
+                  ),
+                  decoration: BoxDecoration(
+                    color: isDark ? ChatUIConstants.bgDark : ChatUIConstants.bgLight,
+                    border: Border(
+                      top: BorderSide(
+                        color: isDark
+                            ? ChatUIConstants.separatorDark
+                            : ChatUIConstants.separatorLight,
+                        width: 0.33,
+                      ),
+                    ),
+                  ),
+                  child: Center(
+                    child: Text(
+                      "Only admins can send messages",
+                      style: TextStyle(
+                        fontFamily: ChatUIConstants.fontFamily,
+                        fontSize: 14,
+                        fontWeight: FontWeight.w500,
+                        color: isDark
+                            ? ChatUIConstants.textSecondaryDark
+                            : ChatUIConstants.textSecondaryLight,
+                      ),
+                    ),
+                  ),
+                )
+              else
+                ChatInputBar(
+                  onSend: _handleSend,
+                  onChanged: (text) => ref
+                      .read(typingProvider(widget.conversationId).notifier)
+                      .onTextChanged(text),
+                  onLike: _handleLike,
+                  onCameraTap: _handleCamera,
+                  onGalleryTap: _handleGallery,
+                  onMicStart: _startRecording,
+                  onMicStop: _stopRecording,
+                  onMicCancel: _cancelRecording,
+                  isRecording: _isRecording,
+                  recordingDuration: _recordingDuration,
+                  focusNode: _inputFocusNode,
+                ),
             ],
           ],
         ),
@@ -954,10 +997,11 @@ class _ChatPageState extends ConsumerState<ChatPage> {
         if (prevMsg == null) {
           showDateDivider = true;
         } else {
-          final diff = message.createdAt
-              .difference(prevMsg.createdAt)
-              .inMinutes;
-          if (diff > 30 || message.createdAt.day != prevMsg.createdAt.day) {
+          final mDate = message.createdAt;
+          final pDate = prevMsg.createdAt;
+          if (mDate.year != pDate.year ||
+              mDate.month != pDate.month ||
+              mDate.day != pDate.day) {
             showDateDivider = true;
           }
         }
@@ -996,6 +1040,12 @@ class _ChatPageState extends ConsumerState<ChatPage> {
                 isFirstInGroup: isFirstInGroup,
                 isLastInGroup: isLastInGroup,
                 senderAvatar: message.sender?.profilePicUrl,
+                onAvatarTap: () {
+                  final username = message.sender?.username;
+                  if (username != null && username.isNotEmpty) {
+                    context.push('/profile/${Uri.encodeComponent(username)}');
+                  }
+                },
                 onReply: () {
                   setState(() => _replyingTo = message);
                   _inputFocusNode.requestFocus();
