@@ -351,7 +351,7 @@ const getStoryFeed = async (req, res) => {
     });
 
     const viewedStoryIds = new Set(
-      viewedStories.map((v) => v.story_id)
+      viewedStories.map((v) => v.story_id || v.storyId)
     );
 
     // 5. GROUP STORIES BY USER
@@ -526,7 +526,7 @@ const getUserStories = async (req, res) => {
       raw: true,
     });
 
-    const viewedIds = new Set(views.map((v) => v.story_id));
+    const viewedIds = new Set(views.map((v) => v.story_id || v.storyId));
 
     const formattedStories = stories.map((story) =>
       formatStory(

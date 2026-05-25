@@ -17,7 +17,7 @@ const getSavedPosts = async (req, res) => {
         {
           model: Post,
           as: 'post',
-          attributes: ['id', 'caption', 'likeCount', 'commentCount', 'created_at'],
+          attributes: ['id', 'caption', 'likesCount', 'commentsCount', 'created_at'],
           include: [
             {
               model: User,
@@ -44,8 +44,8 @@ const getSavedPosts = async (req, res) => {
         return {
           id: postObj.id,
           caption: postObj.caption,
-          likeCount: postObj.likeCount,
-          commentCount: postObj.commentCount,
+          likeCount: postObj.likesCount,
+          commentCount: postObj.commentsCount,
           created_at: postObj.created_at,
           user: postObj.user,
           media: postObj.media,

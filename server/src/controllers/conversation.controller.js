@@ -109,8 +109,22 @@ const formatConversation = (conv, currentUserId) => {
 };
 
 // ─── HELPER: Format message ────────────────────────────────
-const formatMessage = (message) => {
+const formatMessage = (message, options = {}) => {
   const m = message.toJSON ? message.toJSON() : message;
+  const { currentUserId, myLastReadAt, maxOtherLastRead } = options;
+
+  let isRead = false;
+  if (currentUserId) {
+    const createdAtTime = new Date(m.created_at || m.createdAt || new Date()).getTime();
+    const senderId = m.sender_id || m.senderId;
+    if (senderId === currentUserId) {
+      isRead = maxOtherLastRead ? (maxOtherLastRead >= createdAtTime) : false;
+    } else {
+      isRead = myLastReadAt ? (myLastReadAt >= createdAtTime) : false;
+    }
+  } else {
+    isRead = m.is_read || m.isRead || false;
+  }
 
   return {
     id: m.id,
@@ -125,6 +139,7 @@ const formatMessage = (message) => {
     created_at: m.created_at || m.createdAt,
     conversation_id: m.conversation_id || m.conversationId,
     sender_id: m.sender_id || m.senderId,
+    is_read: isRead,
 
     // Who sent it
     sender: m.sender
@@ -675,7 +690,29 @@ const getMessages = async (req, res) => {
     // Auto-mark as read when fetching messages
     await participant.update({ last_read_at: new Date() });
 
-    const formattedMessages = messages.map(formatMessage);
+    // Get current participant's last_read_at
+    const myLastReadAt = new Date().getTime();
+
+    // Get other participants' max last_read_at
+    const otherParticipants = await ConversationParticipant.findAll({
+      where: {
+        conversation_id: conversationId,
+        user_id: { [require('sequelize').Op.ne]: currentUserId },
+        left_at: null,
+      },
+      attributes: ['last_read_at'],
+    });
+    const maxOtherLastRead = otherParticipants.reduce((max, p) => {
+      if (!p.last_read_at) return max;
+      const t = new Date(p.last_read_at).getTime();
+      return t > max ? t : max;
+    }, 0);
+
+    const formattedMessages = messages.map(m => formatMessage(m, {
+      currentUserId,
+      myLastReadAt,
+      maxOtherLastRead,
+    }));
 
     return paginatedResponse(
       res,
@@ -1157,6 +1194,16 @@ const markAsRead = async (req, res) => {
         },
       }
     );
+
+    const io = getIO();
+    if (io) {
+      const roomName = `conversation:${conversationId}`;
+      io.to(roomName).emit('messages-read', {
+        conversation_id: conversationId,
+        read_by_user_id: currentUserId,
+        read_at: new Date(),
+      });
+    }
 
     return successResponse(
       res,
