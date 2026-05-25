@@ -19,6 +19,7 @@ import '../../../../shared/widgets/user_story_avatar.dart';
 import '../../../../features/menu/presentation/three_dot_menu.dart';
 import '../../../../features/menu/models/menu_context.dart';
 import '../../../../features/menu/models/menu_action.dart';
+import '../../../../shared/widgets/mention_text_field.dart';
 
 
 
@@ -39,7 +40,7 @@ class CommentsPage extends ConsumerStatefulWidget {
 }
 
 class _CommentsPageState extends ConsumerState<CommentsPage> {
-  final TextEditingController _commentController = TextEditingController();
+  final MentionTextFieldController _commentController = MentionTextFieldController();
   final FocusNode _commentFocus = FocusNode();
   final ScrollController _scrollController = ScrollController();
   final List<String> _quickEmojis = ['❤️', '🙌', '🔥', '👏', '😢', '😍', '😮', '😂'];
@@ -284,15 +285,18 @@ class _CommentsPageState extends ConsumerState<CommentsPage> {
                 ),
                 const SizedBox(width: 12),
                 Expanded(
-                  child: TextField(
+                  child: MentionTextField(
                     controller: _commentController,
                     focusNode: _commentFocus,
-                    style: const TextStyle(fontSize: 14, fontFamily: 'SF Pro Text'),
+                    contextType: 'comment',
                     decoration: InputDecoration(
                       hintText: 'Add a comment for ${widget.post?.user?.username ?? ''}...',
                       hintStyle: const TextStyle(color: Colors.grey),
                       border: InputBorder.none,
                     ),
+                    style: const TextStyle(fontSize: 14, fontFamily: 'SF Pro Text'),
+                    maxLines: 4,
+                    minLines: 1,
                   ),
                 ),
                 ValueListenableBuilder(

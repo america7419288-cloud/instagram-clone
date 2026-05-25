@@ -534,7 +534,9 @@ class _ChatPageState extends ConsumerState<ChatPage> {
           : ChatUIConstants.bgLight,
       child: SafeArea(
         bottom: false,
-        child: Column(
+        child: Material(
+          color: Colors.transparent,
+          child: Column(
           children: [
             ChatAppBar(
               username: conversation.isGroup
@@ -675,9 +677,11 @@ class _ChatPageState extends ConsumerState<ChatPage> {
                   isRecording: _isRecording,
                   recordingDuration: _recordingDuration,
                   focusNode: _inputFocusNode,
+                  conversationId: widget.conversationId,
                 ),
             ],
           ],
+          ),
         ),
       ),
     );

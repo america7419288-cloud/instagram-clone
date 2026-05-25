@@ -85,6 +85,11 @@ const Comment = sequelize.define(
       type: DataTypes.BOOLEAN,
       defaultValue: false,
     },
+    mentions: {
+      type: DataTypes.JSONB,
+      allowNull: false,
+      defaultValue: [],
+    },
   },
   {
     tableName: 'comments',

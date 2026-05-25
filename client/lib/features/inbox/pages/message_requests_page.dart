@@ -5,6 +5,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 import 'package:flutter_lucide/flutter_lucide.dart';
 
+import 'package:flutter/services.dart';
 import '../../../../core/router/app_router.dart';
 import '../../chat/presentation/providers/chat_notifiers.dart';
 import '../controllers/inbox_controller.dart';
@@ -154,12 +155,86 @@ class _MessageRequestsPageState extends ConsumerState<MessageRequestsPage>
               delegate: SliverChildBuilderDelegate(
                 (context, index) {
                   final conv = inboxState.requests[index];
-                  return ConversationTile(
-                    conversation: conv,
-                    index: index,
-                    entryController: _entryController,
-                    onTap: () => _openChat(conv.id, conv.username),
-                    onDelete: () => ref.read(inboxProvider.notifier).rejectRequest(conv.id),
+                  return Column(
+                    children: [
+                      ConversationTile(
+                        conversation: conv,
+                        index: index,
+                        entryController: _entryController,
+                        onTap: () => _openChat(conv.id, conv.username),
+                        onDelete: () => ref.read(inboxProvider.notifier).rejectRequest(conv.id),
+                      ),
+                      Padding(
+                        padding: const EdgeInsets.only(left: 72, right: 16, bottom: 12),
+                        child: Row(
+                          children: [
+                            Expanded(
+                              child: GestureDetector(
+                                onTap: () {
+                                  HapticFeedback.mediumImpact();
+                                  ref.read(inboxProvider.notifier).rejectRequest(conv.id);
+                                },
+                                child: Container(
+                                  height: 32,
+                                  decoration: BoxDecoration(
+                                    color: isDark ? const Color(0xFF262626) : const Color(0xFFEFEFEF),
+                                    borderRadius: BorderRadius.circular(8),
+                                  ),
+                                  alignment: Alignment.center,
+                                  child: Text(
+                                    'Decline',
+                                    style: TextStyle(
+                                      color: isDark ? Colors.red[400] : Colors.red[600],
+                                      fontSize: 13,
+                                      fontWeight: FontWeight.w600,
+                                      fontFamily: 'SF Pro Text',
+                                    ),
+                                  ),
+                                ),
+                              ),
+                            ),
+                            const SizedBox(width: 12),
+                            Expanded(
+                              child: GestureDetector(
+                                onTap: () async {
+                                  HapticFeedback.mediumImpact();
+                                  await ref.read(inboxProvider.notifier).acceptRequest(conv.id);
+                                  // Refresh inbox and notes feed
+                                  ref.read(inboxProvider.notifier).refresh();
+                                },
+                                child: Container(
+                                  height: 32,
+                                  decoration: BoxDecoration(
+                                    gradient: const LinearGradient(
+                                      colors: [
+                                        Color(0xFF3797EF),
+                                        Color(0xFF007FFF),
+                                      ],
+                                    ),
+                                    borderRadius: BorderRadius.circular(8),
+                                  ),
+                                  alignment: Alignment.center,
+                                  child: const Text(
+                                    'Accept',
+                                    style: TextStyle(
+                                      color: Colors.white,
+                                      fontSize: 13,
+                                      fontWeight: FontWeight.w700,
+                                      fontFamily: 'SF Pro Text',
+                                    ),
+                                  ),
+                                ),
+                              ),
+                            ),
+                          ],
+                        ),
+                      ),
+                      Divider(
+                        height: 1,
+                        thickness: 0.5,
+                        color: isDark ? Colors.grey[900] : Colors.grey[200],
+                      ),
+                    ],
                   );
                 },
                 childCount: inboxState.requests.length,

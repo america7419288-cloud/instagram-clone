@@ -274,6 +274,12 @@ class _GroupInfoSheetState extends ConsumerState<GroupInfoSheet> {
         ? FileImage(File(_localAvatarPath!)) 
         : (conversation.avatarUrl != null ? NetworkImage(conversation.avatarUrl!) : null);
 
+    final currentUser = ref.watch(currentUserProvider);
+    final isOwner = conversation.createdBy == currentUser?.id;
+    final currentMember = conversation.participants.where((p) => p.id == currentUser?.id).firstOrNull;
+    final isAdmin = currentMember?.role == 'admin';
+    final canManageSettings = isOwner || isAdmin;
+
     return BackdropFilter(
       filter: ImageFilter.blur(sigmaX: 20, sigmaY: 20),
       child: Material(
@@ -319,7 +325,7 @@ class _GroupInfoSheetState extends ConsumerState<GroupInfoSheet> {
                   children: [
                     // Group Avatar & Name
                     GestureDetector(
-                      onTap: () => _pickAvatar(conversation),
+                      onTap: canManageSettings ? () => _pickAvatar(conversation) : null,
                       child: Stack(
                         alignment: Alignment.bottomRight,
                         children: [
@@ -331,15 +337,16 @@ class _GroupInfoSheetState extends ConsumerState<GroupInfoSheet> {
                                 ? Icon(LucideIcons.users, color: mutedColor, size: 36)
                                 : null,
                           ),
-                          Container(
-                            padding: const EdgeInsets.all(6),
-                            decoration: BoxDecoration(
-                              color: const Color(0xFFFD1D1D),
-                              shape: BoxShape.circle,
-                              border: Border.all(color: isDark ? Colors.black : Colors.white, width: 2),
+                          if (canManageSettings)
+                            Container(
+                              padding: const EdgeInsets.all(6),
+                              decoration: BoxDecoration(
+                                color: const Color(0xFFFD1D1D),
+                                shape: BoxShape.circle,
+                                border: Border.all(color: isDark ? Colors.black : Colors.white, width: 2),
+                              ),
+                              child: const Icon(LucideIcons.camera, size: 14, color: Colors.white),
                             ),
-                            child: const Icon(LucideIcons.camera, size: 14, color: Colors.white),
-                          ),
                         ],
                       ),
                     ),
@@ -356,7 +363,7 @@ class _GroupInfoSheetState extends ConsumerState<GroupInfoSheet> {
                     const SizedBox(height: 24),
 
                     // Actions Tiles Group
-                    _buildSettingsSection(conversation, isDark, textColor, mutedColor, dividerColor, cardBg),
+                    _buildSettingsSection(conversation, isDark, textColor, mutedColor, dividerColor, cardBg, canManageSettings),
                     const SizedBox(height: 24),
 
                     // Members List
@@ -383,7 +390,7 @@ class _GroupInfoSheetState extends ConsumerState<GroupInfoSheet> {
     );
   }
 
-  Widget _buildSettingsSection(Conversation conversation, bool isDark, Color textColor, Color mutedColor, Color dividerColor, Color cardBg) {
+  Widget _buildSettingsSection(Conversation conversation, bool isDark, Color textColor, Color mutedColor, Color dividerColor, Color cardBg, bool canManageSettings) {
     return Container(
       decoration: BoxDecoration(
         color: cardBg,
@@ -422,17 +429,19 @@ class _GroupInfoSheetState extends ConsumerState<GroupInfoSheet> {
               ref.read(chatProvider(conversation.id).notifier).setDisappearingMessages(newDuration);
             },
           ),
-          Divider(color: dividerColor, height: 1),
-          SwitchListTile(
-            secondary: Icon(LucideIcons.shield_check, size: 20, color: textColor),
-            title: Text('Only Admins Can Send', style: TextStyle(color: textColor)),
-            value: conversation.onlyAdminsCanSend ?? false,
-            activeColor: const Color(0xFFFD1D1D),
-            onChanged: (val) {
-              HapticFeedback.mediumImpact();
-              ref.read(chatProvider(conversation.id).notifier).updateGroupSettings(onlyAdminsCanSend: val);
-            },
-          ),
+          if (canManageSettings) ...[
+            Divider(color: dividerColor, height: 1),
+            SwitchListTile(
+              secondary: Icon(LucideIcons.shield_check, size: 20, color: textColor),
+              title: Text('Only Admins Can Send', style: TextStyle(color: textColor)),
+              value: conversation.onlyAdminsCanSend ?? false,
+              activeColor: const Color(0xFFFD1D1D),
+              onChanged: (val) {
+                HapticFeedback.mediumImpact();
+                ref.read(chatProvider(conversation.id).notifier).updateGroupSettings(onlyAdminsCanSend: val);
+              },
+            ),
+          ],
         ],
       ),
     );

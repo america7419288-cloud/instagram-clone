@@ -122,6 +122,11 @@ const Message = sequelize.define(
       allowNull: false,
       defaultValue: {},
     },
+    mentions: {
+      type: DataTypes.JSONB,
+      allowNull: false,
+      defaultValue: [],
+    },
   },
   {
     tableName: 'messages',

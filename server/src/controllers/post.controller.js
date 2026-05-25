@@ -106,6 +106,43 @@ const createPost = async (req, res) => {
       });
     }
 
+    // ─── Parse and Validate mentions ───────────────────
+    let validatedMentions = [];
+    const clientMentions = req.body.mentions;
+    if (clientMentions && Array.isArray(clientMentions) && clientMentions.length > 0) {
+      const mentionedUserIds = clientMentions.map(m => m.userId || m.user_id || m.id).filter(Boolean);
+      const existingUsers = await User.findAll({
+        where: { id: { [Op.in]: mentionedUserIds } },
+        attributes: ['id', 'username']
+      });
+      validatedMentions = clientMentions.filter(mention => {
+        const id = mention.userId || mention.user_id || mention.id;
+        return existingUsers.some(u => u.id === id);
+      }).slice(0, 10).map(m => ({
+        userId: m.userId || m.user_id || m.id,
+        username: m.username,
+        offset: m.offset || 0,
+        length: m.length || 0
+      }));
+    }
+
+    if (validatedMentions.length === 0 && caption) {
+      try {
+        const { parseMentionsFromText } = require('../services/notification.service');
+        const matches = caption.match(/@([a-zA-Z0-9._]+)/g) || [];
+        if (matches.length > 0) {
+          const usernames = matches.map(m => m.slice(1).toLowerCase());
+          const matchedUsers = await User.findAll({
+            where: { username: { [Op.in]: usernames } },
+            attributes: ['id', 'username']
+          });
+          validatedMentions = parseMentionsFromText(caption.trim(), matchedUsers).slice(0, 10);
+        }
+      } catch (parseError) {
+        console.error('⚠️ Warning: Failed to parse mentions from caption text:', parseError.message);
+      }
+    }
+
     // ─── Create post record ────────────────────────────
     const post = await Post.create({
       id: uuidv4(),
@@ -117,6 +154,7 @@ const createPost = async (req, res) => {
       musicArtist: music_artist || null,
       musicStartTime: music_start_time ? parseInt(music_start_time) : null,
       musicDuration: music_duration ? parseInt(music_duration) : null,
+      mentions: validatedMentions,
     });
 
     // ─── Create PostMedia records ──────────────────────
@@ -144,8 +182,19 @@ const createPost = async (req, res) => {
     }
 
     // ─── Handle mentions ───────────────────────────────
-    if (caption) {
-      await _processMentions(caption, post.id, userId, req.user.username);
+    if (validatedMentions.length > 0) {
+      try {
+        const { sendMentionNotifications } = require('../services/notification.service');
+        await sendMentionNotifications({
+          mentionedUserIds: validatedMentions.map(m => m.userId),
+          senderId: userId,
+          entityType: 'post',
+          entityId: post.id,
+          text: caption,
+        });
+      } catch (mentionError) {
+        console.error('Mention notifications error:', mentionError.message);
+      }
     }
 
     // ─── Fetch complete post to return ─────────────────
@@ -426,9 +475,50 @@ const updatePost = async (req, res) => {
       return errorResponse(res, 404, 'Post not found or not yours');
     }
 
+    let validatedMentions = post.mentions || [];
+    if (caption !== undefined) {
+      const clientMentions = req.body.mentions;
+      if (clientMentions && Array.isArray(clientMentions) && clientMentions.length > 0) {
+        const mentionedUserIds = clientMentions.map(m => m.userId || m.user_id || m.id).filter(Boolean);
+        const existingUsers = await User.findAll({
+          where: { id: { [Op.in]: mentionedUserIds } },
+          attributes: ['id', 'username']
+        });
+        validatedMentions = clientMentions.filter(mention => {
+          const id = mention.userId || mention.user_id || mention.id;
+          return existingUsers.some(u => u.id === id);
+        }).slice(0, 10).map(m => ({
+          userId: m.userId || m.user_id || m.id,
+          username: m.username,
+          offset: m.offset || 0,
+          length: m.length || 0
+        }));
+      } else if (caption) {
+        try {
+          const { parseMentionsFromText } = require('../services/notification.service');
+          const matches = caption.match(/@([a-zA-Z0-9._]+)/g) || [];
+          if (matches.length > 0) {
+            const usernames = matches.map(m => m.slice(1).toLowerCase());
+            const matchedUsers = await User.findAll({
+              where: { username: { [Op.in]: usernames } },
+              attributes: ['id', 'username']
+            });
+            validatedMentions = parseMentionsFromText(caption.trim(), matchedUsers).slice(0, 10);
+          } else {
+            validatedMentions = [];
+          }
+        } catch (parseError) {
+          console.error('⚠️ Warning: Failed to parse mentions from caption text:', parseError.message);
+        }
+      } else {
+        validatedMentions = [];
+      }
+    }
+
     await post.update({
       caption: caption?.trim() ?? post.caption,
       location: location?.trim() ?? post.location,
+      mentions: validatedMentions,
     });
 
     // ─── Re-process hashtags if caption changed ────────
@@ -437,6 +527,22 @@ const updatePost = async (req, res) => {
       await PostHashtag.destroy({ where: { postId } });
       if (caption) {
         await _processHashtags(postId, caption);
+      }
+    }
+
+    // ─── Send mention notifications for updated caption ──
+    if (caption !== undefined && validatedMentions.length > 0) {
+      try {
+        const { sendMentionNotifications } = require('../services/notification.service');
+        await sendMentionNotifications({
+          mentionedUserIds: validatedMentions.map(m => m.userId),
+          senderId: userId,
+          entityType: 'post',
+          entityId: post.id,
+          text: caption,
+        });
+      } catch (mentionError) {
+        console.error('Mention notifications error:', mentionError.message);
       }
     }
 
@@ -847,6 +953,7 @@ const _formatPost = (post, userId) => {
     createdAt: post.createdAt,
     updatedAt: post.updatedAt,
     mediaFiles,
+    mentions: post.mentions || [],
 
     // ─── Music Metadata ──────────────────────────────
     music: post.musicId ? {

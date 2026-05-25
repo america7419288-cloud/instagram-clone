@@ -26,6 +26,7 @@ import 'package:instagram_client/features/follow/data/repositories/presentation/
 import 'package:instagram_client/features/auth/presentation/providers/auth_provider.dart';
 import 'package:instagram_client/features/post/data/models/comment_model.dart';
 import 'package:instagram_client/features/post/presentation/providers/comment_provider.dart';
+import 'package:instagram_client/shared/widgets/mention_text_field.dart';
 
 // ── Particle Confetti Physics ──────────────────────────────
 class _HeartParticle {
@@ -836,8 +837,9 @@ class _ReelCardState extends ConsumerState<ReelCard>
   }
 
   Widget _buildBottomInfo(BuildContext context, bool showUI) {
+    final bottomNavPadding = 52.0 + MediaQuery.of(context).padding.bottom;
     return Positioned(
-      bottom: 40,
+      bottom: bottomNavPadding + 16,
       left: 12,
       right: 80,
       child: IgnorePointer(
@@ -973,9 +975,10 @@ class _ReelCardState extends ConsumerState<ReelCard>
   }
 
   Widget _buildActionButtonsPanel(BuildContext context, bool showUI) {
+    final bottomNavPadding = 52.0 + MediaQuery.of(context).padding.bottom;
     return Positioned(
       right: 12,
-      bottom: 80,
+      bottom: bottomNavPadding + 52,
       child: IgnorePointer(
         ignoring: !showUI,
         child: AnimatedOpacity(
@@ -1259,8 +1262,9 @@ class _ReelCardState extends ConsumerState<ReelCard>
       progress = position.inMilliseconds / duration.inMilliseconds;
     }
 
+    final bottomNavPadding = 52.0 + MediaQuery.of(context).padding.bottom;
     return Positioned(
-      bottom: 0,
+      bottom: bottomNavPadding,
       left: 0,
       right: 0,
       child: GestureDetector(
@@ -1472,7 +1476,7 @@ class _CommentsSheet extends ConsumerStatefulWidget {
 }
 
 class _CommentsSheetState extends ConsumerState<_CommentsSheet> {
-  final TextEditingController _commentController = TextEditingController();
+  final MentionTextFieldController _commentController = MentionTextFieldController();
   final FocusNode _focusNode = FocusNode();
   final ScrollController _scrollController = ScrollController();
 
@@ -1706,9 +1710,10 @@ class _CommentsSheetState extends ConsumerState<_CommentsSheet> {
                 borderRadius: BorderRadius.circular(20),
                 border: Border.all(color: Colors.white12, width: 0.5),
               ),
-              child: TextField(
+              child: MentionTextField(
                 controller: _commentController,
                 focusNode: _focusNode,
+                contextType: 'reel',
                 style: const TextStyle(color: Colors.white, fontSize: 14),
                 decoration: InputDecoration(
                   hintText: state.replyingTo != null
@@ -1719,6 +1724,8 @@ class _CommentsSheetState extends ConsumerState<_CommentsSheet> {
                   contentPadding: const EdgeInsets.symmetric(horizontal: 14, vertical: 10),
                   suffixIcon: const Icon(LucideIcons.smile, color: Colors.white38, size: 20),
                 ),
+                maxLines: 4,
+                minLines: 1,
                 onChanged: (_) => setState(() {}),
               ),
             ),

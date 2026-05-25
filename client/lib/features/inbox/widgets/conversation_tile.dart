@@ -21,6 +21,7 @@ class ConversationTile extends StatefulWidget {
   final VoidCallback? onUnmute;
   final VoidCallback? onToggleRead;
   final Future<void> Function(String type, String desc)? onReport;
+  final VoidCallback? onBlock;
 
   const ConversationTile({
     super.key,
@@ -33,6 +34,7 @@ class ConversationTile extends StatefulWidget {
     this.onUnmute,
     this.onToggleRead,
     this.onReport,
+    this.onBlock,
   });
 
   @override
@@ -160,7 +162,10 @@ class _ConversationTileState extends State<ConversationTile>
                 ListTile(
                   leading: const Icon(LucideIcons.user_minus, color: Colors.red),
                   title: const Text('Block User', style: TextStyle(color: Colors.red)),
-                  onTap: () => Navigator.pop(context),
+                  onTap: () {
+                    Navigator.pop(context);
+                    widget.onBlock?.call();
+                  },
                 ),
                 ListTile(
                   leading: const Icon(LucideIcons.trash_2, color: Colors.red),

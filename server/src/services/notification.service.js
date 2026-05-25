@@ -52,12 +52,41 @@ const createNotification = async ({
     // ─── Fetch sender + recipient for push ────────────
     const [sender, recipient] = await Promise.all([
       User.findByPk(senderId, {
-        attributes: ['id', 'username', 'profile_pic_url'],
+        attributes: ['id', 'username', 'profile_pic_url', 'is_verified'],
       }),
       User.findByPk(recipientId, {
         attributes: ['id', 'fcmToken'],
       }),
     ]);
+
+    // ─── Emit Socket Notification ─────────────────────
+    try {
+      const { emitToUser, getIO } = require('./socket.service');
+      const io = getIO();
+      if (io && sender) {
+        emitToUser(io, recipientId, 'new-notification', {
+          id: notification.id,
+          recipientId,
+          senderId,
+          type,
+          postId,
+          commentId,
+          storyId,
+          reelId,
+          message,
+          isRead: false,
+          createdAt: notification.createdAt,
+          sender: {
+            id: sender.id,
+            username: sender.username,
+            profile_pic_url: sender.profile_pic_url,
+            is_verified: sender.is_verified,
+          }
+        });
+      }
+    } catch (socketError) {
+      console.warn('⚠️ Warning: Socket emit notification failed:', socketError.message);
+    }
 
     // ─── Send push notification ────────────────────────
     if (sender && recipient?.fcmToken) {
@@ -341,6 +370,71 @@ const createMessageNotification = async ({
   }
 };
 
+const sendMentionNotifications = async ({
+  mentionedUserIds,
+  senderId,
+  entityType,    // 'post' | 'message' | 'comment' | 'story' | 'reel' | 'community_post'
+  entityId,
+  text,          // preview text
+}) => {
+  try {
+    if (!mentionedUserIds || mentionedUserIds.length === 0) return;
+
+    const uniqueIds = [...new Set(
+      mentionedUserIds.map(id => id.toString())
+    )].filter(id => id !== senderId.toString());
+
+    for (const userId of uniqueIds) {
+      let type = `mention_${entityType}`;
+      if (entityType === 'post' || entityType === 'reel') {
+        type = 'mention_caption';
+      } else if (entityType === 'community_post') {
+        type = 'mention_message';
+      }
+
+      await createNotification({
+        recipientId: userId,
+        senderId,
+        type,
+        postId: (entityType === 'post' || entityType === 'comment' || entityType === 'community_post') ? entityId : null,
+        commentId: entityType === 'comment' ? entityId : null,
+        reelId: entityType === 'reel' ? entityId : null,
+        storyId: entityType === 'story' ? entityId : null,
+        message: text?.substring(0, 100) || '',
+      });
+    }
+  } catch (error) {
+    console.error('❌ sendMentionNotifications error:', error.message);
+  }
+};
+
+const parseMentionsFromText = (text, knownUsers) => {
+  // knownUsers: [{ id, username }]
+  const mentions = [];
+  const mentionRegex = /@([a-zA-Z0-9._]+)/g;
+  let match;
+
+  if (!text) return mentions;
+
+  while ((match = mentionRegex.exec(text)) !== null) {
+    const username = match[1].toLowerCase();
+    const user = knownUsers.find(
+      u => u.username.toLowerCase() === username
+    );
+
+    if (user) {
+      mentions.push({
+        userId: user.id,
+        username: user.username,
+        offset: match.index,
+        length: match[0].length, // includes '@'
+      });
+    }
+  }
+
+  return mentions;
+};
+
 module.exports = {
   createNotification,
   createMessageNotification,
@@ -354,4 +448,6 @@ module.exports = {
   notifyMentionInPost,
   notifyMentionInComment,
   processMentions,
+  sendMentionNotifications,
+  parseMentionsFromText,
 };

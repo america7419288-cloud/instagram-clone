@@ -553,10 +553,34 @@ const syncDatabase = async () => {
       console.warn('⚠️ Warning: Failed to alter message_type enum:', enumError.message);
     }
 
+    try {
+      await sequelize.query("ALTER TYPE enum_notifications_type ADD VALUE IF NOT EXISTS 'mention_message'");
+      await sequelize.query("ALTER TYPE enum_notifications_type ADD VALUE IF NOT EXISTS 'mention_caption'");
+      await sequelize.query("ALTER TYPE enum_notifications_type ADD VALUE IF NOT EXISTS 'mention_story'");
+      console.log('✅ Notification type enum values ensured in database');
+    } catch (enumError) {
+      console.warn('⚠️ Warning: Failed to alter enum_notifications_type:', enumError.message);
+    }
+
     // Step 2: Safe additive migrations — idempotent, never drops data.
     // ADD COLUMN IF NOT EXISTS and CREATE TABLE IF NOT EXISTS are safe to run
     // on every server startup against both dev and production databases.
     await sequelize.query(`
+      ALTER TABLE messages
+        ADD COLUMN IF NOT EXISTS mentions JSONB DEFAULT '[]';
+
+      ALTER TABLE comments
+        ADD COLUMN IF NOT EXISTS mentions JSONB DEFAULT '[]';
+
+      ALTER TABLE posts
+        ADD COLUMN IF NOT EXISTS mentions JSONB DEFAULT '[]';
+
+      ALTER TABLE reels
+        ADD COLUMN IF NOT EXISTS mentions JSONB DEFAULT '[]';
+
+      ALTER TABLE community_posts
+        ADD COLUMN IF NOT EXISTS mentions JSONB DEFAULT '[]';
+
       ALTER TABLE conversations
         ADD COLUMN IF NOT EXISTS disappearing_duration INTEGER DEFAULT NULL;
 

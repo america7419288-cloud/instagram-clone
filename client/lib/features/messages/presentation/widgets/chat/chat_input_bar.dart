@@ -1,7 +1,9 @@
+import 'package:flutter/material.dart';
 import 'package:flutter/cupertino.dart';
 import 'package:flutter/services.dart';
 import 'package:flutter_lucide/flutter_lucide.dart';
 import 'chat_ui_constants.dart';
+import 'package:instagram_client/shared/widgets/mention_text_field.dart';
 
 class ChatInputBar extends StatefulWidget {
   final Function(String) onSend;
@@ -15,6 +17,7 @@ class ChatInputBar extends StatefulWidget {
   final bool isRecording;
   final Duration recordingDuration;
   final FocusNode? focusNode;
+  final String? conversationId;
 
   const ChatInputBar({
     super.key,
@@ -29,6 +32,7 @@ class ChatInputBar extends StatefulWidget {
     this.isRecording = false,
     this.recordingDuration = Duration.zero,
     this.focusNode,
+    this.conversationId,
   });
 
   @override
@@ -37,7 +41,7 @@ class ChatInputBar extends StatefulWidget {
 
 class _ChatInputBarState extends State<ChatInputBar>
     with TickerProviderStateMixin {
-  final TextEditingController _controller = TextEditingController();
+  final MentionTextFieldController _controller = MentionTextFieldController();
   bool _hasText = false;
 
   @override
@@ -131,18 +135,27 @@ class _ChatInputBarState extends State<ChatInputBar>
                 crossAxisAlignment: CrossAxisAlignment.end,
                 children: [
                   Expanded(
-                    child: CupertinoTextField(
+                    child: MentionTextField(
                       controller: _controller,
                       focusNode: widget.focusNode,
+                      contextType: 'group',
+                      contextId: widget.conversationId,
                       onChanged: widget.onChanged,
-                      placeholder: "Message...",
-                      placeholderStyle: TextStyle(
-                        fontFamily: ChatUIConstants.fontFamily,
-                        fontSize: 15,
-                        color: isDark
-                            ? ChatUIConstants.textSecondaryDark
-                            : ChatUIConstants.textSecondaryLight,
-                        decoration: TextDecoration.none,
+                      decoration: InputDecoration(
+                        hintText: "Message...",
+                        hintStyle: TextStyle(
+                          fontFamily: ChatUIConstants.fontFamily,
+                          fontSize: 15,
+                          color: isDark
+                              ? ChatUIConstants.textSecondaryDark
+                              : ChatUIConstants.textSecondaryLight,
+                          decoration: TextDecoration.none,
+                        ),
+                        border: InputBorder.none,
+                        contentPadding: const EdgeInsets.symmetric(
+                          horizontal: 14,
+                          vertical: 9,
+                        ),
                       ),
                       style: TextStyle(
                         fontFamily: ChatUIConstants.fontFamily,
@@ -152,11 +165,6 @@ class _ChatInputBarState extends State<ChatInputBar>
                             : ChatUIConstants.textPrimaryLight,
                         decoration: TextDecoration.none,
                       ),
-                      padding: const EdgeInsets.symmetric(
-                        horizontal: 14,
-                        vertical: 9,
-                      ),
-                      decoration: null,
                       maxLines: 5,
                       minLines: 1,
                     ),

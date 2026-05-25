@@ -200,6 +200,7 @@ const formatMessage = (message, options = {}) => {
     postId: m.shared_post_id,
     reelId: m.message_type === 'reel' ? m.shared_post_id : null,
     storyId: m.message_type === 'story' ? m.shared_post_id : null,
+    mentions: m.mentions || [],
   };
 };
 
@@ -791,8 +792,39 @@ const sendMessage = async (req, res) => {
 
     // 2.0 CHECK ONLY ADMINS CAN SEND (AND FETCH CONVERSATION FOR DM CHECKS)
     const conversation = await Conversation.findByPk(conversationId, {
-      include: [{ model: User, as: 'participants', attributes: ['id'] }]
+      include: [{ model: User, as: 'participants', attributes: ['id', 'username'] }]
     });
+
+    // 2.2 VALIDATE OR PARSE MENTIONS
+    let validatedMentions = [];
+    const clientMentions = req.body.mentions;
+    if (clientMentions && Array.isArray(clientMentions) && clientMentions.length > 0) {
+      const allowedUserIds = conversation ? conversation.participants.map(p => p.id) : [];
+      const matchedMentions = clientMentions.filter(m => {
+        const id = m.userId || m.user_id || m.id;
+        return allowedUserIds.includes(id);
+      });
+      validatedMentions = matchedMentions.slice(0, 10).map(m => ({
+        userId: m.userId || m.user_id || m.id,
+        username: m.username,
+        offset: m.offset || 0,
+        length: m.length || 0,
+      }));
+    }
+
+    // Fallback: parse from text if client didn't send
+    if (validatedMentions.length === 0 && content && conversation) {
+      try {
+        const { parseMentionsFromText } = require('../services/notification.service');
+        const conversationUsers = conversation.participants.map(p => ({
+          id: p.id,
+          username: p.username || ''
+        }));
+        validatedMentions = parseMentionsFromText(content, conversationUsers).slice(0, 10);
+      } catch (parseError) {
+        console.error('⚠️ Warning: Failed to parse mentions from text:', parseError.message);
+      }
+    }
 
     if (conversation && conversation.is_group && conversation.only_admins_can_send) {
       if (participant.role !== 'admin' && conversation.created_by !== senderId) {
@@ -882,6 +914,7 @@ const sendMessage = async (req, res) => {
       shared_post_id: shared_post_id || null,
       is_deleted: false,
       expires_at: expiresAt,
+      mentions: validatedMentions,
     });
     console.log('✅ Message created:', message.id);
 
@@ -999,6 +1032,23 @@ const sendMessage = async (req, res) => {
         });
       });
 
+      // Send mention notifications
+      if (validatedMentions && validatedMentions.length > 0) {
+        try {
+          const { sendMentionNotifications } = require('../services/notification.service');
+          const entityTypeToUse = resolvedMessageType === 'story' ? 'story' : 'message';
+          await sendMentionNotifications({
+            mentionedUserIds: validatedMentions.map(m => m.userId),
+            senderId,
+            entityType: entityTypeToUse,
+            entityId: message.id,
+            text: content,
+          });
+        } catch (mentionError) {
+          console.error('Mention notifications error:', mentionError.message);
+        }
+      }
+
       // ─── Push notification ─────────────────────────────────
       // Find all participants except sender
       try {
@@ -1010,8 +1060,12 @@ const sendMessage = async (req, res) => {
           attributes: ['user_id', 'is_muted', 'muted_until'],
         });
 
-        // Send push to each recipient
+        // Send push to each recipient (except those already notified of mentions)
+        const mentionedIds = validatedMentions.map(m => m.userId?.toString());
         for (const p of participants) {
+          const pUserId = (p.userId || p.user_id)?.toString();
+          if (mentionedIds.includes(pUserId)) continue;
+
           const isMuted = p.is_muted || (p.muted_until && new Date(p.muted_until) > new Date());
           if (isMuted) continue;
 

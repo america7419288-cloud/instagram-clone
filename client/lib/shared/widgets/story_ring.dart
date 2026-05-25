@@ -74,8 +74,8 @@ class _StoryRingState extends State<StoryRing> with SingleTickerProviderStateMix
           AnimatedBuilder(
             animation: _controller,
             builder: (context, child) {
-              final ringThickness = widget.size * 0.04;
-              final innerGap = widget.size * 0.015;
+              final ringThickness = widget.size * 0.032;
+              final innerGap = widget.size * 0.042;
 
               return AnimatedContainer(
                 duration: const Duration(milliseconds: 500),

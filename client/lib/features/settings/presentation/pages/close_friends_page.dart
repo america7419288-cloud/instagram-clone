@@ -64,7 +64,10 @@ class _CloseFriendsPageState extends ConsumerState<CloseFriendsPage> {
       final client = repo.getCloseFriends; // reference to repo
       final response = await ref.read(dioClientProvider).get('/users/search', queryParameters: {'q': query});
       if (response.data['success'] == true) {
-        final list = response.data['data'] as List<dynamic>;
+        final data = response.data['data'];
+        final list = data is List
+            ? data
+            : (data is Map && data['users'] != null ? data['users'] as List<dynamic> : []);
         setState(() {
           _searchResults = list;
           _isLoading = false;

@@ -512,6 +512,7 @@ const getReelComments = async (req, res) => {
             isPinned: c.is_pinned,
             isLiked: userId ? (c.likes?.length > 0) : false,
             createdAt: c.createdAt,
+            mentions: c.mentions || [],
         }));
 
         return successResponse(res, 200, 'Reel comments loaded', formatted);
@@ -560,6 +561,43 @@ const addReelComment = async (req, res) => {
             return errorResponse(res, 403, 'You cannot comment on this reel');
         }
 
+        // ─── Parse/Validate mentions ───────────────────────
+        let validatedMentions = [];
+        const clientMentions = req.body.mentions;
+        if (clientMentions && Array.isArray(clientMentions) && clientMentions.length > 0) {
+            const mentionedUserIds = clientMentions.map(m => m.userId || m.user_id || m.id).filter(Boolean);
+            const existingUsers = await User.findAll({
+                where: { id: { [Op.in]: mentionedUserIds } },
+                attributes: ['id', 'username']
+            });
+            validatedMentions = clientMentions.filter(mention => {
+                const id = mention.userId || mention.user_id || mention.id;
+                return existingUsers.some(u => u.id === id);
+            }).slice(0, 10).map(m => ({
+                userId: m.userId || m.user_id || m.id,
+                username: m.username,
+                offset: m.offset || 0,
+                length: m.length || 0
+            }));
+        }
+
+        if (validatedMentions.length === 0 && text) {
+            try {
+                const { parseMentionsFromText } = require('../services/notification.service');
+                const matches = text.match(/@([a-zA-Z0-9._]+)/g) || [];
+                if (matches.length > 0) {
+                    const usernames = matches.map(m => m.slice(1).toLowerCase());
+                    const matchedUsers = await User.findAll({
+                        where: { username: { [Op.in]: usernames } },
+                        attributes: ['id', 'username']
+                    });
+                    validatedMentions = parseMentionsFromText(text.trim(), matchedUsers).slice(0, 10);
+                }
+            } catch (parseError) {
+                console.error('⚠️ Warning: Failed to parse mentions from reel comment text:', parseError.message);
+            }
+        }
+
         // ─── Create comment ───────────────────────────────
         const comment = await Comment.create({
             id: uuidv4(),
@@ -567,6 +605,7 @@ const addReelComment = async (req, res) => {
             postId: null,
             userId,
             content: text.trim(),
+            mentions: validatedMentions,
         });
 
         // ─── Increment reel comments count ────────────────
@@ -583,6 +622,22 @@ const addReelComment = async (req, res) => {
 
             if (notification) {
                 emitToUser(reel.userId, 'new-notification', notification);
+            }
+        }
+
+        // Send mention notifications
+        if (validatedMentions.length > 0) {
+            try {
+                const { sendMentionNotifications } = require('../services/notification.service');
+                await sendMentionNotifications({
+                    mentionedUserIds: validatedMentions.map(m => m.userId),
+                    senderId: userId,
+                    entityType: 'comment',
+                    entityId: comment.id,
+                    text: text,
+                });
+            } catch (mentionError) {
+                console.error('Mention notifications error:', mentionError.message);
             }
         }
 
@@ -608,6 +663,7 @@ const addReelComment = async (req, res) => {
                 isPinned: false,
                 isLiked: false,
                 createdAt: comment.createdAt,
+                mentions: comment.mentions || [],
             }
         );
     } catch (error) {

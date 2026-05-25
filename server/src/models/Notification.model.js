@@ -47,6 +47,9 @@ const Notification = sequelize.define(
         'follow_accept',   // Accepted your follow request
         'mention_post',    // Mentioned you in post caption
         'mention_comment', // Mentioned you in comment
+        'mention_message', // Mentioned you in group chat message
+        'mention_caption', // Mentioned you in post/reel caption
+        'mention_story',   // Mentioned you in story reply/story
         'comment_like',    // Liked your comment
         'story_view',      // Viewed your story
         'reel_like',       // Liked your reel

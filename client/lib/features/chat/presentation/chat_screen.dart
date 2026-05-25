@@ -1,5 +1,3 @@
-// lib/features/chat/presentation/chat_screen.dart
-
 import 'package:flutter/cupertino.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
@@ -144,12 +142,13 @@ class _ChatScreenState extends ConsumerState<ChatScreen>
                           Navigator.of(context).pop(),
                       onInfoTap: () {
                         HapticFeedback.mediumImpact();
-                        GroupInfoSheet.show(
-                          context,
-                          conversationId: widget.conversationId,
-                          groupName: widget.username,
-                          groupAvatar: widget.avatarUrl,
-                        );
+                        final inboxState = ref.read(inboxProvider);
+                        final conversation = [...inboxState.conversations, ...inboxState.requests]
+                            .where((c) => c.id == widget.conversationId)
+                            .firstOrNull;
+                        if (conversation != null) {
+                          GroupInfoSheet.show(context, conversation: conversation);
+                        }
                       },
                       onCall: () {},
                       onVideo: () {},

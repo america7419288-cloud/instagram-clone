@@ -24,7 +24,7 @@ class StoriesBar extends ConsumerWidget {
     final currentUser = ref.watch(currentUserProvider);
 
     return Container(
-      height: 110,
+      height: 124,
       padding: const EdgeInsets.only(top: 8, bottom: 4),
       decoration: const BoxDecoration(
         color: Colors.transparent,
@@ -91,10 +91,10 @@ class _YourStoryItem extends StatelessWidget {
           final position = renderBox.localToGlobal(Offset.zero);
           final size = renderBox.size;
           final rect = Rect.fromLTWH(
-            position.dx + (size.width - 68) / 2,
+            position.dx + (size.width - 78) / 2,
             position.dy,
-            68,
-            68,
+            78,
+            78,
           );
           onTap(rect);
         } else {
@@ -108,7 +108,7 @@ class _YourStoryItem extends StatelessWidget {
             Stack(
               children: [
                 StoryRing(
-                  size: 68, // Increased from 62
+                  size: 78, // Increased from 68
                   hasUnseen: hasUnseen,
                   child: (profilePicUrl != null && profilePicUrl!.isNotEmpty)
                       ? CachedNetworkImage(
@@ -175,10 +175,10 @@ class _StoryItem extends StatelessWidget {
           final position = renderBox.localToGlobal(Offset.zero);
           final size = renderBox.size;
           final rect = Rect.fromLTWH(
-            position.dx + (size.width - 68) / 2,
+            position.dx + (size.width - 78) / 2,
             position.dy,
-            68,
-            68,
+            78,
+            78,
           );
           onTap(rect);
         } else {
@@ -190,7 +190,7 @@ class _StoryItem extends StatelessWidget {
         child: Column(
           children: [
             StoryRing(
-              size: 68, // Increased from 62
+              size: 78, // Increased from 68
               hasUnseen: group.hasUnseen,
               child: (group.user.profilePicUrl != null && group.user.profilePicUrl!.isNotEmpty)
                   ? CachedNetworkImage(
@@ -205,7 +205,7 @@ class _StoryItem extends StatelessWidget {
             ),
             const SizedBox(height: 6),
             SizedBox(
-              width: 72,
+              width: 80,
               child: Text(
                 group.user.username,
                 textAlign: TextAlign.center,

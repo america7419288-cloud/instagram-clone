@@ -48,6 +48,7 @@ const formatCommunityPost = (post) => {
       profile_pic_url: p.author.profile_pic_url,
     } : null,
     created_at: p.created_at || p.createdAt,
+    mentions: p.mentions || [],
   };
 };
 
@@ -1047,6 +1048,54 @@ const createPost = async (req, res) => {
       };
     }
 
+    // ─── Parse/Validate mentions ───────────────────────
+    let validatedMentions = [];
+    const clientMentions = req.body.mentions;
+    if (clientMentions && Array.isArray(clientMentions) && clientMentions.length > 0) {
+      const mentionedUserIds = clientMentions.map(m => m.userId || m.user_id || m.id).filter(Boolean);
+      const members = await CommunityMember.findAll({
+        where: {
+          community_id: communityId,
+          user_id: { [Op.in]: mentionedUserIds },
+          is_banned: false
+        },
+        attributes: ['user_id']
+      });
+      const memberUserIds = members.map(m => m.user_id);
+      validatedMentions = clientMentions.filter(mention => {
+        const id = mention.userId || mention.user_id || mention.id;
+        return memberUserIds.includes(id);
+      }).slice(0, 10).map(m => ({
+        userId: m.userId || m.user_id || m.id,
+        username: m.username,
+        offset: m.offset || 0,
+        length: m.length || 0
+      }));
+    }
+
+    if (validatedMentions.length === 0 && content) {
+      try {
+        const { parseMentionsFromText } = require('../services/notification.service');
+        const matches = content.match(/@([a-zA-Z0-9._]+)/g) || [];
+        if (matches.length > 0) {
+          const usernames = matches.map(m => m.slice(1).toLowerCase());
+          const members = await CommunityMember.findAll({
+            where: { community_id: communityId, is_banned: false },
+            include: [{
+              model: User,
+              as: 'user',
+              where: { username: { [Op.in]: usernames }, is_active: true },
+              attributes: ['id', 'username']
+            }]
+          });
+          const matchedUsers = members.map(m => m.user).filter(Boolean);
+          validatedMentions = parseMentionsFromText(content.trim(), matchedUsers).slice(0, 10);
+        }
+      } catch (parseError) {
+        console.error('⚠️ Warning: Failed to parse mentions from community post text:', parseError.message);
+      }
+    }
+
     const needsApproval = community.settings.postApprovalRequired && !['owner', 'admin'].includes(member.role);
 
     const post = await CommunityPost.create({
@@ -1059,6 +1108,7 @@ const createPost = async (req, res) => {
       poll: parsedPoll,
       event: parsedEvent,
       status: needsApproval ? 'pending' : 'published',
+      mentions: validatedMentions,
     });
 
     if (needsApproval) {
@@ -1076,6 +1126,22 @@ const createPost = async (req, res) => {
     const io = req.app.get('io');
     if (io) {
       io.to(`community:${communityId}`).emit('new-community-post', formatted);
+    }
+
+    // Send mention notifications if published
+    if (validatedMentions.length > 0) {
+      try {
+        const { sendMentionNotifications } = require('../services/notification.service');
+        await sendMentionNotifications({
+          mentionedUserIds: validatedMentions.map(m => m.userId),
+          senderId: userId,
+          entityType: 'community_post',
+          entityId: post.id,
+          text: content,
+        });
+      } catch (mentionError) {
+        console.error('Mention notifications error:', mentionError.message);
+      }
     }
 
     return successResponse(res, 201, 'Post created successfully.', { post: formatted });

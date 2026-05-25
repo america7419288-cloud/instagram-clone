@@ -336,6 +336,7 @@ class Message {
   mock.MessageStatus _mapStatus() {
     if (isSending) return mock.MessageStatus.sending;
     if (hasError) return mock.MessageStatus.failed;
+    if (isRead) return mock.MessageStatus.seen;
     return mock.MessageStatus.sent; // Default to sent
   }
 } 

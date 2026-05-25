@@ -6,6 +6,6 @@ void main() {
   print(LucideIcons.volume_2);
   print(LucideIcons.square_plus);
   print(LucideIcons.ellipsis);
-  print(LucideIcons.more_horizontal);
-  print(LucideIcons.more_vertical);
+  print(LucideIcons.ellipsis); // more_horizontal equivalent
+  print(LucideIcons.ellipsis_vertical); // more_vertical equivalent
 }

@@ -1,6 +1,8 @@
 // lib/features/inbox/pages/inbox_page.dart
 
 import 'package:flutter/material.dart';
+import 'package:flutter/cupertino.dart' show CupertinoSearchTextField;
+import 'package:flutter/services.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 import 'package:flutter_lucide/flutter_lucide.dart';
@@ -8,7 +10,6 @@ import 'package:flutter_lucide/flutter_lucide.dart';
 import '../../../../core/router/app_router.dart';
 import '../../../../features/auth/presentation/providers/auth_provider.dart';
 import '../controllers/inbox_controller.dart';
-import '../models/conversation_model.dart';
 import '../widgets/inbox_app_bar.dart';
 import '../widgets/message_requests_tile.dart';
 import '../widgets/active_friends_bar.dart';
@@ -18,6 +19,7 @@ import '../../notes/controllers/notes_controller.dart';
 import '../../chat/presentation/providers/chat_providers.dart';
 import '../../chat/presentation/providers/chat_notifiers.dart';
 import '../../communities/presentation/pages/community_discover_page.dart';
+import '../../follow/data/repositories/presentation/providers/follow_provider.dart';
 
 class InboxPage extends ConsumerStatefulWidget {
   const InboxPage({super.key});
@@ -30,6 +32,7 @@ class _InboxPageState extends ConsumerState<InboxPage>
     with TickerProviderStateMixin {
 
   final ScrollController _scrollController = ScrollController();
+  String _searchQuery = '';
   
   // Entry animations
   late AnimationController _entryController;
@@ -155,6 +158,12 @@ class _InboxPageState extends ConsumerState<InboxPage>
     final String username = currentUser?.username ?? 'your_username';
     final String? avatarUrl = currentUser?.profilePicUrl;
 
+    final filteredConversations = inboxState.conversations.where((conv) {
+      if (_searchQuery.isEmpty) return true;
+      return conv.username.toLowerCase().contains(_searchQuery.toLowerCase()) ||
+          conv.lastMessage.toLowerCase().contains(_searchQuery.toLowerCase());
+    }).toList();
+
     return Scaffold(
       backgroundColor: isDark ? Colors.black : Colors.white,
       body: AnimatedBuilder(
@@ -229,9 +238,15 @@ class _InboxPageState extends ConsumerState<InboxPage>
                 ),
               ),
 
-              // MESSAGES HEADER LABEL
+              // MESSAGES HEADER LABEL & SEARCH BAR
               SliverToBoxAdapter(
-                child: _buildMessagesLabel(),
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    _buildMessagesLabel(),
+                    _buildSearchBar(isDark),
+                  ],
+                ),
               ),
 
               // CONVERSATION LIST (EMPTY STATE OR TILES)
@@ -256,11 +271,21 @@ class _InboxPageState extends ConsumerState<InboxPage>
                     ),
                   ),
                 )
+              else if (filteredConversations.isEmpty)
+                const SliverFillRemaining(
+                  hasScrollBody: false,
+                  child: Center(
+                    child: Text(
+                      'No results found',
+                      style: TextStyle(color: Colors.grey, fontSize: 16),
+                    ),
+                  ),
+                )
               else
                 SliverList(
                   delegate: SliverChildBuilderDelegate(
                     (context, index) {
-                      final conv = inboxState.conversations[index];
+                      final conv = filteredConversations[index];
                       return ConversationTile(
                         conversation: conv,
                         index: index,
@@ -271,9 +296,19 @@ class _InboxPageState extends ConsumerState<InboxPage>
                         onUnmute: () => notifier.unmuteConversation(conv.id),
                         onToggleRead: () => notifier.toggleReadState(conv.id),
                         onReport: (type, desc) => ref.read(messageRepositoryProvider).reportUser(userId: conv.userId, reportType: type, description: desc),
+                        onBlock: () async {
+                          HapticFeedback.heavyImpact();
+                          await ref.read(followServiceProvider).blockUser(conv.userId);
+                          notifier.deleteConversation(conv.id);
+                          if (context.mounted) {
+                            ScaffoldMessenger.of(context).showSnackBar(
+                              SnackBar(content: Text('${conv.username} blocked')),
+                            );
+                          }
+                        },
                       );
                     },
-                    childCount: inboxState.conversations.length,
+                    childCount: filteredConversations.length,
                   ),
                 ),
 
@@ -306,6 +341,26 @@ class _InboxPageState extends ConsumerState<InboxPage>
             fontFamily: 'SF Pro Display',
           ),
         ),
+      ),
+    );
+  }
+
+  Widget _buildSearchBar(bool isDark) {
+    return Padding(
+      padding: const EdgeInsets.fromLTRB(16, 8, 16, 16),
+      child: CupertinoSearchTextField(
+        placeholder: 'Search',
+        style: TextStyle(color: isDark ? Colors.white : Colors.black),
+        placeholderStyle: const TextStyle(color: Colors.grey),
+        decoration: BoxDecoration(
+          color: isDark ? const Color(0xFF262626) : const Color(0xFFF2F2F7),
+          borderRadius: BorderRadius.circular(10),
+        ),
+        onChanged: (value) {
+          setState(() {
+            _searchQuery = value;
+          });
+        },
       ),
     );
   }

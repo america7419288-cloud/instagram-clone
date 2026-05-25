@@ -10,6 +10,7 @@ import 'package:instagram_client/features/communities/presentation/pages/communi
 import '../../data/models/community.dart';
 import '../../data/models/community_channel.dart';
 import '../providers/community_providers.dart';
+import '../../../../shared/widgets/mention_text_field.dart';
 
 class CommunityShellPage extends ConsumerStatefulWidget {
   final String communityId;
@@ -26,7 +27,7 @@ class _CommunityShellPageState extends ConsumerState<CommunityShellPage> {
   bool _isAdminOrMod = false;
   bool _isEditingChannels = false;
   final Set<String> _selectedChannelIds = {};
-  final TextEditingController _chatCtrl = TextEditingController();
+  final MentionTextFieldController _chatCtrl = MentionTextFieldController();
 
   @override
   void dispose() {
@@ -212,8 +213,10 @@ class _CommunityShellPageState extends ConsumerState<CommunityShellPage> {
                   ),
                 ),
                 padding: const EdgeInsets.symmetric(horizontal: 16),
-                child: TextField(
+                child: MentionTextField(
                   controller: _chatCtrl,
+                  contextType: 'community',
+                  contextId: widget.communityId,
                   style: TextStyle(
                     color: isDark ? Colors.white : Colors.black,
                     fontSize: 14,
@@ -228,7 +231,9 @@ class _CommunityShellPageState extends ConsumerState<CommunityShellPage> {
                     isDense: true,
                     contentPadding: const EdgeInsets.symmetric(vertical: 10),
                   ),
-                  textCapitalization: TextCapitalization.sentences,
+                  maxLines: 5,
+                  minLines: 1,
+                  textInputAction: TextInputAction.send,
                   onSubmitted: (_) => _sendChatMessage(params),
                 ),
               ),

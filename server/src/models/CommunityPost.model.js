@@ -96,6 +96,11 @@ const CommunityPost = sequelize.define(
       type: DataTypes.STRING(255),
       allowNull: true,
     },
+    mentions: {
+      type: DataTypes.JSONB,
+      allowNull: false,
+      defaultValue: [],
+    },
   },
   {
     tableName: 'community_posts',

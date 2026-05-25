@@ -277,6 +277,21 @@ class ChatNotifier extends Notifier<ChatState> {
           );
           unawaited(_repository.saveMessage(message));
         }
+      } else if (type == 'messages-read') {
+        final readByUserId = data['read_by_user_id'];
+        final currentUserId = ref.read(currentUserProvider)?.id;
+        if (currentUserId != null && readByUserId != currentUserId) {
+          state = state.copyWith(
+            messages: state.messages.map((m) {
+              if (m.senderId == currentUserId && !m.isRead) {
+                final updated = m.copyWith(isRead: true);
+                unawaited(_repository.saveMessage(updated));
+                return updated;
+              }
+              return m;
+            }).toList(),
+          );
+        }
       } else if (type == 'reaction') {
         final messageId = data['message_id'];
         final emoji = data['emoji'];

@@ -82,6 +82,11 @@ const Post = sequelize.define(
       allowNull: true,
       field: 'music_duration',
     },
+    mentions: {
+      type: DataTypes.JSONB,
+      allowNull: false,
+      defaultValue: [],
+    },
   },
   {
     tableName: 'posts',

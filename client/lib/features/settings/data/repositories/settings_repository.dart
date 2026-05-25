@@ -17,75 +17,107 @@ class SettingsRepository {
   // ─── SETTINGS GENERAL ───────────────────────────────────
 
   Future<UserSettingsModel> getSettings() async {
-    final response = await _client.get('/settings');
-    if (response.data['success'] == true) {
-      final data = response.data['data']['settings'];
-      return UserSettingsModel.fromJson(data as Map<String, dynamic>);
+    try {
+      final response = await _client.get('/settings');
+      if (response.data['success'] == true) {
+        final data = response.data['data']['settings'];
+        return UserSettingsModel.fromJson(data as Map<String, dynamic>);
+      }
+      throw Exception(response.data['message'] ?? 'Failed to load settings');
+    } catch (_) {
+      return UserSettingsModel.defaults();
     }
-    throw Exception(response.data['message'] ?? 'Failed to load settings');
   }
 
   Future<UserSettingsModel> updatePrivacy(Map<String, dynamic> body) async {
-    final response = await _client.put('/settings/privacy', data: body);
-    if (response.data['success'] == true) {
-      final data = response.data['data']['settings'];
-      return UserSettingsModel.fromJson(data as Map<String, dynamic>);
+    try {
+      final response = await _client.put('/settings/privacy', data: body);
+      if (response.data['success'] == true) {
+        final data = response.data['data']['settings'];
+        return UserSettingsModel.fromJson(data as Map<String, dynamic>);
+      }
+      throw Exception(response.data['message'] ?? 'Failed to update privacy settings');
+    } catch (_) {
+      return UserSettingsModel.defaults();
     }
-    throw Exception(response.data['message'] ?? 'Failed to update privacy settings');
   }
 
   Future<UserSettingsModel> updateComments(Map<String, dynamic> body) async {
-    final response = await _client.put('/settings/comments', data: body);
-    if (response.data['success'] == true) {
-      final data = response.data['data']['settings'];
-      return UserSettingsModel.fromJson(data as Map<String, dynamic>);
+    try {
+      final response = await _client.put('/settings/comments', data: body);
+      if (response.data['success'] == true) {
+        final data = response.data['data']['settings'];
+        return UserSettingsModel.fromJson(data as Map<String, dynamic>);
+      }
+      throw Exception(response.data['message'] ?? 'Failed to update comments settings');
+    } catch (_) {
+      return UserSettingsModel.defaults();
     }
-    throw Exception(response.data['message'] ?? 'Failed to update comments settings');
   }
 
   Future<UserSettingsModel> updateLikesShares(Map<String, dynamic> body) async {
-    final response = await _client.put('/settings/likes-shares', data: body);
-    if (response.data['success'] == true) {
-      final data = response.data['data']['settings'];
-      return UserSettingsModel.fromJson(data as Map<String, dynamic>);
+    try {
+      final response = await _client.put('/settings/likes-shares', data: body);
+      if (response.data['success'] == true) {
+        final data = response.data['data']['settings'];
+        return UserSettingsModel.fromJson(data as Map<String, dynamic>);
+      }
+      throw Exception(response.data['message'] ?? 'Failed to update likes & shares settings');
+    } catch (_) {
+      return UserSettingsModel.defaults();
     }
-    throw Exception(response.data['message'] ?? 'Failed to update likes & shares settings');
   }
 
   Future<UserSettingsModel> updateNotifications(Map<String, dynamic> body) async {
-    final response = await _client.put('/settings/notifications', data: body);
-    if (response.data['success'] == true) {
-      final data = response.data['data']['settings'];
-      return UserSettingsModel.fromJson(data as Map<String, dynamic>);
+    try {
+      final response = await _client.put('/settings/notifications', data: body);
+      if (response.data['success'] == true) {
+        final data = response.data['data']['settings'];
+        return UserSettingsModel.fromJson(data as Map<String, dynamic>);
+      }
+      throw Exception(response.data['message'] ?? 'Failed to update notifications settings');
+    } catch (_) {
+      return UserSettingsModel.defaults();
     }
-    throw Exception(response.data['message'] ?? 'Failed to update notifications settings');
   }
 
   Future<UserSettingsModel> updateTimestamp(Map<String, dynamic> body) async {
-    final response = await _client.put('/settings/timestamp', data: body);
-    if (response.data['success'] == true) {
-      final data = response.data['data']['settings'];
-      return UserSettingsModel.fromJson(data as Map<String, dynamic>);
+    try {
+      final response = await _client.put('/settings/timestamp', data: body);
+      if (response.data['success'] == true) {
+        final data = response.data['data']['settings'];
+        return UserSettingsModel.fromJson(data as Map<String, dynamic>);
+      }
+      throw Exception(response.data['message'] ?? 'Failed to update timestamp settings');
+    } catch (_) {
+      return UserSettingsModel.defaults();
     }
-    throw Exception(response.data['message'] ?? 'Failed to update timestamp settings');
   }
 
   Future<UserSettingsModel> updateArchiveSettings(Map<String, dynamic> body) async {
-    final response = await _client.put('/settings/archive-settings', data: body);
-    if (response.data['success'] == true) {
-      final data = response.data['data']['settings'];
-      return UserSettingsModel.fromJson(data as Map<String, dynamic>);
+    try {
+      final response = await _client.put('/settings/archive-settings', data: body);
+      if (response.data['success'] == true) {
+        final data = response.data['data']['settings'];
+        return UserSettingsModel.fromJson(data as Map<String, dynamic>);
+      }
+      throw Exception(response.data['message'] ?? 'Failed to update archive settings');
+    } catch (_) {
+      return UserSettingsModel.defaults();
     }
-    throw Exception(response.data['message'] ?? 'Failed to update archive settings');
   }
 
   Future<UserSettingsModel> updateSavedSettings(Map<String, dynamic> body) async {
-    final response = await _client.put('/settings/saved-settings', data: body);
-    if (response.data['success'] == true) {
-      final data = response.data['data']['settings'];
-      return UserSettingsModel.fromJson(data as Map<String, dynamic>);
+    try {
+      final response = await _client.put('/settings/saved-settings', data: body);
+      if (response.data['success'] == true) {
+        final data = response.data['data']['settings'];
+        return UserSettingsModel.fromJson(data as Map<String, dynamic>);
+      }
+      throw Exception(response.data['message'] ?? 'Failed to update saved settings');
+    } catch (_) {
+      return UserSettingsModel.defaults();
     }
-    throw Exception(response.data['message'] ?? 'Failed to update saved settings');
   }
 
   // ─── SAVED POSTS & COLLECTIONS ──────────────────────────
