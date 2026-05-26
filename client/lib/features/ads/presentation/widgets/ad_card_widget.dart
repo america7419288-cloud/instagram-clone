@@ -73,7 +73,7 @@ class _AdCardWidgetState extends ConsumerState<AdCardWidget> {
       context,
       CupertinoPageRoute(
         fullscreenDialog: true,
-        builder: (context) => _MockBrowserPage(url: url, businessName: widget.ad.advertiserName),
+        builder: (context) => MockBrowserPage(url: url, businessName: widget.ad.advertiserName),
       ),
     );
   }
@@ -346,11 +346,11 @@ class _AdCardWidgetState extends ConsumerState<AdCardWidget> {
 }
 
 // ─── MOCK BROWSER SCREEN ─────────────────────────────
-class _MockBrowserPage extends StatelessWidget {
+class MockBrowserPage extends StatelessWidget {
   final String url;
   final String businessName;
 
-  const _MockBrowserPage({required this.url, required this.businessName});
+  const MockBrowserPage({required this.url, required this.businessName});
 
   @override
   Widget build(BuildContext context) {
@@ -397,7 +397,7 @@ class _MockBrowserPage extends StatelessWidget {
           child: Column(
             mainAxisAlignment: MainAxisAlignment.center,
             children: [
-              Icon(LucideIcons.globe, size: 64, color: isDark ? Colors.white24 : Colors.black24),
+              Icon(LucideIcons.globe, size: 64, color: isDark ? Colors.white24 : Colors.black26),
               const SizedBox(height: 20),
               Text(
                 'Opening Website Link...',

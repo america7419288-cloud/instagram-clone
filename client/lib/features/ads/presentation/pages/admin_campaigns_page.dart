@@ -5,8 +5,8 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_lucide/flutter_lucide.dart';
 
 import '../providers/ad_provider.dart';
-import '../data/repositories/ad_service.dart';
-import '../models/campaign_model.dart';
+import '../../data/repositories/ad_service.dart';
+import '../../data/models/campaign_model.dart';
 
 class AdminCampaignsPage extends ConsumerStatefulWidget {
   const AdminCampaignsPage({super.key});
@@ -147,7 +147,7 @@ class _AdminCampaignsPageState extends ConsumerState<AdminCampaignsPage> {
       decoration: BoxDecoration(
         color: isDark ? const Color(0xFF121212) : Colors.white,
         borderRadius: BorderRadius.circular(12),
-        border: Border.all(color: isDark ? Colors.white10 : Colors.black10),
+        border: Border.all(color: isDark ? Colors.white10 : Colors.black12),
       ),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.stretch,
@@ -212,7 +212,7 @@ class _AdminCampaignsPageState extends ConsumerState<AdminCampaignsPage> {
       padding: const EdgeInsets.symmetric(vertical: 2),
       child: Row(
         children: [
-          Text('$label: ', style: TextStyle(color: isDark ? Colors.white30 : Colors.black30, fontSize: 12, fontWeight: FontWeight.bold)),
+          Text('$label: ', style: TextStyle(color: isDark ? Colors.white30 : Colors.black38, fontSize: 12, fontWeight: FontWeight.bold)),
           Expanded(
             child: Text(
               value,
@@ -231,7 +231,7 @@ class _AdminCampaignsPageState extends ConsumerState<AdminCampaignsPage> {
       child: Column(
         mainAxisAlignment: MainAxisAlignment.center,
         children: [
-          Icon(LucideIcons.check_check, size: 48, color: isDark ? Colors.white24 : Colors.black24),
+          Icon(LucideIcons.check_check, size: 48, color: isDark ? Colors.white24 : Colors.black26),
           const SizedBox(height: 16),
           Text(
             'Inbox is Clear',

@@ -7,7 +7,7 @@ import 'package:go_router/go_router.dart';
 
 import '../../../auth/presentation/providers/auth_provider.dart';
 import '../providers/ad_provider.dart';
-import '../models/campaign_model.dart';
+import '../../data/models/campaign_model.dart';
 import 'campaign_create_page.dart';
 import 'creative_create_page.dart';
 import 'admin_campaigns_page.dart';
@@ -204,7 +204,7 @@ class _AdDashboardPageState extends ConsumerState<AdDashboardPage> {
             ),
           ),
           const SizedBox(height: 20),
-          Divider(color: isL ? Colors.white10 : Colors.black10),
+          Divider(color: isL ? Colors.white10 : Colors.black12),
           const SizedBox(height: 12),
           Row(
             mainAxisAlignment: MainAxisAlignment.spaceBetween,
@@ -237,7 +237,7 @@ class _AdDashboardPageState extends ConsumerState<AdDashboardPage> {
       children: [
         Text(
           label,
-          style: TextStyle(color: isDark ? Colors.white30 : Colors.black30, fontSize: 11, fontWeight: FontWeight.bold),
+          style: TextStyle(color: isDark ? Colors.white30 : Colors.black38, fontSize: 11, fontWeight: FontWeight.bold),
         ),
         const SizedBox(height: 4),
         Text(
@@ -303,7 +303,7 @@ class _AdDashboardPageState extends ConsumerState<AdDashboardPage> {
             ],
           ),
           const SizedBox(height: 14),
-          Divider(color: isL ? Colors.white10 : Colors.black10, height: 1),
+          Divider(color: isL ? Colors.white10 : Colors.black12, height: 1),
           const SizedBox(height: 8),
           Row(
             mainAxisAlignment: MainAxisAlignment.end,
@@ -354,7 +354,7 @@ class _AdDashboardPageState extends ConsumerState<AdDashboardPage> {
       children: [
         Text(
           label,
-          style: TextStyle(color: isDark ? Colors.white30 : Colors.black30, fontSize: 10, fontWeight: FontWeight.bold),
+          style: TextStyle(color: isDark ? Colors.white30 : Colors.black38, fontSize: 10, fontWeight: FontWeight.bold),
         ),
         const SizedBox(height: 4),
         Text(
@@ -375,7 +375,7 @@ class _AdDashboardPageState extends ConsumerState<AdDashboardPage> {
       child: Center(
         child: Column(
           children: [
-            Icon(LucideIcons.megaphone, size: 48, color: isDark ? Colors.white24 : Colors.black24),
+            Icon(LucideIcons.megaphone, size: 48, color: isDark ? Colors.white24 : Colors.black26),
             const SizedBox(height: 16),
             Text(
               'No campaigns yet',

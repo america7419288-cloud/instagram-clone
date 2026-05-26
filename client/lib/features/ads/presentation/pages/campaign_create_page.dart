@@ -61,7 +61,7 @@ class _CampaignCreatePageState extends ConsumerState<CampaignCreatePage> {
     // Validate budget
     final budgetAmountCents = (double.parse(_budgetController.text.trim()) * 100).toInt();
     if (budgetAmountCents < 100) {
-      _showError('Minimum budget is $1.00');
+      _showError('Minimum budget is \$1.00');
       return;
     }
 
@@ -312,7 +312,7 @@ class _CampaignCreatePageState extends ConsumerState<CampaignCreatePage> {
                       max: 65.0,
                       divisions: 52,
                       activeColor: const Color(0xFF0095F6),
-                      inactiveColor: isDark ? Colors.white10 : Colors.black10,
+                      inactiveColor: isDark ? Colors.white10 : Colors.black12,
                       onChanged: (RangeValues vals) {
                         setState(() {
                           _ageMin = vals.start;
@@ -468,13 +468,13 @@ class _CampaignCreatePageState extends ConsumerState<CampaignCreatePage> {
       style: TextStyle(color: isDark ? Colors.white : Colors.black, fontSize: 14),
       decoration: InputDecoration(
         hintText: placeholder,
-        hintStyle: TextStyle(color: isDark ? Colors.white30 : Colors.black30),
+        hintStyle: TextStyle(color: isDark ? Colors.white30 : Colors.black38),
         filled: true,
         fillColor: isDark ? const Color(0xFF1C1C1E) : const Color(0xFFF2F2F7),
         contentPadding: const EdgeInsets.symmetric(horizontal: 12, vertical: 10),
         enabledBorder: OutlineInputBorder(
           borderRadius: BorderRadius.circular(8),
-          borderSide: BorderSide(color: isDark ? Colors.white10 : Colors.black10),
+          borderSide: BorderSide(color: isDark ? Colors.white10 : Colors.black12),
         ),
         focusedBorder: OutlineInputBorder(
           borderRadius: BorderRadius.circular(8),
@@ -504,7 +504,7 @@ class _CampaignCreatePageState extends ConsumerState<CampaignCreatePage> {
       decoration: BoxDecoration(
         color: isDark ? const Color(0xFF1C1C1E) : const Color(0xFFF2F2F7),
         borderRadius: BorderRadius.circular(8),
-        border: Border.all(color: isDark ? Colors.white10 : Colors.black10),
+        border: Border.all(color: isDark ? Colors.white10 : Colors.black12),
       ),
       child: DropdownButtonHideUnderline(
         child: DropdownButton<String>(

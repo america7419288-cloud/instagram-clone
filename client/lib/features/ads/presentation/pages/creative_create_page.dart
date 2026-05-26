@@ -7,7 +7,7 @@ import 'package:image_picker/image_picker.dart';
 import 'package:flutter_lucide/flutter_lucide.dart';
 
 import '../providers/ad_provider.dart';
-import '../data/repositories/ad_service.dart';
+import '../../data/repositories/ad_service.dart';
 import 'ad_dashboard_page.dart';
 
 class CreativeCreatePage extends ConsumerStatefulWidget {
@@ -443,7 +443,7 @@ class _CreativeCreatePageState extends ConsumerState<CreativeCreatePage> {
         decoration: BoxDecoration(
           color: isDark ? const Color(0xFF121212) : Colors.white,
           borderRadius: BorderRadius.circular(12),
-          border: Border.all(color: isDark ? Colors.white10 : Colors.black10),
+          border: Border.all(color: isDark ? Colors.white10 : Colors.black12),
           image: imageFile != null ? DecorationImage(image: FileImage(imageFile), fit: BoxFit.cover) : null,
         ),
         child: imageFile == null
@@ -508,13 +508,13 @@ class _CreativeCreatePageState extends ConsumerState<CreativeCreatePage> {
       style: TextStyle(color: isDark ? Colors.white : Colors.black, fontSize: 14),
       decoration: InputDecoration(
         hintText: placeholder,
-        hintStyle: TextStyle(color: isDark ? Colors.white30 : Colors.black30),
+        hintStyle: TextStyle(color: isDark ? Colors.white30 : Colors.black38),
         filled: true,
         fillColor: isDark ? const Color(0xFF1C1C1E) : const Color(0xFFF2F2F7),
         contentPadding: const EdgeInsets.symmetric(horizontal: 12, vertical: 10),
         enabledBorder: OutlineInputBorder(
           borderRadius: BorderRadius.circular(8),
-          borderSide: BorderSide(color: isDark ? Colors.white10 : Colors.black10),
+          borderSide: BorderSide(color: isDark ? Colors.white10 : Colors.black12),
         ),
         focusedBorder: OutlineInputBorder(
           borderRadius: BorderRadius.circular(8),
@@ -544,7 +544,7 @@ class _CreativeCreatePageState extends ConsumerState<CreativeCreatePage> {
       decoration: BoxDecoration(
         color: isDark ? const Color(0xFF1C1C1E) : const Color(0xFFF2F2F7),
         borderRadius: BorderRadius.circular(8),
-        border: Border.all(color: isDark ? Colors.white10 : Colors.black10),
+        border: Border.all(color: isDark ? Colors.white10 : Colors.black12),
       ),
       child: DropdownButtonHideUnderline(
         child: DropdownButton<String>(

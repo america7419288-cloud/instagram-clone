@@ -220,7 +220,7 @@ class _AdvertiserRegisterPageState extends ConsumerState<AdvertiserRegisterPage>
                   decoration: BoxDecoration(
                     color: isDark ? const Color(0xFF1C1C1E) : const Color(0xFFF2F2F7),
                     borderRadius: BorderRadius.circular(10),
-                    border: Border.all(color: isDark ? Colors.white10 : Colors.black10),
+                    border: Border.all(color: isDark ? Colors.white10 : Colors.black12),
                   ),
                   child: DropdownButtonHideUnderline(
                     child: DropdownButton<String>(
@@ -291,13 +291,13 @@ class _AdvertiserRegisterPageState extends ConsumerState<AdvertiserRegisterPage>
       style: TextStyle(color: isDark ? Colors.white : Colors.black, fontSize: 15),
       decoration: InputDecoration(
         hintText: placeholder,
-        hintStyle: TextStyle(color: isDark ? Colors.white30 : Colors.black30),
+        hintStyle: TextStyle(color: isDark ? Colors.white30 : Colors.black38),
         filled: true,
         fillColor: isDark ? const Color(0xFF1C1C1E) : const Color(0xFFF2F2F7),
         contentPadding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
         enabledBorder: OutlineInputBorder(
           borderRadius: BorderRadius.circular(10),
-          borderSide: BorderSide(color: isDark ? Colors.white10 : Colors.black10),
+          borderSide: BorderSide(color: isDark ? Colors.white10 : Colors.black12),
         ),
         focusedBorder: OutlineInputBorder(
           borderRadius: BorderRadius.circular(10),

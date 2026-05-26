@@ -107,37 +107,7 @@ class _AdReelWidgetState extends ConsumerState<AdReelWidget> {
       context,
       CupertinoPageRoute(
         fullscreenDialog: true,
-        builder: (context) => CupertinoPageScaffold(
-          backgroundColor: CupertinoTheme.of(context).brightness == Brightness.dark ? Colors.black : Colors.white,
-          navigationBar: CupertinoNavigationBar(
-            middle: Text(widget.ad.advertiserName),
-            leading: CupertinoButton(
-              padding: EdgeInsets.zero,
-              child: const Icon(LucideIcons.x, size: 22),
-              onPressed: () => Navigator.pop(context),
-            ),
-          ),
-          child: SafeArea(
-            child: Center(
-              child: Column(
-                mainAxisAlignment: MainAxisAlignment.center,
-                children: [
-                  const Icon(LucideIcons.globe, size: 64, color: Colors.grey),
-                  const SizedBox(height: 20),
-                  const Text('Opening Ad Web Destination', style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold)),
-                  const SizedBox(height: 8),
-                  Text(widget.ad.ctaUrl, style: const TextStyle(color: Color(0xFF0095F6), fontSize: 14)),
-                  const SizedBox(height: 32),
-                  CupertinoButton(
-                    color: const Color(0xFF0095F6),
-                    child: const Text('Back to Instagram', style: TextStyle(color: Colors.white)),
-                    onPressed: () => Navigator.pop(context),
-                  ),
-                ],
-              ),
-            ),
-          ),
-        ),
+        builder: (context) => MockBrowserPage(url: widget.ad.ctaUrl, businessName: widget.ad.advertiserName),
       ),
     );
   }

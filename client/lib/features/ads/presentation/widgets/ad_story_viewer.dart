@@ -199,7 +199,7 @@ class _AdStoryViewerPageState extends ConsumerState<AdStoryViewerPage>
       context,
       CupertinoPageRoute(
         fullscreenDialog: true,
-        builder: (context) => _MockBrowserPage(url: widget.ad.ctaUrl, businessName: widget.ad.advertiserName),
+        builder: (context) => MockBrowserPage(url: widget.ad.ctaUrl, businessName: widget.ad.advertiserName),
       ),
     ).then((_) => _resume());
   }
