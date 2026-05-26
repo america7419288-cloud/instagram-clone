@@ -33,25 +33,30 @@ class _NewMessagePageState extends ConsumerState<NewMessagePage> {
   Widget build(BuildContext context) {
     final searchState = ref.watch(messageSearchProvider);
 
+    final isDark = Theme.of(context).brightness == Brightness.dark;
+    final bgColor = isDark ? Colors.black : Colors.white;
+    final textColor = isDark ? Colors.white : Colors.black;
+    final subtextColor = isDark ? Colors.white70 : Colors.black54;
+
     return Scaffold(
-      backgroundColor: AppColors.white,
+      backgroundColor: bgColor,
       appBar: AppBar(
-        backgroundColor: AppColors.white,
+        backgroundColor: bgColor,
         elevation: 0,
         scrolledUnderElevation: 0,
         leading: BouncyTap(
           onTap: () => context.pop(),
-          child: const Center(
+          child: Center(
             child: Padding(
-              padding: EdgeInsets.all(12),
-              child: Icon(LucideIcons.x, color: AppColors.textPrimary),
+              padding: const EdgeInsets.all(12),
+              child: Icon(LucideIcons.x, color: textColor),
             ),
           ),
         ),
-        title: const Text(
+        title: Text(
           'New message',
           style: TextStyle(
-            color: AppColors.textPrimary,
+            color: textColor,
             fontWeight: FontWeight.bold,
             fontSize: 18,
           ),
@@ -81,26 +86,27 @@ class _NewMessagePageState extends ConsumerState<NewMessagePage> {
             padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
             child: Row(
               children: [
-                const Text(
+                Text(
                   'To: ',
-                  style: TextStyle(fontWeight: FontWeight.w600, fontSize: 16),
+                  style: TextStyle(fontWeight: FontWeight.w600, fontSize: 16, color: textColor),
                 ),
                 Expanded(
                   child: TextField(
                     controller: _searchController,
                     onChanged: (value) =>
                         ref.read(messageSearchProvider.notifier).search(value),
-                    decoration: const InputDecoration(
+                    style: TextStyle(color: textColor),
+                    decoration: InputDecoration(
                       hintText: 'Search...',
                       border: InputBorder.none,
-                      hintStyle: TextStyle(color: AppColors.textSecondary),
+                      hintStyle: TextStyle(color: subtextColor),
                     ),
                   ),
                 ),
               ],
             ),
           ),
-          const Divider(height: 1),
+          Divider(height: 1, color: isDark ? Colors.white10 : Colors.black12),
 
           // ─── RESULTS ──────────────────────────────────────────
           Expanded(child: _buildBody(searchState)),
@@ -110,6 +116,10 @@ class _NewMessagePageState extends ConsumerState<NewMessagePage> {
   }
 
   Widget _buildBody(MessageSearchState state) {
+    final isDark = Theme.of(context).brightness == Brightness.dark;
+    final textColor = isDark ? Colors.white : Colors.black;
+    final subtextColor = isDark ? Colors.white60 : Colors.black45;
+
     if (state.isLoading) {
       return const Center(
         child: CircularProgressIndicator(color: AppColors.primary),
@@ -128,10 +138,10 @@ class _NewMessagePageState extends ConsumerState<NewMessagePage> {
     final showGroupRow = _searchController.text.trim().isEmpty;
 
     if (state.users.isEmpty && _searchController.text.isNotEmpty) {
-      return const Center(
+      return Center(
         child: Text(
           'No users found',
-          style: TextStyle(color: AppColors.textSecondary),
+          style: TextStyle(color: subtextColor),
         ),
       );
     }
@@ -152,68 +162,68 @@ class _NewMessagePageState extends ConsumerState<NewMessagePage> {
                 child: Padding(
                   padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 14),
                   child: Row(
-                    children: [
-                      Container(
-                        width: 44,
-                        height: 44,
-                        decoration: BoxDecoration(
-                          shape: BoxShape.circle,
-                          border: Border.all(color: AppColors.border),
+                      children: [
+                        Container(
+                          width: 44,
+                          height: 44,
+                          decoration: BoxDecoration(
+                            shape: BoxShape.circle,
+                            border: Border.all(color: isDark ? Colors.white10 : AppColors.border),
+                          ),
+                          child: Icon(
+                            LucideIcons.users,
+                            color: textColor,
+                            size: 20,
+                          ),
                         ),
-                        child: const Icon(
-                          LucideIcons.users,
-                          color: AppColors.textPrimary,
-                          size: 20,
-                        ),
-                      ),
-                      const SizedBox(width: 12),
-                      const Expanded(
-                        child: Column(
-                          crossAxisAlignment: CrossAxisAlignment.start,
-                          children: [
-                            Text(
-                              'Create Group Chat',
-                              style: TextStyle(
-                                fontSize: 15,
-                                fontWeight: FontWeight.bold,
-                                color: AppColors.textPrimary,
+                        const SizedBox(width: 12),
+                        Expanded(
+                          child: Column(
+                            crossAxisAlignment: CrossAxisAlignment.start,
+                            children: [
+                              Text(
+                                'Create Group Chat',
+                                style: TextStyle(
+                                  fontSize: 15,
+                                  fontWeight: FontWeight.bold,
+                                  color: textColor,
+                                ),
                               ),
-                            ),
-                            SizedBox(height: 2),
-                            Text(
-                              'Chat with up to 250 friends',
-                              style: TextStyle(
-                                fontSize: 12,
-                                color: AppColors.textSecondary,
+                              const SizedBox(height: 2),
+                              Text(
+                                'Chat with up to 250 friends',
+                                style: TextStyle(
+                                  fontSize: 12,
+                                  color: subtextColor,
+                                ),
                               ),
-                            ),
-                          ],
+                            ],
+                          ),
                         ),
-                      ),
-                      const Icon(
-                        LucideIcons.chevron_right,
-                        size: 16,
-                        color: AppColors.textSecondary,
-                      ),
-                    ],
-                  ),
-                ),
-              ),
-              const Divider(height: 1),
-              if (state.users.isNotEmpty)
-                const Padding(
-                  padding: EdgeInsets.fromLTRB(16, 16, 16, 8),
-                  child: Text(
-                    'Suggested',
-                    style: TextStyle(
-                      fontWeight: FontWeight.bold,
-                      fontSize: 15,
-                      color: AppColors.textPrimary,
+                        Icon(
+                          LucideIcons.chevron_right,
+                          size: 16,
+                          color: subtextColor,
+                        ),
+                      ],
                     ),
                   ),
                 ),
-            ],
-          );
+                Divider(height: 1, color: isDark ? Colors.white10 : Colors.black12),
+                if (state.users.isNotEmpty)
+                  Padding(
+                    padding: const EdgeInsets.fromLTRB(16, 16, 16, 8),
+                    child: Text(
+                      'Suggested',
+                      style: TextStyle(
+                        fontWeight: FontWeight.bold,
+                        fontSize: 15,
+                        color: textColor,
+                      ),
+                    ),
+                  ),
+              ],
+            );
         }
 
         final userIndex = showGroupRow ? index - 1 : index;
@@ -276,7 +286,7 @@ class _NewMessagePageState extends ConsumerState<NewMessagePage> {
                 Flexible(
                   child: Text(
                     user.username,
-                    style: const TextStyle(fontWeight: FontWeight.w600),
+                    style: TextStyle(fontWeight: FontWeight.w600, color: textColor),
                     overflow: TextOverflow.ellipsis,
                   ),
                 ),
@@ -288,7 +298,7 @@ class _NewMessagePageState extends ConsumerState<NewMessagePage> {
             ),
             subtitle: Text(
               user.fullName,
-              style: const TextStyle(color: AppColors.textSecondary),
+              style: TextStyle(color: subtextColor),
             ),
           ),
         );

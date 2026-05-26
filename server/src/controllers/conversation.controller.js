@@ -62,16 +62,19 @@ const formatConversation = (conv, currentUserId) => {
     last_message_at: c.last_message_at,
     participants: (c.participants || []).map((p) => {
       let role = 'member';
-      if (p.ConversationParticipant && p.ConversationParticipant.role) {
-        role = p.ConversationParticipant.role;
-      } else if (p.conversation_participant && p.conversation_participant.role) {
-        role = p.conversation_participant.role;
-      } else if (p.through && p.through.role) {
-        role = p.through.role;
-      } else if (c.participantRecords) {
+      let lastReadAt = null;
+      
+      const cp = p.ConversationParticipant || p.conversation_participant || p.through;
+      if (cp) {
+        if (cp.role) role = cp.role;
+        if (cp.last_read_at) lastReadAt = cp.last_read_at;
+      }
+      
+      if (c.participantRecords) {
         const record = c.participantRecords.find(r => r.user_id === p.id);
-        if (record && record.role) {
-          role = record.role;
+        if (record) {
+          if (record.role) role = record.role;
+          if (record.last_read_at) lastReadAt = record.last_read_at;
         }
       }
       return {
@@ -81,6 +84,7 @@ const formatConversation = (conv, currentUserId) => {
         profile_pic_url: p.profile_pic_url,
         is_verified: p.is_verified,
         role: role,
+        last_read_at: lastReadAt,
       };
     }),
     other_user: otherUser
@@ -289,7 +293,7 @@ const createOrGetConversation = async (req, res) => {
             model: User,
             as: 'participants',
             attributes: ['id', 'username', 'full_name', 'profile_pic_url', 'is_verified'],
-            through: { attributes: ['role'] },
+            through: { attributes: ['role', 'last_read_at'] },
           },
           {
             model: ConversationParticipant,
@@ -355,7 +359,7 @@ const createOrGetConversation = async (req, res) => {
           model: User,
           as: 'participants',
           attributes: ['id', 'username', 'full_name', 'profile_pic_url', 'is_verified'],
-          through: { attributes: ['role'] },
+          through: { attributes: ['role', 'last_read_at'] },
         },
         {
           model: ConversationParticipant,
@@ -436,7 +440,7 @@ const getInbox = async (req, res) => {
           model: User,
           as: 'participants',
           attributes: ['id', 'username', 'full_name', 'profile_pic_url', 'is_verified'],
-          through: { attributes: ['role'] },
+          through: { attributes: ['role', 'last_read_at'] },
         },
         {
           model: ConversationParticipant,
@@ -570,7 +574,7 @@ const getConversation = async (req, res) => {
               'profile_pic_url', 'is_verified',
             ],
             through: {
-              attributes: ['role', 'nickname', 'is_muted'],
+              attributes: ['role', 'nickname', 'is_muted', 'last_read_at'],
               where: { left_at: null },
             },
           },
@@ -1757,7 +1761,7 @@ const createGroupConversation = async (req, res) => {
           model: User,
           as: 'participants',
           attributes: ['id', 'username', 'full_name', 'profile_pic_url', 'is_verified'],
-          through: { attributes: ['role'] },
+          through: { attributes: ['role', 'last_read_at'] },
         },
       ],
     });

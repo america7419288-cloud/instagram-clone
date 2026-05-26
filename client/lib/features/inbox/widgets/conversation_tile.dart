@@ -1,5 +1,6 @@
 // lib/features/inbox/widgets/conversation_tile.dart
 
+import 'dart:ui';
 import 'package:flutter/material.dart';
 import 'package:flutter/cupertino.dart' show CupertinoActivityIndicator;
 import 'package:flutter/services.dart';
@@ -98,114 +99,90 @@ class _ConversationTileState extends State<ConversationTile>
     });
   }
 
+  /// iOS-style blurred glass popup menu
   void _showMoreActionMenu(BuildContext context) {
     final isDark = Theme.of(context).brightness == Brightness.dark;
     final conv = widget.conversation;
-    
-    showModalBottomSheet(
+    // Capture root navigator context BEFORE opening any dialog
+    final rootContext = context;
+
+    showGeneralDialog(
       context: context,
-      backgroundColor: isDark ? const Color(0xFF1C1C1E) : Colors.white,
-      shape: const RoundedRectangleBorder(
-        borderRadius: BorderRadius.vertical(top: Radius.circular(16)),
-      ),
-      builder: (context) {
-        return SafeArea(
-          child: Column(
-            mainAxisSize: MainAxisSize.min,
-            children: [
-              const SizedBox(height: 8),
-              Container(
-                width: 40,
-                height: 4,
-                decoration: BoxDecoration(
-                  color: Colors.grey.withValues(alpha: 0.3),
-                  borderRadius: BorderRadius.circular(2),
-                ),
-              ),
-              const SizedBox(height: 16),
-              ListTile(
-                leading: Icon(conv.isMuted ? LucideIcons.volume_2 : LucideIcons.volume_x),
-                title: Text(conv.isMuted ? 'Unmute Notifications' : 'Mute Notifications'),
-                onTap: () {
-                  Navigator.pop(context);
-                  if (conv.isMuted) {
-                    widget.onUnmute?.call();
-                  } else {
-                    showModalBottomSheet(
-                      context: context,
-                      backgroundColor: Colors.transparent,
-                      builder: (_) => MuteBottomSheet(
-                        username: conv.username,
-                        onMuteSelected: (duration) {
-                          Navigator.pop(context);
-                          widget.onMute?.call(duration);
-                        },
-                      ),
-                    );
-                  }
-                },
-              ),
-              ListTile(
-                leading: Icon(conv.isUnread ? LucideIcons.mail_open : LucideIcons.mail),
-                title: Text(conv.isUnread ? 'Mark as Read' : 'Mark as Unread'),
-                onTap: () {
-                  Navigator.pop(context);
-                  widget.onToggleRead?.call();
-                },
-              ),
-              if (!conv.isGroup) ...[
-                ListTile(
-                  leading: const Icon(LucideIcons.ban, color: Colors.orange),
-                  title: const Text('Restrict', style: TextStyle(color: Colors.orange)),
-                  onTap: () => Navigator.pop(context),
-                ),
-                ListTile(
-                  leading: const Icon(LucideIcons.user_minus, color: Colors.red),
-                  title: const Text('Block User', style: TextStyle(color: Colors.red)),
-                  onTap: () {
-                    Navigator.pop(context);
-                    widget.onBlock?.call();
-                  },
-                ),
-                ListTile(
-                  leading: const Icon(LucideIcons.trash_2, color: Colors.red),
-                  title: const Text('Delete Chat', style: TextStyle(color: Colors.red)),
-                  onTap: () {
-                    Navigator.pop(context);
-                    _confirmDeleteDialog(context);
-                  },
-                ),
-                ListTile(
-                  leading: const Icon(LucideIcons.flag, color: Colors.red),
-                  title: const Text('Report', style: TextStyle(color: Colors.red)),
-                  onTap: () {
-                    Navigator.pop(context);
-                    showModalBottomSheet(
-                      context: context,
-                      isScrollControlled: true,
-                      backgroundColor: Colors.transparent,
-                      builder: (_) => ReportSheet(
-                        targetName: conv.username,
-                        onSubmitReport: (type, desc) async {
-                          await widget.onReport?.call(type, desc);
-                        },
-                      ),
-                    );
-                  },
-                ),
-              ] else ...[
-                ListTile(
-                  leading: const Icon(LucideIcons.log_out, color: Colors.red),
-                  title: const Text('Leave Group', style: TextStyle(color: Colors.red)),
-                  onTap: () {
-                    Navigator.pop(context);
-                    // Leave group logic (to be handled by controller later)
-                    widget.onDelete(); // currently maps to leave/delete
-                  },
-                ),
-              ],
-              const SizedBox(height: 12),
-            ],
+      barrierDismissible: true,
+      barrierLabel: 'Dismiss',
+      barrierColor: Colors.black.withValues(alpha: 0.35),
+      transitionDuration: const Duration(milliseconds: 220),
+      pageBuilder: (ctx, animation, secondaryAnimation) => const SizedBox.shrink(),
+      transitionBuilder: (ctx, animation, secondaryAnimation, child) {
+        final curve = CurvedAnimation(parent: animation, curve: Curves.easeOutCubic);
+        return FadeTransition(
+          opacity: curve,
+          child: ScaleTransition(
+            scale: Tween<double>(begin: 0.92, end: 1.0).animate(curve),
+            alignment: Alignment.center,
+            child: _IosStyleMenu(
+              isDark: isDark,
+              conv: conv,
+              onMute: () {
+                Navigator.of(ctx).pop();
+                // Show mute duration picker using root context
+                Future.delayed(const Duration(milliseconds: 50), () {
+                  if (!rootContext.mounted) return;
+                  showModalBottomSheet(
+                    context: rootContext,
+                    backgroundColor: Colors.transparent,
+                    isScrollControlled: true,
+                    builder: (sheetCtx) => MuteBottomSheet(
+                      username: conv.username,
+                      onMuteSelected: (duration) {
+                        Navigator.pop(sheetCtx);
+                        widget.onMute?.call(duration);
+                      },
+                    ),
+                  );
+                });
+              },
+              onUnmute: () {
+                Navigator.of(ctx).pop();
+                widget.onUnmute?.call();
+              },
+              onToggleRead: () {
+                Navigator.of(ctx).pop();
+                widget.onToggleRead?.call();
+              },
+              onBlock: () {
+                Navigator.of(ctx).pop();
+                widget.onBlock?.call();
+              },
+              onReport: () {
+                Navigator.of(ctx).pop();
+                Future.delayed(const Duration(milliseconds: 50), () {
+                  if (!rootContext.mounted) return;
+                  showModalBottomSheet(
+                    context: rootContext,
+                    isScrollControlled: true,
+                    backgroundColor: Colors.transparent,
+                    builder: (_) => ReportSheet(
+                      targetName: conv.username,
+                      onSubmitReport: (type, desc) async {
+                        await widget.onReport?.call(type, desc);
+                      },
+                    ),
+                  );
+                });
+              },
+              onDelete: () {
+                Navigator.of(ctx).pop();
+                Future.delayed(const Duration(milliseconds: 50), () {
+                  if (!rootContext.mounted) return;
+                  _confirmDeleteDialog(rootContext);
+                });
+              },
+              onLeaveGroup: () {
+                Navigator.of(ctx).pop();
+                widget.onDelete();
+              },
+            ),
           ),
         );
       },
@@ -223,14 +200,14 @@ class _ConversationTileState extends State<ConversationTile>
         actions: [
           TextButton(
             onPressed: () => Navigator.pop(context),
-            child: const Text('Cancel', style: TextStyle(color: Colors.grey)),
+            child: const Text('Cancel', style: TextStyle(color: Colors.grey, decoration: TextDecoration.none)),
           ),
           TextButton(
             onPressed: () {
               Navigator.pop(context);
               widget.onDelete();
             },
-            child: const Text('Delete', style: TextStyle(color: Color(0xFFED4956), fontWeight: FontWeight.bold)),
+            child: const Text('Delete', style: TextStyle(color: Color(0xFFED4956), fontWeight: FontWeight.bold, decoration: TextDecoration.none)),
           ),
         ],
       ),
@@ -265,7 +242,6 @@ class _ConversationTileState extends State<ConversationTile>
           child: Slidable(
             key: ValueKey(conv.id),
             // SWIPE RIGHT TO MARK READ/UNREAD SPEC:
-            // Extent ratio is thin, snaps back when confirmed dismiss is returned false.
             startActionPane: ActionPane(
               motion: const ScrollMotion(),
               extentRatio: 0.15,
@@ -275,7 +251,7 @@ class _ConversationTileState extends State<ConversationTile>
                   HapticFeedback.lightImpact();
                   widget.onToggleRead?.call();
                   _triggerBlueFlash();
-                  return false; // Snaps back immediately!
+                  return false;
                 },
               ),
               children: [
@@ -293,8 +269,7 @@ class _ConversationTileState extends State<ConversationTile>
               ],
             ),
             
-            // SWIPE LEFT ACTIONS SPEC:
-            // Reveal 2 buttons (More - grey, Delete - red). Extent 0.4.
+            // SWIPE LEFT ACTIONS
             endActionPane: ActionPane(
               motion: const DrawerMotion(),
               extentRatio: 0.4,
@@ -307,7 +282,7 @@ class _ConversationTileState extends State<ConversationTile>
                     children: [
                       Icon(Icons.more_horiz, color: Colors.white, size: 24),
                       SizedBox(height: 4),
-                      Text('More', style: TextStyle(color: Colors.white, fontSize: 11)),
+                      Text('More', style: TextStyle(color: Colors.white, fontSize: 11, decoration: TextDecoration.none)),
                     ],
                   ),
                 ),
@@ -319,7 +294,7 @@ class _ConversationTileState extends State<ConversationTile>
                     children: [
                       Icon(LucideIcons.trash_2, color: Colors.white, size: 24),
                       SizedBox(height: 4),
-                      Text('Delete', style: TextStyle(color: Colors.white, fontSize: 11)),
+                      Text('Delete', style: TextStyle(color: Colors.white, fontSize: 11, decoration: TextDecoration.none)),
                     ],
                   ),
                 ),
@@ -341,6 +316,10 @@ class _ConversationTileState extends State<ConversationTile>
                   onTapCancel: () {
                     setState(() => _isPressed = false);
                     _animateAvatarPress(false);
+                  },
+                  onLongPress: () {
+                    HapticFeedback.mediumImpact();
+                    _showMoreActionMenu(context);
                   },
                   behavior: HitTestBehavior.opaque,
                   child: AnimatedContainer(
@@ -378,6 +357,7 @@ class _ConversationTileState extends State<ConversationTile>
                                             ? FontWeight.w700
                                             : FontWeight.w600,
                                         color: isDark ? Colors.white : Colors.black,
+                                        decoration: TextDecoration.none,
                                       ),
                                       overflow: TextOverflow.ellipsis,
                                     ),
@@ -418,6 +398,7 @@ class _ConversationTileState extends State<ConversationTile>
                                         color: conv.isUnread
                                             ? (isDark ? Colors.white : Colors.black87)
                                             : Colors.grey,
+                                        decoration: TextDecoration.none,
                                       ),
                                       overflow: TextOverflow.ellipsis,
                                       maxLines: 1,
@@ -432,7 +413,6 @@ class _ConversationTileState extends State<ConversationTile>
                           crossAxisAlignment: CrossAxisAlignment.end,
                           mainAxisAlignment: MainAxisAlignment.center,
                           children: [
-                            // State-dependent timestamp
                             if (conv.state == ConversationState.sending)
                               const SizedBox(
                                 width: 12,
@@ -459,6 +439,7 @@ class _ConversationTileState extends State<ConversationTile>
                                   fontWeight: conv.isActive
                                       ? FontWeight.w600
                                       : FontWeight.w400,
+                                  decoration: TextDecoration.none,
                                 ),
                               ),
                             const SizedBox(height: 6),
@@ -499,6 +480,247 @@ class _ConversationTileState extends State<ConversationTile>
               ],
             ),
           ),
+        ),
+      ),
+    );
+  }
+}
+
+// ──────────────────────────────────────────────────────────────────
+// iOS-style frosted glass popup menu
+// ──────────────────────────────────────────────────────────────────
+
+class _IosStyleMenu extends StatelessWidget {
+  final bool isDark;
+  final ConversationModel conv;
+  final VoidCallback onMute;
+  final VoidCallback onUnmute;
+  final VoidCallback onToggleRead;
+  final VoidCallback onBlock;
+  final VoidCallback onReport;
+  final VoidCallback onDelete;
+  final VoidCallback onLeaveGroup;
+
+  const _IosStyleMenu({
+    required this.isDark,
+    required this.conv,
+    required this.onMute,
+    required this.onUnmute,
+    required this.onToggleRead,
+    required this.onBlock,
+    required this.onReport,
+    required this.onDelete,
+    required this.onLeaveGroup,
+  });
+
+  @override
+  Widget build(BuildContext context) {
+    final bgColor = isDark
+        ? const Color(0xFF2C2C2E).withValues(alpha: 0.70)
+        : Colors.white.withValues(alpha: 0.68);
+    final textColor = isDark ? Colors.white : const Color(0xFF1C1C1E);
+    final separatorColor = isDark
+        ? Colors.white.withValues(alpha: 0.1)
+        : Colors.black.withValues(alpha: 0.08);
+
+    final List<_MenuAction> actions = [
+      _MenuAction(
+        icon: conv.isMuted ? LucideIcons.volume_2 : LucideIcons.bell_off,
+        label: conv.isMuted ? 'Unmute Notifications' : 'Mute Notifications',
+        onTap: conv.isMuted ? onUnmute : onMute,
+      ),
+      _MenuAction(
+        icon: conv.isUnread ? LucideIcons.mail_open : LucideIcons.mail,
+        label: conv.isUnread ? 'Mark as Read' : 'Mark as Unread',
+        onTap: onToggleRead,
+      ),
+      if (!conv.isGroup) ...[
+        _MenuAction(
+          icon: LucideIcons.user_minus,
+          label: 'Block',
+          onTap: onBlock,
+          isDestructive: true,
+        ),
+        _MenuAction(
+          icon: LucideIcons.flag,
+          label: 'Report',
+          onTap: onReport,
+          isDestructive: true,
+        ),
+        _MenuAction(
+          icon: LucideIcons.trash_2,
+          label: 'Delete Chat',
+          onTap: onDelete,
+          isDestructive: true,
+        ),
+      ] else ...[
+        _MenuAction(
+          icon: LucideIcons.log_out,
+          label: 'Leave Group',
+          onTap: onLeaveGroup,
+          isDestructive: true,
+        ),
+      ],
+    ];
+
+    return Center(
+      child: Padding(
+        padding: const EdgeInsets.symmetric(horizontal: 32),
+        child: ClipRRect(
+          borderRadius: BorderRadius.circular(16),
+          child: BackdropFilter(
+            filter: ImageFilter.blur(sigmaX: 16, sigmaY: 16),
+            child: Container(
+              decoration: BoxDecoration(
+                color: bgColor,
+                borderRadius: BorderRadius.circular(16),
+                border: Border.all(
+                  color: isDark
+                      ? Colors.white.withValues(alpha: 0.12)
+                      : Colors.black.withValues(alpha: 0.06),
+                  width: 0.5,
+                ),
+                boxShadow: [
+                  BoxShadow(
+                    color: Colors.black.withValues(alpha: isDark ? 0.35 : 0.15),
+                    blurRadius: 30,
+                    spreadRadius: 0,
+                    offset: const Offset(0, 8),
+                  ),
+                ],
+              ),
+              child: Column(
+                mainAxisSize: MainAxisSize.min,
+                children: [
+                  // Header: conversation name
+                  Padding(
+                    padding: const EdgeInsets.fromLTRB(16, 14, 16, 10),
+                    child: Row(
+                      children: [
+                        Text(
+                          conv.username.isEmpty ? 'Group Chat' : conv.username,
+                          style: TextStyle(
+                            fontSize: 13,
+                            fontWeight: FontWeight.w600,
+                            color: textColor.withValues(alpha: 0.55),
+                            fontFamily: 'SF Pro Display',
+                            decoration: TextDecoration.none,
+                          ),
+                        ),
+                      ],
+                    ),
+                  ),
+                  Divider(height: 0.5, thickness: 0.5, color: separatorColor),
+                  // Menu items
+                  ...actions.asMap().entries.map((entry) {
+                    final i = entry.key;
+                    final action = entry.value;
+                    final isLast = i == actions.length - 1;
+                    final itemColor = action.isDestructive
+                        ? const Color(0xFFFF3B30)
+                        : textColor;
+
+                    return Column(
+                      mainAxisSize: MainAxisSize.min,
+                      children: [
+                        _MenuItemTile(
+                          icon: action.icon,
+                          label: action.label,
+                          color: itemColor,
+                          onTap: action.onTap,
+                          isDark: isDark,
+                        ),
+                        if (!isLast)
+                          Divider(
+                            height: 0.5,
+                            thickness: 0.5,
+                            color: separatorColor,
+                            indent: 16,
+                            endIndent: 16,
+                          ),
+                      ],
+                    );
+                  }),
+                ],
+              ),
+            ),
+          ),
+        ),
+      ),
+    );
+  }
+}
+
+class _MenuAction {
+  final IconData icon;
+  final String label;
+  final VoidCallback onTap;
+  final bool isDestructive;
+
+  const _MenuAction({
+    required this.icon,
+    required this.label,
+    required this.onTap,
+    this.isDestructive = false,
+  });
+}
+
+class _MenuItemTile extends StatefulWidget {
+  final IconData icon;
+  final String label;
+  final Color color;
+  final VoidCallback onTap;
+  final bool isDark;
+
+  const _MenuItemTile({
+    required this.icon,
+    required this.label,
+    required this.color,
+    required this.onTap,
+    required this.isDark,
+  });
+
+  @override
+  State<_MenuItemTile> createState() => _MenuItemTileState();
+}
+
+class _MenuItemTileState extends State<_MenuItemTile> {
+  bool _pressed = false;
+
+  @override
+  Widget build(BuildContext context) {
+    final highlightColor = widget.isDark
+        ? Colors.white.withValues(alpha: 0.06)
+        : Colors.black.withValues(alpha: 0.04);
+
+    return GestureDetector(
+      onTapDown: (_) => setState(() => _pressed = true),
+      onTapUp: (_) {
+        setState(() => _pressed = false);
+        widget.onTap();
+      },
+      onTapCancel: () => setState(() => _pressed = false),
+      child: AnimatedContainer(
+        duration: const Duration(milliseconds: 60),
+        color: _pressed ? highlightColor : Colors.transparent,
+        padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
+        child: Row(
+          children: [
+            Expanded(
+              child: Text(
+                widget.label,
+                style: TextStyle(
+                  fontSize: 16,
+                  fontWeight: FontWeight.w400,
+                  color: widget.color,
+                  fontFamily: 'SF Pro Display',
+                  decoration: TextDecoration.none,
+                ),
+              ),
+            ),
+            const SizedBox(width: 14),
+            Icon(widget.icon, size: 20, color: widget.color),
+          ],
         ),
       ),
     );

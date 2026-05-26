@@ -273,64 +273,92 @@ class _SearchPageState extends ConsumerState<SearchPage> {
   }
 }
 
-class _ExploreItem extends StatelessWidget {
+class _ExploreItem extends StatefulWidget {
   final Map<String, dynamic> post;
   const _ExploreItem({required this.post});
 
   @override
-  Widget build(BuildContext context) {
-    return BouncyTap(
-      onLongPress: () => _showIOSPeak(context),
-      onTap: () => context.push('/post/${post['id']}'),
-      child: Stack(
-        fit: StackFit.expand,
-        children: [
-          CachedNetworkImage(
-            imageUrl: post['thumbnail_url'] ?? '',
-            fit: BoxFit.cover,
-            placeholder: (context, url) => Container(color: Colors.grey[200]),
-          ),
-          if (post['media_type'] == 'video')
-            const Positioned(top: 8, right: 8, child: Icon(LucideIcons.play, color: Colors.white, size: 18)),
-        ],
-      ),
-    );
-  }
+  State<_ExploreItem> createState() => _ExploreItemState();
+}
 
-  void _showIOSPeak(BuildContext context) {
+class _ExploreItemState extends State<_ExploreItem> {
+  OverlayEntry? _peakOverlay;
+
+  void _showPeak() {
+    if (_peakOverlay != null) return;
     HapticFeedback.heavyImpact();
-    showGeneralDialog(
-      context: context,
-      barrierDismissible: true,
-      barrierLabel: '',
-      barrierColor: Colors.black54,
-      transitionDuration: const Duration(milliseconds: 200),
-      pageBuilder: (ctx, anim1, anim2) {
-        return BackdropFilter(
-          filter: ImageFilter.blur(sigmaX: 20, sigmaY: 20),
-          child: Center(
-            child: ScaleTransition(
-              scale: CurvedAnimation(parent: anim1, curve: Curves.easeOut),
+
+    final isDark = Theme.of(context).brightness == Brightness.dark;
+    final size = MediaQuery.of(context).size;
+
+    _peakOverlay = OverlayEntry(
+      builder: (ctx) => Positioned.fill(
+        child: Material(
+          color: Colors.black.withOpacity(0.4),
+          child: BackdropFilter(
+            filter: ImageFilter.blur(sigmaX: 16, sigmaY: 16),
+            child: Center(
               child: Container(
-                width: MediaQuery.of(context).size.width * 0.9,
-                decoration: BoxDecoration(color: Colors.white, borderRadius: BorderRadius.circular(16)),
+                width: size.width * 0.88,
+                decoration: BoxDecoration(
+                  color: isDark ? const Color(0xFF1C1C1E) : Colors.white,
+                  borderRadius: BorderRadius.circular(16),
+                  boxShadow: [
+                    BoxShadow(
+                      color: Colors.black.withOpacity(0.3),
+                      blurRadius: 30,
+                      spreadRadius: 2,
+                    ),
+                  ],
+                ),
                 child: Column(
                   mainAxisSize: MainAxisSize.min,
                   children: [
+                    // Header: Avatar + Username
                     ListTile(
-                      leading: const CircleAvatar(radius: 14, backgroundColor: AppColors.border),
-                      title: Text(post['username'] ?? 'username', style: const TextStyle(fontWeight: FontWeight.w600, fontSize: 14)),
+                      leading: CircleAvatar(
+                        radius: 16,
+                        backgroundColor: isDark ? const Color(0xFF262626) : const Color(0xFFEFEFEF),
+                        backgroundImage: widget.post['profile_pic_url'] != null && widget.post['profile_pic_url'].isNotEmpty
+                            ? NetworkImage(widget.post['profile_pic_url'])
+                            : null,
+                        child: widget.post['profile_pic_url'] == null || widget.post['profile_pic_url'].isEmpty
+                            ? Icon(LucideIcons.user, size: 16, color: isDark ? Colors.white54 : Colors.black45)
+                            : null,
+                      ),
+                      title: Text(
+                        widget.post['username'] ?? 'username',
+                        style: TextStyle(
+                          fontWeight: FontWeight.w600,
+                          fontSize: 14,
+                          color: isDark ? Colors.white : Colors.black,
+                        ),
+                      ),
                     ),
-                    CachedNetworkImage(imageUrl: post['thumbnail_url'] ?? '', fit: BoxFit.cover, height: 350, width: double.infinity),
-                    const Padding(
-                      padding: EdgeInsets.symmetric(vertical: 12),
+                    // Post Image/Video Preview
+                    ClipRRect(
+                      borderRadius: widget.post['media_type'] == 'video' 
+                          ? BorderRadius.zero 
+                          : const BorderRadius.vertical(bottom: Radius.circular(0)),
+                      child: widget.post['media_type'] == 'video' && widget.post['video_url'] != null
+                          ? _PeakVideoPlayer(videoUrl: widget.post['video_url'])
+                          : CachedNetworkImage(
+                              imageUrl: widget.post['thumbnail_url'] ?? '',
+                              fit: BoxFit.cover,
+                              height: size.height * 0.45,
+                              width: double.infinity,
+                            ),
+                    ),
+                    // Quick Action Icons
+                    Padding(
+                      padding: const EdgeInsets.symmetric(vertical: 14),
                       child: Row(
                         mainAxisAlignment: MainAxisAlignment.spaceAround,
                         children: [
-                          Icon(LucideIcons.heart, size: 24),
-                          Icon(LucideIcons.user_round, size: 24),
-                          Icon(LucideIcons.send, size: 24),
-                          Icon(LucideIcons.eclipse, size: 24),
+                          Icon(LucideIcons.heart, size: 24, color: isDark ? Colors.white : Colors.black),
+                          Icon(LucideIcons.user_round, size: 24, color: isDark ? Colors.white : Colors.black),
+                          Icon(LucideIcons.send, size: 24, color: isDark ? Colors.white : Colors.black),
+                          Icon(LucideIcons.bookmark, size: 24, color: isDark ? Colors.white : Colors.black),
                         ],
                       ),
                     ),
@@ -339,8 +367,46 @@ class _ExploreItem extends StatelessWidget {
               ),
             ),
           ),
-        );
-      },
+        ),
+      ),
+    );
+
+    Overlay.of(context).insert(_peakOverlay!);
+  }
+
+  void _hidePeak() {
+    if (_peakOverlay != null) {
+      _peakOverlay!.remove();
+      _peakOverlay = null;
+    }
+  }
+
+  @override
+  void dispose() {
+    _hidePeak();
+    super.dispose();
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    return GestureDetector(
+      onLongPressStart: (_) => _showPeak(),
+      onLongPressEnd: (_) => _hidePeak(),
+      onLongPressUp: () => _hidePeak(),
+      onLongPressCancel: () => _hidePeak(),
+      onTap: () => context.push('/post/${widget.post['id']}'),
+      child: Stack(
+        fit: StackFit.expand,
+        children: [
+          CachedNetworkImage(
+            imageUrl: widget.post['thumbnail_url'] ?? '',
+            fit: BoxFit.cover,
+            placeholder: (context, url) => Container(color: Colors.grey[200]),
+          ),
+          if (widget.post['media_type'] == 'video')
+            const Positioned(top: 8, right: 8, child: Icon(LucideIcons.play, color: Colors.white, size: 18)),
+        ],
+      ),
     );
   }
 }
@@ -383,6 +449,58 @@ class _UserResultTile extends StatelessWidget {
         ),
         trailing: user['is_own_profile'] == true ? null : FollowButton(targetUserId: user['id'] ?? '', compact: true),
       ),
+    );
+  }
+}
+
+// ── Peak Video Player ───────────────────────────────────────
+class _PeakVideoPlayer extends StatefulWidget {
+  final String videoUrl;
+  const _PeakVideoPlayer({required this.videoUrl});
+
+  @override
+  State<_PeakVideoPlayer> createState() => _PeakVideoPlayerState();
+}
+
+class _PeakVideoPlayerState extends State<_PeakVideoPlayer> {
+  VideoPlayerController? _controller;
+  bool _initialized = false;
+
+  @override
+  void initState() {
+    super.initState();
+    _controller = VideoPlayerController.networkUrl(Uri.parse(widget.videoUrl))
+      ..initialize().then((_) {
+        if (mounted) {
+          setState(() {
+            _initialized = true;
+          });
+          _controller?.setLooping(true);
+          _controller?.play();
+        }
+      });
+  }
+
+  @override
+  void dispose() {
+    _controller?.dispose();
+    super.dispose();
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    final size = MediaQuery.of(context).size;
+    if (!_initialized) {
+      return Container(
+        height: size.height * 0.45,
+        color: Colors.black12,
+        child: const Center(child: CupertinoActivityIndicator()),
+      );
+    }
+    return SizedBox(
+      height: size.height * 0.45,
+      width: double.infinity,
+      child: VideoPlayer(_controller!),
     );
   }
 }

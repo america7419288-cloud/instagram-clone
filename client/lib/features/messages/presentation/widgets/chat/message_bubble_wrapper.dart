@@ -1,6 +1,9 @@
 import 'package:flutter/cupertino.dart';
+import 'package:flutter/material.dart' show Colors, Material, Divider, CircleAvatar, ListTile, showModalBottomSheet, ClipOval, Image, NetworkImage, SizedBox, GestureDetector, Row, Padding, BuildContext, MainAxisSize, CrossAxisAlignment, Stack, Positioned, ClipRRect, BackdropFilter, Container, Widget, Expanded, ListView;
+import 'dart:ui' show ImageFilter;
 import 'package:flutter/services.dart';
 import 'package:flutter_lucide/flutter_lucide.dart';
+import '../../../../chat/data/models/chat_user.dart';
 import 'chat_ui_constants.dart';
 
 class MessageBubbleWrapper extends StatefulWidget {
@@ -16,6 +19,7 @@ class MessageBubbleWrapper extends StatefulWidget {
   final Widget? reactionsChip;
   final Widget? replyQuote;
   final VoidCallback? onAvatarTap;
+  final List<ChatUser>? seenParticipants;
 
   const MessageBubbleWrapper({
     super.key,
@@ -31,6 +35,7 @@ class MessageBubbleWrapper extends StatefulWidget {
     this.reactionsChip,
     this.replyQuote,
     this.onAvatarTap,
+    this.seenParticipants,
   });
 
   @override
@@ -206,6 +211,8 @@ class _MessageBubbleWrapperState extends State<MessageBubbleWrapper>
       );
     }
 
+    final isDark = CupertinoTheme.of(context).brightness == Brightness.dark;
+
     return Column(
       crossAxisAlignment: widget.isSent
           ? CrossAxisAlignment.end
@@ -216,10 +223,16 @@ class _MessageBubbleWrapperState extends State<MessageBubbleWrapper>
           key: _bubbleKey,
           child: bubbleContent,
         ),
-        if (widget.isSent && widget.isLastInGroup && widget.statusRow != null)
+        if (widget.isSent && widget.isLastInGroup && widget.statusRow != null && (widget.seenParticipants == null || widget.seenParticipants!.isEmpty))
           Padding(
             padding: EdgeInsets.only(top: hasReactions ? 10.0 : 0.0),
             child: widget.statusRow!,
+          ),
+        if (widget.seenParticipants != null && widget.seenParticipants!.isNotEmpty)
+          SeenAvatarsRow(
+            participants: widget.seenParticipants!,
+            isSent: widget.isSent,
+            isDark: isDark,
           ),
       ],
     );
@@ -455,6 +468,209 @@ class ReactionsChip extends StatelessWidget {
             ),
           );
         }).toList(),
+      ),
+    );
+  }
+}
+
+// ── Seen Avatars Row ──────────────────────────────────────
+class SeenAvatarsRow extends StatelessWidget {
+  final List<ChatUser> participants;
+  final bool isSent;
+  final bool isDark;
+
+  const SeenAvatarsRow({
+    super.key,
+    required this.participants,
+    required this.isSent,
+    required this.isDark,
+  });
+
+  @override
+  Widget build(BuildContext context) {
+    if (participants.isEmpty) return const SizedBox.shrink();
+
+    // Show max 5 avatars
+    final displayList = participants.take(5).toList();
+    final remainingCount = participants.length - displayList.length;
+
+    return GestureDetector(
+      onTap: () => _showSeenListSheet(context),
+      child: Padding(
+        padding: const EdgeInsets.only(top: 4, bottom: 2),
+        child: Row(
+          mainAxisSize: MainAxisSize.min,
+          mainAxisAlignment: isSent ? MainAxisAlignment.end : MainAxisAlignment.start,
+          children: [
+            SizedBox(
+              height: 16,
+              width: (displayList.length - 1) * 10.0 + 14.0,
+              child: Stack(
+                clipBehavior: Clip.none,
+                children: List.generate(displayList.length, (index) {
+                  final user = displayList[index];
+                  final offset = index * 10.0;
+                  return Positioned(
+                    left: isSent ? null : offset,
+                    right: isSent ? offset : null,
+                    child: Container(
+                      width: 14,
+                      height: 14,
+                      decoration: BoxDecoration(
+                        shape: BoxShape.circle,
+                        border: Border.all(
+                          color: isDark ? const Color(0xFF121212) : Colors.white,
+                          width: 1,
+                        ),
+                        color: isDark ? const Color(0xFF262626) : const Color(0xFFEFEFEF),
+                      ),
+                      child: ClipOval(
+                        child: user.profilePicUrl != null && user.profilePicUrl!.isNotEmpty
+                            ? Image.network(
+                                user.profilePicUrl!,
+                                fit: BoxFit.cover,
+                                errorBuilder: (_, __, ___) => Icon(
+                                  LucideIcons.user,
+                                  size: 8,
+                                  color: isDark ? Colors.white54 : Colors.black54,
+                                ),
+                              )
+                            : Icon(
+                                LucideIcons.user,
+                                size: 8,
+                                color: isDark ? Colors.white54 : Colors.black54,
+                              ),
+                      ),
+                    ),
+                  );
+                }),
+              ),
+            ),
+            if (remainingCount > 0) ...[
+              const SizedBox(width: 6),
+              Text(
+                "+$remainingCount",
+                style: TextStyle(
+                  fontSize: 10,
+                  fontWeight: FontWeight.bold,
+                  color: isDark ? Colors.white54 : Colors.black54,
+                  decoration: TextDecoration.none,
+                ),
+              ),
+            ],
+          ],
+        ),
+      ),
+    );
+  }
+
+  void _showSeenListSheet(BuildContext context) {
+    final textTheme = isDark ? Colors.white : const Color(0xFF1C1C1E);
+    final bgColor = isDark
+        ? const Color(0xFF1C1C1E).withValues(alpha: 0.94)
+        : Colors.white.withValues(alpha: 0.94);
+    
+    showModalBottomSheet(
+      context: context,
+      backgroundColor: Colors.transparent,
+      isScrollControlled: true,
+      builder: (sheetCtx) => ClipRRect(
+        borderRadius: const BorderRadius.vertical(top: Radius.circular(20)),
+        child: BackdropFilter(
+          filter: ImageFilter.blur(sigmaX: 30, sigmaY: 30),
+          child: Material(
+            color: bgColor,
+            child: Container(
+              height: MediaQuery.of(context).size.height * 0.5,
+              padding: const EdgeInsets.only(bottom: 24, top: 8),
+              child: SafeArea(
+                child: Column(
+                  mainAxisSize: MainAxisSize.min,
+                  children: [
+                    Container(
+                      width: 36,
+                      height: 4,
+                      margin: const EdgeInsets.only(bottom: 16),
+                      decoration: BoxDecoration(
+                        color: isDark ? Colors.white30 : Colors.black26,
+                        borderRadius: BorderRadius.circular(2),
+                      ),
+                    ),
+                    Padding(
+                      padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
+                      child: Row(
+                        children: [
+                          Icon(
+                            LucideIcons.eye,
+                            color: isDark ? Colors.white : const Color(0xFF1C1C1E),
+                            size: 20,
+                          ),
+                          const SizedBox(width: 8),
+                          Text(
+                            'Seen by',
+                            style: TextStyle(
+                              fontSize: 17,
+                              fontWeight: FontWeight.w700,
+                              color: textTheme,
+                              fontFamily: 'SF Pro Display',
+                            ),
+                          ),
+                          const Spacer(),
+                          Text(
+                            '${participants.length}',
+                            style: TextStyle(
+                              fontSize: 15,
+                              color: isDark ? Colors.white54 : Colors.black54,
+                              fontWeight: FontWeight.w600,
+                            ),
+                          ),
+                        ],
+                      ),
+                    ),
+                    const Divider(height: 0.5, thickness: 0.5),
+                    Expanded(
+                      child: ListView.builder(
+                        itemCount: participants.length,
+                        itemBuilder: (ctx, index) {
+                          final user = participants[index];
+                          return ListTile(
+                            leading: CircleAvatar(
+                              radius: 18,
+                              backgroundColor: isDark ? const Color(0xFF262626) : const Color(0xFFEFEFEF),
+                              backgroundImage: user.profilePicUrl != null && user.profilePicUrl!.isNotEmpty
+                                  ? NetworkImage(user.profilePicUrl!)
+                                  : null,
+                              child: user.profilePicUrl == null
+                                  ? Icon(LucideIcons.user, size: 18, color: isDark ? Colors.white54 : Colors.black54)
+                                  : null,
+                            ),
+                            title: Text(
+                              user.username,
+                              style: TextStyle(
+                                fontWeight: FontWeight.w600,
+                                color: textTheme,
+                                fontSize: 15,
+                              ),
+                            ),
+                            subtitle: user.fullName != null
+                                ? Text(
+                                    user.fullName!,
+                                    style: TextStyle(
+                                      color: isDark ? Colors.white54 : Colors.black54,
+                                      fontSize: 13,
+                                    ),
+                                  )
+                                : null,
+                          );
+                        },
+                      ),
+                    ),
+                  ],
+                ),
+              ),
+            ),
+          ),
+        ),
       ),
     );
   }

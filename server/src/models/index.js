@@ -44,6 +44,12 @@ const SavedCollection = require('./SavedCollection.model');
 const Archive = require('./Archive.model');
 const CloseFriend = require('./CloseFriend.model');
 const MutedAccount = require('./MutedAccount.model');
+const Advertiser = require('./Advertiser.model');
+const Campaign = require('./Campaign.model');
+const AdCreative = require('./AdCreative.model');
+const AdImpression = require('./AdImpression.model');
+const AdAnalyticsSnapshot = require('./AdAnalyticsSnapshot.model');
+
 
 // ─── ALL ASSOCIATIONS ──────────────────────────────────────
 
@@ -80,6 +86,30 @@ CloseFriend.belongsTo(User, { foreignKey: 'friendId', as: 'friend' });
 User.hasMany(MutedAccount, { foreignKey: 'userId', as: 'mutedAccounts', onDelete: 'CASCADE' });
 MutedAccount.belongsTo(User, { foreignKey: 'userId', as: 'user' });
 MutedAccount.belongsTo(User, { foreignKey: 'mutedUserId', as: 'mutedUser' });
+
+// ADVERTISER ASSOCIATIONS
+User.hasOne(Advertiser, { foreignKey: 'userId', as: 'advertiser', onDelete: 'SET NULL' });
+Advertiser.belongsTo(User, { foreignKey: 'userId', as: 'user' });
+
+Advertiser.hasMany(Campaign, { foreignKey: 'advertiserId', as: 'campaigns', onDelete: 'CASCADE' });
+Campaign.belongsTo(Advertiser, { foreignKey: 'advertiserId', as: 'advertiser' });
+
+Campaign.hasMany(AdCreative, { foreignKey: 'campaignId', as: 'creatives', onDelete: 'CASCADE' });
+AdCreative.belongsTo(Campaign, { foreignKey: 'campaignId', as: 'campaign' });
+
+Advertiser.hasMany(AdCreative, { foreignKey: 'advertiserId', as: 'creatives', onDelete: 'CASCADE' });
+AdCreative.belongsTo(Advertiser, { foreignKey: 'advertiserId', as: 'advertiser' });
+
+Campaign.hasMany(AdAnalyticsSnapshot, { foreignKey: 'campaignId', as: 'snapshots', onDelete: 'CASCADE' });
+AdAnalyticsSnapshot.belongsTo(Campaign, { foreignKey: 'campaignId', as: 'campaign' });
+
+Campaign.belongsTo(User, { foreignKey: 'reviewedBy', as: 'reviewer' });
+
+AdImpression.belongsTo(AdCreative, { foreignKey: 'adCreativeId', as: 'creative' });
+AdImpression.belongsTo(Campaign, { foreignKey: 'campaignId', as: 'campaign' });
+AdImpression.belongsTo(Advertiser, { foreignKey: 'advertiserId', as: 'advertiser' });
+AdImpression.belongsTo(User, { foreignKey: 'userId', as: 'user' });
+
 
 // USER → NOTES
 User.hasMany(Note, {
@@ -917,4 +947,9 @@ module.exports = {
   Archive,
   CloseFriend,
   MutedAccount,
+  Advertiser,
+  Campaign,
+  AdCreative,
+  AdImpression,
+  AdAnalyticsSnapshot,
 };

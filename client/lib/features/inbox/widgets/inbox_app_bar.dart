@@ -2,6 +2,7 @@
 
 import 'dart:math' as math;
 import 'package:flutter/material.dart';
+import 'package:flutter/cupertino.dart' show CupertinoIcons, CupertinoColors;
 import 'package:flutter_lucide/flutter_lucide.dart';
 
 class InboxAppBar extends StatefulWidget {
@@ -9,7 +10,6 @@ class InboxAppBar extends StatefulWidget {
   final double scrollOffset;
   final VoidCallback onBackTap;
   final VoidCallback onComposeTap;
-  final VoidCallback onVideoCallTap;
   final VoidCallback? onDropdownTap;
   final VoidCallback onCommunitiesTap;
 
@@ -19,7 +19,6 @@ class InboxAppBar extends StatefulWidget {
     required this.scrollOffset,
     required this.onBackTap,
     required this.onComposeTap,
-    required this.onVideoCallTap,
     this.onDropdownTap,
     required this.onCommunitiesTap,
   });
@@ -128,12 +127,27 @@ class _InboxAppBarState extends State<InboxAppBar> {
                 child: GestureDetector(
                   onTap: widget.onBackTap,
                   behavior: HitTestBehavior.opaque,
-                  child: Padding(
-                    padding: const EdgeInsets.all(4.0),
-                    child: Icon(
-                      LucideIcons.chevron_left,
-                      color: iconColor,
-                      size: 28,
+                  child: const Padding(
+                    padding: EdgeInsets.symmetric(horizontal: 4.0, vertical: 4.0),
+                    child: Row(
+                      mainAxisSize: MainAxisSize.min,
+                      children: [
+                        Icon(
+                          CupertinoIcons.back,
+                          color: CupertinoColors.activeBlue,
+                          size: 26,
+                        ),
+                        SizedBox(width: 2),
+                        Text(
+                          'Instagram',
+                          style: TextStyle(
+                            color: CupertinoColors.activeBlue,
+                            fontSize: 16,
+                            fontWeight: FontWeight.w400,
+                            fontFamily: 'SF Pro Text',
+                          ),
+                        ),
+                      ],
                     ),
                   ),
                 ),
@@ -184,19 +198,6 @@ class _InboxAppBarState extends State<InboxAppBar> {
                 child: Row(
                   mainAxisSize: MainAxisSize.min,
                   children: [
-                    GestureDetector(
-                      onTap: widget.onVideoCallTap,
-                      behavior: HitTestBehavior.opaque,
-                      child: Padding(
-                        padding: const EdgeInsets.symmetric(
-                            horizontal: 8.0, vertical: 4.0),
-                        child: Icon(
-                          LucideIcons.video,
-                          color: iconColor,
-                          size: 26,
-                        ),
-                      ),
-                    ),
                     GestureDetector(
                       onTap: widget.onCommunitiesTap,
                       behavior: HitTestBehavior.opaque,

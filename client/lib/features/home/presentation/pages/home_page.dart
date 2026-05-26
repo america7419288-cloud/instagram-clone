@@ -21,6 +21,10 @@ import '../../../story/presentation/providers/story_provider.dart';
 import '../../../story/presentation/widgets/stories_bar.dart';
 import '../widgets/suggested_users_card.dart';
 import '../../../create/presentation/pages/creation_camera_page.dart';
+import '../../../ads/presentation/providers/ad_provider.dart';
+import '../../../ads/presentation/widgets/ad_card_widget.dart';
+import '../../../ads/data/models/ad_model.dart';
+
 
 class HomePage extends ConsumerWidget {
   const HomePage({super.key});
@@ -75,6 +79,22 @@ class _HomePageContentState extends ConsumerState<HomePageContent> {
     final feedState = ref.watch(feedProvider);
     final isDark = CupertinoTheme.of(context).brightness == Brightness.dark;
     final hasSuggested = feedState.posts.length >= 3;
+    
+    // Watch feed ads
+    final ads = ref.watch(feedAdsProvider(5)).value ?? [];
+
+    // Interleave posts, ads and suggested users card
+    final List<dynamic> items = [];
+    int adIndex = 0;
+    for (int i = 0; i < feedState.posts.length; i++) {
+      items.add(feedState.posts[i]);
+      if (i == 2 && hasSuggested) {
+        items.add('suggested_users');
+      }
+      if ((i + 1) % 4 == 0 && adIndex < ads.length) {
+        items.add(ads[adIndex++]);
+      }
+    }
 
     // Listen for scroll-to-top signal from MainShell
     ref.listen(homeScrollSignalProvider, (prev, next) {
@@ -156,6 +176,7 @@ class _HomePageContentState extends ConsumerState<HomePageContent> {
               await Future.wait([
                 ref.read(feedProvider.notifier).refreshFeed(),
                 ref.read(storyFeedProvider.notifier).loadStories(),
+                ref.refresh(feedAdsProvider(5).future),
               ]);
             },
           ),
@@ -190,17 +211,7 @@ class _HomePageContentState extends ConsumerState<HomePageContent> {
             SliverList(
               delegate: SliverChildBuilderDelegate(
                 (context, index) {
-                  // Show suggested users after 3 posts
-                  if (hasSuggested && index == 3) {
-                    return SuggestedUsersCard(
-                      onSeeAll: () => debugPrint('See all'),
-                    );
-                  }
-
-                  // Adjust index if we've passed the suggestion card
-                  final postIndex = (hasSuggested && index > 3) ? index - 1 : index;
-
-                  if (postIndex == feedState.posts.length) {
+                  if (index == items.length) {
                     if (feedState.hasMore) {
                       return const Padding(
                         padding: EdgeInsets.all(20),
@@ -210,16 +221,25 @@ class _HomePageContentState extends ConsumerState<HomePageContent> {
                     return const SizedBox(height: 50);
                   }
 
-                  final post = feedState.posts[postIndex];
-                  return PostCard(key: ValueKey(post.id), post: post);
+                  final item = items[index];
+                  if (item == 'suggested_users') {
+                    return SuggestedUsersCard(
+                      onSeeAll: () => debugPrint('See all'),
+                    );
+                  } else if (item is AdModel) {
+                    return AdCardWidget(key: ValueKey(item.adId), ad: item);
+                  } else {
+                    return PostCard(key: ValueKey(item.id), post: item);
+                  }
                 },
-                childCount: feedState.posts.length + (hasSuggested ? 2 : 1),
+                childCount: items.length + 1,
               ),
             ),
         ],
       ),
     ),
   );
+
 }
 
 

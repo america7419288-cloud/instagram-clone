@@ -188,6 +188,9 @@ class ChatState {
   final bool isSending;
   final bool hasMore;
   final String? error;
+  /// Maps userId → DateTime of their last read event.
+  /// Used to show "seen" avatars under messages in group chats.
+  final Map<String, DateTime> participantLastReadAt;
 
   const ChatState({
     this.messages = const [],
@@ -195,6 +198,7 @@ class ChatState {
     this.isSending = false,
     this.hasMore = true,
     this.error,
+    this.participantLastReadAt = const {},
   });
 
   ChatState copyWith({
@@ -203,6 +207,7 @@ class ChatState {
     bool? isSending,
     bool? hasMore,
     String? error,
+    Map<String, DateTime>? participantLastReadAt,
   }) {
     return ChatState(
       messages: messages ?? this.messages,
@@ -210,6 +215,7 @@ class ChatState {
       isSending: isSending ?? this.isSending,
       hasMore: hasMore ?? this.hasMore,
       error: error,
+      participantLastReadAt: participantLastReadAt ?? this.participantLastReadAt,
     );
   }
 }
@@ -229,6 +235,34 @@ class ChatNotifier extends Notifier<ChatState> {
 
   Future<void> _init() async {
     await ref.read(chatInitProvider.future);
+
+    // Populate initial read map from cached inbox conversation
+    final inboxConversations = ref.read(inboxProvider).conversations;
+    Conversation? conversation;
+    for (final c in inboxConversations) {
+      if (c.id == conversationId) {
+        conversation = c;
+        break;
+      }
+    }
+    if (conversation == null) {
+      for (final c in ref.read(inboxProvider).requests) {
+        if (c.id == conversationId) {
+          conversation = c;
+          break;
+        }
+      }
+    }
+
+    if (conversation != null) {
+      final initialReadMap = <String, DateTime>{};
+      for (final p in conversation.participants) {
+        if (p.lastReadAt != null) {
+          initialReadMap[p.id] = p.lastReadAt!;
+        }
+      }
+      state = state.copyWith(participantLastReadAt: initialReadMap);
+    }
 
     _repository.joinConversation(conversationId);
     loadMessages();
@@ -278,10 +312,18 @@ class ChatNotifier extends Notifier<ChatState> {
           unawaited(_repository.saveMessage(message));
         }
       } else if (type == 'messages-read') {
-        final readByUserId = data['read_by_user_id'];
+        final readByUserId = data['read_by_user_id']?.toString();
+        final readAt = data['read_at'] != null
+            ? DateTime.tryParse(data['read_at'].toString()) ?? DateTime.now()
+            : DateTime.now();
         final currentUserId = ref.read(currentUserProvider)?.id;
-        if (currentUserId != null && readByUserId != currentUserId) {
+        if (currentUserId != null && readByUserId != null && readByUserId != currentUserId) {
+          // Update per-participant read map (for group seen receipts)
+          final updatedReadMap = Map<String, DateTime>.from(state.participantLastReadAt);
+          updatedReadMap[readByUserId] = readAt;
+
           state = state.copyWith(
+            participantLastReadAt: updatedReadMap,
             messages: state.messages.map((m) {
               if (m.senderId == currentUserId && !m.isRead) {
                 final updated = m.copyWith(isRead: true);

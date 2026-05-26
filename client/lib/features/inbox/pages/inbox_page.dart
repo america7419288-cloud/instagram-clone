@@ -1,7 +1,7 @@
 // lib/features/inbox/pages/inbox_page.dart
 
 import 'package:flutter/material.dart';
-import 'package:flutter/cupertino.dart' show CupertinoSearchTextField;
+import 'package:flutter/cupertino.dart' show CupertinoSearchTextField, CupertinoSliverRefreshControl;
 import 'package:flutter/services.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
@@ -169,17 +169,15 @@ class _InboxPageState extends ConsumerState<InboxPage>
       body: AnimatedBuilder(
         animation: _entryController,
         builder: (context, _) {
-          return RefreshIndicator(
-            onRefresh: _onRefresh,
-            displacement: 60,
-            color: isDark ? Colors.white : Colors.black,
-            backgroundColor: isDark ? const Color(0xFF1C1C1E) : Colors.white,
-            child: CustomScrollView(
+          return CustomScrollView(
             controller: _scrollController,
             physics: const AlwaysScrollableScrollPhysics(
               parent: BouncingScrollPhysics(),
             ),
             slivers: [
+              CupertinoSliverRefreshControl(
+                onRefresh: _onRefresh,
+              ),
               // TOP APP BAR
               SliverToBoxAdapter(
                 child: Opacity(
@@ -195,7 +193,6 @@ class _InboxPageState extends ConsumerState<InboxPage>
                       }
                     },
                     onComposeTap: _openNewMessage,
-                    onVideoCallTap: _openVideoCall,
                     onCommunitiesTap: () {
                       Navigator.push(
                         context,
@@ -317,7 +314,6 @@ class _InboxPageState extends ConsumerState<InboxPage>
                 child: SizedBox(height: 80),
               ),
             ],
-          ),
           );
         },
       ),

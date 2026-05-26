@@ -305,7 +305,7 @@ const getExplorePosts = async (req, res) => {
 
     // ─── 1. Fetch Posts (75% of limit) ────────────────
     const postLimit = Math.ceil(limit * 0.75);
-    const posts = await Post.findAll({
+    let posts = await Post.findAll({
       where: {
         userId: { 
           [Op.notIn]: [...followingIds, ...blockedUserIds] 
@@ -317,6 +317,20 @@ const getExplorePosts = async (req, res) => {
       limit: postLimit,
       offset: (page - 1) * postLimit,
     });
+
+    if (posts.length === 0 && page === 1) {
+      posts = await Post.findAll({
+        where: {
+          userId: { 
+            [Op.notIn]: blockedUserIds 
+          },
+          isArchived: { [Op.or]: [false, null] },
+        },
+        include: _postIncludes(userId),
+        order: [['createdAt', 'DESC']],
+        limit: postLimit,
+      });
+    }
 
     // ─── 2. Fetch Reels (25% of limit) ────────────────
     const reelLimit = limit - posts.length;
@@ -338,6 +352,24 @@ const getExplorePosts = async (req, res) => {
         limit: reelLimit,
         offset: (page - 1) * reelLimit,
       });
+
+      if (reels.length === 0 && page === 1) {
+        reels = await Reel.findAll({
+          where: {
+            userId: { [Op.notIn]: blockedUserIds },
+            isPublic: true,
+          },
+          include: [
+            {
+              model: User,
+              as: 'user',
+              attributes: ['id', 'username', 'fullName', 'profile_pic_url', 'is_verified'],
+            },
+          ],
+          order: [['createdAt', 'DESC']],
+          limit: reelLimit,
+        });
+      }
     }
 
     // ─── 3. Format and Combine ────────────────────────

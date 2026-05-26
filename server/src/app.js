@@ -102,6 +102,7 @@ app.use('/api/v1/notes', require('./routes/notes.routes'));
 app.use('/api/v1/reports', require('./routes/report.routes'));
 app.use('/api/v1/gifs', require('./routes/gif.routes'));
 app.use('/api/v1/mentions', require('./routes/mention.routes'));
+app.use('/api/v1/ads', require('./routes/ads.routes'));
 
 
 app.get('/api/v1/test', (req, res) => {

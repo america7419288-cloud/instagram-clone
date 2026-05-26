@@ -17,6 +17,9 @@ import 'muted_accounts_page.dart';
 import 'blocked_accounts_page.dart';
 import 'archive_page.dart';
 import 'privacy_settings_page.dart';
+import '../../../ads/presentation/providers/ad_provider.dart';
+import '../../../ads/presentation/pages/advertiser_register_page.dart';
+import '../../../ads/presentation/pages/ad_dashboard_page.dart';
 
 class SettingsPage extends ConsumerWidget {
   const SettingsPage({super.key});
@@ -27,6 +30,7 @@ class SettingsPage extends ConsumerWidget {
     final themeState = ref.watch(themeProvider);
     final isDark = themeState.isDark;
     final user = authState.user;
+    final advertiserState = ref.watch(advertiserProvider);
 
     // iOS Instagram specific colors
     final Color backgroundColor = isDark ? Colors.black : const Color(0xFFF2F2F7);
@@ -85,6 +89,36 @@ class SettingsPage extends ConsumerWidget {
                   subtitle: const Text('Manage your connected experiences across Meta', style: TextStyle(fontSize: 12)),
                   trailing: const CupertinoListTileChevron(),
                   onTap: () {},
+                ),
+              ],
+            ),
+
+            // ─── SECTION: FOR PROFESSIONALS ───────────────────
+            _buildSectionHeader('For professionals', headerStyle),
+            CupertinoListSection.insetGrouped(
+              margin: const EdgeInsets.symmetric(horizontal: 16, vertical: 0),
+              backgroundColor: Colors.transparent,
+              children: [
+                _buildTile(
+                  LucideIcons.megaphone,
+                  'Ads Manager',
+                  () {
+                    if (advertiserState.advertiser == null) {
+                      Navigator.push(
+                        context,
+                        CupertinoPageRoute(
+                          builder: (_) => const AdvertiserRegisterPage(),
+                        ),
+                      );
+                    } else {
+                      Navigator.push(
+                        context,
+                        CupertinoPageRoute(
+                          builder: (_) => const AdDashboardPage(),
+                        ),
+                      );
+                    }
+                  },
                 ),
               ],
             ),

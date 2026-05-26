@@ -12,6 +12,10 @@ import '../../../../shared/widgets/spring_widget.dart';
 import '../providers/reel_provider.dart';
 import '../widgets/reel_card.dart';
 import '../../../../core/router/main_shell.dart';
+import '../../../ads/presentation/providers/ad_provider.dart';
+import '../../../ads/presentation/widgets/ad_reel_widget.dart';
+import '../../../ads/data/models/ad_model.dart';
+
 
 class ReelsPage extends ConsumerStatefulWidget {
   const ReelsPage({super.key});
@@ -149,6 +153,19 @@ class _ReelsPageState extends ConsumerState<ReelsPage>
 
     final mainTabIndex = ref.watch(mainShellTabIndexProvider);
     final isReelsTabActive = mainTabIndex == 2;
+    
+    // Watch reel ads
+    final ads = ref.watch(reelAdsProvider).value ?? [];
+
+    // Interleave reels and ads
+    final List<dynamic> items = [];
+    int adIndex = 0;
+    for (int i = 0; i < reelState.reels.length; i++) {
+      items.add(reelState.reels[i]);
+      if ((i + 1) % 4 == 0 && adIndex < ads.length) {
+        items.add(ads[adIndex++]);
+      }
+    }
 
     // ─── Reels feed ───────────────────────────────────
     return Scaffold(
@@ -160,11 +177,11 @@ class _ReelsPageState extends ConsumerState<ReelsPage>
         onPageChanged: _onPageChanged,
         physics: const _SnapPageScrollPhysics(),
         itemCount: reelState.hasMore
-            ? reelState.reels.length + 1
-            : reelState.reels.length,
+            ? items.length + 1
+            : items.length,
         itemBuilder: (context, index) {
           // ─── Loading more indicator ──────────────────
-          if (index == reelState.reels.length) {
+          if (index == items.length) {
             return const Center(
               child: SizedBox(
                 width: 24,
@@ -177,11 +194,19 @@ class _ReelsPageState extends ConsumerState<ReelsPage>
             );
           }
 
-          final reel = reelState.reels[index];
+          final item = items[index];
+
+          if (item is AdModel) {
+            return AdReelWidget(
+              key: ValueKey(item.adId),
+              ad: item,
+              isActive: index == _currentIndex && isReelsTabActive,
+            );
+          }
 
           return ReelCard(
-            key: ValueKey(reel.id),
-            reel: reel,
+            key: ValueKey(item.id),
+            reel: item,
             isActive: index == _currentIndex && isReelsTabActive,
           );
         },

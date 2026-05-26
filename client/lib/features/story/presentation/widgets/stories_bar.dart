@@ -14,6 +14,9 @@ import '../../../../shared/widgets/spring_widget.dart';
 import '../../../../shared/widgets/story_ring.dart';
 import '../../data/models/story_model.dart';
 import '../providers/story_provider.dart';
+import '../../../ads/presentation/providers/ad_provider.dart';
+import '../../../ads/presentation/widgets/ad_story_viewer.dart';
+
 
 class StoriesBar extends ConsumerWidget {
   const StoriesBar({super.key});
@@ -22,6 +25,9 @@ class StoriesBar extends ConsumerWidget {
   Widget build(BuildContext context, WidgetRef ref) {
     final storyState = ref.watch(storyFeedProvider);
     final currentUser = ref.watch(currentUserProvider);
+    
+    // Watch story ads
+    final storyAds = ref.watch(storyAdsProvider).value ?? [];
 
     return Container(
       height: 124,
@@ -50,6 +56,10 @@ class StoriesBar extends ConsumerWidget {
                 }
               },
             ),
+          
+          // Inject sponsored stories circles
+          ...storyAds.map((ad) => SponsoredStoryCircle(ad: ad)),
+
           ...storyState.userGroups.where((g) => !g.isOwn).map(
             (group) => _StoryItem(
               group: group,

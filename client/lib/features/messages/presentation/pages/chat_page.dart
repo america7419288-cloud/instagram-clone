@@ -27,10 +27,11 @@ import '../widgets/chat/message_bubbles.dart';
 import '../widgets/chat/message_bubble_wrapper.dart';
 import '../widgets/chat/chat_overlays.dart';
 import '../widgets/chat/popup_menu/message_popup_menu.dart';
-import 'package:flutter/material.dart' show Colors, Material, Divider, CircleAvatar;
+import 'package:flutter/material.dart' show Colors, Material, Divider, CircleAvatar, ScaffoldMessenger, SnackBar, showModalBottomSheet;
 import '../widgets/chat/reaction_overlay.dart';
 import '../widgets/chat/message_edit_dialog.dart';
 import '../widgets/chat/disappearing_message_dialog.dart';
+import '../widgets/chat/mute_bottom_sheet.dart';
 import '../../../../shared/widgets/user_story_avatar.dart';
 import '../../../../shared/widgets/verified_badge.dart';
 
@@ -314,21 +315,52 @@ class _ChatPageState extends ConsumerState<ChatPage> {
           CupertinoActionSheetAction(
             onPressed: () {
               Navigator.pop(context);
-              showCupertinoDialog(
-                context: context,
-                builder: (context) => CupertinoAlertDialog(
-                  title: const Text('Notifications'),
-                  content: const Text('Notifications for this chat have been muted.'),
-                  actions: [
-                    CupertinoDialogAction(
-                      child: const Text('OK'),
-                      onPressed: () => Navigator.pop(context),
-                    ),
-                  ],
-                ),
-              );
+              final conversation = widget.conversation ??
+                  ref.read(inboxProvider).conversations.firstWhere(
+                        (c) => c.id == widget.conversationId,
+                        orElse: () => Conversation(
+                          id: '',
+                          participants: const [],
+                          updatedAt: DateTime.now(),
+                        ),
+                      );
+              if (conversation.isMuted) {
+                ref.read(inboxProvider.notifier).unmuteConversation(conversation.id);
+                ScaffoldMessenger.of(context).showSnackBar(
+                  const SnackBar(content: Text('Notifications unmuted')),
+                );
+              } else {
+                final otherUser = conversation.otherUser;
+                showModalBottomSheet(
+                  context: context,
+                  backgroundColor: Colors.transparent,
+                  isScrollControlled: true,
+                  builder: (sheetCtx) => MuteBottomSheet(
+                    username: otherUser?.username ?? 'this user',
+                    onMuteSelected: (duration) {
+                      Navigator.pop(sheetCtx);
+                      ref.read(inboxProvider.notifier).muteConversation(conversation.id, duration);
+                      ScaffoldMessenger.of(context).showSnackBar(
+                        SnackBar(content: Text('Notifications muted for $duration')),
+                      );
+                    },
+                  ),
+                );
+              }
             },
-            child: const Text('Mute Notifications'),
+            child: Text(
+              (widget.conversation ??
+                      ref.read(inboxProvider).conversations.firstWhere(
+                            (c) => c.id == widget.conversationId,
+                            orElse: () => Conversation(
+                              id: '',
+                              participants: const [],
+                              updatedAt: DateTime.now(),
+                            ),
+                          )).isMuted
+                  ? 'Unmute Notifications'
+                  : 'Mute Notifications',
+            ),
           ),
           CupertinoActionSheetAction(
             onPressed: () {
@@ -478,6 +510,98 @@ class _ChatPageState extends ConsumerState<ChatPage> {
     return DateFormat('d MMMM yyyy').format(date);
   }
 
+  List<ChatUser> _getSeenParticipants(
+    Message message,
+    int index,
+    ChatState chatState,
+    Conversation conversation,
+    String currentUserId,
+  ) {
+    final list = <ChatUser>[];
+
+    for (final p in conversation.participants) {
+      if (p.id == currentUserId) continue;
+
+      final lastRead = chatState.participantLastReadAt[p.id];
+      if (lastRead == null) continue;
+
+      final readThis = lastRead.isAfter(message.createdAt) ||
+          lastRead.isAtSameMomentAs(message.createdAt);
+      if (!readThis) continue;
+
+      bool readNewer = false;
+      if (index > 0) {
+        final newerMsg = chatState.messages[index - 1];
+        if (lastRead.isAfter(newerMsg.createdAt) ||
+            lastRead.isAtSameMomentAs(newerMsg.createdAt)) {
+          readNewer = true;
+        }
+      }
+
+      if (!readNewer) {
+        list.add(p);
+      }
+    }
+    return list;
+  }
+
+  Widget _buildDisappearingBanner(int seconds, bool isDark) {
+    String durationLabel = 'duration';
+    if (seconds <= 86400) durationLabel = '24 hours';
+    else if (seconds <= 604800) durationLabel = '7 days';
+    else durationLabel = '90 days';
+
+    final textStyle = TextStyle(
+      fontSize: 12.5,
+      color: isDark ? Colors.white70 : Colors.black87,
+      fontWeight: FontWeight.w500,
+      decoration: TextDecoration.none,
+    );
+
+    return Material(
+      color: isDark ? const Color(0xFF1C1C1E) : const Color(0xFFF2F2F7),
+      child: Container(
+        padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
+        decoration: BoxDecoration(
+          border: Border(
+            bottom: BorderSide(
+              color: isDark ? Colors.white10 : Colors.black12,
+              width: 0.5,
+            ),
+          ),
+        ),
+        child: Row(
+          children: [
+            Icon(
+              LucideIcons.timer,
+              size: 16,
+              color: isDark ? Colors.white54 : Colors.black54,
+            ),
+            const SizedBox(width: 8),
+            Expanded(
+              child: Text(
+                'Disappearing messages are on. Messages disappear after $durationLabel.',
+                style: textStyle,
+              ),
+            ),
+            GestureDetector(
+              onTap: _showDisappearingDialog,
+              child: const Text(
+                'Change',
+                style: TextStyle(
+                  fontSize: 12.5,
+                  fontWeight: FontWeight.w600,
+                  color: Color(0xFF3797EF),
+                  decoration: TextDecoration.none,
+                ),
+              ),
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+
   @override
   Widget build(BuildContext context) {
     final chatState = ref.watch(chatProvider(widget.conversationId));
@@ -575,6 +699,9 @@ class _ChatPageState extends ConsumerState<ChatPage> {
                 }
               },
             ),
+
+            if (conversation.disappearingDuration != null && conversation.disappearingDuration! > 0)
+              _buildDisappearingBanner(conversation.disappearingDuration!, isDark),
 
             Expanded(
               child: ClipRect(
@@ -1056,6 +1183,13 @@ class _ChatPageState extends ConsumerState<ChatPage> {
                 isFirstInGroup: isFirstInGroup,
                 isLastInGroup: isLastInGroup,
                 senderAvatar: message.sender?.profilePicUrl,
+                seenParticipants: _getSeenParticipants(
+                  message,
+                  index,
+                  state,
+                  conversation,
+                  currentUserId,
+                ),
                 onAvatarTap: () {
                   final username = message.sender?.username;
                   if (username != null && username.isNotEmpty) {

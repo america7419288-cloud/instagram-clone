@@ -92,25 +92,71 @@ class _ProfilePageState extends ConsumerState<ProfilePage>
         backgroundColor: isDark ? Colors.black : Colors.white,
         border: null,
         automaticallyImplyLeading: false,
-        middle: Row(
-          children: [
-            const SizedBox(width: 16),
-            Text(
-              widget.username,
-              style: TextStyle(
-                fontSize: 20, // Modern Instagram size
-                fontWeight: FontWeight.w700, // Semi-bold/bold
-                fontFamily: 'Instagram-Sans',
-                color: isDark ? Colors.white : Colors.black,
+        leading: Navigator.canPop(context)
+            ? CupertinoButton(
+                padding: EdgeInsets.zero,
+                minSize: 0,
+                onPressed: () => context.pop(),
+                child: const Row(
+                  mainAxisSize: MainAxisSize.min,
+                  children: [
+                    Icon(
+                      CupertinoIcons.back,
+                      color: CupertinoColors.activeBlue,
+                      size: 26,
+                    ),
+                    Text(
+                      'Back',
+                      style: TextStyle(
+                        color: CupertinoColors.activeBlue,
+                        fontSize: 16,
+                        fontWeight: FontWeight.w400,
+                        fontFamily: 'SF Pro Text',
+                      ),
+                    ),
+                  ],
+                ),
+              )
+            : null,
+        middle: Navigator.canPop(context)
+            ? Row(
+                mainAxisSize: MainAxisSize.min,
+                mainAxisAlignment: MainAxisAlignment.center,
+                children: [
+                  Text(
+                    widget.username,
+                    style: TextStyle(
+                      fontSize: 17,
+                      fontWeight: FontWeight.w700,
+                      fontFamily: 'Instagram-Sans',
+                      color: isDark ? Colors.white : Colors.black,
+                    ),
+                  ),
+                  if (profileState.profile?.isVerified ?? false) ...[
+                    const SizedBox(width: 4),
+                    const VerifiedBadge(size: 14),
+                  ],
+                ],
+              )
+            : Row(
+                children: [
+                  const SizedBox(width: 16),
+                  Text(
+                    widget.username,
+                    style: TextStyle(
+                      fontSize: 20, // Modern Instagram size
+                      fontWeight: FontWeight.w700, // Semi-bold/bold
+                      fontFamily: 'Instagram-Sans',
+                      color: isDark ? Colors.white : Colors.black,
+                    ),
+                  ),
+                  if (profileState.profile?.isVerified ?? false)
+                    const Padding(
+                      padding: EdgeInsets.only(left: 4, top: 0),
+                      child: VerifiedBadge(size: 15),
+                    ),
+                ],
               ),
-            ),
-            if (profileState.profile?.isVerified ?? false)
-              const Padding(
-                padding: EdgeInsets.only(left: 4, top: 0),
-                child: VerifiedBadge(size: 15),
-              ),
-          ],
-        ),
         trailing: Row(
           mainAxisSize: MainAxisSize.min,
           children: [
@@ -150,17 +196,16 @@ class _ProfilePageState extends ConsumerState<ProfilePage>
   Widget _buildProfile(ProfileState state, FollowState followState, bool isDark) {
     final profile = state.profile!;
 
-    return RefreshIndicator(
-      onRefresh: () async {
-        await ref.read(profileProvider(widget.username).notifier).refresh();
-      },
-      color: isDark ? Colors.white : Colors.black,
-      backgroundColor: isDark ? const Color(0xFF1C1C1E) : Colors.white,
-      child: NestedScrollView(
-        controller: _scrollController,
-        physics: const AlwaysScrollableScrollPhysics(),
-        headerSliverBuilder: (context, innerBoxIsScrolled) {
-          return [
+    return NestedScrollView(
+      controller: _scrollController,
+      physics: const BouncingScrollPhysics(parent: AlwaysScrollableScrollPhysics()),
+      headerSliverBuilder: (context, innerBoxIsScrolled) {
+        return [
+          CupertinoSliverRefreshControl(
+            onRefresh: () async {
+              await ref.read(profileProvider(widget.username).notifier).refresh();
+            },
+          ),
             SliverToBoxAdapter(
               child: Column(
                 crossAxisAlignment: CrossAxisAlignment.start,
@@ -203,7 +248,6 @@ class _ProfilePageState extends ConsumerState<ProfilePage>
                   _TaggedGrid(username: profile.username),
                 ],
               ),
-      ),
     );
   }
 
