@@ -240,11 +240,11 @@ const getFeed = async (req, res) => {
     let feedUserIds = [userId, ...followingIds];
     const blockedUserIds = await getBlockedUserIds(userId);
 
-    let posts;
+    let posts, totalCount;
     if (feedUserIds.length === 1) {
       // ─── FALLBACK: Discover Mode ────────────────────
       // If user follows no one, show recent global posts
-      posts = await Post.findAll({
+      const { count, rows } = await Post.findAndCountAll({
         where: {
           userId: { 
             [Op.ne]: userId, // Don't show only self
@@ -256,10 +256,13 @@ const getFeed = async (req, res) => {
         order: [['createdAt', 'DESC']],
         limit,
         offset,
+        distinct: true,
       });
+      posts = rows;
+      totalCount = count;
     } else {
       // ─── STANDARD: Following Feed ───────────────────
-      posts = await Post.findAll({
+      const { count, rows } = await Post.findAndCountAll({
         where: {
           userId: { 
             [Op.in]: feedUserIds,
@@ -271,12 +274,20 @@ const getFeed = async (req, res) => {
         order: [['createdAt', 'DESC']],
         limit,
         offset,
+        distinct: true,
       });
+      posts = rows;
+      totalCount = count;
     }
 
     const formatted = posts.map((p) => _formatPost(p, userId));
 
-    return successResponse(res, 200, 'Feed loaded', formatted);
+    return paginatedResponse(res, 'Feed loaded', formatted, {
+      page,
+      totalPages: Math.ceil(totalCount / limit),
+      totalItems: totalCount,
+      limit,
+    });
   } catch (error) {
     console.error('❌ getFeed error:', error);
     return errorResponse(res, 500, 'Failed to load feed');
