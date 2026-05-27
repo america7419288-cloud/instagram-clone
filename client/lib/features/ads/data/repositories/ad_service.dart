@@ -188,7 +188,7 @@ class AdService {
     required Map<String, dynamic> targeting,
     required Map<String, bool> placements,
   }) async {
-    final response = await _client.post('/api/v1/ads/campaigns', data: {
+    final response = await _client.post('/ads/campaigns', data: {
       'name': name,
       'objective': objective,
       'budget': {
