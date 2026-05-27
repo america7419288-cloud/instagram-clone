@@ -40,7 +40,11 @@ const createCampaign = async (req, res) => {
       activeDays: schedule?.activeDays || [0, 1, 2, 3, 4, 5, 6],
       activeHoursStart: schedule?.activeHoursStart !== undefined ? schedule.activeHoursStart : 0,
       activeHoursEnd: schedule?.activeHoursEnd !== undefined ? schedule.activeHoursEnd : 23,
-      targeting: targeting || {},
+      ageMin: targeting?.ageMin !== undefined ? targeting.ageMin : 18,
+      ageMax: targeting?.ageMax !== undefined ? targeting.ageMax : 65,
+      gender: targeting?.gender || 'all',
+      locations: targeting?.locations || [],
+      interests: targeting?.interests || [],
       placementFeed: placements?.feed !== undefined ? placements.feed : true,
       placementReels: placements?.reels !== undefined ? placements.reels : true,
       placementStories: placements?.stories !== undefined ? placements.stories : true,
@@ -91,7 +95,11 @@ const createOwnerCampaign = async (req, res) => {
       budgetSpent: 0,
       startDate: schedule?.startDate ? new Date(schedule.startDate) : new Date(),
       endDate: schedule?.endDate ? new Date(schedule.endDate) : null,
-      targeting: targeting || {},
+      ageMin: targeting?.ageMin !== undefined ? targeting.ageMin : 18,
+      ageMax: targeting?.ageMax !== undefined ? targeting.ageMax : 65,
+      gender: targeting?.gender || 'all',
+      locations: targeting?.locations || [],
+      interests: targeting?.interests || [],
       placementFeed: placements?.feed !== undefined ? placements.feed : true,
       placementReels: placements?.reels !== undefined ? placements.reels : true,
       placementStories: placements?.stories !== undefined ? placements.stories : true,
@@ -146,7 +154,18 @@ const getCampaign = async (req, res) => {
 
 const updateCampaign = async (req, res) => {
   try {
-    await Campaign.update(req.body, {
+    const updateData = { ...req.body };
+    if (req.body.targeting) {
+      const { ageMin, ageMax, gender, locations, interests } = req.body.targeting;
+      if (ageMin !== undefined) updateData.ageMin = ageMin;
+      if (ageMax !== undefined) updateData.ageMax = ageMax;
+      if (gender !== undefined) updateData.gender = gender;
+      if (locations !== undefined) updateData.locations = locations;
+      if (interests !== undefined) updateData.interests = interests;
+      delete updateData.targeting;
+    }
+
+    await Campaign.update(updateData, {
       where: { id: req.params.id },
     });
     const campaign = await Campaign.findByPk(req.params.id);

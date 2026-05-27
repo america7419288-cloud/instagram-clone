@@ -26,23 +26,21 @@ const getAdsForFeed = async ({
           { endDate: { [Op.gte]: now } },
         ],
       },
-      attributes: ['id', 'advertiserId', 'targeting', 'budgetType', 'budgetAmount', 'budgetSpent', 'bidAmount', 'objective'],
+      attributes: ['id', 'advertiserId', 'budgetType', 'budgetAmount', 'budgetSpent', 'bidAmount', 'objective', 'ageMin', 'ageMax', 'gender', 'interests', 'locations'],
     });
 
     if (eligibleCampaigns.length === 0) return [];
 
     // ── STEP 2: Filter by targeting ─────────────
     const targetedCampaigns = eligibleCampaigns.filter(campaign => {
-      const t = campaign.targeting || {};
-
       // Age check
-      if (userProfile.age && t.ageMin !== undefined && t.ageMax !== undefined) {
-        if (userProfile.age < t.ageMin || userProfile.age > t.ageMax) return false;
+      if (userProfile.age && campaign.ageMin !== undefined && campaign.ageMax !== undefined) {
+        if (userProfile.age < campaign.ageMin || userProfile.age > campaign.ageMax) return false;
       }
 
       // Gender check
-      if (t.gender && t.gender !== 'all' && userProfile.gender) {
-        if (t.gender !== userProfile.gender) return false;
+      if (campaign.gender && campaign.gender !== 'all' && userProfile.gender) {
+        if (campaign.gender !== userProfile.gender) return false;
       }
 
       // Budget check — don't serve if budget exceeded
@@ -70,8 +68,8 @@ const getAdsForFeed = async ({
       let relevanceBoost = 1.0;
 
       // Interest matching
-      if (userProfile.interests && campaign.targeting && campaign.targeting.interests) {
-        const interests = campaign.targeting.interests;
+      if (userProfile.interests && campaign.interests) {
+        const interests = campaign.interests;
         const overlap = interests.filter(
           i => userProfile.interests.includes(i)
         ).length;
