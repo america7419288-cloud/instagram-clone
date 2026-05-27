@@ -60,18 +60,16 @@ class MainShell extends ConsumerStatefulWidget {
 }
 
 class _MainShellState extends ConsumerState<MainShell> {
-  int _currentIndex = 0;
-
   // 5 tabs: Home(0) Search(1) Reels(2) Inbox(3) Profile(4)
   final List<GlobalKey> _tabKeys = List.generate(5, (_) => GlobalKey());
 
   void _onTabTapped(int index) {
+    final currentIndex = ref.read(mainShellTabIndexProvider);
     // Double-tap scroll-to-top
-    if (index == _currentIndex) {
+    if (index == currentIndex) {
       if (index == 0) ref.read(homeScrollSignalProvider.notifier).increment();
       if (index == 4) ref.read(profileScrollSignalProvider.notifier).increment();
     }
-    setState(() => _currentIndex = index);
     ref.read(mainShellTabIndexProvider.notifier).state = index;
   }
 
@@ -140,6 +138,7 @@ class _MainShellState extends ConsumerState<MainShell> {
     final isDark = Theme.of(context).brightness == Brightness.dark;
     final user = ref.watch(authProvider).user;
     final totalUnread = ref.watch(totalUnreadCountProvider);
+    final currentIndex = ref.watch(mainShellTabIndexProvider);
 
     return AnnotatedRegion<SystemUiOverlayStyle>(
       value: SystemUiOverlayStyle(
@@ -153,7 +152,7 @@ class _MainShellState extends ConsumerState<MainShell> {
         body: SafeArea(
           bottom: false,
           child: IndexedStack(
-            index: _currentIndex,
+            index: currentIndex,
             children: [
               KeyedSubtree(key: _tabKeys[0], child: const HomePage()),
               KeyedSubtree(key: _tabKeys[1], child: const SearchPage()),
@@ -167,7 +166,7 @@ class _MainShellState extends ConsumerState<MainShell> {
           ),
         ),
         bottomNavigationBar: GlassBottomNav(
-          currentIndex: _currentIndex,
+          currentIndex: currentIndex,
           onTap: _onTabTapped,
           items: _buildNavItems(isDark, user?.profilePicUrl, totalUnread),
           style: BottomNavStyle.fullWidth,

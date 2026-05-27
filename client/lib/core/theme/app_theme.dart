@@ -92,6 +92,14 @@ class AppTheme {
     highlightColor: Colors.transparent,
     hoverColor: Colors.transparent,
 
+    textTheme: _buildTextTheme(Colors.black),
+
+    inputDecorationTheme: const InputDecorationTheme(
+      border: InputBorder.none,
+      enabledBorder: InputBorder.none,
+      focusedBorder: InputBorder.none,
+    ),
+
     colorScheme: const ColorScheme.light(
       primary: AppColors.primary,
       secondary: AppColors.secondary,
@@ -113,6 +121,7 @@ class AppTheme {
         fontSize: 17,
         fontWeight: FontWeight.w600,
         fontFamily: _fontFamily,
+        decoration: TextDecoration.none,
       ),
       systemOverlayStyle: SystemUiOverlayStyle(
         statusBarColor: Colors.transparent,
@@ -146,6 +155,7 @@ class AppTheme {
           fontSize: 14,
           fontWeight: FontWeight.w600,
           fontFamily: _fontFamily,
+          decoration: TextDecoration.none,
         ),
       ),
     ),
@@ -158,6 +168,7 @@ class AppTheme {
           fontWeight: FontWeight.w600,
           fontSize: 14,
           fontFamily: _fontFamily,
+          decoration: TextDecoration.none,
         ),
       ),
     ),
@@ -175,6 +186,14 @@ class AppTheme {
     splashFactory: NoSplash.splashFactory,
     highlightColor: Colors.transparent,
     hoverColor: Colors.transparent,
+
+    textTheme: _buildTextTheme(Colors.white),
+
+    inputDecorationTheme: const InputDecorationTheme(
+      border: InputBorder.none,
+      enabledBorder: InputBorder.none,
+      focusedBorder: InputBorder.none,
+    ),
 
     colorScheme: const ColorScheme.dark(
       primary: AppColors.primary,
@@ -197,6 +216,7 @@ class AppTheme {
         fontSize: 17,
         fontWeight: FontWeight.w600,
         fontFamily: _fontFamily,
+        decoration: TextDecoration.none,
       ),
       systemOverlayStyle: SystemUiOverlayStyle(
         statusBarColor: Colors.transparent,
@@ -219,4 +239,36 @@ class AppTheme {
       type: BottomNavigationBarType.fixed,
     ),
   );
+
+  static TextTheme _buildTextTheme(Color color) {
+    const style = TextStyle(
+      decoration: TextDecoration.none,
+      decorationColor: Colors.transparent,
+      decorationThickness: 0,
+      fontFamily: _fontFamily,
+    );
+    return TextTheme(
+      displayLarge: style.copyWith(color: color),
+      displayMedium: style.copyWith(color: color),
+      displaySmall: style.copyWith(color: color),
+      headlineLarge: style.copyWith(color: color),
+      headlineMedium: style.copyWith(color: color),
+      headlineSmall: style.copyWith(color: color),
+      titleLarge: style.copyWith(color: color, fontWeight: FontWeight.w600),
+      titleMedium: style.copyWith(color: color),
+      titleSmall: style.copyWith(color: color),
+      bodyLarge: style.copyWith(color: color),
+      bodyMedium: style.copyWith(color: color),
+      bodySmall: style.copyWith(color: color.withOpacity(0.6)),
+      labelLarge: style.copyWith(color: color),
+      labelMedium: style.copyWith(color: color),
+      labelSmall: style.copyWith(color: color),
+    );
+  }
+}
+
+// ─── DURATION EXTENSIONS ─────────────────────────────────
+extension NumDurationExtension on num {
+  Duration get ms => Duration(milliseconds: round());
+  Duration get seconds => Duration(seconds: round());
 }

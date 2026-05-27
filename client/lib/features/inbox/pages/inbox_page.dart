@@ -1,13 +1,14 @@
 // lib/features/inbox/pages/inbox_page.dart
 
 import 'package:flutter/material.dart';
-import 'package:flutter/cupertino.dart' show CupertinoSearchTextField, CupertinoSliverRefreshControl;
+import 'package:flutter/cupertino.dart' show CupertinoSearchTextField, CupertinoSliverRefreshControl, CupertinoIcons;
 import 'package:flutter/services.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 import 'package:flutter_lucide/flutter_lucide.dart';
 
 import '../../../../core/router/app_router.dart';
+import '../../../../core/router/main_shell.dart';
 import '../../../../features/auth/presentation/providers/auth_provider.dart';
 import '../controllers/inbox_controller.dart';
 import '../widgets/inbox_app_bar.dart';
@@ -33,6 +34,8 @@ class _InboxPageState extends ConsumerState<InboxPage>
 
   final ScrollController _scrollController = ScrollController();
   String _searchQuery = '';
+  final FocusNode _searchFocusNode = FocusNode();
+  bool _isSearchFocused = false;
   
   // Entry animations
   late AnimationController _entryController;
@@ -47,6 +50,13 @@ class _InboxPageState extends ConsumerState<InboxPage>
   @override
   void initState() {
     super.initState();
+    _searchFocusNode.addListener(() {
+      if (mounted) {
+        setState(() {
+          _isSearchFocused = _searchFocusNode.hasFocus;
+        });
+      }
+    });
     _setupEntryAnimations();
     _setupScrollListener();
     _playEntryAnimation();
@@ -105,6 +115,7 @@ class _InboxPageState extends ConsumerState<InboxPage>
   void dispose() {
     _scrollController.dispose();
     _entryController.dispose();
+    _searchFocusNode.dispose();
     super.dispose();
   }
 
@@ -169,149 +180,153 @@ class _InboxPageState extends ConsumerState<InboxPage>
       body: AnimatedBuilder(
         animation: _entryController,
         builder: (context, _) {
-          return CustomScrollView(
-            controller: _scrollController,
-            physics: const AlwaysScrollableScrollPhysics(
-              parent: BouncingScrollPhysics(),
-            ),
-            slivers: [
-              CupertinoSliverRefreshControl(
-                onRefresh: _onRefresh,
-              ),
-              // TOP APP BAR
-              SliverToBoxAdapter(
-                child: Opacity(
-                  opacity: _appBarOpacity.value,
-                  child: InboxAppBar(
-                    username: username,
-                    scrollOffset: _scrollOffset,
-                    onBackTap: () {
-                      if (Navigator.canPop(context)) {
-                        Navigator.pop(context);
-                      } else {
-                        context.pop();
-                      }
-                    },
-                    onComposeTap: _openNewMessage,
-                    onCommunitiesTap: () {
-                      Navigator.push(
-                        context,
-                        MaterialPageRoute(
-                          builder: (context) => const CommunityDiscoverPage(),
-                        ),
-                      );
-                    },
-                  ),
-                ),
-              ),
-
-              // MESSAGE REQUESTS
-              if (inboxState.requestCount > 0)
-                SliverToBoxAdapter(
-                  child: SlideTransition(
-                    position: _requestsSlide,
-                    child: FadeTransition(
-                      opacity: _requestsOpacity,
-                      child: MessageRequestsTile(
-                        count: inboxState.requestCount,
-                        avatarUrls: inboxState.requests
-                            .take(2)
-                            .map((r) => r.avatarUrl)
-                            .toList(),
-                        onTap: _openMessageRequests,
+          return Column(
+            children: [
+              // STICKY TOP APP BAR
+              Opacity(
+                opacity: _appBarOpacity.value,
+                child: InboxAppBar(
+                  username: username,
+                  scrollOffset: _scrollOffset,
+                  onBackTap: () {
+                    if (Navigator.canPop(context)) {
+                      Navigator.pop(context);
+                    } else {
+                      ref.read(mainShellTabIndexProvider.notifier).state = 0;
+                    }
+                  },
+                  onComposeTap: _openNewMessage,
+                  onCommunitiesTap: () {
+                    Navigator.push(
+                      context,
+                      MaterialPageRoute(
+                        builder: (context) => const CommunityDiscoverPage(),
                       ),
-                    ),
+                    );
+                  },
+                ),
+              ),
+              Expanded(
+                child: CustomScrollView(
+                  controller: _scrollController,
+                  physics: const AlwaysScrollableScrollPhysics(
+                    parent: BouncingScrollPhysics(),
                   ),
-                ),
+                  slivers: [
+                    CupertinoSliverRefreshControl(
+                      onRefresh: _onRefresh,
+                    ),
 
-              // ACTIVE FRIENDS HORIZONTAL BAR
-              SliverToBoxAdapter(
-                child: ActiveFriendsBar(
-                  friends: inboxState.activeFriends,
-                  entryController: _entryController,
-                  currentUserAvatar: avatarUrl,
-                  onFriendTap: (friend) => _openChat(friend.conversationId, friend.username),
-                  onNoteTap: _openNoteCreator,
-                ),
-              ),
-
-              // MESSAGES HEADER LABEL & SEARCH BAR
-              SliverToBoxAdapter(
-                child: Column(
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  children: [
-                    _buildMessagesLabel(),
-                    _buildSearchBar(isDark),
-                  ],
-                ),
-              ),
-
-              // CONVERSATION LIST (EMPTY STATE OR TILES)
-              if (inboxState.conversations.isEmpty)
-                const SliverFillRemaining(
-                  hasScrollBody: false,
-                  child: Center(
-                    child: Column(
-                      mainAxisAlignment: MainAxisAlignment.center,
-                      children: [
-                        Icon(LucideIcons.mail, size: 64, color: Colors.grey),
-                        SizedBox(height: 16),
-                        Text(
-                          'No Messages Yet',
-                          style: TextStyle(
-                            fontSize: 18,
-                            fontWeight: FontWeight.bold,
-                            color: Colors.grey,
+                    // MESSAGE REQUESTS
+                    if (inboxState.requestCount > 0)
+                      SliverToBoxAdapter(
+                        child: SlideTransition(
+                          position: _requestsSlide,
+                          child: FadeTransition(
+                            opacity: _requestsOpacity,
+                            child: MessageRequestsTile(
+                              count: inboxState.requestCount,
+                              avatarUrls: inboxState.requests
+                                  .take(2)
+                                  .map((r) => r.avatarUrl)
+                                  .toList(),
+                              onTap: _openMessageRequests,
+                            ),
                           ),
                         ),
-                      ],
-                    ),
-                  ),
-                )
-              else if (filteredConversations.isEmpty)
-                const SliverFillRemaining(
-                  hasScrollBody: false,
-                  child: Center(
-                    child: Text(
-                      'No results found',
-                      style: TextStyle(color: Colors.grey, fontSize: 16),
-                    ),
-                  ),
-                )
-              else
-                SliverList(
-                  delegate: SliverChildBuilderDelegate(
-                    (context, index) {
-                      final conv = filteredConversations[index];
-                      return ConversationTile(
-                        conversation: conv,
-                        index: index,
-                        entryController: _entryController,
-                        onTap: () => _openChat(conv.id, conv.username),
-                        onDelete: () => notifier.deleteConversation(conv.id),
-                        onMute: (duration) => notifier.muteConversation(conv.id, duration: duration),
-                        onUnmute: () => notifier.unmuteConversation(conv.id),
-                        onToggleRead: () => notifier.toggleReadState(conv.id),
-                        onReport: (type, desc) => ref.read(messageRepositoryProvider).reportUser(userId: conv.userId, reportType: type, description: desc),
-                        onBlock: () async {
-                          HapticFeedback.heavyImpact();
-                          await ref.read(followServiceProvider).blockUser(conv.userId);
-                          notifier.deleteConversation(conv.id);
-                          if (context.mounted) {
-                            ScaffoldMessenger.of(context).showSnackBar(
-                              SnackBar(content: Text('${conv.username} blocked')),
-                            );
-                          }
-                        },
-                      );
-                    },
-                    childCount: filteredConversations.length,
-                  ),
-                ),
+                      ),
 
-              // Bottom offset padding
-              const SliverToBoxAdapter(
-                child: SizedBox(height: 80),
+                    // ACTIVE FRIENDS HORIZONTAL BAR
+                    SliverToBoxAdapter(
+                      child: ActiveFriendsBar(
+                        friends: inboxState.activeFriends,
+                        entryController: _entryController,
+                        currentUserAvatar: avatarUrl,
+                        onFriendTap: (friend) => _openChat(friend.conversationId, friend.username),
+                        onNoteTap: _openNoteCreator,
+                      ),
+                    ),
+
+                    // MESSAGES HEADER LABEL & SEARCH BAR
+                    SliverToBoxAdapter(
+                      child: Column(
+                        crossAxisAlignment: CrossAxisAlignment.start,
+                        children: [
+                          _buildMessagesLabel(),
+                          _buildSearchBar(isDark),
+                        ],
+                      ),
+                    ),
+
+                    // CONVERSATION LIST (EMPTY STATE OR TILES)
+                    if (inboxState.conversations.isEmpty)
+                      const SliverFillRemaining(
+                        hasScrollBody: false,
+                        child: Center(
+                          child: Column(
+                            mainAxisAlignment: MainAxisAlignment.center,
+                            children: [
+                              Icon(LucideIcons.mail, size: 64, color: Colors.grey),
+                              SizedBox(height: 16),
+                              Text(
+                                'No Messages Yet',
+                                style: TextStyle(
+                                  fontSize: 18,
+                                  fontWeight: FontWeight.bold,
+                                  color: Colors.grey,
+                                ),
+                              ),
+                            ],
+                          ),
+                        ),
+                      )
+                    else if (filteredConversations.isEmpty)
+                      const SliverFillRemaining(
+                        hasScrollBody: false,
+                        child: Center(
+                          child: Text(
+                            'No results found',
+                            style: TextStyle(color: Colors.grey, fontSize: 16),
+                          ),
+                        ),
+                      )
+                    else
+                      SliverList(
+                        delegate: SliverChildBuilderDelegate(
+                          (context, index) {
+                            final conv = filteredConversations[index];
+                            return ConversationTile(
+                              conversation: conv,
+                              index: index,
+                              entryController: _entryController,
+                              onTap: () => _openChat(conv.id, conv.username),
+                              onDelete: () => notifier.deleteConversation(conv.id),
+                              onMute: (duration) => notifier.muteConversation(conv.id, duration: duration),
+                              onUnmute: () => notifier.unmuteConversation(conv.id),
+                              onToggleRead: () => notifier.toggleReadState(conv.id),
+                              onReport: (type, desc) => ref.read(messageRepositoryProvider).reportUser(userId: conv.userId, reportType: type, description: desc),
+                              onBlock: () async {
+                                HapticFeedback.heavyImpact();
+                                await ref.read(followServiceProvider).blockUser(conv.userId);
+                                notifier.deleteConversation(conv.id);
+                                if (context.mounted) {
+                                  ScaffoldMessenger.of(context).showSnackBar(
+                                    SnackBar(content: Text('${conv.username} blocked')),
+                                  );
+                                }
+                              },
+                            );
+                          },
+                          childCount: filteredConversations.length,
+                        ),
+                      ),
+
+                    // Bottom offset padding
+                    const SliverToBoxAdapter(
+                      child: SizedBox(height: 80),
+                    ),
+                  ],
+                ),
               ),
             ],
           );
@@ -344,19 +359,106 @@ class _InboxPageState extends ConsumerState<InboxPage>
   Widget _buildSearchBar(bool isDark) {
     return Padding(
       padding: const EdgeInsets.fromLTRB(16, 8, 16, 16),
-      child: CupertinoSearchTextField(
-        placeholder: 'Search',
-        style: TextStyle(color: isDark ? Colors.white : Colors.black),
-        placeholderStyle: const TextStyle(color: Colors.grey),
-        decoration: BoxDecoration(
-          color: isDark ? const Color(0xFF262626) : const Color(0xFFF2F2F7),
-          borderRadius: BorderRadius.circular(10),
-        ),
-        onChanged: (value) {
-          setState(() {
-            _searchQuery = value;
-          });
-        },
+      child: Row(
+        children: [
+          Expanded(
+            child: AnimatedContainer(
+              duration: const Duration(milliseconds: 200),
+              height: 38,
+              decoration: BoxDecoration(
+                color: isDark ? const Color(0xFF1C1C1E) : const Color(0xFFEBEBEF),
+                borderRadius: BorderRadius.circular(10),
+                border: Border.all(
+                  color: _isSearchFocused
+                      ? (isDark ? Colors.white.withValues(alpha: 0.15) : Colors.black.withValues(alpha: 0.08))
+                      : Colors.transparent,
+                  width: 0.5,
+                ),
+              ),
+              child: TextField(
+                focusNode: _searchFocusNode,
+                textInputAction: TextInputAction.search,
+                style: TextStyle(
+                  color: isDark ? Colors.white : Colors.black,
+                  fontSize: 15,
+                  fontFamily: 'SF Pro Text',
+                ),
+                onChanged: (value) {
+                  setState(() {
+                    _searchQuery = value;
+                  });
+                },
+                decoration: InputDecoration(
+                  isDense: true,
+                  contentPadding: const EdgeInsets.symmetric(vertical: 8),
+                  border: InputBorder.none,
+                  prefixIcon: const Padding(
+                    padding: EdgeInsets.only(left: 10, right: 6),
+                    child: Icon(
+                      CupertinoIcons.search,
+                      color: Color(0xFF8E8E93),
+                      size: 18,
+                    ),
+                  ),
+                  prefixIconConstraints: const BoxConstraints(
+                    minWidth: 32,
+                    minHeight: 18,
+                  ),
+                  hintText: 'Search',
+                  hintStyle: const TextStyle(
+                    color: Color(0xFF8E8E93),
+                    fontSize: 15,
+                    fontFamily: 'SF Pro Text',
+                  ),
+                  suffixIcon: _searchQuery.isNotEmpty
+                      ? GestureDetector(
+                          onTap: () {
+                            setState(() {
+                              _searchQuery = '';
+                            });
+                          },
+                          child: const Icon(
+                            CupertinoIcons.clear_fill,
+                            color: Color(0xFF8E8E93),
+                            size: 16,
+                          ),
+                        )
+                      : null,
+                ),
+              ),
+            ),
+          ),
+          AnimatedCrossFade(
+            duration: const Duration(milliseconds: 200),
+            firstCurve: Curves.easeOutCubic,
+            secondCurve: Curves.easeOutCubic,
+            crossFadeState: _isSearchFocused
+                ? CrossFadeState.showFirst
+                : CrossFadeState.showSecond,
+            firstChild: GestureDetector(
+              onTap: () {
+                _searchFocusNode.unfocus();
+                setState(() {
+                  _searchQuery = '';
+                });
+              },
+              behavior: HitTestBehavior.opaque,
+              child: Padding(
+                padding: const EdgeInsets.only(left: 12, right: 4),
+                child: Text(
+                  'Cancel',
+                  style: TextStyle(
+                    color: isDark ? Colors.white : Colors.black87,
+                    fontSize: 16,
+                    fontWeight: FontWeight.w400,
+                    fontFamily: 'SF Pro Text',
+                  ),
+                ),
+              ),
+            ),
+            secondChild: const SizedBox.shrink(),
+          ),
+        ],
       ),
     );
   }

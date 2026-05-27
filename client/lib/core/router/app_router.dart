@@ -1,10 +1,13 @@
 // lib/core/router/app_router.dart
 
 import 'dart:io';
-import 'package:flutter/cupertino.dart';
+
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
+
+// iOS page transition
+import 'ios_page_route.dart';
 
 // Pages
 import '../../features/auth/presentation/pages/splash_page.dart';
@@ -18,7 +21,7 @@ import '../../features/post/presentation/pages/post_likes_page.dart';
 import '../../features/notifications/presentation/pages/notifications_page.dart';
 import '../../features/profile/presentation/pages/profile_page.dart';
 import '../../features/profile/presentation/pages/edit_profile_page.dart';
-import '../../features/messages/presentation/pages/messages_page.dart';
+
 import '../../features/inbox/pages/inbox_page.dart';
 import '../../features/inbox/pages/message_requests_page.dart';
 import '../../features/messages/presentation/pages/chat_page.dart';
@@ -28,11 +31,10 @@ import '../../features/messages/presentation/pages/image_viewer_page.dart';
 import '../../features/messages/presentation/pages/video_player_page.dart';
 import '../../features/messages/presentation/pages/forward_message_page.dart';
 import '../../features/messages/presentation/pages/group_chat_create_page.dart';
-import '../../features/messages/data/models/conversation_model.dart';
 import '../../features/chat/data/models/message.dart';
 import '../../features/story/presentation/pages/story_viewer_page.dart';
 import '../../features/story/presentation/providers/story_provider.dart';
-import '../../features/story/presentation/widgets/story_viewer.dart';
+
 import '../../features/follow/data/repositories/presentation/pages/follow_requests_page.dart';
 import '../../features/follow/data/repositories/presentation/pages/followers_page.dart';
 import '../../features/reels/presentation/pages/reel_detail_page.dart';
@@ -126,6 +128,7 @@ final appRouterProvider = Provider<GoRouter>((ref) {
     },
 
     routes: [
+      // ── Auth pages — fade transition ──────────────────────
       GoRoute(
         path: AppRoutes.splash,
         pageBuilder: (context, state) => _fadePage(context, state, const SplashPage()),
@@ -139,7 +142,7 @@ final appRouterProvider = Provider<GoRouter>((ref) {
         pageBuilder: (context, state) => _fadePage(context, state, const RegisterPage()),
       ),
 
-      // ⭐ Main App with Tabs
+      // ── Main App with Tabs (no push transition) ───────────
       GoRoute(
         path: '/home',
         redirect: (_, s) => AppRoutes.main,
@@ -149,93 +152,87 @@ final appRouterProvider = Provider<GoRouter>((ref) {
         builder: (context, state) => const MainShell(),
       ),
 
-      // Full screen routes (hide tabs)
+      // ── Full-screen routes — iOS slide transition ─────────
       GoRoute(
         path: AppRoutes.messages,
-        builder: (context, state) => const InboxPage(),
+        pageBuilder: (context, state) => iosPage(state: state, child: const InboxPage()),
       ),
       GoRoute(
         path: AppRoutes.messageRequests,
-        builder: (context, state) => const MessageRequestsPage(),
+        pageBuilder: (context, state) => iosPage(state: state, child: const MessageRequestsPage()),
       ),
       GoRoute(
         path: AppRoutes.chat,
-        builder: (context, state) {
+        pageBuilder: (context, state) {
           final id = state.pathParameters['conversationId'] ?? '';
-          final extra = state.extra;
 
-          String username = 'User';
-          String? avatarUrl;
-          bool isVerified = false;
-
-          if (extra is Map<String, dynamic>) {
-            username = extra['username'] as String? ?? 'User';
-            avatarUrl = extra['avatarUrl'] as String?;
-            isVerified = extra['isVerified'] as bool? ?? false;
-          } else if (extra is ConversationModel) {
-            username = extra.displayName;
-            avatarUrl = extra.displayAvatarUrl;
-            isVerified = extra.otherUser?.isVerified ?? false;
-          }
-
-          return ChatPage(
-            conversationId: id,
+          return iosPage(
+            state: state,
+            child: ChatPage(conversationId: id),
           );
         },
       ),
       GoRoute(
         path: AppRoutes.newMessage,
-        builder: (context, state) => const NewMessagePage(),
+        pageBuilder: (context, state) => iosPage(state: state, child: const NewMessagePage()),
       ),
       GoRoute(
         path: '/messages/search',
-        builder: (context, state) => const MessageSearchPage(),
+        pageBuilder: (context, state) => iosPage(state: state, child: const MessageSearchPage()),
       ),
       GoRoute(
         path: '/messages/image-viewer',
-        builder: (context, state) {
+        pageBuilder: (context, state) {
           final extra = state.extra as Map<String, dynamic>?;
-          return ImageViewerPage(
-            imageUrl: extra?['imageUrl'] as String? ?? '',
-            senderName: extra?['senderName'] as String?,
-            timestamp: extra?['timestamp'] as DateTime?,
+          return iosPage(
+            state: state,
+            child: ImageViewerPage(
+              imageUrl: extra?['imageUrl'] as String? ?? '',
+              senderName: extra?['senderName'] as String?,
+              timestamp: extra?['timestamp'] as DateTime?,
+            ),
           );
         },
       ),
       GoRoute(
         path: '/messages/video-player',
-        builder: (context, state) {
+        pageBuilder: (context, state) {
           final extra = state.extra as Map<String, dynamic>?;
-          return VideoPlayerPage(
-            videoUrl: extra?['videoUrl'] as String? ?? '',
-            thumbnailUrl: extra?['thumbnailUrl'] as String?,
-            senderName: extra?['senderName'] as String?,
+          return iosPage(
+            state: state,
+            child: VideoPlayerPage(
+              videoUrl: extra?['videoUrl'] as String? ?? '',
+              thumbnailUrl: extra?['thumbnailUrl'] as String?,
+              senderName: extra?['senderName'] as String?,
+            ),
           );
         },
       ),
       GoRoute(
         path: '/messages/forward',
-        builder: (context, state) {
+        pageBuilder: (context, state) {
           final message = state.extra as Message;
-          return ForwardMessagePage(message: message);
+          return iosPage(state: state, child: ForwardMessagePage(message: message));
         },
       ),
       GoRoute(
         path: '/messages/group/create',
-        builder: (context, state) => const GroupChatCreatePage(),
+        pageBuilder: (context, state) => iosPage(state: state, child: const GroupChatCreatePage()),
       ),
       GoRoute(
         path: AppRoutes.editProfile,
-        builder: (context, state) => const EditProfilePage(),
+        pageBuilder: (context, state) => iosPage(state: state, child: const EditProfilePage()),
       ),
       GoRoute(
         path: AppRoutes.createPost,
-        builder: (context, state) =>
-            const MediaPickerPage(createType: CreateType.post),
+        pageBuilder: (context, state) => iosPage(
+          state: state,
+          child: const MediaPickerPage(createType: CreateType.post),
+        ),
       ),
       GoRoute(
         path: AppRoutes.finalizePost,
-        builder: (context, state) {
+        pageBuilder: (context, state) {
           final extra = state.extra;
           List<File> images = [];
           List<List<double>> matrices = [];
@@ -249,37 +246,46 @@ final appRouterProvider = Provider<GoRouter>((ref) {
             matrices = extra['filterMatrices'] as List<List<double>>? ?? [];
           }
           
-          return FinalizePostPage(
-            images: images,
-            filterMatrices: matrices,
+          return iosPage(
+            state: state,
+            child: FinalizePostPage(
+              images: images,
+              filterMatrices: matrices,
+            ),
           );
         },
       ),
       GoRoute(
         path: AppRoutes.createReel,
-        builder: (context, state) =>
-            const MediaPickerPage(createType: CreateType.reel),
+        pageBuilder: (context, state) => iosPage(
+          state: state,
+          child: const MediaPickerPage(createType: CreateType.reel),
+        ),
       ),
       GoRoute(
         path: AppRoutes.createStory,
-        builder: (context, state) =>
-            const MediaPickerPage(createType: CreateType.story),
+        pageBuilder: (context, state) => iosPage(
+          state: state,
+          child: const MediaPickerPage(createType: CreateType.story),
+        ),
       ),
       GoRoute(
         path: AppRoutes.postDetail,
-        builder: (context, state) {
+        pageBuilder: (context, state) {
           final id = state.pathParameters['postId'] ?? '';
-          return PostDetailPage(postId: id);
+          return iosPage(state: state, child: PostDetailPage(postId: id));
         },
       ),
       GoRoute(
         path: AppRoutes.comments,
-        builder: (context, state) {
+        pageBuilder: (context, state) {
           final id = state.pathParameters['postId'] ?? '';
           final post = state.extra as PostModel?;
-          return CommentsPage(postId: id, post: post);
+          return iosPage(state: state, child: CommentsPage(postId: id, post: post));
         },
       ),
+
+      // ── Story — custom zoom/expand transition (preserved) ─
       GoRoute(
         path: AppRoutes.story,
         pageBuilder: (context, state) {
@@ -384,69 +390,71 @@ final appRouterProvider = Provider<GoRouter>((ref) {
           );
         },
       ),
+
+      // ── Remaining pages — iOS slide transition ────────────
       GoRoute(
         path: AppRoutes.settings,
-        builder: (context, state) => const SettingsPage(),
+        pageBuilder: (context, state) => iosPage(state: state, child: const SettingsPage()),
       ),
       GoRoute(
         path: AppRoutes.serverSettings,
-        builder: (context, state) => const ServerSettingsPage(),
+        pageBuilder: (context, state) => iosPage(state: state, child: const ServerSettingsPage()),
       ),
       GoRoute(
         path: AppRoutes.addAccount,
-        builder: (context, state) => const AddAccountPage(),
+        pageBuilder: (context, state) => iosPage(state: state, child: const AddAccountPage()),
       ),
       GoRoute(
         path: AppRoutes.profile,
-        builder: (context, state) {
+        pageBuilder: (context, state) {
           final username = state.pathParameters['username'] ?? '';
-          return ProfilePage(username: username);
+          return iosPage(state: state, child: ProfilePage(username: username));
         },
       ),
       GoRoute(
         path: AppRoutes.notifications,
-        builder: (context, state) => const NotificationsPage(),
+        pageBuilder: (context, state) => iosPage(state: state, child: const NotificationsPage()),
       ),
       GoRoute(
         path: AppRoutes.postLikes,
-        builder: (context, state) {
+        pageBuilder: (context, state) {
           final id = state.pathParameters['postId'] ?? '';
-          return PostLikesPage(postId: id);
+          return iosPage(state: state, child: PostLikesPage(postId: id));
         },
       ),
       GoRoute(
         path: AppRoutes.reelDetail,
-        builder: (context, state) {
+        pageBuilder: (context, state) {
           final id = state.pathParameters['reelId'] ?? '';
-          return ReelDetailPage(reelId: id);
+          return iosPage(state: state, child: ReelDetailPage(reelId: id));
         },
       ),
       GoRoute(
         path: AppRoutes.hashtag,
-        builder: (context, state) {
+        pageBuilder: (context, state) {
           final tag = state.pathParameters['tag'] ?? '';
-          return HashtagPage(tag: tag);
+          return iosPage(state: state, child: HashtagPage(tag: tag));
         },
       ),
       GoRoute(
         path: AppRoutes.followers,
-        builder: (context, state) {
+        pageBuilder: (context, state) {
           final id = state.pathParameters['userId'] ?? '';
           final username = state.pathParameters['username'] ?? '';
-          return FollowersPage(userId: id, username: username);
+          return iosPage(state: state, child: FollowersPage(userId: id, username: username));
         },
       ),
       GoRoute(
         path: AppRoutes.following,
-        builder: (context, state) {
+        pageBuilder: (context, state) {
           final id = state.pathParameters['userId'] ?? '';
           final username = state.pathParameters['username'] ?? '';
-          return FollowingPage(userId: id, username: username);
+          return iosPage(state: state, child: FollowingPage(userId: id, username: username));
         },
       ),
       GoRoute(
         path: AppRoutes.followRequests,
-        builder: (context, state) => const FollowRequestsPage(),
+        pageBuilder: (context, state) => iosPage(state: state, child: const FollowRequestsPage()),
       ),
     ],
   );

@@ -107,13 +107,20 @@ class InstagramCloneApp extends ConsumerWidget {
         ref.watch(chatServiceInitializerProvider);
         
         // Apply Global No-Ripple behavior
-        return ScrollConfiguration(
-          behavior: const ScrollBehavior().copyWith(
-            physics: const BouncingScrollPhysics(),
-            overscroll: false,
+        return DefaultTextStyle(
+          style: const TextStyle(
+            decoration: TextDecoration.none,
+            decorationColor: Colors.transparent,
+            decorationThickness: 0,
           ),
-          child: NotificationHandler(
-            child: child ?? const SizedBox.shrink(),
+          child: ScrollConfiguration(
+            behavior: const ScrollBehavior().copyWith(
+              physics: const BouncingScrollPhysics(),
+              overscroll: false,
+            ),
+            child: NotificationHandler(
+              child: child ?? const SizedBox.shrink(),
+            ),
           ),
         );
       },

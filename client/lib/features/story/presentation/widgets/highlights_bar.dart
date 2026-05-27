@@ -284,51 +284,87 @@ class _HighlightBubble extends StatelessWidget {
 // ─────────────────────────────────────────────────────
 // ADD HIGHLIGHT BUBBLE ("+New")
 // ─────────────────────────────────────────────────────
-class _AddHighlightBubble extends StatelessWidget {
+class _AddHighlightBubble extends StatefulWidget {
   final VoidCallback onTap;
   const _AddHighlightBubble({required this.onTap});
+
+  @override
+  State<_AddHighlightBubble> createState() => _AddHighlightBubbleState();
+}
+
+class _AddHighlightBubbleState extends State<_AddHighlightBubble>
+    with SingleTickerProviderStateMixin {
+  late AnimationController _ctrl;
+  late Animation<double> _scale;
+
+  @override
+  void initState() {
+    super.initState();
+    _ctrl = AnimationController(
+      vsync: this,
+      duration: const Duration(milliseconds: 120),
+    );
+    _scale = Tween<double>(begin: 1.0, end: 0.92).animate(
+      CurvedAnimation(parent: _ctrl, curve: Curves.easeOut),
+    );
+  }
+
+  @override
+  void dispose() {
+    _ctrl.dispose();
+    super.dispose();
+  }
 
   @override
   Widget build(BuildContext context) {
     final isDark = Theme.of(context).brightness == Brightness.dark;
 
     return GestureDetector(
-      onTap: onTap,
-      child: SizedBox(
-        width: 68,
-        child: Column(
-          mainAxisSize: MainAxisSize.min,
-          children: [
-            Container(
-              width:  64,
-              height: 64,
-              decoration: BoxDecoration(
-                shape: BoxShape.circle,
-                color: isDark ? AppColors.darkSurface : AppColors.white,
-                border: Border.all(
-                  color: isDark ? AppColors.darkDivider : AppColors.divider,
-                  width: 1.5,
+      onTapDown: (_) => _ctrl.forward(),
+      onTapUp: (_) {
+        _ctrl.reverse();
+        widget.onTap();
+      },
+      onTapCancel: () => _ctrl.reverse(),
+      child: ScaleTransition(
+        scale: _scale,
+        child: SizedBox(
+          width: 68,
+          child: Column(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              Container(
+                width:  64,
+                height: 64,
+                decoration: BoxDecoration(
+                  shape: BoxShape.circle,
+                  color: isDark ? AppColors.darkSurface : AppColors.white,
+                  border: Border.all(
+                    color: isDark ? AppColors.darkDivider : AppColors.divider,
+                    width: 1.5,
+                  ),
+                ),
+                child: Icon(
+                  Icons.add,
+                  color: isDark
+                      ? AppColors.darkTextPrimary
+                      : AppColors.textPrimary,
+                  size:  28,
                 ),
               ),
-              child: Icon(
-                Icons.add,
-                color: isDark
-                    ? AppColors.darkTextPrimary
-                    : AppColors.textPrimary,
-                size:  28,
+              const SizedBox(height: 6),
+              Text(
+                'New',
+                style: TextStyle(
+                  fontSize: 12,
+                  color: isDark
+                      ? AppColors.darkTextPrimary
+                      : AppColors.textPrimary,
+                  decoration: TextDecoration.none,
+                ),
               ),
-            ),
-            const SizedBox(height: 6),
-            Text(
-              'New',
-              style: TextStyle(
-                fontSize: 12,
-                color: isDark
-                    ? AppColors.darkTextPrimary
-                    : AppColors.textPrimary,
-              ),
-            ),
-          ],
+            ],
+          ),
         ),
       ),
     );

@@ -104,9 +104,8 @@ class _InboxAppBarState extends State<InboxAppBar> {
 
   @override
   Widget build(BuildContext context) {
-    final isDark = Theme.of(context).brightness == Brightness.dark;
-    final bgColor = isDark ? Colors.black : Colors.white;
-    final iconColor = isDark ? Colors.white : Colors.black;
+    final bgColor = Colors.black;
+    final iconColor = Colors.white;
 
     // Fade out username title as scrollOffset goes past 20.
     final double titleOpacity =
@@ -118,6 +117,7 @@ class _InboxAppBarState extends State<InboxAppBar> {
         bottom: false,
         child: SizedBox(
           height: 44,
+          width: double.infinity,
           child: Stack(
             alignment: Alignment.center,
             children: [
@@ -169,10 +169,11 @@ class _InboxAppBarState extends State<InboxAppBar> {
                         child: Text(
                           widget.username,
                           style: TextStyle(
-                            fontSize: 17,
-                            fontWeight: FontWeight.w800,
+                            fontSize: 16,
+                            fontWeight: FontWeight.w700,
                             color: iconColor,
                             letterSpacing: -0.3,
+                            fontFamily: 'SF Pro Text',
                           ),
                           overflow: TextOverflow.ellipsis,
                         ),
@@ -194,7 +195,7 @@ class _InboxAppBarState extends State<InboxAppBar> {
 
               // ── RIGHT: action buttons ──────────────────────
               Positioned(
-                right: 8,
+                right: 0,
                 child: Row(
                   mainAxisSize: MainAxisSize.min,
                   children: [
@@ -203,11 +204,11 @@ class _InboxAppBarState extends State<InboxAppBar> {
                       behavior: HitTestBehavior.opaque,
                       child: Padding(
                         padding: const EdgeInsets.symmetric(
-                            horizontal: 8.0, vertical: 4.0),
+                            horizontal: 10.0, vertical: 4.0),
                         child: Icon(
-                          LucideIcons.users,
+                          CupertinoIcons.group,
                           color: iconColor,
-                          size: 25,
+                          size: 26,
                         ),
                       ),
                     ),
@@ -216,11 +217,11 @@ class _InboxAppBarState extends State<InboxAppBar> {
                       behavior: HitTestBehavior.opaque,
                       child: Padding(
                         padding: const EdgeInsets.only(
-                            left: 8.0, right: 8.0, top: 4.0, bottom: 4.0),
+                            left: 10.0, right: 16.0, top: 4.0, bottom: 4.0),
                         child: Icon(
-                          LucideIcons.square_pen,
+                          CupertinoIcons.create,
                           color: iconColor,
-                          size: 24,
+                          size: 22,
                         ),
                       ),
                     ),

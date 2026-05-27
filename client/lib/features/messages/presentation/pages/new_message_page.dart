@@ -1,17 +1,19 @@
 // lib/features/messages/presentation/pages/new_message_page.dart
-
 import 'package:flutter/material.dart';
-import 'package:flutter_lucide/flutter_lucide.dart';
+import 'package:flutter/cupertino.dart';
+import 'package:flutter/services.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:cached_network_image/cached_network_image.dart';
 import 'package:go_router/go_router.dart';
+
 import '../../../../core/theme/app_theme.dart';
+import '../../../../core/theme/ios_colors.dart';
 import '../../../../shared/widgets/app_snackbar.dart';
-import '../providers/message_search_provider.dart';
-import '../../../chat/presentation/providers/chat_notifiers.dart';
-import '../../../../shared/widgets/spring_widget.dart';
 import '../../../../shared/widgets/user_story_avatar.dart';
 import '../../../../shared/widgets/verified_badge.dart';
+import '../providers/message_search_provider.dart';
+import '../../../chat/presentation/providers/chat_notifiers.dart';
+import '../../../../shared/models/user_model.dart';
 
 class NewMessagePage extends ConsumerStatefulWidget {
   const NewMessagePage({super.key});
@@ -20,285 +22,514 @@ class NewMessagePage extends ConsumerStatefulWidget {
   ConsumerState<NewMessagePage> createState() => _NewMessagePageState();
 }
 
-class _NewMessagePageState extends ConsumerState<NewMessagePage> {
-  final TextEditingController _searchController = TextEditingController();
+class _NewMessagePageState extends ConsumerState<NewMessagePage>
+    with SingleTickerProviderStateMixin {
+  late AnimationController _entryCtrl;
+  final TextEditingController _searchCtrl = TextEditingController();
+  final List<String> _selectedUserIds = [];
+  bool _isGroup = false;
+
+  @override
+  void initState() {
+    super.initState();
+    _entryCtrl = AnimationController(vsync: this, duration: const Duration(milliseconds: 350));
+    _entryCtrl.forward();
+    _searchCtrl.addListener(_onSearchChanged);
+  }
+
+  void _onSearchChanged() {
+    ref.read(messageSearchProvider.notifier).search(_searchCtrl.text);
+  }
 
   @override
   void dispose() {
-    _searchController.dispose();
+    _entryCtrl.dispose();
+    _searchCtrl.dispose();
     super.dispose();
+  }
+
+  Future<void> _startChat() async {
+    if (_selectedUserIds.isEmpty) return;
+
+    // Show loading
+    showDialog(
+      context: context,
+      barrierDismissible: false,
+      builder: (_) => const Center(
+        child: CupertinoActivityIndicator(color: Colors.white, radius: 14),
+      ),
+    );
+
+    try {
+      if (_selectedUserIds.length == 1) {
+        // Single user chat
+        final targetId = _selectedUserIds.first;
+        final conversation = await ref
+            .read(inboxProvider.notifier)
+            .createConversation(targetId);
+
+        if (!mounted) return;
+        Navigator.pop(context); // Pop loading
+
+        if (conversation.id.isEmpty) {
+          AppSnackbar.error(context, 'Could not open chat. Try again.');
+          return;
+        }
+
+        context.pushReplacement(
+          '/chat/${conversation.id}',
+          extra: <String, dynamic>{
+            'username': conversation.name ?? 'User',
+            'avatarUrl': conversation.avatarUrl,
+            'isVerified': conversation.otherUser?.isVerified ?? false,
+          },
+        );
+      } else {
+        // Multi-user Group chat
+        Navigator.pop(context); // Pop loading first to show prompt
+        final String? groupName = await _showGroupNamePrompt();
+        if (groupName == null || groupName.isEmpty) return;
+
+        // Show loading again
+        showDialog(
+          context: context,
+          barrierDismissible: false,
+          builder: (_) => const Center(
+            child: CupertinoActivityIndicator(color: Colors.white, radius: 14),
+          ),
+        );
+
+        final conversation = await ref
+            .read(inboxProvider.notifier)
+            .createGroupConversation(
+              name: groupName,
+              participantIds: _selectedUserIds,
+            );
+
+        if (!mounted) return;
+        Navigator.pop(context); // Pop loading
+
+        if (conversation.id.isEmpty) {
+          AppSnackbar.error(context, 'Could not open group. Try again.');
+          return;
+        }
+
+        context.pushReplacement(
+          '/chat/${conversation.id}',
+          extra: <String, dynamic>{
+            'username': conversation.name ?? groupName,
+            'avatarUrl': conversation.avatarUrl,
+            'isVerified': false,
+          },
+        );
+      }
+    } catch (e) {
+      if (mounted) {
+        Navigator.pop(context); // Pop loading
+        AppSnackbar.error(context, 'Error initiating chat: $e');
+      }
+    }
+  }
+
+  Future<String?> _showGroupNamePrompt() {
+    return showCupertinoDialog<String>(
+      context: context,
+      builder: (ctx) {
+        final ctrl = TextEditingController(text: 'Group Chat');
+        return CupertinoAlertDialog(
+          title: const Text('New Group Name'),
+          content: Padding(
+            padding: const EdgeInsets.only(top: 12.0),
+            child: CupertinoTextField(
+              controller: ctrl,
+              placeholder: 'Group Name',
+              placeholderStyle: const TextStyle(color: CupertinoColors.placeholderText),
+              autofocus: true,
+              style: TextStyle(color: Theme.of(ctx).brightness == Brightness.dark ? Colors.white : Colors.black),
+            ),
+          ),
+          actions: [
+            CupertinoDialogAction(
+              child: const Text('Cancel'),
+              onPressed: () => Navigator.pop(ctx),
+            ),
+            CupertinoDialogAction(
+              isDefaultAction: true,
+              child: const Text('Create'),
+              onPressed: () => Navigator.pop(ctx, ctrl.text.trim()),
+            ),
+          ],
+        );
+      },
+    );
   }
 
   @override
   Widget build(BuildContext context) {
+    final isDark = Theme.of(context).brightness == Brightness.dark;
+    final bg = IosColors.background(context);
     final searchState = ref.watch(messageSearchProvider);
 
-    final isDark = Theme.of(context).brightness == Brightness.dark;
-    final bgColor = isDark ? Colors.black : Colors.white;
-    final textColor = isDark ? Colors.white : Colors.black;
-    final subtextColor = isDark ? Colors.white70 : Colors.black54;
-
     return Scaffold(
-      backgroundColor: bgColor,
-      appBar: AppBar(
-        backgroundColor: bgColor,
-        elevation: 0,
-        scrolledUnderElevation: 0,
-        leading: BouncyTap(
-          onTap: () => context.pop(),
-          child: Center(
-            child: Padding(
-              padding: const EdgeInsets.all(12),
-              child: Icon(LucideIcons.x, color: textColor),
-            ),
-          ),
-        ),
-        title: Text(
-          'New message',
-          style: TextStyle(
-            color: textColor,
-            fontWeight: FontWeight.bold,
-            fontSize: 18,
-          ),
-        ),
-        actions: [
-          BouncyTap(
-            onTap: () {
-              // Create group logic could go here later
-            },
-            child: const Padding(
-              padding: EdgeInsets.symmetric(horizontal: 16, vertical: 8),
-              child: Text(
-                'Chat',
-                style: TextStyle(
-                  color: AppColors.primary,
-                  fontWeight: FontWeight.bold,
-                ),
-              ),
-            ),
-          ),
-        ],
-      ),
+      backgroundColor: bg,
+      appBar: _buildAppBar(isDark),
       body: Column(
         children: [
-          // ─── SEARCH INPUT ───────────────────────────────────────
-          Padding(
-            padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
-            child: Row(
-              children: [
-                Text(
-                  'To: ',
-                  style: TextStyle(fontWeight: FontWeight.w600, fontSize: 16, color: textColor),
-                ),
-                Expanded(
-                  child: TextField(
-                    controller: _searchController,
-                    onChanged: (value) =>
-                        ref.read(messageSearchProvider.notifier).search(value),
-                    style: TextStyle(color: textColor),
-                    decoration: InputDecoration(
-                      hintText: 'Search...',
-                      border: InputBorder.none,
-                      hintStyle: TextStyle(color: subtextColor),
-                    ),
-                  ),
-                ),
-              ],
-            ),
-          ),
-          Divider(height: 1, color: isDark ? Colors.white10 : Colors.black12),
-
-          // ─── RESULTS ──────────────────────────────────────────
-          Expanded(child: _buildBody(searchState)),
+          _buildToField(isDark),
+          if (_selectedUserIds.isNotEmpty) _buildSelectedChips(isDark, searchState.users),
+          _buildToggleRow(isDark),
+          const Divider(height: 0.5, thickness: 0.5),
+          Expanded(child: _buildSuggestionsList(isDark, searchState)),
         ],
       ),
     );
   }
 
-  Widget _buildBody(MessageSearchState state) {
-    final isDark = Theme.of(context).brightness == Brightness.dark;
-    final textColor = isDark ? Colors.white : Colors.black;
-    final subtextColor = isDark ? Colors.white60 : Colors.black45;
-
-    if (state.isLoading) {
-      return const Center(
-        child: CircularProgressIndicator(color: AppColors.primary),
-      );
-    }
-
-    if (state.error != null) {
-      return Center(
+  PreferredSizeWidget _buildAppBar(bool isDark) {
+    return AppBar(
+      backgroundColor: IosColors.background(context),
+      elevation: 0,
+      scrolledUnderElevation: 0,
+      centerTitle: true,
+      leading: CupertinoButton(
+        padding: const EdgeInsets.only(left: 8),
+        onPressed: () => Navigator.pop(context),
         child: Text(
-          state.error!,
-          style: const TextStyle(color: AppColors.secondary),
+          'Cancel',
+          style: TextStyle(
+            color: IosColors.primary(context),
+            fontSize: 17,
+            fontWeight: FontWeight.w400,
+            decoration: TextDecoration.none,
+          ),
         ),
-      );
-    }
-
-    final showGroupRow = _searchController.text.trim().isEmpty;
-
-    if (state.users.isEmpty && _searchController.text.isNotEmpty) {
-      return Center(
-        child: Text(
-          'No users found',
-          style: TextStyle(color: subtextColor),
+      ),
+      title: Text(
+        'New message',
+        style: TextStyle(
+          color: IosColors.primary(context),
+          fontSize: 17,
+          fontWeight: FontWeight.w700,
+          decoration: TextDecoration.none,
         ),
-      );
-    }
+      ),
+      actions: [
+        AnimatedOpacity(
+          opacity: _selectedUserIds.isNotEmpty ? 1.0 : 0.4,
+          duration: const Duration(milliseconds: 200),
+          child: CupertinoButton(
+            padding: const EdgeInsets.only(right: 16),
+            onPressed: _selectedUserIds.isEmpty ? null : _startChat,
+            child: const Text(
+              'Chat',
+              style: TextStyle(
+                color: IosColors.igBlue,
+                fontSize: 17,
+                fontWeight: FontWeight.w600,
+                decoration: TextDecoration.none,
+              ),
+            ),
+          ),
+        ),
+      ],
+    );
+  }
 
-    final listCount = state.users.length + (showGroupRow ? 1 : 0);
-
-    return ListView.builder(
-      itemCount: listCount,
-      itemBuilder: (context, index) {
-        if (showGroupRow && index == 0) {
-          return Column(
-            crossAxisAlignment: CrossAxisAlignment.start,
-            children: [
-              BouncyTap(
-                onTap: () {
-                  context.push('/messages/group/create');
-                },
-                child: Padding(
-                  padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 14),
-                  child: Row(
-                      children: [
-                        Container(
-                          width: 44,
-                          height: 44,
-                          decoration: BoxDecoration(
-                            shape: BoxShape.circle,
-                            border: Border.all(color: isDark ? Colors.white10 : AppColors.border),
-                          ),
-                          child: Icon(
-                            LucideIcons.users,
-                            color: textColor,
-                            size: 20,
-                          ),
-                        ),
-                        const SizedBox(width: 12),
-                        Expanded(
-                          child: Column(
-                            crossAxisAlignment: CrossAxisAlignment.start,
-                            children: [
-                              Text(
-                                'Create Group Chat',
-                                style: TextStyle(
-                                  fontSize: 15,
-                                  fontWeight: FontWeight.bold,
-                                  color: textColor,
-                                ),
-                              ),
-                              const SizedBox(height: 2),
-                              Text(
-                                'Chat with up to 250 friends',
-                                style: TextStyle(
-                                  fontSize: 12,
-                                  color: subtextColor,
-                                ),
-                              ),
-                            ],
-                          ),
-                        ),
-                        Icon(
-                          LucideIcons.chevron_right,
-                          size: 16,
-                          color: subtextColor,
-                        ),
-                      ],
+  Widget _buildToField(bool isDark) {
+    return Container(
+      padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
+      child: Row(
+        crossAxisAlignment: CrossAxisAlignment.center,
+        children: [
+          Text(
+            'To:  ',
+            style: TextStyle(
+              color: IosColors.primary(context),
+              fontSize: 16,
+              fontWeight: FontWeight.w600,
+              decoration: TextDecoration.none,
+            ),
+          ),
+          Expanded(
+            child: CupertinoTextField(
+              controller: _searchCtrl,
+              autofocus: true,
+              placeholder: 'Search...',
+              placeholderStyle: TextStyle(
+                color: IosColors.secondary(context),
+                fontSize: 16,
+                decoration: TextDecoration.none,
+              ),
+              style: TextStyle(
+                color: IosColors.primary(context),
+                fontSize: 16,
+                decoration: TextDecoration.none,
+              ),
+              decoration: null,
+              padding: EdgeInsets.zero,
+              suffix: _searchCtrl.text.isNotEmpty
+                ? CupertinoButton(
+                    padding: EdgeInsets.zero,
+                    onPressed: () {
+                      _searchCtrl.clear();
+                      ref.read(messageSearchProvider.notifier).clear();
+                    },
+                    child: Icon(
+                      CupertinoIcons.xmark_circle_fill,
+                      size: 18,
+                      color: IosColors.secondary(context),
                     ),
-                  ),
+                  )
+                : null,
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+
+  Widget _buildSelectedChips(bool isDark, List<UserModel> users) {
+    return SizedBox(
+      height: 44,
+      child: ListView.builder(
+        scrollDirection: Axis.horizontal,
+        padding: const EdgeInsets.symmetric(horizontal: 12),
+        itemCount: _selectedUserIds.length,
+        itemBuilder: (ctx, i) {
+          final uid = _selectedUserIds[i];
+          final user = users.firstWhere(
+            (u) => u.id == uid,
+            orElse: () => UserModel(
+              id: uid,
+              username: 'user',
+              fullName: 'User',
+              email: '',
+              isPrivate: false,
+              isVerified: false,
+              isActive: true,
+            ),
+          );
+          return TweenAnimationBuilder<double>(
+            tween: Tween(begin: 0.0, end: 1.0),
+            duration: const Duration(milliseconds: 220),
+            curve: Curves.elasticOut,
+            builder: (_, v, child) => Transform.scale(
+              scale: v.clamp(0.0, 1.0),
+              child: child,
+            ),
+            child: Padding(
+              padding: const EdgeInsets.only(right: 8),
+              child: Container(
+                padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
+                decoration: BoxDecoration(
+                  color: IosColors.igBlue.withOpacity(0.12),
+                  borderRadius: BorderRadius.circular(20),
                 ),
-                Divider(height: 1, color: isDark ? Colors.white10 : Colors.black12),
-                if (state.users.isNotEmpty)
-                  Padding(
-                    padding: const EdgeInsets.fromLTRB(16, 16, 16, 8),
-                    child: Text(
-                      'Suggested',
-                      style: TextStyle(
-                        fontWeight: FontWeight.bold,
-                        fontSize: 15,
-                        color: textColor,
+                child: Row(
+                  mainAxisSize: MainAxisSize.min,
+                  children: [
+                    CircleAvatar(
+                      radius: 12,
+                      backgroundImage: CachedNetworkImageProvider(user.profilePicUrl ?? 'https://i.pravatar.cc/150'),
+                    ),
+                    const SizedBox(width: 6),
+                    Text(
+                      user.username,
+                      style: const TextStyle(
+                        color: Color(0xFF0095F6),
+                        fontSize: 14,
+                        fontWeight: FontWeight.w500,
+                        decoration: TextDecoration.none,
                       ),
                     ),
-                  ),
-              ],
-            );
-        }
-
-        final userIndex = showGroupRow ? index - 1 : index;
-        final user = state.users[userIndex];
-        return BouncyTap(
-          onTap: () async {
-            // Create or get conversation
-            try {
-              // Show loading
-              showDialog(
-                context: context,
-                barrierDismissible: false,
-                builder: (context) => const Center(
-                  child: CircularProgressIndicator(color: AppColors.primary),
+                    const SizedBox(width: 6),
+                    GestureDetector(
+                      onTap: () {
+                        HapticFeedback.selectionClick();
+                        setState(() => _selectedUserIds.remove(uid));
+                      },
+                      child: const Icon(
+                        CupertinoIcons.xmark_circle_fill,
+                        size: 16,
+                        color: IosColors.igBlue,
+                      ),
+                    ),
+                  ],
                 ),
-              );
-
-              final conversation = await ref
-                  .read(inboxProvider.notifier)
-                  .createConversation(user.id);
-
-              if (!context.mounted) return;
-
-              // Always pop loading first
-              Navigator.pop(context);
-
-              // Guard: conversation ID must be non-empty for GoRouter to match /chat/:id
-              if (conversation.id.isEmpty) {
-                AppSnackbar.error(context, 'Could not open chat. Try again.');
-                return;
-              }
-
-              // Pass a Map so the router's Map<String, dynamic> branch fires correctly
-              context.pushReplacement(
-                '/chat/${conversation.id}',
-                extra: <String, dynamic>{
-                  'username': conversation.name ?? user.username,
-                  'avatarUrl': conversation.avatarUrl,
-                  'isVerified':
-                      conversation.otherUser?.isVerified ?? user.isVerified,
-                },
-              );
-            } catch (e) {
-              if (!context.mounted) return;
-              Navigator.pop(context); // Pop loading
-              AppSnackbar.error(context, 'Error: $e');
-            }
-          },
-          child: ListTile(
-            leading: UserStoryAvatar(
-              userId: user.id,
-              profilePicUrl: user.profilePicUrl,
-              username: user.username,
-              size: 40,
-              showPresence: false,
-              isClickable: true,
+              ),
             ),
-            title: Row(
-              children: [
-                Flexible(
-                  child: Text(
-                    user.username,
-                    style: TextStyle(fontWeight: FontWeight.w600, color: textColor),
-                    overflow: TextOverflow.ellipsis,
+          );
+        },
+      ),
+    );
+  }
+
+  Widget _buildToggleRow(bool isDark) {
+    return Padding(
+      padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
+      child: Row(
+        children: [
+          Text(
+            'Suggested',
+            style: TextStyle(
+              color: IosColors.primary(context),
+              fontSize: 15,
+              fontWeight: FontWeight.w600,
+              decoration: TextDecoration.none,
+            ),
+          ),
+          const Spacer(),
+          if (_selectedUserIds.length > 1) ...[
+            CupertinoButton(
+              padding: EdgeInsets.zero,
+              onPressed: () => setState(() => _isGroup = !_isGroup),
+              child: Row(
+                children: [
+                  const Text(
+                    'Create group',
+                    style: TextStyle(
+                      color: IosColors.igBlue,
+                      fontSize: 14,
+                      decoration: TextDecoration.none,
+                    ),
                   ),
-                ),
-                if (user.isVerified) ...[
                   const SizedBox(width: 4),
-                  const VerifiedBadge(size: 13),
+                  AnimatedRotation(
+                    turns: _isGroup ? 0.25 : 0,
+                    duration: const Duration(milliseconds: 200),
+                    child: const Icon(
+                      CupertinoIcons.chevron_right,
+                      size: 14,
+                      color: IosColors.igBlue,
+                    ),
+                  ),
                 ],
-              ],
+              ),
             ),
-            subtitle: Text(
-              user.fullName,
-              style: TextStyle(color: subtextColor),
+          ],
+        ],
+      ),
+    );
+  }
+
+  Widget _buildSuggestionsList(bool isDark, MessageSearchState state) {
+    if (state.isLoading) {
+      return const Center(child: CupertinoActivityIndicator(radius: 12));
+    }
+
+    if (state.users.isEmpty) {
+      return Center(
+        child: Column(
+          mainAxisAlignment: MainAxisAlignment.center,
+          children: [
+            Icon(
+              CupertinoIcons.search,
+              size: 48,
+              color: IosColors.secondary(context),
+            ),
+            const SizedBox(height: 12),
+            Text(
+              'No account found.',
+              style: TextStyle(
+                color: IosColors.secondary(context),
+                fontSize: 16,
+                fontWeight: FontWeight.w600,
+                decoration: TextDecoration.none,
+              ),
+            ),
+          ],
+        ),
+      );
+    }
+
+    return ListView.builder(
+      keyboardDismissBehavior: ScrollViewKeyboardDismissBehavior.onDrag,
+      itemCount: state.users.length,
+      itemBuilder: (ctx, i) {
+        final user = state.users[i];
+        final isSelected = _selectedUserIds.contains(user.id);
+
+        return GestureDetector(
+          onTap: () {
+            HapticFeedback.selectionClick();
+            setState(() {
+              if (isSelected) {
+                _selectedUserIds.remove(user.id);
+              } else {
+                _selectedUserIds.add(user.id);
+              }
+            });
+          },
+          child: Container(
+            padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
+            color: Colors.transparent,
+            child: Row(
+              children: [
+                UserStoryAvatar(
+                  userId: user.id,
+                  profilePicUrl: user.profilePicUrl,
+                  username: user.username,
+                  size: 44,
+                  showPresence: false,
+                  isClickable: false,
+                ),
+                const SizedBox(width: 12),
+                Expanded(
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      Row(
+                        children: [
+                          Text(
+                            user.username,
+                            style: TextStyle(
+                              color: IosColors.primary(context),
+                              fontSize: 15,
+                              fontWeight: FontWeight.w600,
+                              decoration: TextDecoration.none,
+                            ),
+                          ),
+                          if (user.isVerified) ...[
+                            const SizedBox(width: 4),
+                            const VerifiedBadge(size: 13),
+                          ],
+                        ],
+                      ),
+                      const SizedBox(height: 2),
+                      Text(
+                        user.fullName,
+                        style: TextStyle(
+                          color: IosColors.secondary(context),
+                          fontSize: 13,
+                          fontWeight: FontWeight.w400,
+                          decoration: TextDecoration.none,
+                        ),
+                      ),
+                    ],
+                  ),
+                ),
+                Container(
+                  width: 24,
+                  height: 24,
+                  decoration: BoxDecoration(
+                    shape: BoxShape.circle,
+                    border: Border.all(
+                      color: isSelected
+                        ? IosColors.igBlue
+                        : (isDark ? Colors.white30 : Colors.black26),
+                      width: 1.5,
+                    ),
+                    color: isSelected ? IosColors.igBlue : Colors.transparent,
+                  ),
+                  child: isSelected
+                    ? const Icon(
+                        CupertinoIcons.checkmark,
+                        size: 14,
+                        color: Colors.white,
+                      )
+                    : null,
+                ),
+              ],
             ),
           ),
         );

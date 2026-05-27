@@ -264,7 +264,7 @@ class _GlassBottomNavState extends State<GlassBottomNav>
         child: BackdropFilter(
           filter: ImageFilter.blur(sigmaX: 8, sigmaY: 8),
           child: Container(
-            height: 54,
+            height: 48,
             decoration: BoxDecoration(
               borderRadius: BorderRadius.circular(32),
               gradient: LinearGradient(
@@ -317,7 +317,7 @@ class _GlassBottomNavState extends State<GlassBottomNav>
           child: Column(
             mainAxisSize: MainAxisSize.min,
             children: [
-              SizedBox(height: 52, child: _buildItems(isDark)),
+              SizedBox(height: 46, child: _buildItems(isDark)),
               SizedBox(height: bottom),
             ],
           ),
@@ -367,7 +367,7 @@ class _GlassBottomNavState extends State<GlassBottomNav>
             mainAxisSize: MainAxisSize.min,
             children: [
               SizedBox(
-                height: 52,
+                height: 46,
                 child: Stack(
                   children: [
                     if (widget.indicatorStyle == IndicatorStyle.pill)
@@ -415,7 +415,7 @@ class _GlassBottomNavState extends State<GlassBottomNav>
           top: 8,
           child: Container(
             width: 52,
-            height: 36,
+            height: 30,
             decoration: BoxDecoration(
               color: isDark ? Colors.white.withOpacity(0.12) : Colors.black.withOpacity(0.06),
               borderRadius: BorderRadius.circular(18),
@@ -496,7 +496,7 @@ class _NavItemWidgetState extends State<_NavItemWidget>
       onTap: widget.onTap,
       behavior: HitTestBehavior.opaque,
       child: SizedBox(
-        height: 52,
+        height: 46,
         child: AnimatedBuilder(
           animation: widget.tapScale,
           builder: (_, child) =>
@@ -509,8 +509,8 @@ class _NavItemWidgetState extends State<_NavItemWidget>
                 FadeTransition(
                   opacity: _glowOpacity,
                   child: Container(
-                    width: 48,
-                    height: 48,
+                    width: 40,
+                    height: 40,
                     decoration: BoxDecoration(
                       shape: BoxShape.circle,
                       color: _activeColor.withOpacity(0.09),

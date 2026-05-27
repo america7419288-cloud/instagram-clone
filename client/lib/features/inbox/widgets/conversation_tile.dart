@@ -2,7 +2,7 @@
 
 import 'dart:ui';
 import 'package:flutter/material.dart';
-import 'package:flutter/cupertino.dart' show CupertinoActivityIndicator;
+import 'package:flutter/cupertino.dart' show CupertinoActivityIndicator, CupertinoIcons;
 import 'package:flutter/services.dart';
 import 'package:flutter_slidable/flutter_slidable.dart';
 import 'package:flutter_lucide/flutter_lucide.dart';
@@ -325,8 +325,7 @@ class _ConversationTileState extends State<ConversationTile>
                   child: AnimatedContainer(
                     duration: const Duration(milliseconds: 80),
                     color: tileColor,
-                    height: 72,
-                    padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
+                    padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
                     child: Row(
                       children: [
                         // AVATAR AREA (left) with Press scale feedback
@@ -389,7 +388,7 @@ class _ConversationTileState extends State<ConversationTile>
                                       child: TypingIndicator(),
                                     )
                                   : Text(
-                                      conv.lastMessagePreview,
+                                      '${conv.lastMessagePreview}  •  ${conv.isActive ? 'Active now' : conv.timeDisplay}',
                                       style: TextStyle(
                                         fontSize: 13,
                                         fontWeight: conv.isUnread
@@ -397,7 +396,7 @@ class _ConversationTileState extends State<ConversationTile>
                                             : FontWeight.w400,
                                         color: conv.isUnread
                                             ? (isDark ? Colors.white : Colors.black87)
-                                            : Colors.grey,
+                                            : const Color(0xFF8E8E93),
                                         decoration: TextDecoration.none,
                                       ),
                                       overflow: TextOverflow.ellipsis,
@@ -428,36 +427,26 @@ class _ConversationTileState extends State<ConversationTile>
                                 color: Color(0xFFED4956),
                                 size: 16,
                               )
+                            else if (conv.isUnread)
+                              AnimatedScale(
+                                scale: 1.0,
+                                duration: const Duration(milliseconds: 300),
+                                curve: Curves.elasticOut,
+                                child: Container(
+                                  width: 8,
+                                  height: 8,
+                                  decoration: const BoxDecoration(
+                                    color: Color(0xFF0095F6),
+                                    shape: BoxShape.circle,
+                                  ),
+                                ),
+                              )
                             else
-                              Text(
-                                conv.isActive ? 'Active now' : conv.timeDisplay,
-                                style: TextStyle(
-                                  fontSize: 12,
-                                  color: conv.isActive
-                                      ? const Color(0xFF09C167)
-                                      : Colors.grey.withValues(alpha: 0.8),
-                                  fontWeight: conv.isActive
-                                      ? FontWeight.w600
-                                      : FontWeight.w400,
-                                  decoration: TextDecoration.none,
-                                ),
+                              Icon(
+                                CupertinoIcons.camera,
+                                color: isDark ? const Color(0xFF8E8E93) : Colors.grey[400],
+                                size: 20,
                               ),
-                            const SizedBox(height: 6),
-
-                            // Unread blue dot with pop animation
-                            AnimatedScale(
-                              scale: conv.isUnread ? 1.0 : 0.0,
-                              duration: const Duration(milliseconds: 300),
-                              curve: Curves.elasticOut,
-                              child: Container(
-                                width: 8,
-                                height: 8,
-                                decoration: const BoxDecoration(
-                                  color: Color(0xFF0095F6),
-                                  shape: BoxShape.circle,
-                                ),
-                              ),
-                            ),
                           ],
                         ),
                       ],

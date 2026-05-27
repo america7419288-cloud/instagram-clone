@@ -84,6 +84,18 @@ class InboxNotifier extends Notifier<InboxState> {
     return conversation;
   }
 
+  Future<Conversation> createGroupConversation({
+    required String name,
+    required List<String> participantIds,
+  }) async {
+    final conversation = await _repository.createGroupConversation(
+      name: name,
+      participantIds: participantIds,
+    );
+    await loadConversations();
+    return conversation;
+  }
+
   bool _isFetching = false;
 
   Future<void> loadConversations() async {

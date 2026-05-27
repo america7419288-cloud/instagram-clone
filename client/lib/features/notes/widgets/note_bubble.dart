@@ -3,7 +3,6 @@
 import 'package:flutter/material.dart';
 import 'package:just_audio/just_audio.dart';
 import '../models/note_model.dart';
-import 'note_bubble_painter.dart';
 
 class NoteBubble extends StatefulWidget {
   final NoteModel note;
@@ -120,28 +119,6 @@ class _NoteBubbleState extends State<NoteBubble>
 
   @override
   Widget build(BuildContext context) {
-    final isDark = Theme.of(context).brightness == Brightness.dark;
-    final bgColor = isDark ? const Color(0xFF1C1C1E) : Colors.white;
-    final borderColor = isDark ? const Color(0xFF3A3A3C) : const Color(0xFFDBDBDB);
-
-    final isEmoji = widget.note.isEmojiOnly;
-    final double fontSize = isEmoji
-        ? (widget.isLarge ? 28.0 : 20.0)
-        : (widget.isLarge ? 14.0 : 10.5);
-
-    final double hPad = isEmoji
-        ? (widget.isLarge ? 14.0 : 10.0)
-        : (widget.isLarge ? 12.0 : 8.0);
-        
-    final double vPad = isEmoji
-        ? (widget.isLarge ? 12.0 : 8.0)
-        : (widget.isLarge ? 10.0 : 6.0);
-
-    final double maxWidth = widget.isLarge ? 220.0 : (widget.note.noteType == 'text' ? 88.0 : 100.0);
-    final double tailHeight = widget.isLarge ? 7.0 : 6.0;
-    final double tailWidth = widget.isLarge ? 9.0 : 8.0;
-
-    // Dashed border: 20-23h (opacity 0.65) and 23-24h (opacity 0.4)
     final bool isDashed = !widget.isPreview && widget.note.timeRemaining.inHours < 4;
 
     return AnimatedBuilder(
@@ -156,44 +133,155 @@ class _NoteBubbleState extends State<NoteBubble>
           ),
         );
       },
-      child: GestureDetector(
+      child: InstagramNoteBubble(
+        text: widget.note.text,
+        noteType: widget.note.noteType,
+        musicAlbumArt: widget.note.musicAlbumArt,
+        musicTrackName: widget.note.musicTrackName,
+        musicArtistName: widget.note.musicArtistName,
+        gifUrl: widget.note.gifUrl,
+        isOwn: widget.note.isOwn,
+        isEmojiOnly: widget.note.isEmojiOnly,
+        isLarge: widget.isLarge,
+        isPlaying: _isPlaying,
+        onMusicPlayTap: _togglePlay,
         onTap: widget.onTap,
-        behavior: HitTestBehavior.opaque,
-        child: AnimatedSize(
-          duration: const Duration(milliseconds: 200),
-          curve: Curves.easeOutCubic,
-          child: ConstrainedBox(
+        isDashed: isDashed,
+        isExpiringSoon: widget.note.isExpiringSoon,
+      ),
+    );
+  }
+}
+
+// ─── INSTAGRAM NOTE BUBBLE (iOS Thought Bubble Style) ──────────────────────
+
+class InstagramNoteBubble extends StatelessWidget {
+  final String text;
+  final String noteType;
+  final String? musicAlbumArt;
+  final String? musicTrackName;
+  final String? musicArtistName;
+  final String? gifUrl;
+  final bool isOwn;
+  final bool isEmojiOnly;
+  final bool isLarge;
+  final bool isPlaying;
+  final VoidCallback? onMusicPlayTap;
+  final VoidCallback? onTap;
+  final bool isDashed;
+  final bool isExpiringSoon;
+
+  const InstagramNoteBubble({
+    super.key,
+    required this.text,
+    this.noteType = 'text',
+    this.musicAlbumArt,
+    this.musicTrackName,
+    this.musicArtistName,
+    this.gifUrl,
+    this.isOwn = false,
+    this.isEmojiOnly = false,
+    this.isLarge = false,
+    this.isPlaying = false,
+    this.onMusicPlayTap,
+    this.onTap,
+    this.isDashed = false,
+    this.isExpiringSoon = false,
+  });
+
+  @override
+  Widget build(BuildContext context) {
+    final isDark = Theme.of(context).brightness == Brightness.dark;
+    
+    final double fontSize = isEmojiOnly
+        ? (isLarge ? 28.0 : 20.0)
+        : (isLarge ? 14.0 : 10.5);
+
+    final double hPad = isEmojiOnly
+        ? (isLarge ? 14.0 : 10.0)
+        : (isLarge ? 12.0 : 8.0);
+        
+    final double vPad = isEmojiOnly
+        ? (isLarge ? 12.0 : 8.0)
+        : (isLarge ? 10.0 : 6.0);
+
+    final double maxWidth = isLarge ? 220.0 : (noteType == 'text' ? 88.0 : 100.0);
+
+    return GestureDetector(
+      onTap: onTap,
+      behavior: HitTestBehavior.opaque,
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        mainAxisSize: MainAxisSize.min,
+        children: [
+          // 1. MAIN BUBBLE
+          Container(
+            decoration: BoxDecoration(
+              color: const Color(0xFF262626), // Dark gray background as requested
+              borderRadius: BorderRadius.circular(20), // Pill-shaped/oval
+              border: Border.all(
+                color: isDashed 
+                    ? Colors.white.withOpacity(0.3) 
+                    : const Color(0xFF3A3A3C),
+                width: 0.5,
+              ),
+              boxShadow: [
+                BoxShadow(
+                  color: Colors.black.withOpacity(0.15),
+                  blurRadius: 8,
+                  offset: const Offset(0, 3),
+                ),
+              ],
+            ),
+            padding: EdgeInsets.symmetric(horizontal: hPad, vertical: vPad),
             constraints: BoxConstraints(
               minWidth: 54,
               maxWidth: maxWidth,
             ),
-            child: CustomPaint(
-              painter: NoteBubblePainter(
-                backgroundColor: bgColor,
-                borderColor: borderColor,
-                isDashed: isDashed,
-                tailHeight: tailHeight,
-                tailWidth: tailWidth,
-              ),
-              child: Padding(
-                padding: EdgeInsets.fromLTRB(
-                  hPad,
-                  vPad,
-                  hPad,
-                  vPad + tailHeight, // Bottom padding adds tailHeight to avoid text overlaps
+            child: _buildBubbleContent(isDark, fontSize),
+          ),
+
+          // 2. THOUGHT BUBBLE "TAIL" (cascading circles)
+          Padding(
+            padding: const EdgeInsets.only(left: 20),
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              mainAxisSize: MainAxisSize.min,
+              children: [
+                const SizedBox(height: 3),
+                // Circle 1: slightly larger
+                Container(
+                  width: 8,
+                  height: 8,
+                  decoration: const BoxDecoration(
+                    color: Color(0xFF262626),
+                    shape: BoxShape.circle,
+                  ),
                 ),
-                child: _buildBubbleContent(isDark, fontSize),
-              ),
+                const SizedBox(height: 2),
+                // Circle 2: smaller
+                Padding(
+                  padding: const EdgeInsets.only(left: 4),
+                  child: Container(
+                    width: 5,
+                    height: 5,
+                    decoration: const BoxDecoration(
+                      color: Color(0xFF262626),
+                      shape: BoxShape.circle,
+                    ),
+                  ),
+                ),
+              ],
             ),
           ),
-        ),
+        ],
       ),
     );
   }
 
   Widget _buildBubbleContent(bool isDark, double fontSize) {
     // ─── 1. MUSIC SHARE TYPE ────────────────────────────────
-    if (widget.note.noteType == 'music') {
+    if (noteType == 'music') {
       return Column(
         mainAxisSize: MainAxisSize.min,
         mainAxisAlignment: MainAxisAlignment.center,
@@ -201,40 +289,40 @@ class _NoteBubbleState extends State<NoteBubble>
         children: [
           // Album art with overlay play/pause
           GestureDetector(
-            onTap: _togglePlay,
+            onTap: onMusicPlayTap,
             child: Stack(
               alignment: Alignment.center,
               children: [
                 ClipRRect(
                   borderRadius: BorderRadius.circular(16),
                   child: Image.network(
-                    widget.note.musicAlbumArt ?? '',
-                    width: widget.isLarge ? 48 : 32,
-                    height: widget.isLarge ? 48 : 32,
+                    musicAlbumArt ?? '',
+                    width: isLarge ? 48 : 32,
+                    height: isLarge ? 48 : 32,
                     fit: BoxFit.cover,
                     errorBuilder: (_, __, ___) => Container(
-                      width: widget.isLarge ? 48 : 32,
-                      height: widget.isLarge ? 32 : 32,
-                      color: Colors.grey[isDark ? 800 : 300],
-                      child: Icon(
+                      width: isLarge ? 48 : 32,
+                      height: isLarge ? 32 : 32,
+                      color: Colors.grey[800],
+                      child: const Icon(
                         Icons.music_note,
-                        color: isDark ? Colors.white54 : Colors.black45,
+                        color: Colors.white54,
                         size: 16,
                       ),
                     ),
                   ),
                 ),
                 Container(
-                  width: widget.isLarge ? 48 : 32,
-                  height: widget.isLarge ? 48 : 32,
+                  width: isLarge ? 48 : 32,
+                  height: isLarge ? 48 : 32,
                   decoration: BoxDecoration(
                     color: Colors.black.withOpacity(0.35),
                     shape: BoxShape.circle,
                   ),
                   child: Icon(
-                    _isPlaying ? Icons.pause : Icons.play_arrow,
+                    isPlaying ? Icons.pause : Icons.play_arrow,
                     color: Colors.white,
-                    size: widget.isLarge ? 22 : 16,
+                    size: isLarge ? 22 : 16,
                   ),
                 ),
               ],
@@ -242,11 +330,11 @@ class _NoteBubbleState extends State<NoteBubble>
           ),
           const SizedBox(height: 4),
           Text(
-            widget.note.musicTrackName ?? 'Track',
-            style: TextStyle(
-              fontSize: widget.isLarge ? 11 : 8.5,
+            musicTrackName ?? 'Track',
+            style: const TextStyle(
+              fontSize: 8.5,
               fontWeight: FontWeight.bold,
-              color: isDark ? Colors.white : Colors.black,
+              color: Colors.white,
               decoration: TextDecoration.none,
             ),
             textAlign: TextAlign.center,
@@ -254,9 +342,9 @@ class _NoteBubbleState extends State<NoteBubble>
             overflow: TextOverflow.ellipsis,
           ),
           Text(
-            widget.note.musicArtistName ?? 'Artist',
-            style: TextStyle(
-              fontSize: widget.isLarge ? 9.5 : 7,
+            musicArtistName ?? 'Artist',
+            style: const TextStyle(
+              fontSize: 7,
               color: Colors.grey,
               decoration: TextDecoration.none,
             ),
@@ -264,17 +352,17 @@ class _NoteBubbleState extends State<NoteBubble>
             maxLines: 1,
             overflow: TextOverflow.ellipsis,
           ),
-          if (widget.note.text.isNotEmpty) ...[
+          if (text.isNotEmpty) ...[
             const SizedBox(height: 4),
             Text(
-              widget.note.text,
+              text,
               style: TextStyle(
                 fontSize: fontSize * 0.9,
-                color: isDark ? Colors.white70 : Colors.black87,
+                color: Colors.white70,
                 decoration: TextDecoration.none,
               ),
               textAlign: TextAlign.center,
-              maxLines: widget.isLarge ? 2 : 1,
+              maxLines: isLarge ? 2 : 1,
               overflow: TextOverflow.ellipsis,
             ),
           ],
@@ -283,7 +371,7 @@ class _NoteBubbleState extends State<NoteBubble>
     }
 
     // ─── 2. GIF SHARE TYPE ──────────────────────────────────
-    if (widget.note.noteType == 'gif' && widget.note.gifUrl != null) {
+    if (noteType == 'gif' && gifUrl != null) {
       return Column(
         mainAxisSize: MainAxisSize.min,
         mainAxisAlignment: MainAxisAlignment.center,
@@ -292,29 +380,29 @@ class _NoteBubbleState extends State<NoteBubble>
           ClipRRect(
             borderRadius: BorderRadius.circular(8),
             child: Image.network(
-              widget.note.gifUrl!,
-              width: widget.isLarge ? 96 : 52,
-              height: widget.isLarge ? 96 : 52,
+              gifUrl!,
+              width: isLarge ? 96 : 52,
+              height: isLarge ? 96 : 52,
               fit: BoxFit.cover,
               errorBuilder: (_, __, ___) => Container(
-                width: widget.isLarge ? 96 : 52,
-                height: widget.isLarge ? 96 : 52,
-                color: Colors.grey[isDark ? 800 : 300],
+                width: isLarge ? 96 : 52,
+                height: isLarge ? 96 : 52,
+                color: Colors.grey[800],
                 child: const Icon(Icons.gif, color: Colors.grey, size: 24),
               ),
             ),
           ),
-          if (widget.note.text.isNotEmpty) ...[
+          if (text.isNotEmpty) ...[
             const SizedBox(height: 4),
             Text(
-              widget.note.text,
+              text,
               style: TextStyle(
                 fontSize: fontSize * 0.9,
-                color: isDark ? Colors.white : Colors.black,
+                color: Colors.white,
                 decoration: TextDecoration.none,
               ),
               textAlign: TextAlign.center,
-              maxLines: widget.isLarge ? 2 : 1,
+              maxLines: isLarge ? 2 : 1,
               overflow: TextOverflow.ellipsis,
             ),
           ],
@@ -329,26 +417,26 @@ class _NoteBubbleState extends State<NoteBubble>
       crossAxisAlignment: CrossAxisAlignment.center,
       children: [
         Text(
-          widget.note.text,
+          text,
           style: TextStyle(
             fontSize: fontSize,
-            color: isDark ? Colors.white : Colors.black,
+            color: Colors.white,
             height: 1.3,
             fontWeight: FontWeight.w400,
             fontFamily: 'SF Pro Display',
             decoration: TextDecoration.none,
           ),
           textAlign: TextAlign.center,
-          maxLines: widget.note.isEmojiOnly ? 1 : (widget.isLarge ? 3 : 2),
+          maxLines: isEmojiOnly ? 1 : (isLarge ? 3 : 2),
           overflow: TextOverflow.ellipsis,
         ),
-        if (widget.note.isOwn && !widget.isPreview && widget.note.isExpiringSoon) ...[
+        if (isOwn && isExpiringSoon) ...[
           const SizedBox(height: 2),
           Text(
             'Expiring soon',
             style: TextStyle(
               fontSize: 8,
-              color: isDark ? Colors.grey[500] : Colors.grey[600],
+              color: Colors.grey[400],
               fontStyle: FontStyle.italic,
               fontWeight: FontWeight.w300,
               decoration: TextDecoration.none,
