@@ -603,7 +603,11 @@ const syncDatabase = async () => {
         ADD COLUMN IF NOT EXISTS mentions JSONB DEFAULT '[]';
 
       ALTER TABLE posts
-        ADD COLUMN IF NOT EXISTS mentions JSONB DEFAULT '[]';
+        ADD COLUMN IF NOT EXISTS mentions JSONB DEFAULT '[]',
+        ADD COLUMN IF NOT EXISTS is_pinned BOOLEAN NOT NULL DEFAULT FALSE,
+        ADD COLUMN IF NOT EXISTS hide_likes_count BOOLEAN NOT NULL DEFAULT FALSE,
+        ADD COLUMN IF NOT EXISTS comments_disabled BOOLEAN NOT NULL DEFAULT FALSE,
+        ADD COLUMN IF NOT EXISTS audience VARCHAR(50) NOT NULL DEFAULT 'everyone';
 
       ALTER TABLE reels
         ADD COLUMN IF NOT EXISTS mentions JSONB DEFAULT '[]';

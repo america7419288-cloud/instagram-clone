@@ -87,6 +87,34 @@ const Post = sequelize.define(
       allowNull: false,
       defaultValue: [],
     },
+
+    isPinned: {
+      type: DataTypes.BOOLEAN,
+      allowNull: false,
+      defaultValue: false,
+      field: 'is_pinned',
+    },
+
+    hideLikesCount: {
+      type: DataTypes.BOOLEAN,
+      allowNull: false,
+      defaultValue: false,
+      field: 'hide_likes_count',
+    },
+
+    commentsDisabled: {
+      type: DataTypes.BOOLEAN,
+      allowNull: false,
+      defaultValue: false,
+      field: 'comments_disabled',
+    },
+
+    audience: {
+      type: DataTypes.STRING(50),
+      allowNull: false,
+      defaultValue: 'everyone',
+      field: 'audience',
+    },
   },
   {
     tableName: 'posts',

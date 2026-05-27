@@ -538,7 +538,19 @@ const updatePost = async (req, res) => {
   try {
     const { postId } = req.params;
     const userId = req.user.id;
-    const { caption, location } = req.body;
+    const { 
+      caption, 
+      location,
+      isPinned,
+      is_pinned,
+      isArchived,
+      is_archived,
+      hideLikesCount,
+      hide_likes_count,
+      commentsDisabled,
+      comments_disabled,
+      audience
+    } = req.body;
 
     const post = await Post.findOne({
       where: { id: postId, userId },
@@ -592,6 +604,11 @@ const updatePost = async (req, res) => {
       caption: caption?.trim() ?? post.caption,
       location: location?.trim() ?? post.location,
       mentions: validatedMentions,
+      isPinned: isPinned !== undefined ? isPinned : (is_pinned !== undefined ? is_pinned : post.isPinned),
+      isArchived: isArchived !== undefined ? isArchived : (is_archived !== undefined ? is_archived : post.isArchived),
+      hideLikesCount: hideLikesCount !== undefined ? hideLikesCount : (hide_likes_count !== undefined ? hide_likes_count : post.hideLikesCount),
+      commentsDisabled: commentsDisabled !== undefined ? commentsDisabled : (comments_disabled !== undefined ? comments_disabled : post.commentsDisabled),
+      audience: audience !== undefined ? audience : post.audience,
     });
 
     // ─── Re-process hashtags if caption changed ────────
@@ -1027,6 +1044,15 @@ const _formatPost = (post, userId) => {
     updatedAt: post.updatedAt,
     mediaFiles,
     mentions: post.mentions || [],
+    isPinned: post.isPinned || false,
+    isArchived: post.isArchived || false,
+    hideLikesCount: post.hideLikesCount || false,
+    commentsDisabled: post.commentsDisabled || false,
+    audience: post.audience || 'everyone',
+    is_pinned: post.isPinned || false,
+    is_archived: post.isArchived || false,
+    hide_likes_count: post.hideLikesCount || false,
+    comments_disabled: post.commentsDisabled || false,
 
     // ─── Music Metadata ──────────────────────────────
     music: post.musicId ? {

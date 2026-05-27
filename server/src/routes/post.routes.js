@@ -78,6 +78,7 @@ router.post(
 // Single post CRUD
 router.get('/:postId', optionalAuth, getPost);
 router.put('/:postId', protect, updatePost);
+router.patch('/:postId', protect, updatePost);
 router.delete('/:postId', protect, deletePost);
 
 // Like endpoints
