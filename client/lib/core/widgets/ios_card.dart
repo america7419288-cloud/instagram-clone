@@ -59,6 +59,7 @@ class IosListTile extends StatefulWidget {
   final String title;
   final String? subtitle;
   final IconData? leadingIcon;
+  final Widget? leading;
   final Color? iconColor;
   final Color? titleColor;
   final Widget? trailing;
@@ -73,6 +74,7 @@ class IosListTile extends StatefulWidget {
     required this.isDark,
     this.subtitle,
     this.leadingIcon,
+    this.leading,
     this.iconColor,
     this.titleColor,
     this.trailing,
@@ -117,7 +119,10 @@ class _IosListTileState extends State<IosListTile> {
           horizontal: 16, vertical: 13),
         child: Row(
           children: [
-            if (widget.leadingIcon != null) ...[
+            if (widget.leading != null) ...[
+              widget.leading!,
+              const SizedBox(width: 12),
+            ] else if (widget.leadingIcon != null) ...[
               Icon(
                 widget.leadingIcon,
                 size: 20,

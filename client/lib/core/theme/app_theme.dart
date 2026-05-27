@@ -246,6 +246,12 @@ class AppTheme {
       decorationColor: Colors.transparent,
       decorationThickness: 0,
       fontFamily: _fontFamily,
+      fontFamilyFallback: [
+        'Apple Color Emoji',
+        'Segoe UI Emoji',
+        'Noto Color Emoji',
+        'Android Emoji',
+      ],
     );
     return TextTheme(
       displayLarge: style.copyWith(color: color),

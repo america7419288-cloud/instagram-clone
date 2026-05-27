@@ -262,7 +262,7 @@ class _GlassBottomNavState extends State<GlassBottomNav>
       child: ClipRRect(
         borderRadius: BorderRadius.circular(32),
         child: BackdropFilter(
-          filter: ImageFilter.blur(sigmaX: 8, sigmaY: 8),
+          filter: ImageFilter.blur(sigmaX: 3.5, sigmaY: 3.5),
           child: Container(
             height: 48,
             decoration: BoxDecoration(
@@ -271,8 +271,8 @@ class _GlassBottomNavState extends State<GlassBottomNav>
                 begin: Alignment.topLeft,
                 end: Alignment.bottomRight,
                 colors: isDark
-                    ? [Colors.black.withOpacity(0.72), Colors.black.withOpacity(0.68)]
-                    : [Colors.white.withOpacity(0.80), Colors.white.withOpacity(0.72)],
+                    ? [Colors.black.withOpacity(0.85), Colors.black.withOpacity(0.80)]
+                    : [Colors.white.withOpacity(0.90), Colors.white.withOpacity(0.84)],
               ),
               border: Border.all(
                 color: isDark ? Colors.white.withOpacity(0.14) : Colors.white.withOpacity(0.65),
@@ -297,15 +297,15 @@ class _GlassBottomNavState extends State<GlassBottomNav>
   Widget _buildFullWidth(bool isDark, double bottom) {
     return ClipRect(
       child: BackdropFilter(
-        filter: ImageFilter.blur(sigmaX: 8, sigmaY: 8),
+        filter: ImageFilter.blur(sigmaX: 3.5, sigmaY: 3.5),
         child: Container(
           decoration: BoxDecoration(
             gradient: LinearGradient(
               begin: Alignment.topCenter,
               end: Alignment.bottomCenter,
               colors: isDark
-                  ? [Colors.black.withOpacity(0.75), Colors.black.withOpacity(0.70)]
-                  : [Colors.white.withOpacity(0.82), Colors.white.withOpacity(0.75)],
+                  ? [Colors.black.withOpacity(0.88), Colors.black.withOpacity(0.82)]
+                  : [Colors.white.withOpacity(0.92), Colors.white.withOpacity(0.86)],
             ),
             border: Border(
               top: BorderSide(
@@ -330,7 +330,7 @@ class _GlassBottomNavState extends State<GlassBottomNav>
     return ClipRRect(
       borderRadius: const BorderRadius.vertical(top: Radius.circular(20)),
       child: BackdropFilter(
-        filter: ImageFilter.blur(sigmaX: 8, sigmaY: 8),
+        filter: ImageFilter.blur(sigmaX: 3.5, sigmaY: 3.5),
         child: Container(
           decoration: BoxDecoration(
             borderRadius: const BorderRadius.vertical(top: Radius.circular(20)),
@@ -338,8 +338,8 @@ class _GlassBottomNavState extends State<GlassBottomNav>
               begin: Alignment.topLeft,
               end: Alignment.bottomRight,
               colors: isDark
-                  ? [Colors.black.withOpacity(0.72), Colors.black.withOpacity(0.68)]
-                  : [Colors.white.withOpacity(0.80), Colors.white.withOpacity(0.72)],
+                  ? [Colors.black.withOpacity(0.85), Colors.black.withOpacity(0.80)]
+                  : [Colors.white.withOpacity(0.90), Colors.white.withOpacity(0.84)],
             ),
             border: Border(
               top: BorderSide(

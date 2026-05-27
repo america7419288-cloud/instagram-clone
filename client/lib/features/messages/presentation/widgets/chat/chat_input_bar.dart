@@ -174,6 +174,7 @@ class _ChatInputBarState extends State<ChatInputBar>
                     minimumSize: const Size(34, 34),
                     onPressed: () {
                       HapticFeedback.selectionClick();
+                      widget.focusNode?.requestFocus();
                     },
                     child: Icon(
                       LucideIcons.smile,

@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'package:flutter/cupertino.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 import '../providers/chat_notifiers.dart';
@@ -12,6 +13,8 @@ import 'package:image_picker/image_picker.dart';
 import '../../../chat/data/models/conversation.dart';
 import '../../../chat/data/models/chat_user.dart';
 import 'package:instagram_client/features/auth/presentation/providers/auth_provider.dart';
+import '../../../../core/theme/ios_colors.dart';
+import '../../../../core/widgets/ios_card.dart';
 
 class GroupInfoSheet extends ConsumerStatefulWidget {
   final Conversation conversation;
@@ -281,159 +284,177 @@ class _GroupInfoSheetState extends ConsumerState<GroupInfoSheet> {
     final canManageSettings = isOwner || isAdmin;
 
     return BackdropFilter(
-      filter: ImageFilter.blur(sigmaX: 20, sigmaY: 20),
+      filter: ImageFilter.blur(sigmaX: 24, sigmaY: 24),
       child: Material(
         color: Colors.transparent,
         child: Container(
           height: MediaQuery.of(context).size.height * 0.85,
           decoration: BoxDecoration(
-            color: isDark ? Colors.black.withOpacity(0.82) : Colors.white.withOpacity(0.95),
+            color: isDark ? Colors.black.withOpacity(0.75) : const Color(0xFFF2F2F7).withOpacity(0.92),
             borderRadius: const BorderRadius.vertical(top: Radius.circular(30)),
             border: Border.all(color: dividerColor),
           ),
-        padding: EdgeInsets.fromLTRB(16, 12, 16, safeBot + 16),
-        child: Column(
-          children: [
-            // Handle Bar
-            Container(
-              width: 40,
-              height: 4,
-              decoration: BoxDecoration(
-                color: dividerColor,
-                borderRadius: BorderRadius.circular(2),
-              ),
-            ),
-            const SizedBox(height: 16),
-
-            // Header Section
-            Row(
-              mainAxisAlignment: MainAxisAlignment.spaceBetween,
-              children: [
-                Text('Details', style: TextStyle(fontSize: 20, fontWeight: FontWeight.w900, color: textColor)),
-                IconButton(
-                  icon: Icon(LucideIcons.x, size: 20, color: textColor),
-                  onPressed: () => Navigator.pop(context),
+          padding: EdgeInsets.fromLTRB(16, 12, 16, safeBot + 16),
+          child: Column(
+            children: [
+              // Handle Bar
+              Container(
+                width: 40,
+                height: 4,
+                decoration: BoxDecoration(
+                  color: dividerColor,
+                  borderRadius: BorderRadius.circular(2),
                 ),
-              ],
-            ),
-            const SizedBox(height: 16),
+              ),
+              const SizedBox(height: 16),
 
-            Expanded(
-              child: SingleChildScrollView(
-                physics: const BouncingScrollPhysics(),
-                child: Column(
-                  children: [
-                    // Group Avatar & Name
-                    GestureDetector(
-                      onTap: canManageSettings ? () => _pickAvatar(conversation) : null,
-                      child: Stack(
-                        alignment: Alignment.bottomRight,
-                        children: [
-                          CircleAvatar(
-                            radius: 40,
-                            backgroundImage: avatarProvider as ImageProvider?,
-                            backgroundColor: dividerColor,
-                            child: avatarProvider == null
-                                ? Icon(LucideIcons.users, color: mutedColor, size: 36)
-                                : null,
-                          ),
-                          if (canManageSettings)
-                            Container(
-                              padding: const EdgeInsets.all(6),
-                              decoration: BoxDecoration(
-                                color: const Color(0xFFFD1D1D),
-                                shape: BoxShape.circle,
-                                border: Border.all(color: isDark ? Colors.black : Colors.white, width: 2),
-                              ),
-                              child: const Icon(LucideIcons.camera, size: 14, color: Colors.white),
+              // Header Section
+              Row(
+                mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                children: [
+                  Text('Details', style: TextStyle(fontSize: 20, fontWeight: FontWeight.w900, color: textColor)),
+                  IconButton(
+                    icon: Icon(LucideIcons.x, size: 20, color: textColor),
+                    onPressed: () => Navigator.pop(context),
+                  ),
+                ],
+              ),
+              const SizedBox(height: 16),
+
+              Expanded(
+                child: SingleChildScrollView(
+                  physics: const BouncingScrollPhysics(),
+                  child: Column(
+                    children: [
+                      // Group Avatar & Name
+                      GestureDetector(
+                        onTap: canManageSettings ? () => _pickAvatar(conversation) : null,
+                        child: Stack(
+                          alignment: Alignment.bottomRight,
+                          children: [
+                            CircleAvatar(
+                              radius: 40,
+                              backgroundImage: avatarProvider as ImageProvider?,
+                              backgroundColor: dividerColor,
+                              child: avatarProvider == null
+                                  ? Icon(LucideIcons.users, color: mutedColor, size: 36)
+                                  : null,
                             ),
+                            if (canManageSettings)
+                              Container(
+                                padding: const EdgeInsets.all(6),
+                                decoration: BoxDecoration(
+                                  color: const Color(0xFFFD1D1D),
+                                  shape: BoxShape.circle,
+                                  border: Border.all(color: isDark ? Colors.black : Colors.white, width: 2),
+                                ),
+                                child: const Icon(LucideIcons.camera, size: 14, color: Colors.white),
+                              ),
+                          ],
+                        ),
+                      ),
+                      const SizedBox(height: 12),
+                      Text(
+                        conversation.name ?? 'Group Chat',
+                        style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold, color: textColor),
+                      ),
+                      const SizedBox(height: 4),
+                      Text(
+                        'Group Chat • ${conversation.participants.length} members',
+                        style: TextStyle(color: mutedColor, fontSize: 12, fontWeight: FontWeight.w600),
+                      ),
+                      const SizedBox(height: 24),
+
+                      // Actions Tiles Group
+                      _buildSettingsSection(conversation, isDark, textColor, mutedColor, dividerColor, cardBg, canManageSettings),
+                      const SizedBox(height: 24),
+
+                      // Members List
+                      _buildMembersSection(conversation, isDark, textColor, mutedColor, dividerColor, cardBg),
+                      const SizedBox(height: 24),
+
+                      // Leave/Delete Group
+                      IosCard(
+                        isDark: isDark,
+                        margin: EdgeInsets.zero,
+                        children: [
+                          IosListTile(
+                            title: 'Leave Group',
+                            isDark: isDark,
+                            titleColor: const Color(0xFFFD1D1D),
+                            leadingIcon: LucideIcons.log_out,
+                            iconColor: const Color(0xFFFD1D1D),
+                            onTap: () {
+                              HapticFeedback.heavyImpact();
+                              _handleLeaveGroup(conversation);
+                            },
+                          ),
                         ],
                       ),
-                    ),
-                    const SizedBox(height: 12),
-                    Text(
-                      conversation.name ?? 'Group Chat',
-                      style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold, color: textColor),
-                    ),
-                    const SizedBox(height: 4),
-                    Text(
-                      'Group Chat • ${conversation.participants.length} members',
-                      style: TextStyle(color: mutedColor, fontSize: 12, fontWeight: FontWeight.w600),
-                    ),
-                    const SizedBox(height: 24),
-
-                    // Actions Tiles Group
-                    _buildSettingsSection(conversation, isDark, textColor, mutedColor, dividerColor, cardBg, canManageSettings),
-                    const SizedBox(height: 24),
-
-                    // Members List
-                    _buildMembersSection(conversation, isDark, textColor, mutedColor, dividerColor, cardBg),
-                    const SizedBox(height: 24),
-
-                    // Leave/Delete Group
-                    ListTile(
-                      leading: const Icon(LucideIcons.log_out, color: Color(0xFFFD1D1D)),
-                      title: const Text('Leave Group', style: TextStyle(color: Color(0xFFFD1D1D), fontWeight: FontWeight.bold)),
-                      onTap: () {
-                        HapticFeedback.heavyImpact();
-                        _handleLeaveGroup(conversation);
-                      },
-                    ),
-                  ],
+                    ],
+                  ),
                 ),
               ),
-            ),
-          ],
+            ],
+          ),
         ),
       ),
-    ),
     );
   }
 
   Widget _buildSettingsSection(Conversation conversation, bool isDark, Color textColor, Color mutedColor, Color dividerColor, Color cardBg, bool canManageSettings) {
-    return Container(
-      decoration: BoxDecoration(
-        color: cardBg,
-        borderRadius: BorderRadius.circular(20),
-      ),
-      child: Column(
-        children: [
-          ListTile(
-            leading: Icon(conversation.isMuted ? LucideIcons.bell_off : LucideIcons.bell, size: 20, color: textColor),
-            title: Text('Mute Notifications', style: TextStyle(color: textColor)),
-            trailing: Text(
-              conversation.isMuted ? 'Muted' : 'Off',
-              style: TextStyle(color: conversation.isMuted ? const Color(0xFFFD1D1D) : mutedColor, fontSize: 13, fontWeight: FontWeight.bold),
+    return IosCard(
+      isDark: isDark,
+      margin: EdgeInsets.zero,
+      children: [
+        IosListTile(
+          title: 'Mute Notifications',
+          isDark: isDark,
+          leadingIcon: conversation.isMuted ? LucideIcons.bell_off : LucideIcons.bell,
+          iconColor: conversation.isMuted ? const Color(0xFFFD1D1D) : textColor,
+          titleColor: textColor,
+          trailingWidget: Text(
+            conversation.isMuted ? 'Muted' : 'Off',
+            style: TextStyle(
+              color: conversation.isMuted ? const Color(0xFFFD1D1D) : mutedColor,
+              fontSize: 14,
+              fontWeight: FontWeight.w600,
             ),
-            onTap: () {
-              if (conversation.isMuted) {
-                HapticFeedback.mediumImpact();
-                ref.read(inboxProvider.notifier).unmuteConversation(conversation.id);
-              } else {
-                _muteGroup(conversation);
-              }
-            },
           ),
-          Divider(color: dividerColor, height: 1),
-          ListTile(
-            leading: Icon(LucideIcons.message_square_dashed, size: 20, color: textColor),
-            title: Text('Disappearing Messages', style: TextStyle(color: textColor)),
-            trailing: Text(
-              _getDisappearingLabel(conversation.disappearingDuration),
-              style: TextStyle(color: mutedColor, fontSize: 13, fontWeight: FontWeight.bold),
-            ),
-            onTap: () {
-              HapticFeedback.lightImpact();
-              final currentDuration = conversation.disappearingDuration;
-              final newDuration = (currentDuration == null || currentDuration == 0) ? 86400 : 0;
-              ref.read(chatProvider(conversation.id).notifier).setDisappearingMessages(newDuration);
-            },
+          onTap: () {
+            if (conversation.isMuted) {
+              HapticFeedback.mediumImpact();
+              ref.read(inboxProvider.notifier).unmuteConversation(conversation.id);
+            } else {
+              _muteGroup(conversation);
+            }
+          },
+        ),
+        IosListTile(
+          title: 'Disappearing Messages',
+          isDark: isDark,
+          leadingIcon: LucideIcons.message_square_dashed,
+          iconColor: textColor,
+          titleColor: textColor,
+          trailingWidget: Text(
+            _getDisappearingLabel(conversation.disappearingDuration),
+            style: TextStyle(color: mutedColor, fontSize: 14, fontWeight: FontWeight.w600),
           ),
-          if (canManageSettings) ...[
-            Divider(color: dividerColor, height: 1),
-            SwitchListTile(
-              secondary: Icon(LucideIcons.shield_check, size: 20, color: textColor),
-              title: Text('Only Admins Can Send', style: TextStyle(color: textColor)),
+          onTap: () {
+            HapticFeedback.lightImpact();
+            final currentDuration = conversation.disappearingDuration;
+            final newDuration = (currentDuration == null || currentDuration == 0) ? 86400 : 0;
+            ref.read(chatProvider(conversation.id).notifier).setDisappearingMessages(newDuration);
+          },
+        ),
+        if (canManageSettings)
+          IosListTile(
+            title: 'Only Admins Can Send',
+            isDark: isDark,
+            leadingIcon: LucideIcons.shield_check,
+            iconColor: textColor,
+            titleColor: textColor,
+            trailingWidget: CupertinoSwitch(
               value: conversation.onlyAdminsCanSend ?? false,
               activeColor: const Color(0xFFFD1D1D),
               onChanged: (val) {
@@ -441,9 +462,8 @@ class _GroupInfoSheetState extends ConsumerState<GroupInfoSheet> {
                 ref.read(chatProvider(conversation.id).notifier).updateGroupSettings(onlyAdminsCanSend: val);
               },
             ),
-          ],
-        ],
-      ),
+          ),
+      ],
     );
   }
 
@@ -676,7 +696,7 @@ class _GroupInfoSheetState extends ConsumerState<GroupInfoSheet> {
   }
 
   Widget _buildMembersSection(Conversation conversation, bool isDark, Color textColor, Color mutedColor, Color dividerColor, Color cardBg) {
-      final currentUser = ref.watch(currentUserProvider);
+    final currentUser = ref.watch(currentUserProvider);
     final currentMember = conversation.participants.firstWhere(
       (p) => p.id == currentUser?.id,
       orElse: () => ChatUser(id: '', username: '', role: 'member'),
@@ -695,76 +715,58 @@ class _GroupInfoSheetState extends ConsumerState<GroupInfoSheet> {
             children: [
               Text(
                 'GROUP MEMBERS',
-                style: TextStyle(color: mutedColor, fontSize: 10, fontWeight: FontWeight.w900, letterSpacing: 1.0),
+                style: TextStyle(color: mutedColor, fontSize: 11, fontWeight: FontWeight.w900, letterSpacing: 1.0),
               ),
               GestureDetector(
                 onTap: () => _addParticipant(conversation),
-                child: Row(
+                child: const Row(
                   children: [
-                    const Icon(LucideIcons.circle_plus, size: 14, color: Color(0xFFFD1D1D)),
-                    const SizedBox(width: 4),
-                    const Text('Add', style: TextStyle(color: Color(0xFFFD1D1D), fontSize: 11, fontWeight: FontWeight.bold)),
+                    Icon(LucideIcons.circle_plus, size: 14, color: Color(0xFFFD1D1D)),
+                    SizedBox(width: 4),
+                    Text('Add Member', style: TextStyle(color: Color(0xFFFD1D1D), fontSize: 12, fontWeight: FontWeight.bold)),
                   ],
                 ),
               ),
             ],
           ),
         ),
-        Container(
-          decoration: BoxDecoration(
-            color: cardBg,
-            borderRadius: BorderRadius.circular(20),
-          ),
-          child: ListView.separated(
-            shrinkWrap: true,
-            physics: const NeverScrollableScrollPhysics(),
-            itemCount: conversation.participants.length,
-            separatorBuilder: (_, __) => Divider(color: dividerColor, height: 1),
-            itemBuilder: (context, index) {
-              final member = conversation.participants[index];
-              final isSelf = member.id == currentUser?.id;
-              final isTargetOwner = conversation.createdBy == member.id;
-              // Show manage button: if current user can manage AND it's not themselves
-              // AND (owner can manage anyone, admin can manage non-admins/non-owners)
-              final showManageButton = canManageMembers &&
-                  !isSelf &&
-                  !isTargetOwner &&
-                  (isCurrentUserOwner || member.role != 'admin');
-              return ListTile(
-                leading: GestureDetector(
-                  onTap: () {
-                    HapticFeedback.lightImpact();
-                    Navigator.pop(context);
-                    context.push('/profile/${Uri.encodeComponent(member.username)}');
-                  },
-                  child: CircleAvatar(
-                    radius: 18,
-                    backgroundImage: member.profilePicUrl != null ? NetworkImage(member.profilePicUrl!) : null,
-                    backgroundColor: dividerColor,
-                    child: member.profilePicUrl == null ? Icon(LucideIcons.user, size: 18, color: mutedColor) : null,
-                  ),
-                ),
-                title: GestureDetector(
-                  onTap: () {
-                    HapticFeedback.lightImpact();
-                    Navigator.pop(context);
-                    context.push('/profile/${Uri.encodeComponent(member.username)}');
-                  },
-                  child: Text(member.username, style: TextStyle(fontSize: 14, fontWeight: FontWeight.bold, color: textColor)),
-                ),
-                subtitle: Text(
-                  '${member.fullName ?? ''}${member.fullName != null && member.fullName!.isNotEmpty ? ' \u2022 ' : ''}${isTargetOwner ? 'OWNER' : member.role.toUpperCase()}',
-                  style: TextStyle(fontSize: 12, color: mutedColor),
-                ),
-                trailing: showManageButton
-                    ? IconButton(
-                        icon: Icon(LucideIcons.settings_2, size: 16, color: mutedColor),
-                        onPressed: () => _showMemberActions(conversation, index),
-                      )
-                    : null,
-              );
-            },
-          ),
+        IosCard(
+          isDark: isDark,
+          margin: EdgeInsets.zero,
+          children: conversation.participants.asMap().entries.map((entry) {
+            final index = entry.key;
+            final member = entry.value;
+            final isSelf = member.id == currentUser?.id;
+            final isTargetOwner = conversation.createdBy == member.id;
+            final showManageButton = canManageMembers &&
+                !isSelf &&
+                !isTargetOwner &&
+                (isCurrentUserOwner || member.role != 'admin');
+
+            return IosListTile(
+              title: member.username,
+              subtitle: '${member.fullName ?? ''}${member.fullName != null && member.fullName!.isNotEmpty ? ' \u2022 ' : ''}${isTargetOwner ? 'OWNER' : member.role.toUpperCase()}',
+              isDark: isDark,
+              titleColor: textColor,
+              leading: CircleAvatar(
+                radius: 18,
+                backgroundImage: member.profilePicUrl != null ? NetworkImage(member.profilePicUrl!) : null,
+                backgroundColor: dividerColor,
+                child: member.profilePicUrl == null ? Icon(LucideIcons.user, size: 18, color: mutedColor) : null,
+              ),
+              trailingWidget: showManageButton
+                  ? GestureDetector(
+                      onTap: () => _showMemberActions(conversation, index),
+                      child: Icon(LucideIcons.settings_2, size: 18, color: mutedColor),
+                    )
+                  : null,
+              onTap: () {
+                HapticFeedback.lightImpact();
+                Navigator.pop(context);
+                context.push('/profile/${Uri.encodeComponent(member.username)}');
+              },
+            );
+          }).toList(),
         ),
       ],
     );

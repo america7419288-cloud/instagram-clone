@@ -106,20 +106,31 @@ class InstagramCloneApp extends ConsumerWidget {
         // Initialize chat service
         ref.watch(chatServiceInitializerProvider);
         
-        // Apply Global No-Ripple behavior
-        return DefaultTextStyle(
-          style: const TextStyle(
-            decoration: TextDecoration.none,
-            decorationColor: Colors.transparent,
-            decorationThickness: 0,
+        final isDark = Theme.of(context).brightness == Brightness.dark;
+        
+        // Apply Global No-Ripple behavior & reactive status bar overlays
+        return AnnotatedRegion<SystemUiOverlayStyle>(
+          value: SystemUiOverlayStyle(
+            statusBarColor: Colors.transparent,
+            statusBarIconBrightness: isDark ? Brightness.light : Brightness.dark,
+            statusBarBrightness: isDark ? Brightness.dark : Brightness.light,
+            systemNavigationBarColor: Colors.transparent,
+            systemNavigationBarIconBrightness: isDark ? Brightness.light : Brightness.dark,
           ),
-          child: ScrollConfiguration(
-            behavior: const ScrollBehavior().copyWith(
-              physics: const BouncingScrollPhysics(),
-              overscroll: false,
+          child: DefaultTextStyle(
+            style: const TextStyle(
+              decoration: TextDecoration.none,
+              decorationColor: Colors.transparent,
+              decorationThickness: 0,
             ),
-            child: NotificationHandler(
-              child: child ?? const SizedBox.shrink(),
+            child: ScrollConfiguration(
+              behavior: const ScrollBehavior().copyWith(
+                physics: const BouncingScrollPhysics(),
+                overscroll: false,
+              ),
+              child: NotificationHandler(
+                child: child ?? const SizedBox.shrink(),
+              ),
             ),
           ),
         );

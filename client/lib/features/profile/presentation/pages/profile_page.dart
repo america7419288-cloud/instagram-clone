@@ -15,6 +15,7 @@ import '../../../follow/data/repositories/presentation/providers/follow_provider
 import '../../../follow/data/repositories/presentation/providers/widgets/follow_button.dart';
 import '../../../story/presentation/widgets/highlights_bar.dart';
 import '../providers/profile_provider.dart';
+import '../../widgets/profile_posts_grid.dart';
 import '../../data/models/profile_model.dart';
 import '../../../chat/presentation/providers/chat_notifiers.dart';
 import '../../../chat/presentation/providers/chat_providers.dart';
@@ -548,35 +549,11 @@ class _ProfilePageState extends ConsumerState<ProfilePage>
     if (profile.isRestricted == true && !profile.isOwnProfile && !followState.isFollowing) {
       return _buildPrivateView();
     }
-    if (state.posts.isEmpty) {
-      return const Center(child: Text('No posts yet'));
-    }
 
-    return GridView.builder(
-      padding: EdgeInsets.zero,
-      gridDelegate: const SliverGridDelegateWithFixedCrossAxisCount(
-        crossAxisCount: 3,
-        crossAxisSpacing: 1,
-        mainAxisSpacing: 1,
-      ),
-      itemCount: state.posts.length,
-      itemBuilder: (context, index) {
-        final post = state.posts[index];
-        return CupertinoButton(
-          padding: EdgeInsets.zero,
-          onPressed: () => context.push('/post/${post.id}'),
-          child: Stack(
-            fit: StackFit.expand,
-            children: [
-              CachedNetworkImage(imageUrl: post.thumbnailUrl ?? '', fit: BoxFit.cover),
-              if (post.isCarousel)
-                const Positioned(top: 8, right: 8, child: Icon(LucideIcons.layers, size: 16, color: Colors.white)),
-              if (post.isVideo)
-                const Positioned(top: 8, right: 8, child: Icon(LucideIcons.play, size: 16, color: Colors.white)),
-            ],
-          ),
-        );
-      },
+    return ProfilePostsGrid(
+      userId: profile.id,
+      isOwnProfile: profile.isOwnProfile,
+      initialPosts: state.posts,
     );
   }
 

@@ -837,9 +837,9 @@ class _ReelCardState extends ConsumerState<ReelCard>
   }
 
   Widget _buildBottomInfo(BuildContext context, bool showUI) {
-    final bottomNavPadding = 52.0 + MediaQuery.of(context).padding.bottom;
+    final bottomNavPadding = 46.0 + MediaQuery.of(context).padding.bottom;
     return Positioned(
-      bottom: bottomNavPadding + 16,
+      bottom: bottomNavPadding + 10,
       left: 12,
       right: 80,
       child: IgnorePointer(
@@ -975,10 +975,10 @@ class _ReelCardState extends ConsumerState<ReelCard>
   }
 
   Widget _buildActionButtonsPanel(BuildContext context, bool showUI) {
-    final bottomNavPadding = 52.0 + MediaQuery.of(context).padding.bottom;
+    final bottomNavPadding = 46.0 + MediaQuery.of(context).padding.bottom;
     return Positioned(
       right: 12,
-      bottom: bottomNavPadding + 52,
+      bottom: bottomNavPadding + 28,
       child: IgnorePointer(
         ignoring: !showUI,
         child: AnimatedOpacity(
@@ -1262,7 +1262,7 @@ class _ReelCardState extends ConsumerState<ReelCard>
       progress = position.inMilliseconds / duration.inMilliseconds;
     }
 
-    final bottomNavPadding = 52.0 + MediaQuery.of(context).padding.bottom;
+    final bottomNavPadding = 46.0 + MediaQuery.of(context).padding.bottom;
     return Positioned(
       bottom: bottomNavPadding,
       left: 0,

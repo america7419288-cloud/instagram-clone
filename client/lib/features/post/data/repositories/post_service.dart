@@ -163,6 +163,26 @@ class PostService {
     }
   }
 
+  // ─── UPDATE POST ─────────────────────────────────────────
+  Future<PostModel> updatePost({
+    required String postId,
+    required Map<String, dynamic> data,
+  }) async {
+    try {
+      final response = await _dioClient.patch(
+        '${AppConstants.postsEndpoint}/$postId',
+        data: data,
+      );
+      final responseData = response.data['data'];
+      final postMap = (responseData is Map && responseData.containsKey('post')) 
+          ? responseData['post'] 
+          : responseData;
+      return PostModel.fromJson(postMap);
+    } on DioException catch (e) {
+      throw _handleError(e);
+    }
+  }
+
   // ─── DELETE POST ─────────────────────────────────────────
   Future<void> deletePost(String postId) async {
     try {
@@ -173,6 +193,8 @@ class PostService {
       throw _handleError(e);
     }
   }
+
+
 
   // ─── ERROR HANDLER ───────────────────────────────────────
   Exception _handleError(DioException e) {

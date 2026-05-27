@@ -234,13 +234,14 @@ class _CommentsPageState extends ConsumerState<CommentsPage> {
 
   Widget _buildCommentInput(CommentState state, bool isDark) {
     final currentUser = ref.watch(authProvider).user;
+    final textBorderColor = isDark ? Colors.white.withOpacity(0.12) : Colors.black.withOpacity(0.08);
 
     return Container(
       decoration: BoxDecoration(
-        color: isDark ? Colors.black : Colors.white,
-        border: Border(top: BorderSide(color: isDark ? Colors.grey[900]! : Colors.grey[300]!, width: 0.5)),
+        color: isDark ? Colors.black.withOpacity(0.6) : Colors.white.withOpacity(0.7),
+        border: Border(top: BorderSide(color: textBorderColor, width: 0.5)),
       ),
-      padding: EdgeInsets.only(bottom: MediaQuery.of(context).padding.bottom),
+      padding: EdgeInsets.only(bottom: MediaQuery.of(context).padding.bottom + 8),
       child: Column(
         mainAxisSize: MainAxisSize.min,
         children: [
@@ -260,61 +261,85 @@ class _CommentsPageState extends ConsumerState<CommentsPage> {
             Container(
               width: double.infinity,
               padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
-              color: isDark ? Colors.grey[900] : Colors.grey[100],
+              color: isDark ? Colors.white.withOpacity(0.04) : Colors.black.withOpacity(0.02),
               child: Row(
                 children: [
-                  Expanded(child: Text('Replying to ${state.replyingTo!.user?.username}', style: const TextStyle(fontSize: 12, color: Colors.grey))),
+                  Expanded(
+                    child: Text(
+                      'Replying to @${state.replyingTo!.user?.username}',
+                      style: TextStyle(fontSize: 12, color: isDark ? Colors.white54 : Colors.black54),
+                    ),
+                  ),
                   BouncyTap(
                     onTap: () => ref.read(commentProvider(widget.postId).notifier).setReplyingTo(null),
-                    child: const Icon(LucideIcons.x, size: 14),
+                    child: Icon(LucideIcons.x, size: 14, color: isDark ? Colors.white54 : Colors.black54),
                   ),
                 ],
               ),
             ),
 
           Padding(
-            padding: const EdgeInsets.fromLTRB(16, 4, 16, 12),
+            padding: const EdgeInsets.fromLTRB(16, 6, 16, 6),
             child: Row(
               children: [
                 UserStoryAvatar(
                   userId: currentUser?.id ?? '',
                   profilePicUrl: currentUser?.profilePicUrl,
                   username: currentUser?.username,
-                  size: 24,
+                  size: 32,
                   isClickable: true,
                 ),
                 const SizedBox(width: 12),
                 Expanded(
-                  child: MentionTextField(
-                    controller: _commentController,
-                    focusNode: _commentFocus,
-                    contextType: 'comment',
-                    decoration: InputDecoration(
-                      hintText: 'Add a comment for ${widget.post?.user?.username ?? ''}...',
-                      hintStyle: const TextStyle(color: Colors.grey),
-                      border: InputBorder.none,
+                  child: Container(
+                    decoration: BoxDecoration(
+                      color: isDark ? Colors.white.withOpacity(0.06) : Colors.black.withOpacity(0.03),
+                      borderRadius: BorderRadius.circular(20),
+                      border: Border.all(color: textBorderColor, width: 0.5),
                     ),
-                    style: const TextStyle(fontSize: 14, fontFamily: 'SF Pro Text'),
-                    maxLines: 4,
-                    minLines: 1,
-                  ),
-                ),
-                ValueListenableBuilder(
-                  valueListenable: _commentController,
-                  builder: (context, value, _) {
-                    final isEmpty = value.text.trim().isEmpty;
-                    return BouncyTap(
-                      onTap: isEmpty ? null : () => _submitComment(),
-                      child: Text(
-                        'Post',
-                        style: TextStyle(
-                          color: isEmpty ? AppColors.primary.withValues(alpha: 0.4) : const Color(0xFF0095F6),
-                          fontWeight: FontWeight.w600,
-                          fontSize: 14,
+                    padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 4),
+                    child: Row(
+                      children: [
+                        Expanded(
+                          child: MentionTextField(
+                            controller: _commentController,
+                            focusNode: _commentFocus,
+                            contextType: 'comment',
+                            decoration: InputDecoration(
+                              hintText: 'Add a comment...',
+                              hintStyle: TextStyle(color: isDark ? Colors.white30 : Colors.black38, fontSize: 14),
+                              border: InputBorder.none,
+                              isDense: true,
+                              contentPadding: const EdgeInsets.symmetric(vertical: 8),
+                            ),
+                            style: TextStyle(fontSize: 14, color: isDark ? Colors.white : Colors.black, fontFamily: 'SF Pro Text'),
+                            maxLines: 4,
+                            minLines: 1,
+                          ),
                         ),
-                      ),
-                    );
-                  },
+                        const SizedBox(width: 8),
+                        ValueListenableBuilder(
+                          valueListenable: _commentController,
+                          builder: (context, value, _) {
+                            final isEmpty = value.text.trim().isEmpty;
+                            return BouncyTap(
+                              onTap: isEmpty ? null : () => _submitComment(),
+                              child: Text(
+                                'Post',
+                                style: TextStyle(
+                                  color: isEmpty 
+                                      ? (isDark ? Colors.white30 : Colors.black38)
+                                      : const Color(0xFF0095F6),
+                                  fontWeight: FontWeight.w700,
+                                  fontSize: 14,
+                                ),
+                              ),
+                            );
+                          },
+                        ),
+                      ],
+                    ),
+                  ),
                 ),
               ],
             ),

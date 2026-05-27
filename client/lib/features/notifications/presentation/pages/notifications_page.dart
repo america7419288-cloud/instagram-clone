@@ -129,6 +129,11 @@ class _NotificationsPageState extends ConsumerState<NotificationsPage> {
   }
 
   Widget _buildFollowRequestsHeader() {
+    final isDark = Theme.of(context).brightness == Brightness.dark;
+    final textPrimaryColor = isDark ? Colors.white : Colors.black;
+    final textSecondaryColor = isDark ? Colors.white60 : Colors.black54;
+    final borderColor = isDark ? Colors.white10 : Colors.black12;
+
     return Column(
       children: [
         BouncyTap(
@@ -137,10 +142,10 @@ class _NotificationsPageState extends ConsumerState<NotificationsPage> {
             contentPadding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
             leading: Stack(
               children: [
-                const CircleAvatar(
+                CircleAvatar(
                   radius: 22,
-                  backgroundColor: AppColors.border,
-                  child: Icon(LucideIcons.user_plus, color: AppColors.textPrimary),
+                  backgroundColor: borderColor,
+                  child: Icon(LucideIcons.user_plus, color: textPrimaryColor),
                 ),
                 Positioned(
                   top: 0,
@@ -156,30 +161,33 @@ class _NotificationsPageState extends ConsumerState<NotificationsPage> {
                 ),
               ],
             ),
-            title: const Text(
+            title: Text(
               'Follow Requests',
               style: TextStyle(
                 fontSize: 15,
                 fontWeight: FontWeight.w500,
+                color: textPrimaryColor,
               ),
             ),
-            subtitle: const Text(
+            subtitle: Text(
               'Approve or ignore requests',
               style: TextStyle(
                 fontSize: 13,
-                color: AppColors.textSecondary,
+                color: textSecondaryColor,
               ),
             ),
-            trailing: const Icon(LucideIcons.chevron_right, color: AppColors.border, size: 20),
+            trailing: Icon(LucideIcons.chevron_right, color: textSecondaryColor, size: 20),
           ),
         ),
-        const Divider(height: 1, indent: 72),
+        Divider(height: 1, indent: 72, color: borderColor),
       ],
     );
   }
 
   Widget _buildNotificationsList(NotificationState state) {
     final groups = state.groupedNotifications;
+    final isDark = Theme.of(context).brightness == Brightness.dark;
+    final textPrimaryColor = isDark ? Colors.white : Colors.black;
 
     return SliverList(
       delegate: SliverChildBuilderDelegate(
@@ -192,10 +200,10 @@ class _NotificationsPageState extends ConsumerState<NotificationsPage> {
                 padding: const EdgeInsets.fromLTRB(16, 16, 16, 8),
                 child: Text(
                   group.title,
-                  style: const TextStyle(
+                  style: TextStyle(
                     fontSize: 15,
                     fontWeight: FontWeight.bold,
-                    color: AppColors.textPrimary,
+                    color: textPrimaryColor,
                   ),
                 ),
               ),
@@ -268,7 +276,7 @@ class _NotificationRow extends StatelessWidget {
               _buildAvatar(),
               const SizedBox(width: 12),
               Expanded(
-                child: _buildContent(),
+                child: _buildContent(context),
               ),
               const SizedBox(width: 12),
               _buildAction(context),
@@ -291,14 +299,12 @@ class _NotificationRow extends StatelessWidget {
     );
   }
 
-  Widget _defaultAvatar() {
-    return Container(
-      color: AppColors.border,
-      child: const Icon(LucideIcons.user, color: Colors.white, size: 24),
-    );
-  }
 
-  Widget _buildContent() {
+  Widget _buildContent(BuildContext context) {
+    final isDark = Theme.of(context).brightness == Brightness.dark;
+    final textPrimaryColor = isDark ? Colors.white : Colors.black;
+    final textSecondaryColor = isDark ? Colors.white60 : Colors.black54;
+
     final username = notification.sender?.username ?? 'Someone';
     final message = notification.message;
     final timeStr = notification.createdAt != null
@@ -309,9 +315,9 @@ class _NotificationRow extends StatelessWidget {
       maxLines: 3,
       overflow: TextOverflow.ellipsis,
       text: TextSpan(
-        style: const TextStyle(
+        style: TextStyle(
           fontSize: 13,
-          color: AppColors.textPrimary,
+          color: textPrimaryColor,
           fontFamily: 'SF Pro Text',
         ),
         children: [
@@ -331,7 +337,7 @@ class _NotificationRow extends StatelessWidget {
           TextSpan(text: ' $message'),
           TextSpan(
             text: timeStr,
-            style: const TextStyle(color: AppColors.textSecondary),
+            style: TextStyle(color: textSecondaryColor),
           ),
         ],
       ),
@@ -382,19 +388,23 @@ class _NotificationFollowButtonState
 
   @override
   Widget build(BuildContext context) {
+    final isDark = Theme.of(context).brightness == Brightness.dark;
+    final textPrimaryColor = isDark ? Colors.white : Colors.black;
+    final borderColor = isDark ? Colors.white24 : Colors.black12;
+
     if (_isFollowing) {
       return Container(
         padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
         decoration: BoxDecoration(
-          border: Border.all(color: AppColors.border),
+          border: Border.all(color: borderColor),
           borderRadius: BorderRadius.circular(8),
         ),
-        child: const Text(
+        child: Text(
           'Following',
           style: TextStyle(
             fontSize: 13,
             fontWeight: FontWeight.w600,
-            color: AppColors.textPrimary,
+            color: textPrimaryColor,
           ),
         ),
       );

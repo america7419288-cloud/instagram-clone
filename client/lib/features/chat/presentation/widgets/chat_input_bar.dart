@@ -197,7 +197,9 @@ class _ChatInputBarState
                       icon: LucideIcons.smile,
                       isDark: isDark,
                       size: 21,
-                      onTap: () {},
+                      onTap: () {
+                        widget.focusNode.requestFocus();
+                      },
                     ),
                   ),
                 ],

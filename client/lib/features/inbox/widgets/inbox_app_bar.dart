@@ -1,6 +1,5 @@
 // lib/features/inbox/widgets/inbox_app_bar.dart
 
-import 'dart:math' as math;
 import 'package:flutter/material.dart';
 import 'package:flutter/cupertino.dart' show CupertinoIcons, CupertinoColors;
 import 'package:flutter_lucide/flutter_lucide.dart';
@@ -104,8 +103,9 @@ class _InboxAppBarState extends State<InboxAppBar> {
 
   @override
   Widget build(BuildContext context) {
-    final bgColor = Colors.black;
-    final iconColor = Colors.white;
+    final isDark = Theme.of(context).brightness == Brightness.dark;
+    final bgColor = isDark ? Colors.black : Colors.white;
+    final iconColor = isDark ? Colors.white : Colors.black;
 
     // Fade out username title as scrollOffset goes past 20.
     final double titleOpacity =

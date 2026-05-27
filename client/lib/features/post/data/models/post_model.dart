@@ -1,8 +1,13 @@
 // lib/features/post/data/models/post_model.dart
 
 import 'package:flutter/foundation.dart';
-
 import '../../../profile/data/models/profile_model.dart';
+
+// ─────────────────────────────────────────────────────
+// ENUMS
+// ─────────────────────────────────────────────────────
+enum PostAudience { everyone, followers, closeFriends, onlyMe }
+enum PostType { image, video, carousel }
 
 // ─────────────────────────────────────────────────────
 // POST MEDIA MODEL
@@ -32,7 +37,6 @@ class PostMediaModel {
   bool get isVideo => mediaType == 'video';
   bool get isImage => mediaType == 'image';
   String get feedUrl => url;
-
 
   // Duration formatted as "0:45" or "1:05"
   String get durationFormatted {
@@ -123,6 +127,13 @@ class PostModel {
   // Extra fields used in UI
   final bool hasStory;
 
+  // Toggleable settings
+  final bool isPinned;
+  final bool isArchived;
+  final bool hideLikesCount;
+  final bool commentsDisabled;
+  final PostAudience audience;
+
   // Music Metadata
   final String? musicId;
   final String? musicTitle;
@@ -150,6 +161,11 @@ class PostModel {
     required this.createdAt,
     required this.updatedAt,
     this.hasStory = false,
+    this.isPinned = false,
+    this.isArchived = false,
+    this.hideLikesCount = false,
+    this.commentsDisabled = false,
+    this.audience = PostAudience.everyone,
     this.musicId,
     this.musicTitle,
     this.musicArtist,
@@ -157,13 +173,35 @@ class PostModel {
     this.musicDuration,
   });
 
+  factory PostModel.fromProfilePost(ProfilePostModel p) {
+    return PostModel(
+      id: p.id,
+      userId: '',
+      username: '',
+      mediaFiles: [
+        PostMediaModel(
+          id: p.id,
+          url: p.thumbnailUrl ?? '',
+          mediaType: p.mediaType,
+        ),
+      ],
+      likesCount: p.likeCount,
+      commentsCount: p.commentCount,
+      hasVideo: p.isVideo,
+      hasMultiple: p.isCarousel,
+      createdAt: DateTime.now(),
+      updatedAt: DateTime.now(),
+    );
+  }
+
   // ─── Compatibility Getters (Backward Compatibility) ───────
   int get likeCount => likesCount;
   int get commentCount => commentsCount;
   List<PostMediaModel> get media => mediaFiles;
   bool get isCarousel => hasMultiple;
-  bool get commentsDisabled => false; // TODO: Implement if needed
   bool get hasActiveStory => hasStory;
+
+  PostType get type => hasVideo ? PostType.video : (hasMultiple ? PostType.carousel : PostType.image);
 
   // User object shim
   ProfileModel? get user => ProfileModel(
@@ -181,10 +219,6 @@ class PostModel {
         isOwnProfile: false,
       );
 
-  // Check if own post
-  // (isOwnPost is now a field)
-
-
   // ─── Helpers ─────────────────────────────────────────
   PostMediaModel? get firstMedia =>
       mediaFiles.isNotEmpty ? mediaFiles.first : null;
@@ -197,6 +231,9 @@ class PostModel {
     return first.url;
   }
 
+  // Helper for edit post horizontal preview matching design
+  List<String> get mediaUrls => mediaFiles.map((m) => m.url).toList();
+
   factory PostModel.fromJson(Map<String, dynamic> json) {
     // Handle both snake_case and camelCase for mediaFiles
     final mediaRaw = json['mediaFiles'] ?? json['media'] ?? [];
@@ -206,13 +243,13 @@ class PostModel {
       ..sort((a, b) => a.order.compareTo(b.order));
 
     return PostModel(
-      id: json['id']?.toString() ?? '',
+      id: json['id']?.toString() ?? json['_id']?.toString() ?? '',
       userId: json['userId']?.toString() ?? json['user_id']?.toString() ?? '',
       username: json['username']?.toString() ?? json['user']?['username']?.toString() ?? '',
       fullName: json['fullName']?.toString() ?? json['user']?['full_name']?.toString(),
       userAvatar: json['userAvatar']?.toString() ?? json['user']?['profile_pic_url']?.toString(),
       isVerified: json['isVerified'] == true || json['user']?['is_verified'] == true,
-      caption: json['caption']?.toString(),
+      caption: json['caption']?.toString() ?? '',
       location: json['location']?.toString(),
       mediaFiles: mediaList,
       likesCount: int.tryParse((json['likesCount'] ?? json['like_count'] ?? json['likes_count'] ?? json['likeCount'] ?? '0').toString()) ?? 0,
@@ -235,6 +272,14 @@ class PostModel {
           : DateTime.now(),
       isOwnPost: json['isOwnPost'] == true || json['is_own_post'] == true,
       hasStory: json['hasStory'] == true,
+      isPinned: json['isPinned'] == true,
+      isArchived: json['isArchived'] == true,
+      hideLikesCount: json['hideLikesCount'] == true,
+      commentsDisabled: json['commentsDisabled'] == true || json['comments_disabled'] == true,
+      audience: PostAudience.values.firstWhere(
+        (a) => PostAudience.values.any((val) => val.name == json['audience']) && a.name == json['audience'],
+        orElse: () => PostAudience.everyone,
+      ),
       
       // Music Metadata (Nested object from server)
       musicId: json['music']?['id']?.toString() ?? json['music_id']?.toString() ?? json['musicId']?.toString(),
@@ -269,6 +314,11 @@ class PostModel {
         'updatedAt': updatedAt.toIso8601String(),
         'isOwnPost': isOwnPost,
         'hasStory': hasStory,
+        'isPinned': isPinned,
+        'isArchived': isArchived,
+        'hideLikesCount': hideLikesCount,
+        'commentsDisabled': commentsDisabled,
+        'audience': audience.name,
         'musicId': musicId,
         'musicTitle': musicTitle,
         'musicArtist': musicArtist,
@@ -295,6 +345,11 @@ class PostModel {
     DateTime? createdAt,
     DateTime? updatedAt,
     bool? hasStory,
+    bool? isPinned,
+    bool? isArchived,
+    bool? hideLikesCount,
+    bool? commentsDisabled,
+    PostAudience? audience,
     int? likeCount, // Compatibility
     int? commentCount, // Compatibility
   }) {
@@ -318,6 +373,11 @@ class PostModel {
       updatedAt: updatedAt ?? this.updatedAt,
       isOwnPost: isOwnPost ?? this.isOwnPost,
       hasStory: hasStory ?? this.hasStory,
+      isPinned: isPinned ?? this.isPinned,
+      isArchived: isArchived ?? this.isArchived,
+      hideLikesCount: hideLikesCount ?? this.hideLikesCount,
+      commentsDisabled: commentsDisabled ?? this.commentsDisabled,
+      audience: audience ?? this.audience,
       musicId: musicId ?? this.musicId,
       musicTitle: musicTitle ?? this.musicTitle,
       musicArtist: musicArtist ?? this.musicArtist,
