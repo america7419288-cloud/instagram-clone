@@ -21,7 +21,7 @@ class AdService {
   // ── PUBLIC AD SERVING & EVENT LOGGING ─────────────────
   Future<List<AdModel>> getFeedAds({int count = 2}) async {
     try {
-      final response = await _client.get('/api/v1/ads/feed', queryParameters: {'count': count});
+      final response = await _client.get('/ads/feed', queryParameters: {'count': count});
       if (response.data['success'] == true) {
         final List<dynamic> list = response.data['data']['ads'] ?? [];
         return list.map((a) => AdModel.fromJson(a)).toList();
@@ -34,7 +34,7 @@ class AdService {
 
   Future<List<AdModel>> getStoryAds() async {
     try {
-      final response = await _client.get('/api/v1/ads/stories');
+      final response = await _client.get('/ads/stories');
       if (response.data['success'] == true) {
         final List<dynamic> list = response.data['data']['ads'] ?? [];
         return list.map((a) => AdModel.fromJson(a)).toList();
@@ -47,7 +47,7 @@ class AdService {
 
   Future<List<AdModel>> getReelAds() async {
     try {
-      final response = await _client.get('/api/v1/ads/reels');
+      final response = await _client.get('/ads/reels');
       if (response.data['success'] == true) {
         final List<dynamic> list = response.data['data']['ads'] ?? [];
         return list.map((a) => AdModel.fromJson(a)).toList();
@@ -66,7 +66,7 @@ class AdService {
     required String placement,
   }) async {
     try {
-      await _client.post('/api/v1/ads/track', data: {
+      await _client.post('/ads/track', data: {
         'adId': adId,
         'campaignId': campaignId,
         'advertiserId': advertiserId,
@@ -110,7 +110,7 @@ class AdService {
       );
     }
 
-    final response = await _client.dio.post('/api/v1/ads/advertiser', data: formData);
+    final response = await _client.dio.post('/ads/advertiser', data: formData);
     if (response.data['success'] == true) {
       return AdvertiserModel.fromJson(response.data['data']);
     }
@@ -118,7 +118,7 @@ class AdService {
   }
 
   Future<AdvertiserModel> getMyAdvertiser() async {
-    final response = await _client.get('/api/v1/ads/advertiser/me');
+    final response = await _client.get('/ads/advertiser/me');
     if (response.data['success'] == true) {
       return AdvertiserModel.fromJson(response.data['data']);
     }
@@ -156,7 +156,7 @@ class AdService {
       );
     }
 
-    final response = await _client.dio.put('/api/v1/ads/advertiser', data: formData);
+    final response = await _client.dio.put('/ads/advertiser', data: formData);
     if (response.data['success'] == true) {
       return AdvertiserModel.fromJson(response.data['data']);
     }
@@ -165,7 +165,7 @@ class AdService {
 
   // ── CAMPAIGNS ───────────────────────────────────────
   Future<List<CampaignModel>> getMyCampaigns() async {
-    final response = await _client.get('/api/v1/ads/campaigns');
+    final response = await _client.get('/ads/campaigns');
     if (response.data['success'] == true) {
       final List<dynamic> list = response.data['data']['campaigns'] ?? [];
       return list.map((c) => CampaignModel.fromJson(c)).toList();
@@ -215,7 +215,7 @@ class AdService {
   }
 
   Future<CampaignModel> getCampaign(String id) async {
-    final response = await _client.get('/api/v1/ads/campaigns/$id');
+    final response = await _client.get('/ads/campaigns/$id');
     if (response.data['success'] == true) {
       return CampaignModel.fromJson(response.data['data']);
     }
@@ -223,20 +223,20 @@ class AdService {
   }
 
   Future<void> pauseCampaign(String id) async {
-    await _client.post('/api/v1/ads/campaigns/$id/pause');
+    await _client.post('/ads/campaigns/$id/pause');
   }
 
   Future<void> resumeCampaign(String id) async {
-    await _client.post('/api/v1/ads/campaigns/$id/resume');
+    await _client.post('/ads/campaigns/$id/resume');
   }
 
   Future<void> deleteCampaign(String id) async {
-    await _client.delete('/api/v1/ads/campaigns/$id');
+    await _client.delete('/ads/campaigns/$id');
   }
 
   // ── AD CREATIVES ────────────────────────────────────
   Future<List<AdModel>> getCreatives(String campaignId) async {
-    final response = await _client.get('/api/v1/ads/campaigns/$campaignId/creatives');
+    final response = await _client.get('/ads/campaigns/$campaignId/creatives');
     if (response.data['success'] == true) {
       final List<dynamic> list = response.data['data'] ?? [];
       return list.map((c) => AdModel.fromJson(c)).toList();
@@ -334,7 +334,7 @@ class AdService {
     }
 
     final response = await _client.dio.post(
-      '/api/v1/ads/campaigns/$campaignId/creatives',
+      '/ads/campaigns/$campaignId/creatives',
       data: formData,
       options: Options(
         sendTimeout: const Duration(minutes: 5),
@@ -349,12 +349,12 @@ class AdService {
   }
 
   Future<void> deleteCreative(String id) async {
-    await _client.delete('/api/v1/ads/creatives/$id');
+    await _client.delete('/ads/creatives/$id');
   }
 
   // ── ANALYTICS snap query ────────────────────────────
   Future<Map<String, dynamic>> getCampaignAnalytics(String id, {int days = 7}) async {
-    final response = await _client.get('/api/v1/ads/campaigns/$id/analytics', queryParameters: {'days': days});
+    final response = await _client.get('/ads/campaigns/$id/analytics', queryParameters: {'days': days});
     if (response.data['success'] == true) {
       return response.data['data'];
     }
@@ -362,7 +362,7 @@ class AdService {
   }
 
   Future<Map<String, dynamic>> getAnalyticsOverview() async {
-    final response = await _client.get('/api/v1/ads/analytics/overview');
+    final response = await _client.get('/ads/analytics/overview');
     if (response.data['success'] == true) {
       return response.data['data'];
     }
@@ -372,7 +372,7 @@ class AdService {
   // ── ADMIN ───────────────────────────────────────────
   Future<List<CampaignModel>> getAllCampaigns({String? status}) async {
     final response = await _client.get(
-      '/api/v1/ads/admin/campaigns',
+      '/ads/admin/campaigns',
       queryParameters: status != null ? {'status': status} : null,
     );
     if (response.data['success'] == true) {
@@ -383,15 +383,15 @@ class AdService {
   }
 
   Future<void> approveCampaign(String id) async {
-    await _client.post('/api/v1/ads/admin/campaigns/$id/approve');
+    await _client.post('/ads/admin/campaigns/$id/approve');
   }
 
   Future<void> rejectCampaign(String id, String reason) async {
-    await _client.post('/api/v1/ads/admin/campaigns/$id/reject', data: {'reason': reason});
+    await _client.post('/ads/admin/campaigns/$id/reject', data: {'reason': reason});
   }
 
   Future<Map<String, dynamic>> getAdminAnalytics({int days = 30}) async {
-    final response = await _client.get('/api/v1/ads/admin/analytics', queryParameters: {'days': days});
+    final response = await _client.get('/ads/admin/analytics', queryParameters: {'days': days});
     if (response.data['success'] == true) {
       return response.data['data'];
     }
