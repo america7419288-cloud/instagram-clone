@@ -1,6 +1,6 @@
 // server/src/controllers/notes.controller.js
 
-const { Note, User, Follower } = require('../models');
+const { Note, User, Follower, CloseFriend } = require('../models');
 const { successResponse, errorResponse } = require('../utils/response.utils');
 const { getBlockedUserIds } = require('../utils/block.utils');
 const { Op } = require('sequelize');
@@ -172,12 +172,39 @@ const getNotesFeed = async (req, res) => {
       (id) => !blockedUserIds.includes(id)
     );
 
-    // 3. FETCH USER'S OWN NOTE & FOLLOWED USER NOTES
+    // 2.5. FIND USERS WHO HAVE ADDED CURRENT USER AS A CLOSE FRIEND
+    const closeFriendsRelations = await CloseFriend.findAll({
+      where: {
+        friendId: currentUserId
+      },
+      attributes: ['userId'],
+      raw: true
+    });
+    const usersWhoAddedMeIds = closeFriendsRelations.map(cf => cf.userId);
+
+    // 3. FETCH USER'S OWN NOTE & FOLLOWED USER NOTES WITH PRIVACY FILTERING
     const activeNotes = await Note.findAll({
       where: {
-        user_id: {
-          [Op.in]: [currentUserId, ...filteredFollowingIds],
-        },
+        [Op.or]: [
+          // My own notes
+          { user_id: currentUserId },
+          // Followed users' notes with followers audience
+          {
+            user_id: {
+              [Op.in]: filteredFollowingIds,
+            },
+            audience: {
+              [Op.ne]: 'close_friends'
+            }
+          },
+          // Followed users' notes with close_friends audience (only if they added me)
+          {
+            user_id: {
+              [Op.in]: filteredFollowingIds.filter(id => usersWhoAddedMeIds.includes(id)),
+            },
+            audience: 'close_friends'
+          }
+        ],
         expires_at: {
           [Op.gt]: now, // Not expired
         },

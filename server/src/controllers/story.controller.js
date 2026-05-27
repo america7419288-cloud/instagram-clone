@@ -8,6 +8,7 @@ const {
   Block,
   StoryPoll,
   StoryQuestion,
+  CloseFriend,
   sequelize,
 } = require('../models');
 const {
@@ -284,6 +285,16 @@ const getStoryFeed = async (req, res) => {
       });
     }
 
+    // 2.5. FIND USERS WHO HAVE ADDED CURRENT USER AS A CLOSE FRIEND
+    const closeFriendsRelations = await CloseFriend.findAll({
+      where: {
+        friendId: currentUserId
+      },
+      attributes: ['userId'],
+      raw: true
+    });
+    const usersWhoAddedMeIds = closeFriendsRelations.map(cf => cf.userId);
+
     // 3. GET ALL ACTIVE STORIES FROM THESE USERS (with limit)
     const MAX_STORIES_TOTAL = 100; // Limit total stories to prevent performance issues
     const MAX_STORIES_PER_USER = 3; // Limit stories per user
@@ -293,7 +304,17 @@ const getStoryFeed = async (req, res) => {
       where: {
         user_id: { [Op.in]: filteredUserIds },
         expires_at: { [Op.gt]: now },
-        audience: 'followers',
+        [Op.or]: [
+          // My own stories
+          { user_id: currentUserId },
+          // Stories with audience 'followers'
+          { audience: 'followers' },
+          // Stories with audience 'close_friends' where they added me
+          {
+            audience: 'close_friends',
+            user_id: { [Op.in]: usersWhoAddedMeIds }
+          }
+        ]
       },
       attributes: ['id', 'user_id', 'created_at'],
       order: [['created_at', 'DESC']],
@@ -309,7 +330,17 @@ const getStoryFeed = async (req, res) => {
         where: {
           user_id: userId,
           expires_at: { [Op.gt]: now },
-          audience: 'followers',
+          [Op.or]: [
+            // My own stories
+            { user_id: currentUserId },
+            // Stories with audience 'followers'
+            { audience: 'followers' },
+            // Stories with audience 'close_friends' where they added me
+            {
+              audience: 'close_friends',
+              user_id: { [Op.in]: usersWhoAddedMeIds }
+            }
+          ]
         },
         include: [
           {
@@ -493,12 +524,25 @@ const getUserStories = async (req, res) => {
       return errorResponse(res, 404, 'User not found.');
     }
 
+    // Check Close Friend status
+    const isAddedAsCloseFriend = await CloseFriend.findOne({
+      where: {
+        userId: userId,
+        friendId: currentUserId
+      }
+    });
+
+    const isOwn = userId === currentUserId;
+
     // Get active stories
     const stories = await Story.findAll({
       where: {
         user_id: userId,
         expires_at: { [Op.gt]: now },
-        audience: 'followers',
+        [Op.or]: [
+          { audience: 'followers' },
+          ...(isOwn || isAddedAsCloseFriend ? [{ audience: 'close_friends' }] : [])
+        ]
       },
       include: [
         {
@@ -582,6 +626,23 @@ const viewStory = async (req, res) => {
         404,
         'Story not found or has expired.'
       );
+    }
+
+    // Check audience privacy
+    if (story.audience === 'close_friends' && story.user_id !== viewerId) {
+      const isCloseFriend = await CloseFriend.findOne({
+        where: {
+          userId: story.user_id,
+          friendId: viewerId
+        }
+      });
+      if (!isCloseFriend) {
+        return errorResponse(
+          res,
+          403,
+          'This story is only visible to close friends.'
+        );
+      }
     }
 
     // Don't count own story views

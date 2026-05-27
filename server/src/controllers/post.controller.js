@@ -240,16 +240,37 @@ const getFeed = async (req, res) => {
     let feedUserIds = [userId, ...followingIds];
     const blockedUserIds = await getBlockedUserIds(userId);
 
+    // ─── Get global seed accounts to push to everyone ─
+    const globalUsers = await User.findAll({
+      where: {
+        username: {
+          [Op.in]: ['global_news', 'global_ent', 'global_funny']
+        }
+      },
+      attributes: ['id'],
+      raw: true
+    });
+    const globalUserIds = globalUsers.map((u) => u.id);
+
     let posts, totalCount;
     if (feedUserIds.length === 1) {
       // ─── FALLBACK: Discover Mode ────────────────────
       // If user follows no one, show recent global posts
       const { count, rows } = await Post.findAndCountAll({
         where: {
-          userId: { 
-            [Op.ne]: userId, // Don't show only self
-            [Op.notIn]: blockedUserIds
-          },
+          [Op.or]: [
+            {
+              userId: { 
+                [Op.ne]: userId, // Don't show only self
+                [Op.notIn]: blockedUserIds
+              }
+            },
+            {
+              userId: {
+                [Op.in]: globalUserIds
+              }
+            }
+          ],
           isArchived: { [Op.or]: [false, null] },
         },
         include: _postIncludes(userId),
@@ -264,10 +285,19 @@ const getFeed = async (req, res) => {
       // ─── STANDARD: Following Feed ───────────────────
       const { count, rows } = await Post.findAndCountAll({
         where: {
-          userId: { 
-            [Op.in]: feedUserIds,
-            [Op.notIn]: blockedUserIds
-          },
+          [Op.or]: [
+            {
+              userId: { 
+                [Op.in]: feedUserIds,
+                [Op.notIn]: blockedUserIds
+              }
+            },
+            {
+              userId: {
+                [Op.in]: globalUserIds
+              }
+            }
+          ],
           isArchived: { [Op.or]: [false, null] },
         },
         include: _postIncludes(userId),
