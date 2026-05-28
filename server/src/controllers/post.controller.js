@@ -445,7 +445,7 @@ const updatePost = async (req, res) => {
     // ─── Re-process hashtags if caption changed ────────
     if (caption !== undefined) {
       // Remove old hashtag associations
-      await PostHashtag.destroy({ where: { postId } });
+      await PostHashtag.destroy({ where: { post_id: postId } });
       if (caption) {
         await _processHashtags(postId, caption);
       }
@@ -941,8 +941,8 @@ const _processHashtags = async (postId, caption) => {
       });
 
       await PostHashtag.findOrCreate({
-        where: { postId, hashtagId: hashtag.id },
-        defaults: { id: uuidv4(), postId, hashtagId: hashtag.id },
+        where: { post_id: postId, hashtag_id: hashtag.id },
+        defaults: { id: uuidv4(), post_id: postId, hashtag_id: hashtag.id },
       });
 
       await hashtag.increment('post_count');
