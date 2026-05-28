@@ -71,8 +71,6 @@ const getFeedPosts = async ({
   sessionId,
 }) => {
   try {
-    const CANDIDATE_POOL = limit * 8; // fetch larger pool for scoring
-
     // ── STEP 1: GET USER DATA ─────────────────────
     const [following, muted, blocked, userProfile, seenContent] = await Promise.all([
       Follower.findAll({
@@ -84,8 +82,8 @@ const getFeedPosts = async ({
         attributes: ['mutedUserId', 'muteStories']
       }),
       Block.findAll({
-        where: { [Op.or]: [{ blockerId: userId }, { blockedId: userId }] },
-        attributes: ['blockerId', 'blockedId']
+        where: { [Op.or]: [{ blocker_id: userId }, { blocked_id: userId }] },
+        attributes: ['blocker_id', 'blocked_id']
       }),
       UserInterestProfile.findOne({ where: { userId } }),
       SeenContent.findOne({ where: { userId } }),
@@ -99,7 +97,7 @@ const getFeedPosts = async ({
     const mutedIds = new Set(muted.map(m => m.mutedUserId));
     
     const blockedIds = new Set(
-      blocked.map(b => b.blockerId === userId ? b.blockedId : b.blockerId)
+      blocked.map(b => b.blocker_id === userId ? b.blocked_id : b.blocker_id)
     );
 
     const seenIds = new Set(seenContent?.contentIds || []);
@@ -115,11 +113,16 @@ const getFeedPosts = async ({
       id => !mutedIds.has(id) && !blockedIds.has(id)
     );
 
+    // Expand the time window as the user scrolls deeper so feed is truly infinite:
+    // page 1 → 10 days, page 2 → 20 days, page 3+ → 30 days, page 5+ → 60 days, page 8+ → all time
+    const daysBack = page >= 8 ? 3650 : page >= 5 ? 60 : page >= 3 ? 30 : page >= 2 ? 20 : 10;
+    const CANDIDATE_POOL = limit * (8 + page * 2); // grow pool on deeper pages
+
     const candidates = await Post.findAll({
       where: {
         userId: { [Op.in]: filteredCandidateUserIds },
         isArchived: { [Op.or]: [false, null] },
-        createdAt: { [Op.gte]: new Date(Date.now() - 10 * 86400000) }, // last 10 days
+        createdAt: { [Op.gte]: new Date(Date.now() - daysBack * 86400000) },
       },
       include: _postIncludes(userId),
       order: [['createdAt', 'DESC']],

@@ -468,14 +468,11 @@ const getStoryFeed = async (req, res) => {
         const authorRelationScore = authorRelationshipScoreMap.get(authorId) || 0;
         score += Math.min(40, authorRelationScore * 0.2);
 
-        // Direct message volume counting
+        // Direct message volume counting (sender_id is the correct snake_case column)
         const recentMessages = await Message.count({
           where: {
-            [Op.or]: [
-              { senderId: currentUserId, recipientId: authorId },
-              { senderId: authorId, recipientId: currentUserId }
-            ],
-            createdAt: { [Op.gte]: new Date(Date.now() - 7 * 86400000) }
+            sender_id: { [Op.in]: [currentUserId, authorId] },
+            created_at: { [Op.gte]: new Date(Date.now() - 7 * 86400000) }
           }
         });
         score += Math.min(30, recentMessages * 2);
