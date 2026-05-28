@@ -50,8 +50,8 @@ const getExploreContent = async ({
         attributes: ['followingId']
       }),
       Block.findAll({
-        where: { [Op.or]: [{ blockerId: userId }, { blockedId: userId }] },
-        attributes: ['blockerId', 'blockedId']
+        where: { [Op.or]: [{ blocker_id: userId }, { blocked_id: userId }] },
+        attributes: ['blocker_id', 'blocked_id']
       }),
       UserInterestProfile.findOne({ where: { userId } }),
       SeenContent.findOne({ where: { userId } }),
@@ -60,7 +60,7 @@ const getExploreContent = async ({
     const followingIds = following.map(f => f.followingId);
     
     const blockedIds = new Set(
-      blocked.map(b => b.blockerId === userId ? b.blockedId : b.blockerId)
+      blocked.map(b => b.blocker_id === userId ? b.blocked_id : b.blocker_id)
     );
 
     const seenIds = new Set(seenContent?.contentIds || []);

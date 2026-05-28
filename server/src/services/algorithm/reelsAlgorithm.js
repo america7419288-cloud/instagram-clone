@@ -50,11 +50,11 @@ const getRankedReels = async ({
 
     // Blocked list
     const blocked = await Block.findAll({
-      where: { [Op.or]: [{ blockerId: userId }, { blockedId: userId }] },
-      attributes: ['blockerId', 'blockedId']
+      where: { [Op.or]: [{ blocker_id: userId }, { blocked_id: userId }] },
+      attributes: ['blocker_id', 'blocked_id']
     });
     const blockedIds = new Set(
-      blocked.map(b => b.blockerId === userId ? b.blockedId : b.blockerId)
+      blocked.map(b => b.blocker_id === userId ? b.blocked_id : b.blocker_id)
     );
 
     const seenIds = new Set(seenContent?.contentIds || []);

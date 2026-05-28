@@ -24,11 +24,11 @@ const getSuggestedUsers = async ({
     const followerIds = followers.map(f => f.followerId);
 
     const blocks = await Block.findAll({
-      where: { [Op.or]: [{ blockerId: userId }, { blockedId: userId }] },
-      attributes: ['blockerId', 'blockedId']
+      where: { [Op.or]: [{ blocker_id: userId }, { blocked_id: userId }] },
+      attributes: ['blocker_id', 'blocked_id']
     });
     const blockedIds = new Set(
-      blocks.map(b => b.blockerId === userId ? b.blockedId : b.blockerId)
+      blocks.map(b => b.blocker_id === userId ? b.blocked_id : b.blocker_id)
     );
 
     // Already excluded
