@@ -4,6 +4,8 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_lucide/flutter_lucide.dart';
 import '../../data/repositories/settings_repository.dart';
 
+import 'package:instagram_client/shared/widgets/ios_app_bar.dart';
+
 class BlockedAccountsPage extends ConsumerStatefulWidget {
   const BlockedAccountsPage({super.key});
 
@@ -63,11 +65,9 @@ class _BlockedAccountsPageState extends ConsumerState<BlockedAccountsPage> {
 
     return Scaffold(
       backgroundColor: isDark ? Colors.black : Colors.white,
-      appBar: AppBar(
-        title: const Text('Blocked Accounts', style: TextStyle(fontWeight: FontWeight.bold, fontSize: 18)),
-        backgroundColor: isDark ? Colors.black : Colors.white,
-        elevation: 0,
-        centerTitle: true,
+      appBar: const IOSAppBar(
+        title: 'Blocked Accounts',
+        previousTitle: 'Privacy',
       ),
       body: _isLoading && _blockedAccounts.isEmpty
           ? const Center(child: CupertinoActivityIndicator())

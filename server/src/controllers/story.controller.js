@@ -425,22 +425,77 @@ const getStoryFeed = async (req, res) => {
       }
     }
 
-    // 6. SORT: Own stories first, then unseen, then seen
-    const usersWithStories = Object.values(userStoriesMap).sort(
-      (a, b) => {
-        // Own story always first
-        if (a.is_own) return -1;
-        if (b.is_own) return 1;
-        // Unseen stories before seen
-        if (a.has_unseen && !b.has_unseen) return -1;
-        if (!a.has_unseen && b.has_unseen) return 1;
-        // Most recent last story first
-        return (
-          new Date(b.latest_story_at) -
-          new Date(a.latest_story_at)
-        );
-      }
+    // 6. SORT: Own stories first, then closeness score + unseen/seen tray positions
+    const { Message, UserInterestProfile } = require('../models');
+
+    const closeFriends = await CloseFriend.findAll({
+      where: { userId: currentUserId },
+      attributes: ['friendId'],
+      raw: true
+    });
+    const closeFriendIds = new Set(closeFriends.map(f => f.friendId));
+
+    const following = await Follower.findAll({
+      where: { followerId: currentUserId, status: 'accepted' },
+      attributes: ['followingId'],
+      raw: true
+    });
+    const followingIds = new Set(following.map(f => f.followingId));
+
+    const followers = await Follower.findAll({
+      where: { followingId: currentUserId, status: 'accepted' },
+      attributes: ['followerId'],
+      raw: true
+    });
+    const followerIds = new Set(followers.map(f => f.followerId));
+
+    const userProfile = await UserInterestProfile.findOne({ where: { userId: currentUserId } });
+    const authorRelationshipScoreMap = new Map(
+      (userProfile?.recentAuthors || [])
+        .map(a => [a.authorId, a.score])
     );
+
+    // Compute score for each user with active stories
+    const scoredUsers = await Promise.all(
+      Object.values(userStoriesMap).map(async (item) => {
+        let score = 0;
+        const authorId = item.user.id;
+
+        if (item.is_own) {
+          score += 10000;
+        }
+
+        if (closeFriendIds.has(authorId)) score += 50;
+
+        if (followingIds.has(authorId) && followerIds.has(authorId)) score += 30;
+        else if (followingIds.has(authorId)) score += 10;
+
+        const authorRelationScore = authorRelationshipScoreMap.get(authorId) || 0;
+        score += Math.min(40, authorRelationScore * 0.2);
+
+        // Direct message volume counting
+        const recentMessages = await Message.count({
+          where: {
+            [Op.or]: [
+              { senderId: currentUserId, recipientId: authorId },
+              { senderId: authorId, recipientId: currentUserId }
+            ],
+            createdAt: { [Op.gte]: new Date(Date.now() - 7 * 86400000) }
+          }
+        });
+        score += Math.min(30, recentMessages * 2);
+
+        if (item.has_unseen) {
+          score += 200; // heavy boost if there are unseen stories
+        }
+
+        return { item, score };
+      })
+    );
+
+    const usersWithStories = scoredUsers
+      .sort((a, b) => b.score - a.score)
+      .map(s => s.item);
 
     return successResponse(res, 200, 'Story feed fetched', {
       users: usersWithStories,

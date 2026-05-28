@@ -42,6 +42,7 @@ import 'package:instagram_client/shared/widgets/verified_badge.dart';
 import 'package:instagram_client/core/widgets/instagram_heart_animation.dart';
 import 'package:instagram_client/features/share/presentation/share_sheet.dart';
 import 'package:instagram_client/features/share/models/share_content.dart';
+import 'dwell_time_tracker.dart';
 
 class ZoomNotifier extends Notifier<bool> {
   @override
@@ -346,26 +347,38 @@ class _PostCardState extends ConsumerState<PostCard>
         setState(() => _isPlaying = true);
       }
     });
+
+    final hashtags = <String>[];
+    if (widget.post.caption != null) {
+      final regExp = RegExp(r'#\w+');
+      hashtags.addAll(regExp.allMatches(widget.post.caption!).map((m) => m.group(0)!.substring(1)));
+    }
     
-    return VisibilityDetector(
-      key: Key('post-${widget.post.id}'),
-      onVisibilityChanged: _onVisibilityChanged,
-      child: Container(
-        color: isDark ? Colors.black : Colors.white,
-        child: Column(
-          crossAxisAlignment: CrossAxisAlignment.start,
-          children: [
-            _buildHeader(isDark),
-            _buildMedia(isDark),
-            _buildActionRow(isDark),
-            if (_tags.isNotEmpty)
-              TaggedUsersRow(tags: _tags, isDark: isDark),
-            _buildLikes(isDark),
-            _buildCaption(isDark),
-            _buildCommentsPreview(isDark),
-            _buildTimestamp(isDark),
-            const SizedBox(height: 12), // Reduced for a tighter feed
-          ],
+    return DwellTimeTracker(
+      contentId: widget.post.id,
+      contentType: 'post',
+      authorId: widget.post.userId,
+      hashtags: hashtags,
+      child: VisibilityDetector(
+        key: Key('post-${widget.post.id}'),
+        onVisibilityChanged: _onVisibilityChanged,
+        child: Container(
+          color: isDark ? Colors.black : Colors.white,
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              _buildHeader(isDark),
+              _buildMedia(isDark),
+              _buildActionRow(isDark),
+              if (_tags.isNotEmpty)
+                TaggedUsersRow(tags: _tags, isDark: isDark),
+              _buildLikes(isDark),
+              _buildCaption(isDark),
+              _buildCommentsPreview(isDark),
+              _buildTimestamp(isDark),
+              const SizedBox(height: 12), // Reduced for a tighter feed
+            ],
+          ),
         ),
       ),
     );

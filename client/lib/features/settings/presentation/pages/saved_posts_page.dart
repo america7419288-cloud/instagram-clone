@@ -5,6 +5,8 @@ import 'package:flutter_lucide/flutter_lucide.dart';
 import '../../data/repositories/settings_repository.dart';
 import '../../data/models/saved_collection_model.dart';
 
+import 'package:instagram_client/shared/widgets/ios_app_bar.dart';
+
 class SavedPostsPage extends ConsumerStatefulWidget {
   const SavedPostsPage({super.key});
 
@@ -164,21 +166,16 @@ class _SavedPostsPageState extends ConsumerState<SavedPostsPage> {
 
     return Scaffold(
       backgroundColor: isDark ? Colors.black : Colors.white,
-      appBar: AppBar(
-        title: Text(_activeCollection != null ? _activeCollection!.name : 'Saved Posts', style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 18)),
-        backgroundColor: isDark ? Colors.black : Colors.white,
-        elevation: 0,
-        centerTitle: true,
-        leading: _activeCollection != null
-            ? IconButton(
-                icon: const Icon(CupertinoIcons.back),
-                onPressed: () {
-                  setState(() {
-                    _activeCollection = null;
-                  });
-                  _loadSavedPosts();
-                },
-              )
+      appBar: IOSAppBar(
+        title: _activeCollection != null ? _activeCollection!.name : 'Saved Posts',
+        previousTitle: _activeCollection != null ? 'Saved' : 'Settings',
+        onBackPressed: _activeCollection != null
+            ? () {
+                setState(() {
+                  _activeCollection = null;
+                });
+                _loadSavedPosts();
+              }
             : null,
         actions: [
           if (_activeCollection == null)

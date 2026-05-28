@@ -7,6 +7,8 @@ import '../../../../core/network/dio_client.dart';
 import '../../../auth/presentation/providers/auth_provider.dart';
 import '../../../follow/data/repositories/presentation/providers/follow_provider.dart';
 
+import 'package:instagram_client/shared/widgets/ios_app_bar.dart';
+
 class CloseFriendsPage extends ConsumerStatefulWidget {
   const CloseFriendsPage({super.key});
 
@@ -285,11 +287,9 @@ class _CloseFriendsPageState extends ConsumerState<CloseFriendsPage> {
 
     return Scaffold(
       backgroundColor: isDark ? Colors.black : Colors.white,
-      appBar: AppBar(
-        title: const Text('Close Friends', style: TextStyle(fontWeight: FontWeight.bold, fontSize: 18)),
-        backgroundColor: isDark ? Colors.black : Colors.white,
-        elevation: 0,
-        centerTitle: true,
+      appBar: const IOSAppBar(
+        title: 'Close Friends',
+        previousTitle: 'Privacy',
       ),
       body: Column(
         children: [

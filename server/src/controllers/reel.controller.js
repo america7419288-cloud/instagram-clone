@@ -28,6 +28,7 @@ const {
     createNotification,
 } = require('../services/notification.service');
 const { emitToUser } = require('../services/socket.service');
+const { getRankedReels } = require('../services/algorithm/reelsAlgorithm');
 
 // ─── Max reel duration ────────────────────────────────
 const MAX_REEL_DURATION = 60; // seconds
@@ -124,65 +125,16 @@ const getReelsFeed = async (req, res) => {
         const userId = req.user.id;
         const page = parseInt(req.query.page) || 1;
         const limit = parseInt(req.query.limit) || 10;
-        const offset = (page - 1) * limit;
+        const { sessionId } = req.query;
 
-        // ─── Get followed user IDs ─────────────────────────
-        const following = await Follower.findAll({
-            where: {
-                followerId: userId,
-                status: 'accepted',
-            },
-            attributes: ['followingId'],
+        const result = await getRankedReels({
+            userId,
+            page,
+            limit,
+            sessionId,
         });
 
-        const followingIds = following.map((f) => f.followingId);
-        const feedUserIds = [userId, ...followingIds];
-
-        const blockedUserIds = await getBlockedUserIds(userId);
-
-        // ─── Strategy: Mix followed + trending ────────────
-        // Fetch from followed users first
-        const followedReels = await Reel.findAll({
-            where: {
-                userId: { 
-                    [Op.in]: feedUserIds,
-                    [Op.notIn]: blockedUserIds
-                },
-                isPublic: true,
-            },
-            include: _reelIncludes(userId),
-            order: [['createdAt', 'DESC']],
-            limit: Math.ceil(limit * 0.6), // 60% from following
-            offset,
-        });
-
-        // ─── If not enough from following, add trending ───
-        const remaining = limit - followedReels.length;
-        let trendingReels = [];
-
-        if (remaining > 0) {
-            const followedReelIds = followedReels.map((r) => r.id);
-
-            trendingReels = await Reel.findAll({
-                where: {
-                    userId: { [Op.notIn]: [...feedUserIds, ...blockedUserIds] },
-                    id: { [Op.notIn]: followedReelIds },
-                    isPublic: true,
-                },
-                include: _reelIncludes(userId),
-                // Sort by engagement for trending
-                order: [
-                    ['playsCount', 'DESC'],
-                    ['likesCount', 'DESC'],
-                    ['createdAt', 'DESC'],
-                ],
-                limit: remaining,
-            });
-        }
-
-        // ─── Merge and shuffle slightly ───────────────────
-        const allReels = [...followedReels, ...trendingReels];
-        const formatted = allReels.map((r) => _formatReel(r, userId));
+        const formatted = result.reels.map((r) => _formatReel(r, userId));
 
         return successResponse(res, 200, 'Reels feed loaded', formatted);
     } catch (error) {

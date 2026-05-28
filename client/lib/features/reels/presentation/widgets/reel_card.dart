@@ -27,6 +27,7 @@ import 'package:instagram_client/features/auth/presentation/providers/auth_provi
 import 'package:instagram_client/features/post/data/models/comment_model.dart';
 import 'package:instagram_client/features/post/presentation/providers/comment_provider.dart';
 import 'package:instagram_client/shared/widgets/mention_text_field.dart';
+import 'package:instagram_client/features/post/presentation/widgets/dwell_time_tracker.dart';
 
 // ── Particle Confetti Physics ──────────────────────────────
 class _HeartParticle {
@@ -184,6 +185,10 @@ class _ReelCardState extends ConsumerState<ReelCard>
   late Animation<double> _shareRotation;
   late AnimationController _albumArtController;
 
+  Duration _lastPosition = Duration.zero;
+  bool _logged50 = false;
+  int _loopCount = 0;
+
   @override
   void initState() {
     super.initState();
@@ -310,10 +315,61 @@ class _ReelCardState extends ConsumerState<ReelCard>
   }
 
   void _videoListener() {
+    if (!mounted || _controller == null || !_controller!.value.isInitialized) return;
+    
+    final val = _controller!.value;
+    final pos = val.position;
+    final dur = val.duration;
+    
+    if (dur.inMilliseconds > 0) {
+      final progressPercent = pos.inMilliseconds / dur.inMilliseconds;
+      
+      // 1. Log 50% watch
+      if (progressPercent >= 0.5 && !_logged50) {
+        _logged50 = true;
+        _emitReelInteraction('video_watch_50');
+      }
+      
+      // 2. Detect loop / restart (100% watch)
+      if (pos < _lastPosition && _lastPosition.inMilliseconds > dur.inMilliseconds * 0.9) {
+        _logged50 = false; // Reset for next loop
+        _loopCount++;
+        _emitReelInteraction('video_watch_100');
+      }
+      
+      _lastPosition = pos;
+    }
+
     if (mounted) {
       // Re-trigger layout updates for the progress slider position
       setState(() {});
     }
+  }
+
+  void _emitReelInteraction(String action) {
+    final reelId = widget.reel.id;
+    final authorId = widget.reel.userId;
+    final hashtags = <String>[];
+    if (widget.reel.caption != null) {
+      final regExp = RegExp(r'#\w+');
+      hashtags.addAll(regExp.allMatches(widget.reel.caption!).map((m) => m.group(0)!.substring(1)));
+    }
+    
+    Future.microtask(() async {
+      try {
+        await ref.read(postServiceProvider).recordInteraction(
+          contentId: reelId,
+          contentType: 'reel',
+          action: action,
+          authorId: authorId,
+          source: 'reels',
+          contentCategories: const [],
+          contentHashtags: hashtags,
+        );
+      } catch (e) {
+        debugPrint('Reel interaction logging failed ($action): $e');
+      }
+    });
   }
 
   void _play() {

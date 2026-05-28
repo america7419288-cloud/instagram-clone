@@ -115,6 +115,26 @@ const Post = sequelize.define(
       defaultValue: 'everyone',
       field: 'audience',
     },
+
+    categories: {
+      type: DataTypes.JSONB,
+      allowNull: false,
+      defaultValue: [],
+    },
+
+    sharesCount: {
+      type: DataTypes.INTEGER,
+      allowNull: false,
+      defaultValue: 0,
+      field: 'shares_count',
+    },
+
+    viewsCount: {
+      type: DataTypes.INTEGER,
+      allowNull: false,
+      defaultValue: 0,
+      field: 'views_count',
+    },
   },
   {
     tableName: 'posts',

@@ -4,6 +4,8 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_lucide/flutter_lucide.dart';
 import '../providers/settings_provider.dart';
 
+import 'package:instagram_client/shared/widgets/ios_app_bar.dart';
+
 class NotificationsSettingsPage extends ConsumerWidget {
   const NotificationsSettingsPage({super.key});
 
@@ -15,11 +17,9 @@ class NotificationsSettingsPage extends ConsumerWidget {
 
     return Scaffold(
       backgroundColor: backgroundColor,
-      appBar: AppBar(
-        title: const Text('Notifications', style: TextStyle(fontWeight: FontWeight.bold, fontSize: 18)),
-        backgroundColor: isDark ? Colors.black : Colors.white,
-        elevation: 0,
-        centerTitle: true,
+      appBar: const IOSAppBar(
+        title: 'Notifications',
+        previousTitle: 'Settings',
       ),
       body: settingsState.when(
         loading: () => const Center(child: CupertinoActivityIndicator()),

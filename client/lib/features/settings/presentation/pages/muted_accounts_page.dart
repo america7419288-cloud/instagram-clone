@@ -6,6 +6,8 @@ import 'package:flutter_lucide/flutter_lucide.dart';
 import '../../data/repositories/settings_repository.dart';
 import '../../../../core/network/dio_client.dart';
 
+import 'package:instagram_client/shared/widgets/ios_app_bar.dart';
+
 class MutedAccountsPage extends ConsumerStatefulWidget {
   const MutedAccountsPage({super.key});
 
@@ -152,11 +154,9 @@ class _MutedAccountsPageState extends ConsumerState<MutedAccountsPage> {
 
     return Scaffold(
       backgroundColor: isDark ? Colors.black : Colors.white,
-      appBar: AppBar(
-        title: const Text('Muted Accounts', style: TextStyle(fontWeight: FontWeight.bold, fontSize: 18)),
-        backgroundColor: isDark ? Colors.black : Colors.white,
-        elevation: 0,
-        centerTitle: true,
+      appBar: IOSAppBar(
+        title: 'Muted Accounts',
+        previousTitle: 'Privacy',
         actions: [
           IconButton(
             icon: Icon(LucideIcons.user_plus, color: isDark ? Colors.white : Colors.black),

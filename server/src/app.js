@@ -86,6 +86,7 @@ app.use('/api/v1/settings', require('./routes/settings.routes'));
 app.use('/api/v1/posts', postTagRoutes);
 app.use('/api/v1/users', userTagRoutes);
 app.use('/api/v1/posts', require('./routes/post.routes'));
+app.use('/api/v1/algorithms', require('./routes/algorithm.routes'));
 app.use('/api/v1/users', require('./routes/user.routes'));
 app.use('/api/v1/users', require('./routes/follow.routes'));
 app.use('/api/v1/comments', require('./routes/comment.routes'));

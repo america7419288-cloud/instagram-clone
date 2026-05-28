@@ -349,10 +349,51 @@ const getComments = async (req, res) => {
       return formatComment(c, currentUserId);
     });
 
+    // ─── COMMENT RANKING ALGORITHM ───────────────────
+    const { Follower: CommentFollower } = require('../models');
+    const postOwnerId = post.userId;
+    const authorIds = formattedComments.map(c => c.userId);
+
+    const following = await CommentFollower.findAll({
+      where: { followerId: currentUserId, followingId: { [Op.in]: authorIds }, status: 'accepted' },
+      attributes: ['followingId'],
+      raw: true
+    });
+    const followedAuthorIds = new Set(following.map(f => f.followingId));
+
+    const scoredComments = formattedComments.map(comment => {
+      let score = 0;
+      
+      // 1. Pinned comment boost
+      if (comment.is_pinned) score += 10000;
+
+      // 2. Post owner (creator) comment boost
+      if (comment.userId === postOwnerId) score += 5000;
+
+      // 3. Friend (followed by viewer) comment boost
+      if (followedAuthorIds.has(comment.userId)) score += 2000;
+
+      // 4. Likes count boost
+      score += (comment.like_count || 0) * 10;
+
+      // 5. Creator verified boost
+      if (comment.isVerified) score += 50;
+
+      // 6. Chronological recency (slight boost for newer ones)
+      const ageHours = (Date.now() - new Date(comment.created_at)) / 3600000;
+      score += Math.max(0, 10 * Math.exp(-ageHours / 24));
+
+      return { comment, score };
+    });
+
+    const rankedComments = scoredComments
+      .sort((a, b) => b.score - a.score)
+      .map(s => s.comment);
+
     return paginatedResponse(
       res,
       'Comments fetched successfully',
-      formattedComments,
+      rankedComments,
       {
         page,
         totalPages: Math.ceil(count / limit),

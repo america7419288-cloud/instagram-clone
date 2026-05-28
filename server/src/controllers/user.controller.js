@@ -497,31 +497,64 @@ const searchUsers = async (req, res) => {
     });
 
     // 3. CHECK FOLLOW STATUS
+    // 3. CHECK FOLLOW STATUS & COMPUTE INTEREST OVERLAP
     const userIds = users.map(u => u.id);
-    
-    const follows = await Follower.findAll({
-      where: {
-        followerId: currentUserId,
-        followingId: { [Op.in]: userIds },
-        status: 'accepted'
-      },
-      attributes: ['followingId'],
-      raw: true
-    });
+    const { UserInterestProfile } = require('../models');
+
+    const [follows, userProfile, candidateProfiles] = await Promise.all([
+      Follower.findAll({
+        where: {
+          followerId: currentUserId,
+          followingId: { [Op.in]: userIds },
+          status: 'accepted'
+        },
+        attributes: ['followingId'],
+        raw: true
+      }),
+      UserInterestProfile.findOne({ where: { userId: currentUserId } }),
+      UserInterestProfile.findAll({
+        where: { userId: { [Op.in]: userIds } }
+      })
+    ]);
 
     const followSet = new Set(follows.map(f => f.followingId));
+    const candidateProfileMap = new Map(candidateProfiles.map(p => [p.userId, p.interests || {}]));
 
-    // 4. FORMAT RESULTS
-    const formattedUsers = users.map((user) => ({
-      id: user.id,
-      username: user.username,
-      full_name: user.fullName,
-      profile_pic_url: user.profile_pic_url,
-      bio: user.bio,
-      is_verified: user.is_verified,
-      is_private: user.is_private,
-      is_following: followSet.has(user.id),
-    }));
+    const userInterests = userProfile?.interests || {};
+    const topInterests = Object.entries(userInterests)
+      .filter(([, val]) => val > 20)
+      .map(([key]) => key);
+
+    // 4. FORMAT & SORT RESULTS
+    const scoredUsers = users.map((user) => {
+      const interests = candidateProfileMap.get(user.id) || {};
+      
+      let interestOverlap = 0;
+      topInterests.forEach(cat => {
+        interestOverlap += (interests[cat] || 0) * 0.1;
+      });
+
+      let relevanceScore = interestOverlap;
+      if (followSet.has(user.id)) relevanceScore += 50; // Boost followed users
+
+      return {
+        user: {
+          id: user.id,
+          username: user.username,
+          full_name: user.fullName,
+          profile_pic_url: user.profile_pic_url,
+          bio: user.bio,
+          is_verified: user.is_verified,
+          is_private: user.is_private,
+          is_following: followSet.has(user.id),
+        },
+        score: relevanceScore,
+      };
+    });
+
+    const formattedUsers = scoredUsers
+      .sort((a, b) => b.score - a.score)
+      .map(s => s.user);
 
     return successResponse(res, 200, 'Search results', {
       users: formattedUsers,
@@ -551,49 +584,22 @@ const getSuggestedUsers = async (req, res) => {
     const currentUserId = req.user.id;
     const limit = parseInt(req.query.limit) || 10;
 
-    const alreadyFollowing = await Follower.findAll({
-      where: { followerId: currentUserId },
-      attributes: ['followingId'],
-      raw: true,
-    });
-
-    const blockedUserIds = await getBlockedUserIds(currentUserId);
-
-    const excludeIds = [
-      currentUserId,
-      ...alreadyFollowing.map((follow) => follow.followingId),
-      ...blockedUserIds,
-    ];
-
-    const users = await User.findAll({
-      where: {
-        id: { [Op.notIn]: excludeIds },
-        is_active: true,
-        is_banned: false,
-      },
-      attributes: [
-        'id',
-        'username',
-        'fullName',
-        'profile_pic_url',
-        'is_verified',
-        'is_private',
-        'bio',
-      ],
-      order: sequelize.random(),
+    const { getSuggestedUsers: getRecommendations } = require('../services/algorithm/suggestionsAlgorithm');
+    const users = await getRecommendations({
+      userId: currentUserId,
       limit,
     });
 
     const formattedUsers = users.map((user) => ({
       id: user.id,
       username: user.username,
-      full_name: user.fullName,
+      full_name: user.fullName || user.full_name,
       profile_pic_url: user.profile_pic_url,
       is_verified: user.is_verified,
-      is_private: user.is_private,
-      bio: user.bio,
+      is_private: user.is_private || false,
+      bio: user.bio || '',
       is_following: false,
-      mutual_followers_count: 0,
+      mutual_followers_count: user.mutualCount || 0,
     }));
 
     return successResponse(

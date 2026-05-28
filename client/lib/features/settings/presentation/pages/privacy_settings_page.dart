@@ -4,6 +4,8 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_lucide/flutter_lucide.dart';
 import '../providers/settings_provider.dart';
 
+import 'package:instagram_client/shared/widgets/ios_app_bar.dart';
+
 class PrivacySettingsPage extends ConsumerStatefulWidget {
   const PrivacySettingsPage({super.key});
 
@@ -28,11 +30,9 @@ class _PrivacySettingsPageState extends ConsumerState<PrivacySettingsPage> {
 
     return Scaffold(
       backgroundColor: backgroundColor,
-      appBar: AppBar(
-        title: const Text('Privacy settings', style: TextStyle(fontWeight: FontWeight.bold, fontSize: 18)),
-        backgroundColor: isDark ? Colors.black : Colors.white,
-        elevation: 0,
-        centerTitle: true,
+      appBar: const IOSAppBar(
+        title: 'Privacy settings',
+        previousTitle: 'Settings',
       ),
       body: settingsState.when(
         loading: () => const Center(child: CupertinoActivityIndicator()),

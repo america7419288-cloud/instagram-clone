@@ -88,6 +88,38 @@ const createNotification = async ({
       console.warn('⚠️ Warning: Socket emit notification failed:', socketError.message);
     }
 
+    // ─── NOTIFICATIONS ALGORITHM: Alert fatigue suppression ──
+    const MINOR_TYPES = ['like', 'comment_like', 'reel_like', 'story_react', 'follow', 'comment'];
+    
+    if (MINOR_TYPES.includes(type)) {
+      try {
+        const { UserInterestProfile } = require('../models');
+        const recipientProfile = await UserInterestProfile.findOne({
+          where: { userId: recipientId }
+        });
+
+        if (recipientProfile) {
+          const hour = new Date().getHours();
+          const activeHours = recipientProfile.activeHours || {};
+          const hourActivity = activeHours[hour] || 0;
+          
+          const maxActivity = Math.max(...Object.values(activeHours), 1);
+          const isLowActivityHour = (hourActivity / maxActivity) < 0.15 && maxActivity > 5;
+
+          const recentAuthors = recipientProfile.recentAuthors || [];
+          const authorRelation = recentAuthors.find(a => a.authorId === senderId);
+          const relationScore = authorRelation ? authorRelation.score : 0;
+
+          if (isLowActivityHour || relationScore < 5) {
+            console.log(`🔕 Suppressed push notification type: ${type} to user ${recipientId} due to alert fatigue algorithms`);
+            return notification; // Silent in-app delivery only, no push alert
+          }
+        }
+      } catch (fatigueError) {
+        console.warn('⚠️ Alert fatigue suppression check failed:', fatigueError.message);
+      }
+    }
+
     // ─── Send push notification ────────────────────────
     if (sender && recipient?.fcmToken) {
       const pushResult = await sendPushNotification({

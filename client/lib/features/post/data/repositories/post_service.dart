@@ -196,6 +196,39 @@ class PostService {
 
 
 
+  // ─── RECORD ALGORITHM INTERACTION ───────────────────────
+  Future<void> recordInteraction({
+    required String contentId,
+    required String contentType,
+    required String action,
+    String? authorId,
+    int dwellTime = 0,
+    String source = 'feed',
+    List<String> contentCategories = const [],
+    List<String> contentHashtags = const [],
+    String? sessionId,
+  }) async {
+    try {
+      await _dioClient.post(
+        '/algorithms/interact',
+        data: {
+          'contentId': contentId,
+          'contentType': contentType,
+          'action': action,
+          'authorId': authorId,
+          'dwellTime': dwellTime,
+          'source': source,
+          'contentCategories': contentCategories,
+          'contentHashtags': contentHashtags,
+          'sessionId': sessionId,
+        },
+      );
+    } catch (e) {
+      // Fail silently to never interrupt user interaction
+      print('Interaction logging failed: $e');
+    }
+  }
+
   // ─── ERROR HANDLER ───────────────────────────────────────
   Exception _handleError(DioException e) {
     final message =

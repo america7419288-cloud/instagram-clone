@@ -31,6 +31,8 @@ const {
 const { extractHashtags } = require('../utils/hashtag.utils');
 const { createNotification } = require('../services/notification.service');
 const { emitToUser } = require('../services/socket.service');
+const { getFeedPosts } = require('../services/algorithm/feedAlgorithm');
+const { getExploreContent } = require('../services/algorithm/exploreAlgorithm');
 
 // ─────────────────────────────────────────────────────
 // CREATE POST (supports images + videos)
@@ -223,104 +225,28 @@ const getFeed = async (req, res) => {
     const userId = req.user.id;
     const page = parseInt(req.query.page) || 1;
     const limit = parseInt(req.query.limit) || 20;
-    const offset = (page - 1) * limit;
+    const { sessionId } = req.query;
 
-    // ─── Get users that current user follows ──────────
-    const following = await Follower.findAll({
-      where: {
-        followerId: userId,
-        status: 'accepted',
-      },
-      attributes: ['followingId'],
+    const result = await getFeedPosts({
+      userId,
+      page,
+      limit,
+      sessionId,
     });
 
-    const followingIds = following.map((f) => f.followingId);
-
-    // ─── Include own posts in feed ────────────────────
-    let feedUserIds = [userId, ...followingIds];
-    const blockedUserIds = await getBlockedUserIds(userId);
-
-    // ─── Get global seed accounts to push to everyone ─
-    const globalUsers = await User.findAll({
-      where: {
-        username: {
-          [Op.in]: ['global_news', 'global_ent', 'global_funny']
-        }
-      },
-      attributes: ['id'],
-      raw: true
+    const formatted = result.posts.map((p) => {
+      if (p.isAd) return p;
+      return _formatPost(p, userId);
     });
-    const globalUserIds = globalUsers.map((u) => u.id);
-
-    let posts, totalCount;
-    if (feedUserIds.length === 1) {
-      // ─── FALLBACK: Discover Mode ────────────────────
-      // If user follows no one, show recent global posts
-      const { count, rows } = await Post.findAndCountAll({
-        where: {
-          [Op.or]: [
-            {
-              userId: { 
-                [Op.ne]: userId, // Don't show only self
-                [Op.notIn]: blockedUserIds
-              }
-            },
-            {
-              userId: {
-                [Op.in]: globalUserIds
-              }
-            }
-          ],
-          isArchived: { [Op.or]: [false, null] },
-        },
-        include: _postIncludes(userId),
-        order: [['createdAt', 'DESC']],
-        limit,
-        offset,
-        distinct: true,
-      });
-      posts = rows;
-      totalCount = count;
-    } else {
-      // ─── STANDARD: Following Feed ───────────────────
-      const { count, rows } = await Post.findAndCountAll({
-        where: {
-          [Op.or]: [
-            {
-              userId: { 
-                [Op.in]: feedUserIds,
-                [Op.notIn]: blockedUserIds
-              }
-            },
-            {
-              userId: {
-                [Op.in]: globalUserIds
-              }
-            }
-          ],
-          isArchived: { [Op.or]: [false, null] },
-        },
-        include: _postIncludes(userId),
-        order: [['createdAt', 'DESC']],
-        limit,
-        offset,
-        distinct: true,
-      });
-      posts = rows;
-      totalCount = count;
-    }
-
-    const formatted = posts.map((p) => _formatPost(p, userId));
 
     return paginatedResponse(res, 'Feed loaded', formatted, {
       page,
-      totalPages: Math.ceil(totalCount / limit),
-      totalItems: totalCount,
       limit,
+      hasNextPage: result.hasMore,
     });
   } catch (error) {
     console.error('❌ getFeed error:', error);
-    return errorResponse(res, 500, 'Failed to load feed');
+    return errorResponse(res, 500, 'Failed to load feed posts');
   }
 };
 
@@ -333,123 +259,28 @@ const getExplorePosts = async (req, res) => {
     const userId = req.user.id;
     const page = parseInt(req.query.page) || 1;
     const limit = parseInt(req.query.limit) || 24;
-    const offset = (page - 1) * limit;
+    const { category = 'all' } = req.query;
 
-    // ─── Get who the user follows ──────────────────────
-    const following = await Follower.findAll({
-      where: { followerId: userId, status: 'accepted' },
-      attributes: ['followingId'],
-    });
-    const followingIds = [userId, ...following.map((f) => f.followingId)];
-
-    const blockedUserIds = await getBlockedUserIds(userId);
-
-    // ─── 1. Fetch Posts (75% of limit) ────────────────
-    const postLimit = Math.ceil(limit * 0.75);
-    let posts = await Post.findAll({
-      where: {
-        userId: { 
-          [Op.notIn]: [...followingIds, ...blockedUserIds] 
-        },
-        isArchived: { [Op.or]: [false, null] },
-      },
-      include: _postIncludes(userId),
-      order: [['createdAt', 'DESC']],
-      limit: postLimit,
-      offset: (page - 1) * postLimit,
+    const result = await getExploreContent({
+      userId,
+      page,
+      limit,
+      category,
     });
 
-    if (posts.length === 0 && page === 1) {
-      posts = await Post.findAll({
-        where: {
-          userId: { 
-            [Op.notIn]: blockedUserIds 
-          },
-          isArchived: { [Op.or]: [false, null] },
-        },
-        include: _postIncludes(userId),
-        order: [['createdAt', 'DESC']],
-        limit: postLimit,
-      });
-    }
+    const formatted = result.items.map((p) => {
+      if (p.isReel) return p;
+      return _formatPost(p, userId);
+    });
 
-    // ─── 2. Fetch Reels (25% of limit) ────────────────
-    const reelLimit = limit - posts.length;
-    let reels = [];
-    if (reelLimit > 0) {
-      reels = await Reel.findAll({
-        where: {
-          userId: { [Op.notIn]: [...followingIds, ...blockedUserIds] },
-          isPublic: true,
-        },
-        include: [
-          {
-            model: User,
-            as: 'user',
-            attributes: ['id', 'username', 'fullName', 'profile_pic_url', 'is_verified'],
-          },
-        ],
-        order: [['createdAt', 'DESC']],
-        limit: reelLimit,
-        offset: (page - 1) * reelLimit,
-      });
-
-      if (reels.length === 0 && page === 1) {
-        reels = await Reel.findAll({
-          where: {
-            userId: { [Op.notIn]: blockedUserIds },
-            isPublic: true,
-          },
-          include: [
-            {
-              model: User,
-              as: 'user',
-              attributes: ['id', 'username', 'fullName', 'profile_pic_url', 'is_verified'],
-            },
-          ],
-          order: [['createdAt', 'DESC']],
-          limit: reelLimit,
-        });
-      }
-    }
-
-    // ─── 3. Format and Combine ────────────────────────
-    const formattedPosts = posts.map((p) => _formatPost(p, userId));
-    const formattedReels = reels.map((r) => ({
-      id: r.id,
-      userId: r.userId,
-      username: r.user?.username,
-      thumbnail_url: r.thumbnailUrl,
-      video_url: r.videoUrl, // Add this
-      media_type: 'video', // Mark as video for the grid icon
-      isReel: true,
-      caption: r.caption,
-      createdAt: r.createdAt,
-    }));
-
-    // Interleave: Post, Post, Reel, Post, Post, Reel...
-    const combined = [];
-    let pIdx = 0;
-    let rIdx = 0;
-    
-    while (pIdx < formattedPosts.length || rIdx < formattedReels.length) {
-      // Add up to 3 posts
-      for (let i = 0; i < 3 && pIdx < formattedPosts.length; i++) {
-        combined.push(formattedPosts[pIdx++]);
-      }
-      // Add 1 reel
-      if (rIdx < formattedReels.length) {
-        combined.push(formattedReels[rIdx++]);
-      }
-    }
-
-    return successResponse(res, 200, 'Explore feed loaded', {
-      posts: combined,
-      has_next: posts.length === postLimit || reels.length === reelLimit,
+    return paginatedResponse(res, 'Explore posts loaded', formatted, {
+      page,
+      limit,
+      hasNextPage: result.hasMore,
     });
   } catch (error) {
     console.error('❌ getExplorePosts error:', error);
-    return errorResponse(res, 500, 'Failed to load explore posts');
+    return errorResponse(res, 500, 'Failed to load explore content');
   }
 };
 
@@ -925,7 +756,9 @@ const getPostsByHashtag = async (req, res) => {
           through: { attributes: [] },
         },
       ],
-      order: [['createdAt', 'DESC']],
+      order: [
+        [Post.sequelize.literal('(like_count + comment_count * 2) / (EXTRACT(EPOCH FROM (NOW() - posts.created_at)) / 3600 + 1)'), 'DESC']
+      ],
       limit,
       offset,
     });

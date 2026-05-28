@@ -9,6 +9,8 @@ import '../../../../core/theme/app_theme.dart';
 import '../../../../shared/widgets/verified_badge.dart';
 import '../../data/repositories/comment_service.dart';
 
+import 'package:instagram_client/shared/widgets/ios_app_bar.dart';
+
 class PostLikesPage extends ConsumerStatefulWidget {
   final String postId;
 
@@ -52,22 +54,11 @@ class _PostLikesPageState extends ConsumerState<PostLikesPage> {
   @override
   Widget build(BuildContext context) {
     return Scaffold(
-      backgroundColor: AppColors.white,
-      appBar: AppBar(
-        backgroundColor: AppColors.white,
-        elevation: 0,
-        title: const Text(
-          'Likes',
-          style: TextStyle(
-            color: AppColors.textPrimary,
-            fontWeight: FontWeight.bold,
-            fontSize: 16,
-          ),
-        ),
-        leading: IconButton(
-          onPressed: () => context.pop(),
-          icon: const Icon(Icons.arrow_back, color: AppColors.textPrimary),
-        ),
+      backgroundColor: Colors.white,
+      appBar: IOSAppBar(
+        title: 'Likes',
+        previousTitle: 'Post',
+        onBackPressed: () => Navigator.of(context).pop(),
       ),
       body: _isLoading
           ? const Center(

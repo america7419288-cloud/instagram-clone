@@ -49,9 +49,23 @@ const Campaign = require('./Campaign.model');
 const AdCreative = require('./AdCreative.model');
 const AdImpression = require('./AdImpression.model');
 const AdAnalyticsSnapshot = require('./AdAnalyticsSnapshot.model');
+const UserInterestProfile = require('./UserInterestProfile.model');
+const ContentInteraction = require('./ContentInteraction.model');
+const ContentScoreCache = require('./ContentScoreCache.model');
+const SeenContent = require('./SeenContent.model');
 
 
 // ─── ALL ASSOCIATIONS ──────────────────────────────────────
+
+// USER → INTEREST ALGORITHMS
+User.hasOne(UserInterestProfile, { foreignKey: 'userId', as: 'interestProfile', onDelete: 'CASCADE' });
+UserInterestProfile.belongsTo(User, { foreignKey: 'userId', as: 'user' });
+
+User.hasMany(ContentInteraction, { foreignKey: 'userId', as: 'interactions', onDelete: 'CASCADE' });
+ContentInteraction.belongsTo(User, { foreignKey: 'userId', as: 'user' });
+
+User.hasOne(SeenContent, { foreignKey: 'userId', as: 'seenContent', onDelete: 'CASCADE' });
+SeenContent.belongsTo(User, { foreignKey: 'userId', as: 'user' });
 
 // USER → POSTS
 User.hasMany(Post, {
@@ -875,6 +889,89 @@ const syncDatabase = async () => {
         CONSTRAINT unique_user_muted_relationship UNIQUE (user_id, muted_user_id)
       );
       CREATE INDEX IF NOT EXISTS idx_muted_accounts_user_id ON muted_accounts (user_id);
+
+      -- ─── ALGORITHM TABLES ───────────────────
+      CREATE TABLE IF NOT EXISTS user_interest_profiles (
+        id                       UUID                     PRIMARY KEY DEFAULT gen_random_uuid(),
+        user_id                  UUID                     NOT NULL UNIQUE REFERENCES users(id) ON DELETE CASCADE,
+        interests                JSONB                    NOT NULL DEFAULT '{"fashion":0,"food":0,"travel":0,"fitness":0,"tech":0,"music":0,"art":0,"gaming":0,"beauty":0,"sports":0,"education":0,"entertainment":0,"news":0,"lifestyle":0,"photography":0,"humor":0,"science":0,"health":0,"business":0,"pets":0}',
+        format_preferences       JSONB                    NOT NULL DEFAULT '{"image":50,"video":50,"carousel":50,"reel":50,"story":50}',
+        total_likes              INTEGER                  NOT NULL DEFAULT 0,
+        total_comments           INTEGER                  NOT NULL DEFAULT 0,
+        total_shares             INTEGER                  NOT NULL DEFAULT 0,
+        total_saves              INTEGER                  NOT NULL DEFAULT 0,
+        total_profile_visits     INTEGER                  NOT NULL DEFAULT 0,
+        active_hours             JSONB                    NOT NULL DEFAULT '{}',
+        active_days              JSONB                    NOT NULL DEFAULT '{}',
+        recent_authors           JSONB                    NOT NULL DEFAULT '[]',
+        recent_hashtags          JSONB                    NOT NULL DEFAULT '[]',
+        not_interested           JSONB                    NOT NULL DEFAULT '[]',
+        last_active_at           TIMESTAMP WITH TIME ZONE DEFAULT NOW(),
+        average_session_duration DOUBLE PRECISION         NOT NULL DEFAULT 0,
+        sessions_per_day         INTEGER                  NOT NULL DEFAULT 1,
+        created_at               TIMESTAMP WITH TIME ZONE NOT NULL DEFAULT NOW(),
+        updated_at               TIMESTAMP WITH TIME ZONE NOT NULL DEFAULT NOW()
+      );
+      CREATE INDEX IF NOT EXISTS idx_user_interest_profiles_user_id ON user_interest_profiles (user_id);
+
+      CREATE TABLE IF NOT EXISTS content_interactions (
+        id                 UUID                     PRIMARY KEY DEFAULT gen_random_uuid(),
+        user_id            UUID                     NOT NULL REFERENCES users(id) ON DELETE CASCADE,
+        content_id         UUID                     NOT NULL,
+        content_type       VARCHAR(50)              NOT NULL,
+        author_id          UUID                     REFERENCES users(id) ON DELETE SET NULL,
+        action             VARCHAR(50)              NOT NULL,
+        dwell_time         INTEGER                  NOT NULL DEFAULT 0,
+        source             VARCHAR(50)              NOT NULL DEFAULT 'feed',
+        session_id         VARCHAR(255),
+        content_categories JSONB                    NOT NULL DEFAULT '[]',
+        content_hashtags   JSONB                    NOT NULL DEFAULT '[]',
+        created_at         TIMESTAMP WITH TIME ZONE NOT NULL DEFAULT NOW(),
+        updated_at         TIMESTAMP WITH TIME ZONE NOT NULL DEFAULT NOW()
+      );
+      CREATE INDEX IF NOT EXISTS idx_content_interactions_user_created ON content_interactions (user_id, created_at);
+      CREATE INDEX IF NOT EXISTS idx_content_interactions_content_action ON content_interactions (content_id, action);
+
+      CREATE TABLE IF NOT EXISTS content_score_caches (
+        id                      UUID                     PRIMARY KEY DEFAULT gen_random_uuid(),
+        content_id              UUID                     NOT NULL,
+        content_type            VARCHAR(50)              NOT NULL,
+        author_id               UUID                     NOT NULL REFERENCES users(id) ON DELETE CASCADE,
+        quality_score           INTEGER                  NOT NULL DEFAULT 0,
+        engagement_rate         INTEGER                  NOT NULL DEFAULT 0,
+        virality_score          INTEGER                  NOT NULL DEFAULT 0,
+        freshness_score         INTEGER                  NOT NULL DEFAULT 0,
+        author_reputation_score INTEGER                  NOT NULL DEFAULT 0,
+        total_engagements       INTEGER                  NOT NULL DEFAULT 0,
+        like_velocity           INTEGER                  NOT NULL DEFAULT 0,
+        comment_velocity        INTEGER                  NOT NULL DEFAULT 0,
+        share_velocity          INTEGER                  NOT NULL DEFAULT 0,
+        categories              JSONB                    NOT NULL DEFAULT '[]',
+        hashtags                JSONB                    NOT NULL DEFAULT '[]',
+        computed_at             TIMESTAMP WITH TIME ZONE NOT NULL DEFAULT NOW(),
+        expires_at              TIMESTAMP WITH TIME ZONE NOT NULL,
+        created_at              TIMESTAMP WITH TIME ZONE NOT NULL DEFAULT NOW(),
+        updated_at              TIMESTAMP WITH TIME ZONE NOT NULL DEFAULT NOW(),
+        CONSTRAINT unique_content_id_type UNIQUE (content_id, content_type)
+      );
+      CREATE INDEX IF NOT EXISTS idx_content_score_caches_content ON content_score_caches (content_id, content_type);
+
+      CREATE TABLE IF NOT EXISTS seen_contents (
+        id         UUID                     PRIMARY KEY DEFAULT gen_random_uuid(),
+        user_id    UUID                     NOT NULL UNIQUE REFERENCES users(id) ON DELETE CASCADE,
+        content_ids JSONB                    NOT NULL DEFAULT '[]',
+        expires_at TIMESTAMP WITH TIME ZONE NOT NULL,
+        created_at TIMESTAMP WITH TIME ZONE NOT NULL DEFAULT NOW(),
+        updated_at TIMESTAMP WITH TIME ZONE NOT NULL DEFAULT NOW()
+      );
+      CREATE INDEX IF NOT EXISTS idx_seen_contents_user_id ON seen_contents (user_id);
+
+      -- Alter existing tables
+      ALTER TABLE posts ADD COLUMN IF NOT EXISTS categories JSONB NOT NULL DEFAULT '[]';
+      ALTER TABLE posts ADD COLUMN IF NOT EXISTS shares_count INTEGER NOT NULL DEFAULT 0;
+      ALTER TABLE posts ADD COLUMN IF NOT EXISTS views_count INTEGER NOT NULL DEFAULT 0;
+      
+      ALTER TABLE reels ADD COLUMN IF NOT EXISTS categories JSONB NOT NULL DEFAULT '[]';
     `);
 
     // Safe data migration for Notifications
@@ -956,4 +1053,8 @@ module.exports = {
   AdCreative,
   AdImpression,
   AdAnalyticsSnapshot,
+  UserInterestProfile,
+  ContentInteraction,
+  ContentScoreCache,
+  SeenContent,
 };

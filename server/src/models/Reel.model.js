@@ -127,6 +127,11 @@ const Reel = sequelize.define(
             allowNull: false,
             defaultValue: [],
         },
+        categories: {
+            type: DataTypes.JSONB,
+            allowNull: false,
+            defaultValue: [],
+        },
     },
     {
         tableName: 'reels',
