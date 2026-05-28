@@ -11,6 +11,8 @@ react-native-client
 server/cache/
 npm-debug.log*
 server/serviceAccountKey.json
+jadx-tool/
+decompiled/
 
 
 client/.dart_tool/
