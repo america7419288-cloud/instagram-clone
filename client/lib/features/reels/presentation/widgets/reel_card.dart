@@ -187,7 +187,6 @@ class _ReelCardState extends ConsumerState<ReelCard>
 
   Duration _lastPosition = Duration.zero;
   bool _logged50 = false;
-  int _loopCount = 0;
 
   @override
   void initState() {
@@ -333,7 +332,6 @@ class _ReelCardState extends ConsumerState<ReelCard>
       // 2. Detect loop / restart (100% watch)
       if (pos < _lastPosition && _lastPosition.inMilliseconds > dur.inMilliseconds * 0.9) {
         _logged50 = false; // Reset for next loop
-        _loopCount++;
         _emitReelInteraction('video_watch_100');
       }
       

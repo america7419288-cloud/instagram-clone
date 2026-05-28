@@ -17,7 +17,6 @@ import 'package:timeago/timeago.dart' as timeago;
 import 'package:visibility_detector/visibility_detector.dart';
 import 'package:just_audio/just_audio.dart';
 
-import 'package:instagram_client/core/theme/app_theme.dart';
 import 'package:instagram_client/features/menu/presentation/three_dot_menu.dart';
 import 'package:instagram_client/features/menu/models/menu_context.dart';
 import 'package:instagram_client/features/menu/models/menu_action.dart';
@@ -27,7 +26,6 @@ import 'package:instagram_client/features/follow/data/repositories/presentation/
 import '../../data/models/post_model.dart';
 import '../providers/feed_provider.dart';
 import 'package:instagram_client/shared/widgets/spring_widget.dart';
-import 'package:instagram_client/shared/widgets/story_ring.dart';
 import 'package:instagram_client/shared/widgets/user_story_avatar.dart';
 import 'video_player_widget.dart';
 import '../pages/comments_page.dart';
@@ -37,7 +35,6 @@ import '../providers/audio_playback_provider.dart';
 import '../../data/models/post_tag_model.dart';
 import '../../data/repositories/post_tag_service.dart';
 import 'tag_view_overlay.dart';
-import 'package:instagram_client/core/design/design_tokens.dart';
 import 'package:instagram_client/shared/widgets/verified_badge.dart';
 import 'package:instagram_client/core/widgets/instagram_heart_animation.dart';
 import 'package:instagram_client/features/share/presentation/share_sheet.dart';
