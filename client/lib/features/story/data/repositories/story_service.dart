@@ -174,7 +174,7 @@ class StoryService {
 
   // ─── Music search ──────────────────────────────────────
   Future<List<Map<String, dynamic>>> searchMusic(String query) async {
-    final response = await _client.get('/api/v1/music/search', queryParameters: {'query': query});
+    final response = await _client.get('/music/search', queryParameters: {'query': query});
     if (response.data['success'] == true) {
       final List<dynamic> data = response.data['data'] ?? [];
       return data.cast<Map<String, dynamic>>();
