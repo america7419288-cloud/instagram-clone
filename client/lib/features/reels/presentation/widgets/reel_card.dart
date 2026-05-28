@@ -27,7 +27,7 @@ import 'package:instagram_client/features/auth/presentation/providers/auth_provi
 import 'package:instagram_client/features/post/data/models/comment_model.dart';
 import 'package:instagram_client/features/post/presentation/providers/comment_provider.dart';
 import 'package:instagram_client/shared/widgets/mention_text_field.dart';
-import 'package:instagram_client/features/post/presentation/widgets/dwell_time_tracker.dart';
+import 'package:instagram_client/features/post/presentation/providers/feed_provider.dart';
 
 // ── Particle Confetti Physics ──────────────────────────────
 class _HeartParticle {
@@ -893,7 +893,7 @@ class _ReelCardState extends ConsumerState<ReelCard>
   Widget _buildBottomInfo(BuildContext context, bool showUI) {
     final bottomNavPadding = 46.0 + MediaQuery.of(context).padding.bottom;
     return Positioned(
-      bottom: bottomNavPadding + 10,
+      bottom: bottomNavPadding + 6,
       left: 12,
       right: 80,
       child: IgnorePointer(
@@ -1032,7 +1032,7 @@ class _ReelCardState extends ConsumerState<ReelCard>
     final bottomNavPadding = 46.0 + MediaQuery.of(context).padding.bottom;
     return Positioned(
       right: 12,
-      bottom: bottomNavPadding + 28,
+      bottom: bottomNavPadding + 12,
       child: IgnorePointer(
         ignoring: !showUI,
         child: AnimatedOpacity(

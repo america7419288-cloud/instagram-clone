@@ -401,8 +401,10 @@ class _ExploreGridItemState extends State<_ExploreGridItem>
         HapticFeedback.mediumImpact();
         final rect = _getItemRect();
         widget.onHold(rect);
+        _pressController.reverse();
       },
       onLongPressEnd: (_) {
+        _pressController.reverse();
         Future.delayed(const Duration(milliseconds: 50), () {
           if (mounted) {
             setState(() => _isLongPressing = false);
@@ -735,7 +737,6 @@ class _PeekPreviewOverlayState extends State<PeekPreviewOverlay>
       left: _targetRect.left,
       top: _targetRect.top,
       width: _targetRect.width,
-      height: _targetRect.height,
       child: Transform.scale(
         scale: _cardScale.value,
         child: Transform.translate(
@@ -787,9 +788,9 @@ class _PeekPreviewOverlayState extends State<PeekPreviewOverlay>
   }
 
   Widget _buildCardHeader(bool isDark) {
-    final avatarUrl = widget.post['profile_pic_url'];
-    final username = widget.post['username'] ?? 'username';
-    final isVerified = widget.post['is_verified'] == true;
+    final avatarUrl = widget.post['profile_pic_url'] ?? widget.post['userAvatar'] ?? (widget.post['user'] != null ? widget.post['user']['profile_pic_url'] : null);
+    final username = widget.post['username'] ?? (widget.post['user'] != null ? widget.post['user']['username'] : null) ?? 'username';
+    final isVerified = widget.post['is_verified'] == true || widget.post['isVerified'] == true || (widget.post['user'] != null && widget.post['user']['is_verified'] == true);
 
     return Padding(
       padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 10),
@@ -811,7 +812,11 @@ class _PeekPreviewOverlayState extends State<PeekPreviewOverlay>
               children: [
                 Text(
                   username,
-                  style: const TextStyle(fontSize: 13, fontWeight: FontWeight.w700),
+                  style: TextStyle(
+                    fontSize: 13,
+                    fontWeight: FontWeight.w700,
+                    color: isDark ? Colors.white : Colors.black,
+                  ),
                 ),
                 if (isVerified) ...[
                   const SizedBox(width: 4),

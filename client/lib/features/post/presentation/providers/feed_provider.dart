@@ -271,6 +271,23 @@ class FeedNotifier extends Notifier<FeedState> {
       rethrow;
     }
   }
+
+  void updatePostInFeed(String postId, PostModel Function(PostModel) updateFn) {
+    state = state.copyWith(
+      posts: state.posts.map((p) {
+        if (p.id == postId) {
+          return updateFn(p);
+        }
+        return p;
+      }).toList(),
+    );
+  }
+
+  void removePostLocally(String postId) {
+    state = state.copyWith(
+      posts: state.posts.where((p) => p.id != postId).toList(),
+    );
+  }
 }
 
 // ─── PROVIDERS ──────────────────────────────────────────────

@@ -435,12 +435,7 @@ const getStoryFeed = async (req, res) => {
     });
     const closeFriendIds = new Set(closeFriends.map(f => f.friendId));
 
-    const following = await Follower.findAll({
-      where: { followerId: currentUserId, status: 'accepted' },
-      attributes: ['followingId'],
-      raw: true
-    });
-    const followingIds = new Set(following.map(f => f.followingId));
+    const followingIdsSet = new Set(followingIds);
 
     const followers = await Follower.findAll({
       where: { followingId: currentUserId, status: 'accepted' },
@@ -467,8 +462,8 @@ const getStoryFeed = async (req, res) => {
 
         if (closeFriendIds.has(authorId)) score += 50;
 
-        if (followingIds.has(authorId) && followerIds.has(authorId)) score += 30;
-        else if (followingIds.has(authorId)) score += 10;
+        if (followingIdsSet.has(authorId) && followerIds.has(authorId)) score += 30;
+        else if (followingIdsSet.has(authorId)) score += 10;
 
         const authorRelationScore = authorRelationshipScoreMap.get(authorId) || 0;
         score += Math.min(40, authorRelationScore * 0.2);

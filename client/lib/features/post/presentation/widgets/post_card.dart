@@ -40,6 +40,7 @@ import 'package:instagram_client/core/widgets/instagram_heart_animation.dart';
 import 'package:instagram_client/features/share/presentation/share_sheet.dart';
 import 'package:instagram_client/features/share/models/share_content.dart';
 import 'dwell_time_tracker.dart';
+import 'package:instagram_client/features/settings/presentation/providers/not_interested_provider.dart';
 
 class ZoomNotifier extends Notifier<bool> {
   @override
@@ -958,8 +959,10 @@ class _PostCardState extends ConsumerState<PostCard>
       authorId: widget.post.userId,
       authorAvatarUrl: widget.post.userAvatar,
       isSaved: _isSaved,
+      isPinned: widget.post.isPinned,
       isVerified: widget.post.isVerified,
-      commentsEnabled: true, // Assuming enabled for now
+      commentsEnabled: !widget.post.commentsDisabled,
+      hasLikeCount: !widget.post.hideLikesCount,
       canDelete: isOwner,
       canEdit: isOwner,
     );
@@ -999,8 +1002,225 @@ class _PostCardState extends ConsumerState<PostCard>
           }
         }
         break;
+      case MenuActionType.pin:
+      case MenuActionType.unpin:
+        final newPinned = action.type == MenuActionType.pin;
+        try {
+          await ref.read(postServiceProvider).updatePost(
+            postId: widget.post.id,
+            data: {'isPinned': newPinned},
+          );
+          ref.read(feedProvider.notifier).updatePostInFeed(
+            widget.post.id,
+            (p) => p.copyWith(isPinned: newPinned),
+          );
+          if (mounted) {
+            ScaffoldMessenger.of(context).showSnackBar(
+              SnackBar(content: Text(newPinned ? 'Post pinned to profile' : 'Post unpinned from profile')),
+            );
+          }
+        } catch (e) {
+          if (mounted) {
+            ScaffoldMessenger.of(context).showSnackBar(
+              SnackBar(content: Text('Failed to update pin status: $e')),
+            );
+          }
+        }
+        break;
       case MenuActionType.archive:
-        // TODO: Implement archive
+        try {
+          await ref.read(postServiceProvider).updatePost(
+            postId: widget.post.id,
+            data: {'isArchived': true},
+          );
+          ref.read(feedProvider.notifier).removePostLocally(widget.post.id);
+          if (mounted) {
+            ScaffoldMessenger.of(context).showSnackBar(
+              const SnackBar(content: Text('Post archived')),
+            );
+          }
+        } catch (e) {
+          if (mounted) {
+            ScaffoldMessenger.of(context).showSnackBar(
+              SnackBar(content: Text('Failed to archive post: $e')),
+            );
+          }
+        }
+        break;
+      case MenuActionType.edit:
+        final editController = TextEditingController(text: widget.post.caption);
+        showCupertinoDialog(
+          context: context,
+          builder: (dialogCtx) => CupertinoAlertDialog(
+            title: const Text('Edit Caption'),
+            content: Padding(
+              padding: const EdgeInsets.only(top: 12.0),
+              child: CupertinoTextField(
+                controller: editController,
+                maxLines: 4,
+                placeholder: 'Write a caption...',
+                placeholderStyle: const TextStyle(color: CupertinoColors.placeholderText),
+                style: TextStyle(color: Theme.of(dialogCtx).brightness == Brightness.dark ? Colors.white : Colors.black),
+              ),
+            ),
+            actions: [
+              CupertinoDialogAction(
+                child: const Text('Cancel'),
+                onPressed: () => Navigator.pop(dialogCtx),
+              ),
+              CupertinoDialogAction(
+                isDefaultAction: true,
+                child: const Text('Save'),
+                onPressed: () async {
+                  Navigator.pop(dialogCtx);
+                  final newCaption = editController.text;
+                  try {
+                    await ref.read(postServiceProvider).updatePost(
+                      postId: widget.post.id,
+                      data: {'caption': newCaption},
+                    );
+                    ref.read(feedProvider.notifier).updatePostInFeed(
+                      widget.post.id,
+                      (p) => p.copyWith(caption: newCaption),
+                    );
+                    if (mounted) {
+                      ScaffoldMessenger.of(context).showSnackBar(
+                        const SnackBar(content: Text('Post updated')),
+                      );
+                    }
+                  } catch (e) {
+                    if (mounted) {
+                      ScaffoldMessenger.of(context).showSnackBar(
+                        SnackBar(content: Text('Failed to update post: $e')),
+                      );
+                    }
+                  }
+                },
+              ),
+            ],
+          ),
+        );
+        break;
+      case MenuActionType.hideLikeCount:
+        final newHide = !widget.post.hideLikesCount;
+        try {
+          await ref.read(postServiceProvider).updatePost(
+            postId: widget.post.id,
+            data: {'hideLikesCount': newHide},
+          );
+          ref.read(feedProvider.notifier).updatePostInFeed(
+            widget.post.id,
+            (p) => p.copyWith(hideLikesCount: newHide),
+          );
+          if (mounted) {
+            ScaffoldMessenger.of(context).showSnackBar(
+              SnackBar(content: Text(newHide ? 'Likes hidden to others' : 'Likes visible to others')),
+            );
+          }
+        } catch (e) {
+          if (mounted) {
+            ScaffoldMessenger.of(context).showSnackBar(
+              SnackBar(content: Text('Failed to update like settings: $e')),
+            );
+          }
+        }
+        break;
+      case MenuActionType.turnOffComments:
+      case MenuActionType.turnOnComments:
+        final newCommentsDisabled = action.type == MenuActionType.turnOffComments;
+        try {
+          await ref.read(postServiceProvider).updatePost(
+            postId: widget.post.id,
+            data: {'commentsDisabled': newCommentsDisabled},
+          );
+          ref.read(feedProvider.notifier).updatePostInFeed(
+            widget.post.id,
+            (p) => p.copyWith(commentsDisabled: newCommentsDisabled),
+          );
+          if (mounted) {
+            ScaffoldMessenger.of(context).showSnackBar(
+              SnackBar(content: Text(newCommentsDisabled ? 'Commenting turned off' : 'Commenting turned on')),
+            );
+          }
+        } catch (e) {
+          if (mounted) {
+            ScaffoldMessenger.of(context).showSnackBar(
+              SnackBar(content: Text('Failed to update commenting settings: $e')),
+            );
+          }
+        }
+        break;
+      case MenuActionType.qrCode:
+        showDialog(
+          context: context,
+          builder: (context) {
+            final isDark = Theme.of(context).brightness == Brightness.dark;
+            return Dialog(
+              backgroundColor: Colors.transparent,
+              child: Container(
+                padding: const EdgeInsets.all(24),
+                decoration: BoxDecoration(
+                  color: isDark ? const Color(0xFF1C1C1E) : Colors.white,
+                  borderRadius: BorderRadius.circular(24),
+                  boxShadow: [
+                    BoxShadow(
+                      color: Colors.black.withOpacity(0.4),
+                      blurRadius: 20,
+                      spreadRadius: 2,
+                    ),
+                  ],
+                ),
+                child: Column(
+                  mainAxisSize: MainAxisSize.min,
+                  children: [
+                    const Text(
+                      'QR Code',
+                      style: TextStyle(fontSize: 20, fontWeight: FontWeight.bold),
+                    ),
+                    const SizedBox(height: 8),
+                    Text(
+                      '@${widget.post.username}\'s post',
+                      style: const TextStyle(color: Colors.grey, fontSize: 14),
+                    ),
+                    const SizedBox(height: 24),
+                    Container(
+                      width: 200,
+                      height: 200,
+                      padding: const EdgeInsets.all(16),
+                      decoration: BoxDecoration(
+                        gradient: const LinearGradient(
+                          colors: [Color(0xFF833AB4), Color(0xFFFD1D1D), Color(0xFFF58529)],
+                          begin: Alignment.topLeft,
+                          end: Alignment.bottomRight,
+                        ),
+                        borderRadius: BorderRadius.circular(16),
+                      ),
+                      child: Container(
+                        decoration: BoxDecoration(
+                          color: Colors.white,
+                          borderRadius: BorderRadius.circular(8),
+                        ),
+                        padding: const EdgeInsets.all(8),
+                        child: const Icon(
+                          Icons.qr_code_2_rounded,
+                          size: 150,
+                          color: Colors.black,
+                        ),
+                      ),
+                    ),
+                    const SizedBox(height: 24),
+                    CupertinoButton(
+                      color: const Color(0xFF0095F6),
+                      borderRadius: BorderRadius.circular(12),
+                      onPressed: () => Navigator.pop(context),
+                      child: const Text('Save to Gallery', style: TextStyle(color: Colors.white, fontWeight: FontWeight.bold)),
+                    ),
+                  ],
+                ),
+              ),
+            );
+          },
+        );
         break;
       case MenuActionType.unfollow:
         try {
@@ -1024,13 +1244,85 @@ class _PostCardState extends ConsumerState<PostCard>
         );
         break;
       case MenuActionType.hide:
+        ref.read(feedProvider.notifier).removePostLocally(widget.post.id);
         ScaffoldMessenger.of(context).showSnackBar(
           const SnackBar(content: Text('Post hidden')),
         );
         break;
       case MenuActionType.notInterested:
-        ScaffoldMessenger.of(context).showSnackBar(
-          const SnackBar(content: Text('We\'ll show fewer posts like this')),
+        try {
+          await ref.read(postServiceProvider).recordInteraction(
+            contentId: widget.post.id,
+            contentType: 'post',
+            action: 'not_interested',
+            authorId: widget.post.userId,
+          );
+        } catch (e) {
+          // Silent fallback
+        }
+
+        ref.read(notInterestedProvider.notifier).addPost({
+          'id': widget.post.id,
+          'username': widget.post.username,
+          'caption': widget.post.caption,
+          'thumbnailUrl': widget.post.mediaFiles.isNotEmpty ? widget.post.mediaFiles.first.thumbnailUrl : '',
+          'mediaType': widget.post.mediaFiles.isNotEmpty ? widget.post.mediaFiles.first.mediaType : 'image',
+          'userId': widget.post.userId,
+        });
+
+        ref.read(feedProvider.notifier).removePostLocally(widget.post.id);
+
+        if (mounted) {
+          ScaffoldMessenger.of(context).showSnackBar(
+            const SnackBar(content: Text('We\'ll show fewer posts like this')),
+          );
+        }
+        break;
+      case MenuActionType.whyYouSeeing:
+        showCupertinoDialog(
+          context: context,
+          builder: (ctx) => CupertinoAlertDialog(
+            title: const Text('Why you\'re seeing this post'),
+            content: Padding(
+              padding: const EdgeInsets.only(top: 8.0),
+              child: Text(
+                '• This post is popular in your region.\n'
+                '• You follow or interact with content similar to @${widget.post.username}.\n'
+                '• You recently spent time looking at related hashtags.',
+                textAlign: TextAlign.left,
+              ),
+            ),
+            actions: [
+              CupertinoDialogAction(
+                child: const Text('Done'),
+                onPressed: () => Navigator.pop(ctx),
+              ),
+            ],
+          ),
+        );
+        break;
+      case MenuActionType.about:
+        showCupertinoDialog(
+          context: context,
+          builder: (ctx) => CupertinoAlertDialog(
+            title: Text('About @${widget.post.username}'),
+            content: Padding(
+              padding: const EdgeInsets.only(top: 8.0),
+              child: Text(
+                'To help keep our community authentic, we show information about accounts on Instagram.\n\n'
+                '• Date Joined: ${widget.post.createdAt.year}\n'
+                '• Account Status: Active\n'
+                '• Verified status: ${widget.post.isVerified ? "Verified Badge" : "Not Verified"}',
+                textAlign: TextAlign.left,
+              ),
+            ),
+            actions: [
+              CupertinoDialogAction(
+                child: const Text('Close'),
+                onPressed: () => Navigator.pop(ctx),
+              ),
+            ],
+          ),
         );
         break;
       default:

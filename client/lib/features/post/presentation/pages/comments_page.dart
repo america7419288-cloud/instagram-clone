@@ -502,6 +502,22 @@ class _CommentRow extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    String _formatTimestamp(DateTime? dateTime) {
+      if (dateTime == null) return 'now';
+      final difference = DateTime.now().difference(dateTime);
+      if (difference.inDays >= 7) {
+        return '${difference.inDays ~/ 7}w';
+      } else if (difference.inDays >= 1) {
+        return '${difference.inDays}d';
+      } else if (difference.inHours >= 1) {
+        return '${difference.inHours}h';
+      } else if (difference.inMinutes >= 1) {
+        return '${difference.inMinutes}m';
+      } else {
+        return 'now';
+      }
+    }
+
     return GestureDetector(
       onLongPress: onLongPress,
       behavior: HitTestBehavior.opaque,
@@ -546,7 +562,7 @@ class _CommentRow extends StatelessWidget {
                 const SizedBox(height: 4),
                 Row(
                   children: [
-                    Text('2h', style: const TextStyle(color: Colors.grey, fontSize: 12)),
+                    Text(_formatTimestamp(comment.createdAt), style: const TextStyle(color: Colors.grey, fontSize: 12)),
                     const SizedBox(width: 12),
                     BouncyTap(onTap: onReply, child: const Text('Reply', style: TextStyle(color: Colors.grey, fontSize: 12, fontWeight: FontWeight.w600))),
                   ],

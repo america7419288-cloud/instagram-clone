@@ -83,13 +83,13 @@ class _StoryRingState extends State<StoryRing> with SingleTickerProviderStateMix
                 decoration: BoxDecoration(
                   shape: BoxShape.circle,
                   gradient: (widget.hasUnseen && !widget.isLoading)
-                      ? SweepGradient(
-                          transform: GradientRotation(_controller.value * 2 * math.pi),
-                          colors: const [
-                            Color(0xFFF9CE34),
-                            Color(0xFFEE2A7B),
-                            Color(0xFF6228D7),
-                            Color(0xFFF9CE34),
+                      ? const LinearGradient(
+                          begin: Alignment.topRight,
+                          end: Alignment.bottomLeft,
+                          colors: [
+                            Color(0xFF833AB4), // Purple
+                            Color(0xFFE1306C), // Pink-Red
+                            Color(0xFFFD9A00), // Orange-Yellow
                           ],
                         )
                       : null,

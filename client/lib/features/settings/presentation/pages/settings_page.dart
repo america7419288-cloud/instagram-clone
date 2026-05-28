@@ -17,6 +17,7 @@ import 'muted_accounts_page.dart';
 import 'blocked_accounts_page.dart';
 import 'archive_page.dart';
 import 'privacy_settings_page.dart';
+import 'not_interested_page.dart';
 import '../../../ads/presentation/providers/ad_provider.dart';
 import '../../../ads/presentation/pages/advertiser_register_page.dart';
 import '../../../ads/presentation/pages/ad_dashboard_page.dart';
@@ -171,6 +172,7 @@ class SettingsPage extends ConsumerWidget {
                 _buildTile(LucideIcons.star, 'Favorites', () {}),
                 _buildTile(LucideIcons.volume_x, 'Muted accounts', () => Navigator.push(context, CupertinoPageRoute(builder: (_) => const MutedAccountsPage()))),
                 _buildTile(LucideIcons.lightbulb, 'Suggested content', () {}),
+                _buildTile(LucideIcons.eye_off, 'Not interested', () => Navigator.push(context, CupertinoPageRoute(builder: (_) => const NotInterestedPage()))),
                 _buildTile(LucideIcons.heart, 'Like and share counts', () => Navigator.push(context, CupertinoPageRoute(builder: (_) => const PrivacySettingsPage()))),
               ],
             ),

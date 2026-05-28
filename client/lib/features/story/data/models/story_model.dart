@@ -197,7 +197,7 @@ class StoryFeedModel {
     return StoryFeedModel(
       user: user,
       stories: stories,
-      hasUnseen: json['has_unseen'] ?? false,
+      hasUnseen: json['has_unseen'] == true || stories.any((s) => !s.isViewed),
       isOwn: json['is_own'] ?? false,
       latestStoryAt: json['latest_story_at'] != null
           ? DateTime.tryParse(json['latest_story_at'])

@@ -379,34 +379,21 @@ class _NewMessagePageState extends ConsumerState<NewMessagePage>
             ),
           ),
           const Spacer(),
-          if (_selectedUserIds.length > 1) ...[
-            CupertinoButton(
-              padding: EdgeInsets.zero,
-              onPressed: () => setState(() => _isGroup = !_isGroup),
-              child: Row(
-                children: [
-                  const Text(
-                    'Create group',
-                    style: TextStyle(
-                      color: IosColors.igBlue,
-                      fontSize: 14,
-                      decoration: TextDecoration.none,
-                    ),
-                  ),
-                  const SizedBox(width: 4),
-                  AnimatedRotation(
-                    turns: _isGroup ? 0.25 : 0,
-                    duration: const Duration(milliseconds: 200),
-                    child: const Icon(
-                      CupertinoIcons.chevron_right,
-                      size: 14,
-                      color: IosColors.igBlue,
-                    ),
-                  ),
-                ],
+          CupertinoButton(
+            padding: EdgeInsets.zero,
+            onPressed: () {
+              HapticFeedback.selectionClick();
+              AppSnackbar.info(context, 'Select 2 or more people to start a group chat');
+            },
+            child: const Text(
+              'Create group',
+              style: TextStyle(
+                color: IosColors.igBlue,
+                fontSize: 14,
+                decoration: TextDecoration.none,
               ),
             ),
-          ],
+          ),
         ],
       ),
     );
@@ -444,9 +431,48 @@ class _NewMessagePageState extends ConsumerState<NewMessagePage>
 
     return ListView.builder(
       keyboardDismissBehavior: ScrollViewKeyboardDismissBehavior.onDrag,
-      itemCount: state.users.length,
+      itemCount: state.users.length + 1,
       itemBuilder: (ctx, i) {
-        final user = state.users[i];
+        if (i == 0) {
+          return GestureDetector(
+            onTap: () {
+              HapticFeedback.selectionClick();
+              AppSnackbar.info(context, 'Select 2 or more people to start a group chat');
+            },
+            child: Container(
+              padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
+              color: Colors.transparent,
+              child: Row(
+                children: [
+                  Container(
+                    width: 44,
+                    height: 44,
+                    decoration: BoxDecoration(
+                      color: isDark ? Colors.white12 : Colors.black.withOpacity(0.05),
+                      shape: BoxShape.circle,
+                    ),
+                    child: const Icon(
+                      CupertinoIcons.person_3_fill,
+                      color: IosColors.igBlue,
+                      size: 20,
+                    ),
+                  ),
+                  const SizedBox(width: 12),
+                  const Text(
+                    'Create Group Chat',
+                    style: TextStyle(
+                      color: IosColors.igBlue,
+                      fontSize: 16,
+                      fontWeight: FontWeight.w600,
+                      decoration: TextDecoration.none,
+                    ),
+                  ),
+                ],
+              ),
+            ),
+          );
+        }
+        final user = state.users[i - 1];
         final isSelected = _selectedUserIds.contains(user.id);
 
         return GestureDetector(

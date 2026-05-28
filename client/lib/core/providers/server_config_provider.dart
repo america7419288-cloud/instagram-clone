@@ -2,6 +2,8 @@ import 'package:flutter/foundation.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 
+import '../constants/app_constants.dart';
+
 class ServerConfig {
   final String baseUrl;
   final String socketUrl;
@@ -27,11 +29,11 @@ class ServerConfigNotifier extends Notifier<ServerConfig> {
   static const String _socketUrlKey = 'server_socket_url';
   
   static String get _defaultBaseUrl {
-    return 'https://instagram-clone-im0x.onrender.com/api/v1';
+    return AppConstants.baseUrl;
   }
 
   static String get _defaultSocketUrl {
-    return 'https://instagram-clone-im0x.onrender.com';
+    return AppConstants.socketUrl;
   }
 
   @override

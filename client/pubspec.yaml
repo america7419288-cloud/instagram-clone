@@ -2,7 +2,7 @@ name: instagram_client
 description: "A Instagram clone."
 publish_to: 'none' 
 
-version: 1.0.0+1
+version: 1.0.0+2001
 
 environment:
   sdk: ^3.11.4
@@ -48,7 +48,6 @@ dependencies:
   intl: ^0.20.2
   url_launcher: ^6.2.4
   share_plus: ^12.0.2
-  flutter_dotenv: ^6.0.1
   connectivity_plus: ^7.1.1
   infinite_scroll_pagination: ^5.1.1
   webview_flutter: ^4.4.2
@@ -100,7 +99,6 @@ flutter:
      - assets/animations/drawable/
      - assets/animations/animator/
      - assets/sounds/
-     - .env
 
 
   fonts:

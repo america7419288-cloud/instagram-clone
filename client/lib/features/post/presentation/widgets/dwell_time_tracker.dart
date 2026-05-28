@@ -3,11 +3,7 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:visibility_detector/visibility_detector.dart';
-import '../../data/repositories/post_service.dart';
-
-// We get the postServiceProvider from where? Let's check post_service.dart.
-// Since postServiceProvider is defined globally, we can use it.
-final postServiceProvider = Provider<PostService>((ref) => PostService());
+import '../providers/feed_provider.dart';
 
 class DwellTimeTracker extends ConsumerStatefulWidget {
   final Widget child;

@@ -149,21 +149,18 @@ class _MainShellState extends ConsumerState<MainShell> {
       child: Scaffold(
         extendBody: true,
         backgroundColor: isDark ? Colors.black : Colors.white,
-        body: SafeArea(
-          bottom: false,
-          child: IndexedStack(
-            index: currentIndex,
-            children: [
-              KeyedSubtree(key: _tabKeys[0], child: const HomePage()),
-              KeyedSubtree(key: _tabKeys[1], child: const SearchPage()),
-              KeyedSubtree(key: _tabKeys[2], child: const ReelsPage()),
-              KeyedSubtree(key: _tabKeys[3], child: const InboxPage()),
-              KeyedSubtree(
-                key: _tabKeys[4],
-                child: ProfilePage(username: user?.username ?? ''),
-              ),
-            ],
-          ),
+        body: IndexedStack(
+          index: currentIndex,
+          children: [
+            KeyedSubtree(key: _tabKeys[0], child: const SafeArea(bottom: false, child: HomePage())),
+            KeyedSubtree(key: _tabKeys[1], child: const SafeArea(bottom: false, child: SearchPage())),
+            KeyedSubtree(key: _tabKeys[2], child: const ReelsPage()),
+            KeyedSubtree(key: _tabKeys[3], child: const SafeArea(bottom: false, child: InboxPage())),
+            KeyedSubtree(
+              key: _tabKeys[4],
+              child: SafeArea(bottom: false, child: ProfilePage(username: user?.username ?? '')),
+            ),
+          ],
         ),
         bottomNavigationBar: GlassBottomNav(
           currentIndex: currentIndex,
