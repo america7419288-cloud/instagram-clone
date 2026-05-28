@@ -13,7 +13,7 @@ class PostService {
   // ─── GET FEED ────────────────────────────────────────────
   Future<Map<String, dynamic>> getFeed({
     int page = 1,
-    int limit = 12,
+    int limit = 20,
   }) async {
     try {
       final response = await _dioClient.get(

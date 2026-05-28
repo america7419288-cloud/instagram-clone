@@ -67,7 +67,7 @@ const _postIncludes = (userId) => [
 const getFeedPosts = async ({
   userId,
   page = 1,
-  limit = 12,
+  limit = 20,
   sessionId,
 }) => {
   try {
@@ -194,8 +194,10 @@ const getFeedPosts = async ({
     const diversifiedPosts = _applyDiversityRules(scoredPosts);
 
     // ── STEP 5: SORT AND PAGINATE ─────────────────
-    let sorted = diversifiedPosts
-      .sort((a, b) => b.score - a.score)
+    const allSorted = diversifiedPosts.sort((a, b) => b.score - a.score);
+    const paginatedCount = allSorted.slice((page - 1) * limit, page * limit).length;
+    const hasMore = allSorted.length > page * limit; // true pages remain
+    let sorted = allSorted
       .slice((page - 1) * limit, page * limit)
       .map(s => s.post);
 
@@ -263,7 +265,7 @@ const getFeedPosts = async ({
     return {
       posts: finalItems,
       page,
-      hasMore: sorted.length === limit,
+      hasMore,
     };
 
   } catch (error) {
