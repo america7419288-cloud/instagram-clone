@@ -231,33 +231,9 @@ const getFeedPosts = async ({
     }
 
     // ── STEP 8: INJECT AD TARGETING CARD ──────────
-    let finalItems = [];
-    if (sorted.length > 0) {
-      const userInterests = Object.entries(userProfile?.interests || {})
-        .filter(([, val]) => val > 20)
-        .map(([key]) => key);
-
-      const ads = await getAdsForFeed({
-        userId,
-        placement: 'feed',
-        count: Math.ceil(sorted.length / 4),
-        userProfile: {
-          gender: userProfile?.gender,
-          interests: userInterests,
-        }
-      });
-
-      let adIndex = 0;
-      sorted.forEach((post, idx) => {
-        finalItems.push(post);
-        if ((idx + 1) % 4 === 0 && adIndex < ads.length) {
-          finalItems.push({ ...ads[adIndex], isAd: true, id: ads[adIndex].adId });
-          adIndex++;
-        }
-      });
-    } else {
-      finalItems = sorted;
-    }
+    // Note: client-side home_page.dart fetches ads separately and interleaves them.
+    // Injecting ads directly here causes PostModel parsing failure and duplicate interleaving.
+    const finalItems = sorted;
 
     // hasMore = true as long as we returned any posts.
     // The explore pool is always available so we never truly run out.

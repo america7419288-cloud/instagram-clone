@@ -146,6 +146,36 @@ const getSuggestedUsers = async ({
       }
     }
 
+    // Top up with active fallback users if we have fewer recommendations than requested limit
+    if (hydratedUsers.length < limit) {
+      const needed = limit - hydratedUsers.length;
+      const existingIds = new Set(hydratedUsers.map(u => u.id));
+      const fallbackUsers = await User.findAll({
+        where: {
+          id: {
+            [Op.notIn]: [userId, ...followingIds, ...Array.from(existingIds)]
+          },
+          is_active: true,
+          is_banned: false
+        },
+        attributes: ['id', 'username', 'fullName', 'profile_pic_url', 'is_verified'],
+        limit: needed,
+      });
+
+      fallbackUsers.forEach(u => {
+        hydratedUsers.push({
+          id: u.id,
+          username: u.username,
+          fullName: u.fullName,
+          profile_pic_url: u.profile_pic_url,
+          is_verified: u.is_verified,
+          mutualCount: 0,
+          followsBack: false,
+          score: 0,
+        });
+      });
+    }
+
     return hydratedUsers;
 
   } catch (error) {
