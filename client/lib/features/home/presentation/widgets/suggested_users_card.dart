@@ -4,7 +4,7 @@ import 'package:flutter/cupertino.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_lucide/flutter_lucide.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
-import 'package:go_router/go_router.dart';
+
 import '../../../../core/router/navigation_extensions.dart';
 import '../../../../shared/models/user_model.dart';
 import '../../../../shared/widgets/spring_widget.dart';
@@ -76,7 +76,7 @@ class SuggestedUsersCard extends ConsumerWidget {
             scrollDirection: Axis.horizontal,
             physics: const BouncingScrollPhysics(),
             itemCount: suggestionState.users.length,
-            separatorBuilder: (_, __) => const SizedBox(width: 8),
+            separatorBuilder: (context, index) => const SizedBox(width: 8),
             itemBuilder: (context, index) {
               final user = suggestionState.users[index];
               return _UserSuggestionCard(

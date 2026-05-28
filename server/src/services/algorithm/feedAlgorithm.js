@@ -216,7 +216,7 @@ const getFeedPosts = async ({
         count: needed,
         seenIds: allSeenSoFar,
         blockedIds,
-        page, // used to vary explore content per page
+        page: 1, // Always offset 0 — seenIds already prevents duplicates across pages
       });
 
       if (sorted.length === 0) {
@@ -235,9 +235,17 @@ const getFeedPosts = async ({
     // Injecting ads directly here causes PostModel parsing failure and duplicate interleaving.
     const finalItems = sorted;
 
-    // hasMore = true as long as we returned any posts.
-    // The explore pool is always available so we never truly run out.
-    const hasMore = finalItems.filter(p => !p.isAd).length > 0;
+    // hasMore = true as long as there are ANY unseen posts left in the DB
+    // We check this by looking at whether explore pool still has content
+    const remainingInExplore = await Post.count({
+      where: {
+        userId: { [Op.ne]: userId },
+        isArchived: { [Op.or]: [false, null] },
+        id: { [Op.notIn]: Array.from(allSeenSoFar).slice(0, 500) },
+      },
+    }).catch(() => finalItems.length); // fallback: assume more if count fails
+
+    const hasMore = finalItems.length > 0 || remainingInExplore > 0;
 
     return { posts: finalItems, page, hasMore };
 

@@ -78,22 +78,29 @@ class _HomePageContentState extends ConsumerState<HomePageContent> {
   Widget build(BuildContext context) {
     final feedState = ref.watch(feedProvider);
     final isDark = CupertinoTheme.of(context).brightness == Brightness.dark;
-    final hasSuggested = feedState.posts.length >= 3;
-    
+
     // Watch feed ads
     final ads = ref.watch(feedAdsProvider(5)).value ?? [];
 
     // Interleave posts, ads and suggested users card
+    // Suggestions card is always injected after the 1st post (index 0)
     final List<dynamic> items = [];
     int adIndex = 0;
+    bool suggestionsInjected = false;
     for (int i = 0; i < feedState.posts.length; i++) {
       items.add(feedState.posts[i]);
-      if (i == 2 && hasSuggested) {
+      // Inject after 1st post so suggestions are always visible
+      if (i == 0 && !suggestionsInjected) {
         items.add('suggested_users');
+        suggestionsInjected = true;
       }
       if ((i + 1) % 4 == 0 && adIndex < ads.length) {
         items.add(ads[adIndex++]);
       }
+    }
+    // If feed is empty but suggestions loaded, still show them
+    if (!suggestionsInjected) {
+      items.insert(0, 'suggested_users');
     }
 
     // Listen for scroll-to-top signal from MainShell

@@ -43,3 +43,18 @@ app.*.map.json
 /android/app/debug
 /android/app/profile
 /android/app/release
+
+# ─── SECRETS — NEVER COMMIT ─────────────────────────────────────────────
+# Release keystore — losing this means you can't update the app on Play Store
+android/key.properties
+android/upload-keystore.jks
+android/*.jks
+android/*.keystore
+
+# Environment files — contain server URLs / API keys
+.env
+.env.local
+.env.production
+
+# Debug symbols (large, store separately for crash symbolication)
+build/debug-info/
