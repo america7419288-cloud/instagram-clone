@@ -119,7 +119,7 @@ const logInteraction = async (req, res) => {
       sessionId,
     });
 
-    return successResponse(res, 'Interaction recorded successfully');
+    return successResponse(res, 200, 'Interaction recorded successfully');
 
   } catch (error) {
     console.error('logInteraction error:', error.message);
@@ -135,7 +135,7 @@ const getRankedFeed = async (req, res) => {
   try {
     const userId = req.user.id;
     const page = parseInt(req.query.page) || 1;
-    const limit = parseInt(req.query.limit) || 12;
+    const limit = parseInt(req.query.limit) || 20;
     const { sessionId } = req.query;
 
     const result = await getFeedPosts({
