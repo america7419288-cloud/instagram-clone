@@ -15,6 +15,7 @@ const validateRegister = [
     .isLength({ min: 8 })
     .withMessage('Password must be at least 8 characters long'),
   body('fullName').optional().trim().isLength({ max: 60 }).withMessage('Full name cannot exceed 60 characters'),
+  body('full_name').optional().trim().isLength({ max: 60 }).withMessage('Full name cannot exceed 60 characters'),
 ];
 
 const validateLogin = [

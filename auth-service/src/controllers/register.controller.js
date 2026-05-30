@@ -10,7 +10,8 @@ const logger = require('../utils/logger');
 // ── Step 1: Register (sends OTP) ──────────────────────
 async function register(req, res) {
   try {
-    const { email, username, password, fullName } = req.body;
+    const { email, username, password, fullName, full_name } = req.body;
+    const finalFullName = fullName || full_name;
 
     // Check if email exists
     const existingEmail = await User.findOne({
@@ -62,7 +63,7 @@ async function register(req, res) {
     const user = await User.create({
       email: email.toLowerCase(),
       username: username.toLowerCase(),
-      fullName,
+      fullName: finalFullName,
       password,
       authProviders: [{ provider: 'email' }],
       registrationIp: req.ip,

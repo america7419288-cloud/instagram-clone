@@ -10,7 +10,13 @@ async function connectRedis() {
     url: process.env.REDIS_URL,
     password: process.env.REDIS_PASSWORD || undefined,
     socket: {
-      reconnectStrategy: (retries) => Math.min(retries * 50, 2000),
+      reconnectStrategy: (retries) => {
+        if (retries > 3) {
+          logger.warn('Redis reconnection limit reached. Service will run with memory fallback.');
+          return false; // Stop reconnecting
+        }
+        return Math.min(retries * 50, 2000);
+      },
     },
   });
 
@@ -26,7 +32,11 @@ async function connectRedis() {
     logger.warn('Redis reconnecting...');
   });
 
-  await redisClient.connect();
+  try {
+    await redisClient.connect();
+  } catch (err) {
+    logger.warn('Redis offline. Falling back to local memory store.');
+  }
   return redisClient;
 }
 
