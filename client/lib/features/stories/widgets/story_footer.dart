@@ -259,11 +259,11 @@ class _StoryFooterState extends State<StoryFooter>
             // More options
             GestureDetector(
               onTap: _showMoreOptions,
-              child: const Icon(
-                LucideIcons.more_horizontal,
+              child: Icon(
+                LucideIcons.ellipsis,
                 color: Colors.white,
                 size: 26,
-                shadows: [Shadow(color: Colors.black38, blurRadius: 4)],
+                shadows: const [Shadow(color: Colors.black38, blurRadius: 4)],
               ),
             ),
           ],
@@ -496,7 +496,7 @@ class _StoryFooterState extends State<StoryFooter>
                 final username = textController.text.trim();
                 if (username.isNotEmpty) {
                   Navigator.pop(context);
-                  HapticFeedback.successImpact();
+                  HapticFeedback.mediumImpact();
                   widget.onAddMention(username);
                   ScaffoldMessenger.of(context).showSnackBar(
                     SnackBar(
@@ -581,7 +581,7 @@ class _StoryFooterState extends State<StoryFooter>
                   child: ElevatedButton(
                     onPressed: () {
                       Navigator.pop(context);
-                      HapticFeedback.successImpact();
+                      HapticFeedback.mediumImpact();
                       ScaffoldMessenger.of(context).showSnackBar(
                         const SnackBar(content: Text('Story settings updated successfully!')),
                       );
@@ -618,7 +618,7 @@ class _StoryFooterState extends State<StoryFooter>
             TextButton(
               onPressed: () {
                 Navigator.pop(context);
-                HapticFeedback.warningImpact();
+                HapticFeedback.heavyImpact();
                 widget.onDelete();
               },
               child: const Text('Delete', style: TextStyle(color: Colors.red, fontWeight: FontWeight.bold)),
