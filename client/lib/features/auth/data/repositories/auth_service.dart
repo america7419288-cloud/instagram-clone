@@ -13,8 +13,8 @@ class AuthService {
   final DioClient _dioClient = DioClient();
   final FlutterSecureStorage _storage = const FlutterSecureStorage();
 
-  // ─── REGISTER ──────────────────────────────────────────
-  Future<AuthResponseModel> register({
+  // ─── START REGISTRATION (Part 1) ───────────────────────
+  Future<bool> startRegistration({
     required String fullName,
     required String email,
     required String username,
@@ -49,7 +49,29 @@ class AuthService {
         data: data,
       );
 
-      // Parse response data
+      // Returns true if verification step is required
+      return response.data['data']?['nextStep'] == 'verify_email';
+    } on DioException catch (e) {
+      throw _handleDioError(e);
+    } catch (e) {
+      throw Exception('Registration failed: ${e.toString()}');
+    }
+  }
+
+  // ─── VERIFY REGISTRATION OTP (Part 2) ──────────────────
+  Future<AuthResponseModel> verifyRegisterOtp({
+    required String email,
+    required String otp,
+  }) async {
+    try {
+      final response = await _dioClient.post(
+        '/auth/verify-email',
+        data: {
+          'email': email,
+          'otp': otp,
+        },
+      );
+
       final authResponse = AuthResponseModel.fromJson(response.data['data']);
 
       // Save tokens securely
@@ -65,7 +87,7 @@ class AuthService {
     } on DioException catch (e) {
       throw _handleDioError(e);
     } catch (e) {
-      throw Exception('Registration failed: ${e.toString()}');
+      throw Exception('Verification failed: ${e.toString()}');
     }
   }
 
@@ -229,19 +251,29 @@ class AuthService {
 
   Exception _handleDioError(DioException e) {
     if (e.response != null) {
-      // Server responded with error
-      final message = e.response?.data?['message'] ?? 'Something went wrong';
-      final errors = e.response?.data?['errors'];
+      final dynamic responseData = e.response?.data;
+      if (responseData is Map<String, dynamic> || responseData is Map) {
+        final message = responseData['message'] ?? 'Something went wrong';
+        final errors = responseData['errors'];
 
-      if (errors != null && errors is List) {
-        // Validation errors
-        final errorMessages = errors
-            .map((err) => err['message'] as String)
-            .join('\n');
-        return Exception(errorMessages);
+        if (errors != null && errors is List) {
+          try {
+            final errorMessages = errors
+                .map((err) => (err as Map)['message']?.toString() ?? '')
+                .where((msg) => msg.isNotEmpty)
+                .join('\n');
+            if (errorMessages.isNotEmpty) {
+              return Exception(errorMessages);
+            }
+          } catch (_) {}
+        }
+        return Exception(message.toString());
+      } else {
+        return Exception(
+          responseData?.toString() ??
+          'Server error (Status: ${e.response?.statusCode})',
+        );
       }
-
-      return Exception(message);
     } else if (e.type == DioExceptionType.connectionTimeout ||
         e.type == DioExceptionType.receiveTimeout) {
       return Exception('Connection timeout. Please check your internet.');

@@ -6,7 +6,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:image_picker/image_picker.dart';
 import '../../providers/signup_provider.dart';
 import '../../widgets/auth_components.dart';
-import 'step9_welcome_screen.dart';
+import 'step8a_otp_verify_screen.dart';
 import '../../../../../shared/widgets/app_snackbar.dart';
 
 class Step8ProfilePicScreen extends ConsumerStatefulWidget {
@@ -31,13 +31,12 @@ class _Step8ProfilePicScreenState extends ConsumerState<Step8ProfilePicScreen> {
 
   Future<void> _onDone() async {
     setState(() => _isRegistering = true);
-    final success = await ref.read(signupProvider.notifier).register();
+    final verificationRequired = await ref.read(signupProvider.notifier).startRegistration();
     setState(() => _isRegistering = false);
 
-    if (success && mounted) {
-      Navigator.of(context).pushAndRemoveUntil(
-        MaterialPageRoute(builder: (_) => const Step9WelcomeScreen()),
-        (route) => false,
+    if (verificationRequired && mounted) {
+      Navigator.of(context).push(
+        MaterialPageRoute(builder: (_) => const Step8aOtpVerifyScreen()),
       );
     } else if (mounted) {
       final error = ref.read(signupProvider).error;

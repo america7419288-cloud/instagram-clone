@@ -67,8 +67,8 @@ class _Step1EmailPhoneScreenState extends ConsumerState<Step1EmailPhoneScreen> w
       body: [
         TabBar(
           controller: _tabController,
-          indicatorColor: Colors.black,
-          labelColor: Colors.black,
+          indicatorColor: Theme.of(context).brightness == Brightness.dark ? Colors.white : Colors.black,
+          labelColor: Theme.of(context).brightness == Brightness.dark ? Colors.white : Colors.black,
           unselectedLabelColor: Colors.grey,
           tabs: const [
             Tab(text: 'Email'),

@@ -92,8 +92,11 @@ class _SplashPageState extends ConsumerState<SplashPage>
 
   @override
   Widget build(BuildContext context) {
+    final isDark = Theme.of(context).brightness == Brightness.dark;
+    final secondaryTextColor = isDark ? AppColors.darkTextSecondary : AppColors.textSecondary;
+
     return Scaffold(
-      backgroundColor: AppColors.white,
+      backgroundColor: isDark ? Colors.black : Colors.white,
       body: Column(
         children: [
           // ─── MAIN CONTENT (Logo in center) ───────────
@@ -117,6 +120,10 @@ class _SplashPageState extends ConsumerState<SplashPage>
                       'assets/images/instagram_logo.svg',
                       width: 92,
                       height: 92,
+                      colorFilter: ColorFilter.mode(
+                        isDark ? Colors.white : Colors.black,
+                        BlendMode.srcIn,
+                      ),
                     ),
                   ],
                 ),
@@ -129,19 +136,19 @@ class _SplashPageState extends ConsumerState<SplashPage>
             padding: const EdgeInsets.only(bottom: 40),
             child: Column(
               children: [
-                const Text(
+                Text(
                   'from',
                   style: TextStyle(
-                    color: AppColors.textSecondary,
+                    color: secondaryTextColor,
                     fontSize: 13,
                   ),
                 ),
                 const SizedBox(height: 6),
                 // Meta logo text
-                const Text(
+                Text(
                   'Meta',
                   style: TextStyle(
-                    color: AppColors.textSecondary,
+                    color: secondaryTextColor,
                     fontSize: 20,
                     fontWeight: FontWeight.bold,
                     letterSpacing: 1,

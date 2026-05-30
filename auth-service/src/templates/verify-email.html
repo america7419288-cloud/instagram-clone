@@ -1,0 +1,90 @@
+<!DOCTYPE html>
+<html>
+<head>
+  <meta charset="utf-8">
+  <style>
+    body {
+      font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif;
+      background-color: #FAFAFA;
+      margin: 0;
+      padding: 0;
+    }
+    .container {
+      max-width: 480px;
+      margin: 40px auto;
+      background-color: #FFFFFF;
+      border: 1px solid #DBDBDB;
+      border-radius: 12px;
+      overflow: hidden;
+      box-shadow: 0 4px 12px rgba(0,0,0,0.05);
+    }
+    .header {
+      background: linear-gradient(135deg, #833AB4, #F77737);
+      padding: 24px;
+      text-align: center;
+      color: #FFFFFF;
+    }
+    .header h1 {
+      margin: 0;
+      font-size: 22px;
+      font-weight: 700;
+    }
+    .content {
+      padding: 32px 24px;
+      color: #262626;
+      line-height: 1.6;
+    }
+    .content p {
+      margin-top: 0;
+      margin-bottom: 24px;
+      font-size: 15px;
+    }
+    .otp-container {
+      text-align: center;
+      margin: 32px 0;
+    }
+    .otp-digit {
+      display: inline-block;
+      width: 42px;
+      height: 48px;
+      line-height: 48px;
+      background-color: #F4F4F4;
+      border: 1px solid #EAEAEA;
+      border-radius: 8px;
+      font-size: 24px;
+      font-weight: 700;
+      color: #262626;
+      margin: 0 4px;
+      text-align: center;
+    }
+    .footer {
+      background-color: #FAFAFA;
+      padding: 20px;
+      text-align: center;
+      border-top: 1px solid #EFEFEF;
+      font-size: 12px;
+      color: #8E8E8E;
+    }
+  </style>
+</head>
+<body>
+  <div class="container">
+    <div class="header">
+      <h1>{{TITLE}}</h1>
+    </div>
+    <div class="content">
+      <p>Hi {{USERNAME}},</p>
+      <p>Thank you for signing up for <strong>{{APP_NAME}}</strong>. Please enter the following 6-digit verification code to complete your registration:</p>
+      
+      <div class="otp-container">
+        {{OTP_DIGITS}}
+      </div>
+      
+      <p>This code will expire in <strong>{{OTP_EXPIRES_MINUTES}}</strong> minutes. If you did not request this, you can safely ignore this email.</p>
+    </div>
+    <div class="footer">
+      &copy; {{YEAR}} {{APP_NAME}}. All rights reserved.
+    </div>
+  </div>
+</body>
+</html>

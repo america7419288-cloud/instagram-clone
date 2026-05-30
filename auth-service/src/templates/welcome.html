@@ -1,0 +1,88 @@
+<!DOCTYPE html>
+<html>
+<head>
+  <meta charset="utf-8">
+  <style>
+    body {
+      font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif;
+      background-color: #FAFAFA;
+      margin: 0;
+      padding: 0;
+    }
+    .container {
+      max-width: 480px;
+      margin: 40px auto;
+      background-color: #FFFFFF;
+      border: 1px solid #DBDBDB;
+      border-radius: 12px;
+      overflow: hidden;
+      box-shadow: 0 4px 12px rgba(0,0,0,0.05);
+    }
+    .header {
+      background: linear-gradient(135deg, #405DE6, #833AB4, #F77737);
+      padding: 32px 24px;
+      text-align: center;
+      color: #FFFFFF;
+    }
+    .header h1 {
+      margin: 0;
+      font-size: 26px;
+      font-weight: 800;
+      letter-spacing: -0.5px;
+    }
+    .content {
+      padding: 32px 24px;
+      color: #262626;
+      line-height: 1.6;
+    }
+    .content p {
+      margin-top: 0;
+      margin-bottom: 20px;
+      font-size: 15px;
+    }
+    .button-container {
+      text-align: center;
+      margin: 32px 0;
+    }
+    .btn {
+      display: inline-block;
+      padding: 12px 24px;
+      background-color: #0095F6;
+      color: #FFFFFF;
+      text-decoration: none;
+      font-size: 15px;
+      font-weight: 600;
+      border-radius: 8px;
+    }
+    .footer {
+      background-color: #FAFAFA;
+      padding: 20px;
+      text-align: center;
+      border-top: 1px solid #EFEFEF;
+      font-size: 12px;
+      color: #8E8E8E;
+    }
+  </style>
+</head>
+<body>
+  <div class="container">
+    <div class="header">
+      <h1>Welcome to {{APP_NAME}}!</h1>
+    </div>
+    <div class="content">
+      <p>Hi {{USERNAME}},</p>
+      <p>Your email has been verified, and your account is now fully active! Welcome to our community.</p>
+      <p>Connect with friends, share what you're up to, or see what's new from others all over the world.</p>
+      
+      <div class="button-container">
+        <span class="btn">Get Started</span>
+      </div>
+      
+      <p>If you have any questions or feedback, feel free to reply directly to this email.</p>
+    </div>
+    <div class="footer">
+      &copy; {{YEAR}} {{APP_NAME}}. All rights reserved.
+    </div>
+  </div>
+</body>
+</html>

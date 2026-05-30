@@ -7,6 +7,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_lucide/flutter_lucide.dart';
 import 'package:video_player/video_player.dart';
 
+import 'package:instagram_client/features/browser/services/browser_launcher.dart';
 import '../../data/models/ad_model.dart';
 import '../../data/repositories/ad_service.dart';
 import 'ad_card_widget.dart'; // import the browser
@@ -195,12 +196,13 @@ class _AdStoryViewerPageState extends ConsumerState<AdStoryViewerPage>
           placement: 'stories',
         );
     
-    Navigator.push(
-      context,
-      CupertinoPageRoute(
-        fullscreenDialog: true,
-        builder: (context) => MockBrowserPage(url: widget.ad.ctaUrl, businessName: widget.ad.advertiserName),
-      ),
+    BrowserLauncher.open(
+      context: context,
+      url: widget.ad.ctaUrl ?? '',
+      title: widget.ad.advertiserName,
+      isAd: true,
+      adSource: widget.ad.advertiserName,
+      adCampaignId: widget.ad.campaignId,
     ).then((_) => _resume());
   }
 

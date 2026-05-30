@@ -274,16 +274,19 @@ class _InAppBrowserScreenState extends State<InAppBrowserScreen>
         preferredContentMode: provider.isDesktopMode
           ? UserPreferredContentMode.DESKTOP
           : UserPreferredContentMode.MOBILE,
-        transparentBackground: true,
+        transparentBackground: false,
         disableContextMenu: false,
         supportZoom: true,
         builtInZoomControls: false,
         displayZoomControls: false,
+        allowsBackForwardNavigationGestures: true,
         userAgent: provider.isDesktopMode
           ? 'Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) '
             'AppleWebKit/537.36 (KHTML, like Gecko) '
             'Chrome/120.0.0.0 Safari/537.36'
-          : null,
+          : 'Mozilla/5.0 (iPhone; CPU iPhone OS 17_4_1 like Mac OS X) '
+            'AppleWebKit/605.1.15 (KHTML, like Gecko) '
+            'Version/17.4.1 Mobile/15E148 Safari/604.1',
       ),
 
       onWebViewCreated: (ctrl) {

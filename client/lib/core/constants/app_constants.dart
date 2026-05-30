@@ -1,5 +1,3 @@
-import 'package:flutter/foundation.dart';
-
 class AppConstants {
   AppConstants._();
 
@@ -9,6 +7,11 @@ class AppConstants {
   static const String baseUrl = String.fromEnvironment(
     'API_BASE_URL',
     defaultValue: 'https://instagram-clone-im0x.onrender.com/api/v1',
+  );
+
+  static const String authBaseUrl = String.fromEnvironment(
+    'AUTH_BASE_URL',
+    defaultValue: 'https://instagram-clone-auth.onrender.com/api/v1',
   );
 
   static const String socketUrl = String.fromEnvironment(

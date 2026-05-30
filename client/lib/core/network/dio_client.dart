@@ -18,7 +18,6 @@ class DioClient {
       refreshDio: _refreshDio,
       onRefreshStateChanged: _setRefreshing,
       isRefreshing: () => _isRefreshing,
-      updateBaseUrl: _updateBaseUrl,
     );
 
     _dio.interceptors.addAll([
@@ -149,18 +148,15 @@ class _AuthInterceptor extends Interceptor {
     required Dio refreshDio,
     required void Function(bool value) onRefreshStateChanged,
     required bool Function() isRefreshing,
-    required void Function(String) updateBaseUrl,
   }) : _storage = storage,
        _refreshDio = refreshDio,
        _onRefreshStateChanged = onRefreshStateChanged,
-       _isRefreshing = isRefreshing,
-       _updateBaseUrl = updateBaseUrl;
+       _isRefreshing = isRefreshing;
 
   final FlutterSecureStorage _storage;
   final Dio _refreshDio;
   final void Function(bool value) _onRefreshStateChanged;
   final bool Function() _isRefreshing;
-  final void Function(String) _updateBaseUrl;
   String? _cachedToken;
 
   void resetCache() {
@@ -177,12 +173,17 @@ class _AuthInterceptor extends Interceptor {
     }
 
     const skipPaths = <String>[
-      AppConstants.loginEndpoint,
-      AppConstants.registerEndpoint,
-      AppConstants.logoutEndpoint,
+      '/auth/login',
+      '/auth/register',
+      '/auth/verify-email',
+      '/auth/resend-otp',
       '/auth/refresh-token',
       '/auth/check-username',
       '/auth/check-email',
+      '/auth/forgot-password',
+      '/auth/verify-reset-otp',
+      '/auth/reset-password',
+      '/auth/otp/',
     ];
 
     return skipPaths.any(options.path.contains);
@@ -193,6 +194,33 @@ class _AuthInterceptor extends Interceptor {
     RequestOptions options,
     RequestInterceptorHandler handler,
   ) async {
+    // ── Swapping Base URL dynamically for Auth Service routes ──
+    final path = options.path;
+    final isAuthServiceRoute = (
+      path.contains('/auth/register') ||
+      path.contains('/auth/verify-email') ||
+      path.contains('/auth/resend-otp') ||
+      path.contains('/auth/login') ||
+      path.contains('/auth/refresh-token') ||
+      path.contains('/auth/logout') ||
+      path.contains('/auth/logout-all') ||
+      path.contains('/auth/sessions') ||
+      path.contains('/auth/otp/') ||
+      path.contains('/auth/forgot-password') ||
+      path.contains('/auth/verify-reset-otp') ||
+      path.contains('/auth/reset-password') ||
+      path.contains('/auth/change-password')
+    ) && !path.contains('/auth/me');
+
+    if (isAuthServiceRoute) {
+      final currentBaseUrl = options.baseUrl;
+      if (currentBaseUrl.contains(':3000')) {
+        options.baseUrl = currentBaseUrl.replaceAll(':3000', ':4000');
+      } else {
+        options.baseUrl = AppConstants.authBaseUrl;
+      }
+    }
+
     if (_shouldSkip(options)) {
       handler.next(options);
       return;

@@ -105,6 +105,21 @@ class _AuthGradientBackgroundState extends State<AuthGradientBackground>
 
   @override
   Widget build(BuildContext context) {
+    final isDark = Theme.of(context).brightness == Brightness.dark;
+    final gradientColors = isDark
+        ? const [
+            Color(0xFF0C1014), // Prism Black
+            Color(0xFF1C0D24), // Rich dark purple
+            Color(0xFF0B1B26), // Rich dark blue
+            Color(0xFF141026), // Rich dark indigo
+          ]
+        : const [
+            Color(0xFFFDF2F4), // Very Light Pink
+            Color(0xFFF5EEF8), // Very Light Purple
+            Color(0xFFFEF9E7), // Very Light Yellow
+            Color(0xFFF0F4FF), // Very Light Blue
+          ];
+
     return AnimatedBuilder(
       animation: _controller,
       builder: (context, child) {
@@ -113,12 +128,7 @@ class _AuthGradientBackgroundState extends State<AuthGradientBackground>
             gradient: LinearGradient(
               begin: _topAlignmentAnimation.value,
               end: _bottomAlignmentAnimation.value,
-              colors: const [
-                Color(0xFFFDF2F4), // Very Light Pink
-                Color(0xFFF5EEF8), // Very Light Purple
-                Color(0xFFFEF9E7), // Very Light Yellow
-                Color(0xFFF0F4FF), // Very Light Blue
-              ],
+              colors: gradientColors,
             ),
           ),
           child: widget.child,
@@ -138,10 +148,12 @@ class AuthLogo extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final isDark = Theme.of(context).brightness == Brightness.dark;
+    final finalColor = color ?? (isDark ? Colors.white : Colors.black);
     return SvgPicture.asset(
       'assets/images/instagram_logo.svg',
       width: width,
-      colorFilter: color != null ? ColorFilter.mode(color!, BlendMode.srcIn) : null,
+      colorFilter: ColorFilter.mode(finalColor, BlendMode.srcIn),
     );
   }
 }
@@ -170,6 +182,7 @@ class AuthTextField extends StatefulWidget {
   final Color? errorBorderColor;
   final bool? obscureText; // New: external control
   final VoidCallback? onToggleVisibility; // New: external control
+  final List<TextInputFormatter>? inputFormatters;
 
   const AuthTextField({
     super.key,
@@ -193,6 +206,7 @@ class AuthTextField extends StatefulWidget {
     this.errorBorderColor,
     this.obscureText,
     this.onToggleVisibility,
+    this.inputFormatters,
   });
 
   @override
@@ -219,15 +233,18 @@ class _AuthTextFieldState extends State<AuthTextField> {
     super.dispose();
   }
 
-  Color get _borderColor {
+  Color _borderColor(BuildContext context) {
+    final isDark = Theme.of(context).brightness == Brightness.dark;
     if (widget.errorBorderColor != null) return widget.errorBorderColor!;
     if (widget.successBorderColor != null) return widget.successBorderColor!;
     if (widget.errorText != null) return AuthColors.errorRed;
-    if (_hasFocus) return AuthColors.fieldFocused;
-    return AuthColors.fieldBorder;
+    if (_hasFocus) {
+      return isDark ? Colors.white70 : AuthColors.fieldFocused;
+    }
+    return isDark ? Colors.white12 : AuthColors.fieldBorder;
   }
 
-  Widget? _buildSuffix() {
+  Widget? _buildSuffix(bool isDark) {
     if (widget.isLoading) {
       return Padding(
         padding: const EdgeInsets.all(14),
@@ -235,7 +252,7 @@ class _AuthTextFieldState extends State<AuthTextField> {
           width: 18, height: 18,
           child: CircularProgressIndicator(
             strokeWidth: 2,
-            valueColor: const AlwaysStoppedAnimation(AuthColors.greyText),
+            valueColor: AlwaysStoppedAnimation(isDark ? Colors.white60 : AuthColors.greyText),
           ),
         ),
       );
@@ -247,14 +264,14 @@ class _AuthTextFieldState extends State<AuthTextField> {
       return IconButton(
         icon: Icon(
           obscure ? Icons.visibility_outlined : Icons.visibility_off_outlined,
-          color: AuthColors.greyText, size: 20,
+          color: isDark ? Colors.white60 : AuthColors.greyText, size: 20,
         ),
         onPressed: widget.onToggleVisibility ?? () => setState(() => _internalObscure = !_internalObscure),
       );
     }
     if (widget.controller.text.isNotEmpty && _hasFocus && widget.onClear != null) {
       return IconButton(
-        icon: const Icon(Icons.cancel, color: AuthColors.greyText, size: 18),
+        icon: Icon(Icons.cancel, color: isDark ? Colors.white60 : AuthColors.greyText, size: 18),
         onPressed: () {
           widget.controller.clear();
           widget.onClear?.call();
@@ -266,7 +283,11 @@ class _AuthTextFieldState extends State<AuthTextField> {
 
   @override
   Widget build(BuildContext context) {
+    final isDark = Theme.of(context).brightness == Brightness.dark;
     final shouldElevate = _hasFocus && widget.errorText == null;
+    final fillCol = isDark ? Colors.white.withOpacity(0.06) : AuthColors.fieldFill;
+    final borderCol = _borderColor(context);
+
     return Column(
       crossAxisAlignment: CrossAxisAlignment.stretch,
       mainAxisSize: MainAxisSize.min,
@@ -275,9 +296,9 @@ class _AuthTextFieldState extends State<AuthTextField> {
           duration: const Duration(milliseconds: 150),
           curve: Curves.easeOutCubic,
           decoration: BoxDecoration(
-            color: AuthColors.fieldFill,
+            color: fillCol,
             borderRadius: BorderRadius.circular(AuthDimens.fieldRadius),
-            border: Border.all(color: _borderColor, width: 1),
+            border: Border.all(color: borderCol, width: 1),
             boxShadow: shouldElevate
                 ? const [
                     BoxShadow(
@@ -296,23 +317,24 @@ class _AuthTextFieldState extends State<AuthTextField> {
             textInputAction: widget.textInputAction,
             enabled:         widget.isEnabled,
             maxLength:       widget.maxLength,
+            inputFormatters: widget.inputFormatters,
             buildCounter: (context, {required currentLength, required isFocused, maxLength}) => null,
             onChanged: (v) {
               setState(() {});
               widget.onChanged?.call(v);
             },
             onSubmitted: widget.onSubmitted,
-            style: const TextStyle(
+            style: TextStyle(
               fontSize: 14,
-              color: AuthColors.darkText,
+              color: isDark ? Colors.white : AuthColors.darkText,
             ),
             decoration: InputDecoration(
               labelText:       widget.hintText ?? widget.placeholder,
-              labelStyle:      const TextStyle(
-                color: AuthColors.greyText, fontSize: 14,
+              labelStyle:      TextStyle(
+                color: isDark ? Colors.white38 : AuthColors.greyText, fontSize: 14,
               ),
-              floatingLabelStyle: const TextStyle(
-                color: AuthColors.greyText, fontSize: 12,
+              floatingLabelStyle: TextStyle(
+                color: isDark ? Colors.white54 : AuthColors.greyText, fontSize: 12,
               ),
               floatingLabelBehavior: FloatingLabelBehavior.auto,
               contentPadding:  const EdgeInsets.symmetric(
@@ -321,7 +343,7 @@ class _AuthTextFieldState extends State<AuthTextField> {
               filled: true,
               fillColor: Colors.transparent,
               border:          InputBorder.none,
-              suffixIcon:      _buildSuffix(),
+              suffixIcon:      _buildSuffix(isDark),
             ),
           ),
         ),
@@ -469,6 +491,7 @@ class AuthSecondaryButton extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final isDark = Theme.of(context).brightness == Brightness.dark;
     return _Pressable(
       enabled: onPressed != null,
       onTap: onPressed,
@@ -478,16 +501,16 @@ class AuthSecondaryButton extends StatelessWidget {
       child: OutlinedButton(
         onPressed: onPressed,
         style: OutlinedButton.styleFrom(
-          side: const BorderSide(color: AuthColors.fieldBorder),
+          side: BorderSide(color: isDark ? Colors.white12 : AuthColors.fieldBorder),
           shape: RoundedRectangleBorder(
             borderRadius: BorderRadius.circular(AuthDimens.btnRadius),
           ),
-          backgroundColor: Colors.white.withAlpha(150),
+          backgroundColor: isDark ? Colors.white.withOpacity(0.06) : Colors.white.withAlpha(150),
         ),
         child: Text(
           text,
           style: TextStyle(
-            color: textColor ?? AuthColors.blue,
+            color: textColor ?? (isDark ? Colors.white : AuthColors.blue),
             fontSize: AuthDimens.btnFontSize,
             fontWeight: FontWeight.w600,
           ),
@@ -597,10 +620,11 @@ class CupertinoBackButton extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final isDark = Theme.of(context).brightness == Brightness.dark;
     return IconButton(
-      icon: const Icon(
+      icon: Icon(
         Icons.arrow_back_ios,
-        color: AuthColors.darkText,
+        color: isDark ? Colors.white : AuthColors.darkText,
         size: 22,
       ),
       onPressed: onBack,
@@ -619,24 +643,25 @@ class AuthStepHeader extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final isDark = Theme.of(context).brightness == Brightness.dark;
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
         Text(
           title,
-          style: const TextStyle(
+          style: TextStyle(
             fontSize: AuthDimens.titleSize,
             fontWeight: FontWeight.bold,
-            color: AuthColors.darkText,
+            color: isDark ? Colors.white : AuthColors.darkText,
           ),
         ),
         if (subtitle != null) ...[
           const SizedBox(height: 8),
           Text(
             subtitle!,
-            style: const TextStyle(
+            style: TextStyle(
               fontSize: AuthDimens.subtitleSize,
-              color: AuthColors.greyText,
+              color: isDark ? Colors.white54 : AuthColors.greyText,
               height: 1.4,
             ),
           ),
@@ -735,7 +760,7 @@ class _PressableState extends State<_Pressable> {
       onPointerUp: (_) => _setPressed(false),
       onPointerCancel: (_) => _setPressed(false),
       child: AnimatedScale(
-        scale: _pressed ? 0.98 : 1,
+        scale: _pressed ? 0.95 : 1,
         duration: const Duration(milliseconds: 110),
         curve: Curves.easeOutCubic,
         child: widget.child,

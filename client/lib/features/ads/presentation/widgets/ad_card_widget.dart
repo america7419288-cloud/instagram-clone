@@ -6,6 +6,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_lucide/flutter_lucide.dart';
 import 'package:visibility_detector/visibility_detector.dart';
 
+import 'package:instagram_client/features/browser/services/browser_launcher.dart';
 import '../../data/models/ad_model.dart';
 import '../../data/repositories/ad_service.dart';
 import '../../../post/presentation/widgets/video_player_widget.dart';
@@ -69,12 +70,13 @@ class _AdCardWidgetState extends ConsumerState<AdCardWidget> {
   }
 
   void _openBrowser(String url) {
-    Navigator.push(
-      context,
-      CupertinoPageRoute(
-        fullscreenDialog: true,
-        builder: (context) => MockBrowserPage(url: url, businessName: widget.ad.advertiserName),
-      ),
+    BrowserLauncher.open(
+      context: context,
+      url: url,
+      title: widget.ad.advertiserName,
+      isAd: true,
+      adSource: widget.ad.advertiserName,
+      adCampaignId: widget.ad.campaignId,
     );
   }
 
@@ -345,79 +347,4 @@ class _AdCardWidgetState extends ConsumerState<AdCardWidget> {
   }
 }
 
-// ─── MOCK BROWSER SCREEN ─────────────────────────────
-class MockBrowserPage extends StatelessWidget {
-  final String url;
-  final String businessName;
 
-  const MockBrowserPage({required this.url, required this.businessName});
-
-  @override
-  Widget build(BuildContext context) {
-    final isDark = CupertinoTheme.of(context).brightness == Brightness.dark;
-    
-    return CupertinoPageScaffold(
-      backgroundColor: isDark ? Colors.black : Colors.white,
-      navigationBar: CupertinoNavigationBar(
-        backgroundColor: isDark ? const Color(0xFF1C1C1E) : const Color(0xFFF2F2F7),
-        leading: CupertinoButton(
-          padding: EdgeInsets.zero,
-          child: Icon(LucideIcons.x, color: isDark ? Colors.white : Colors.black, size: 22),
-          onPressed: () => Navigator.pop(context),
-        ),
-        middle: Column(
-          mainAxisSize: MainAxisSize.min,
-          children: [
-            Row(
-              mainAxisSize: MainAxisSize.min,
-              children: [
-                const Icon(LucideIcons.lock, size: 12, color: CupertinoColors.systemGreen),
-                const SizedBox(width: 4),
-                Text(
-                  url.replaceAll('https://', '').replaceAll('http://', ''),
-                  style: TextStyle(fontSize: 12, color: isDark ? Colors.white54 : Colors.black54, fontWeight: FontWeight.normal),
-                ),
-              ],
-            ),
-            const SizedBox(height: 1),
-            Text(
-              businessName,
-              style: TextStyle(fontSize: 14, color: isDark ? Colors.white : Colors.black, fontWeight: FontWeight.bold),
-            ),
-          ],
-        ),
-        trailing: CupertinoButton(
-          padding: EdgeInsets.zero,
-          child: Icon(LucideIcons.rotate_cw, color: isDark ? Colors.white : Colors.black, size: 20),
-          onPressed: () {},
-        ),
-      ),
-      child: SafeArea(
-        child: Center(
-          child: Column(
-            mainAxisAlignment: MainAxisAlignment.center,
-            children: [
-              Icon(LucideIcons.globe, size: 64, color: isDark ? Colors.white24 : Colors.black26),
-              const SizedBox(height: 20),
-              Text(
-                'Opening Website Link...',
-                style: TextStyle(color: isDark ? Colors.white : Colors.black, fontSize: 18, fontWeight: FontWeight.bold),
-              ),
-              const SizedBox(height: 8),
-              Text(
-                url,
-                style: const TextStyle(color: Color(0xFF0095F6), fontSize: 14, decoration: TextDecoration.underline),
-              ),
-              const SizedBox(height: 32),
-              CupertinoButton(
-                color: const Color(0xFF0095F6),
-                onPressed: () => Navigator.pop(context),
-                child: const Text('Back to Instagram', style: TextStyle(fontWeight: FontWeight.bold, color: Colors.white)),
-              ),
-            ],
-          ),
-        ),
-      ),
-    );
-  }
-}

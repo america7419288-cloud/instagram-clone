@@ -231,7 +231,7 @@ class AuthNotifier extends Notifier<AuthState> {
       _disconnectSocket();
       await _clearUserScopedProviders();
 
-      final result = await _authService.register(
+      final verificationRequired = await _authService.startRegistration(
         username: username,
         email: email,
         password: password,
@@ -239,47 +239,8 @@ class AuthNotifier extends Notifier<AuthState> {
         profileImage: profileImage,
       );
 
-      final accessToken = result.accessToken;
-      final refreshToken = result.refreshToken;
-      final user = result.user;
-
-      await _storage.write(
-        key: AppConstants.accessTokenKey,
-        value: accessToken,
-      );
-      await _storage.write(
-        key: AppConstants.refreshTokenKey,
-        value: refreshToken,
-      );
-
-      DioClient().resetTokenCache();
-
-      final savedAccount = SavedAccountModel(
-        userId: user.id,
-        username: user.username,
-        email: user.email,
-        fullName: user.fullName,
-        profilePicture: user.profilePicture,
-        accessToken: accessToken,
-        refreshToken: refreshToken,
-        isActive: true,
-      );
-      await _accountManager.saveAccount(savedAccount);
-      final updatedAccounts = await _accountManager.getSavedAccounts();
-
-      state = state.copyWith(
-        isAuthenticated: true,
-        isLoading: false,
-        user: user,
-        savedAccounts: updatedAccounts,
-      );
-
-      _connectSocket(accessToken);
-      _refreshUserScopedProviders();
-
-      // ─── Register FCM token after register ─────────────
-      _registerPushToken();
-      return true;
+      state = state.copyWith(isLoading: false);
+      return verificationRequired;
     } catch (e) {
       state = state.copyWith(
         isLoading: false,
@@ -287,6 +248,57 @@ class AuthNotifier extends Notifier<AuthState> {
       );
       rethrow;
     }
+  }
+
+  // ─── Set User Session (called after OTP verification) ──
+  Future<void> setUserSession(AuthResponseModel result) async {
+    final accessToken = result.accessToken;
+    final refreshToken = result.refreshToken;
+    final user = result.user;
+
+    await _storage.write(
+      key: AppConstants.accessTokenKey,
+      value: accessToken,
+    );
+    await _storage.write(
+      key: AppConstants.refreshTokenKey,
+      value: refreshToken,
+    );
+
+    DioClient().resetTokenCache();
+
+    final savedAccount = SavedAccountModel(
+      userId: user.id,
+      username: user.username,
+      email: user.email,
+      fullName: user.fullName,
+      profilePicture: user.profilePicture,
+      accessToken: accessToken,
+      refreshToken: refreshToken,
+      isActive: true,
+    );
+
+    // Mark all others as inactive
+    final currentAccounts = await _accountManager.getSavedAccounts();
+    for (final acc in currentAccounts) {
+      if (acc.userId != user.id) {
+        await _accountManager.saveAccount(acc.copyWith(isActive: false));
+      }
+    }
+
+    await _accountManager.saveAccount(savedAccount);
+    final updatedAccounts = await _accountManager.getSavedAccounts();
+
+    state = state.copyWith(
+      isAuthenticated: true,
+      isLoading: false,
+      user: user,
+      savedAccounts: updatedAccounts,
+    );
+
+    _connectSocket(accessToken);
+    _refreshUserScopedProviders();
+    _registerPushToken();
   }
 
   // ─── Switch Account ───────────────────────────────────

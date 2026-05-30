@@ -131,17 +131,38 @@ class SignupNotifier extends Notifier<SignupState> {
     }
   }
 
-  // ─── REGISTER ────────────────────────────────────────
-  Future<bool> register() async {
+  // ─── START REGISTRATION ──────────────────────────────
+  Future<bool> startRegistration() async {
     state = state.copyWith(isLoading: true, clearError: true);
     try {
-      await ref.read(authProvider.notifier).register(
+      final verificationRequired = await ref.read(authProvider.notifier).register(
         username: state.username,
         email:    state.email,
         password: state.password,
         fullName: state.fullName,
         profileImage: state.profileImage,
       );
+      state = state.copyWith(isLoading: false);
+      return verificationRequired;
+    } catch (e) {
+      state = state.copyWith(
+        isLoading: false,
+        error: e.toString().replaceAll('Exception: ', ''),
+      );
+      return false;
+    }
+  }
+
+  // ─── VERIFY OTP ──────────────────────────────────────
+  Future<bool> verifyOtp(String otp) async {
+    state = state.copyWith(isLoading: true, clearError: true);
+    try {
+      final result = await _authService.verifyRegisterOtp(
+        email: state.email,
+        otp: otp,
+      );
+      // Set the session tokens and update the auth state
+      await ref.read(authProvider.notifier).setUserSession(result);
       state = state.copyWith(isLoading: false);
       return true;
     } catch (e) {

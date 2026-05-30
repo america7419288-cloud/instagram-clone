@@ -81,16 +81,16 @@ class _Step3BirthdayScreenState extends ConsumerState<Step3BirthdayScreen> {
           width: double.infinity,
           padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 14),
           decoration: BoxDecoration(
-            color: Colors.white,
+            color: Theme.of(context).brightness == Brightness.dark ? Colors.white.withOpacity(0.06) : Colors.white,
             borderRadius: BorderRadius.circular(AuthDimens.fieldRadius),
-            border: Border.all(color: AuthColors.fieldBorder),
+            border: Border.all(color: Theme.of(context).brightness == Brightness.dark ? Colors.white12 : AuthColors.fieldBorder),
           ),
           child: Text(
             formatted,
-            style: const TextStyle(
+            style: TextStyle(
               fontSize: 15,
               fontWeight: FontWeight.w500,
-              color: AuthColors.darkText,
+              color: Theme.of(context).brightness == Brightness.dark ? Colors.white : AuthColors.darkText,
             ),
           ),
         ),

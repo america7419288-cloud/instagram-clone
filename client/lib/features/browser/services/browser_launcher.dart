@@ -4,7 +4,7 @@ import '../models/browser_session.dart';
 
 class BrowserLauncher {
   /// Call this from anywhere in the app
-  static void open({
+  static Future<dynamic> open({
     required BuildContext context,
     required String url,
     String? title,
@@ -24,11 +24,11 @@ class BrowserLauncher {
     );
 
     if (fullScreen) {
-      Navigator.of(context).push(
+      return Navigator.of(context).push(
         _BrowserRoute(session: session),
       );
     } else {
-      _showAsBottomSheet(context, session);
+      return _showAsBottomSheet(context, session);
     }
   }
 
@@ -39,11 +39,11 @@ class BrowserLauncher {
     return 'https://$url';
   }
 
-  static void _showAsBottomSheet(
+  static Future<dynamic> _showAsBottomSheet(
     BuildContext context,
     BrowserSession session,
   ) {
-    showModalBottomSheet(
+    return showModalBottomSheet(
       context: context,
       isScrollControlled: true,
       backgroundColor: Colors.transparent,

@@ -82,6 +82,7 @@ app.get('/health', (req, res) => {
 
 // Auth routes get a stricter limiter
 app.use('/api/v1/auth', authLimiter, require('./routes/auth.routes'));
+app.use('/api/v1/internal', require('./routes/internal.routes'));
 app.use('/api/v1/settings', require('./routes/settings.routes'));
 app.use('/api/v1/posts', postTagRoutes);
 app.use('/api/v1/users', userTagRoutes);
