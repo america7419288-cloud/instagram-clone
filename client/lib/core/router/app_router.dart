@@ -117,6 +117,7 @@ final appRouterProvider = Provider<GoRouter>((ref) {
         AppRoutes.splash,
         AppRoutes.login,
         AppRoutes.register,
+        AppRoutes.serverSettings,
       ];
 
       final isPublicRoute = publicRoutes.contains(currentPath);

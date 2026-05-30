@@ -103,7 +103,15 @@ class _LoginPageState extends ConsumerState<LoginPage> {
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.stretch,
         children: [
-          const SizedBox(height: 60),
+          Align(
+            alignment: Alignment.topRight,
+            child: IconButton(
+              icon: const Icon(Icons.settings_outlined, color: AuthColors.greyText),
+              tooltip: 'Server Settings',
+              onPressed: () => context.push(AppRoutes.serverSettings),
+            ),
+          ),
+          const SizedBox(height: 12),
           const AuthEntrance(
             child: Center(child: AuthLogo(width: 70)),
           ),
