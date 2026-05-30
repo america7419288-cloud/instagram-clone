@@ -225,6 +225,31 @@ class StoryController extends ChangeNotifier {
     notifyListeners();
   }
 
+  // ─── Delete Story ─────────────────────────────────────
+  void deleteActiveStory() {
+    final stories = currentUser.stories;
+    if (stories.length > 1) {
+      stories.removeAt(currentStoryIndex);
+      if (currentStoryIndex >= stories.length) {
+        currentStoryIndex = stories.length - 1;
+      }
+      _resetAndInit();
+    } else {
+      // Only 1 story left for this user
+      if (users.length > 1) {
+        users.removeAt(currentUserIndex);
+        if (currentUserIndex >= users.length) {
+          currentUserIndex = users.length - 1;
+        }
+        currentStoryIndex = 0;
+        _resetAndInit();
+      } else {
+        // No users/stories left at all
+        _closeViewer();
+      }
+    }
+  }
+
   // ─── Dispose ──────────────────────────────────────────
   @override
   void dispose() {

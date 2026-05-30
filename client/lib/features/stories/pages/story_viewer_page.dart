@@ -1,5 +1,6 @@
 import 'dart:math' as math;
 import 'package:flutter/material.dart';
+import 'package:flutter_lucide/flutter_lucide.dart';
 import '../models/story_model.dart';
 import '../controllers/story_controller.dart';
 import '../widgets/story_header.dart';
@@ -30,6 +31,12 @@ class StoryViewerPage extends StatefulWidget {
 class _StoryViewerPageState extends State<StoryViewerPage> {
   bool _showFloatingReactions = false;
   String? _activeReactionEmoji;
+  
+  // Custom Dynamic Overlays Map (Story ID -> List of Overlays)
+  final Map<String, List<StoryTextOverlay>> _dynamicOverlays = {};
+  
+  // Commenting settings state
+  bool _commentingEnabled = true;
 
   @override
   void initState() {
@@ -64,6 +71,9 @@ class _StoryViewerPageState extends State<StoryViewerPage> {
 
   void _openReplySheet() {
     widget.controller.pause();
+    // ── Unfocus the StoryFooter completely to avoid focus lock ──
+    FocusScope.of(context).unfocus();
+    
     Navigator.push(
       context,
       PageRouteBuilder(
@@ -102,6 +112,32 @@ class _StoryViewerPageState extends State<StoryViewerPage> {
           _showFloatingReactions = false;
         });
       }
+    });
+  }
+
+  void _deleteActiveStory() {
+    widget.controller.deleteActiveStory();
+  }
+
+  void _addMentionOverlay(String username) {
+    final story = widget.controller.currentStory;
+    final cleanUsername = username.startsWith('@') ? username : '@$username';
+
+    final newOverlay = StoryTextOverlay(
+      text: cleanUsername,
+      color: Colors.white,
+      backgroundColor: const Color(0xFFF58529).withOpacity(0.85), // Premium Instagram Orange/Pink color
+      fontSize: 22.0,
+      position: const Offset(120, 320),
+      style: const TextStyle(
+        fontFamily: 'SF-Pro',
+        fontWeight: FontWeight.w800,
+        letterSpacing: -0.2,
+      ),
+    );
+
+    setState(() {
+      _dynamicOverlays.putIfAbsent(story.id, () => []).add(newOverlay);
     });
   }
 
@@ -191,6 +227,11 @@ class _StoryViewerPageState extends State<StoryViewerPage> {
                       (overlay) => StoryTextOverlayWidget(overlay: overlay),
                     ),
 
+                  if (_dynamicOverlays[story.id] != null)
+                    ..._dynamicOverlays[story.id]!.map(
+                      (overlay) => StoryTextOverlayWidget(overlay: overlay),
+                    ),
+
                   if (story.poll != null)
                     Positioned(
                       top: MediaQuery.of(context).size.height * 0.45,
@@ -264,6 +305,14 @@ class _StoryViewerPageState extends State<StoryViewerPage> {
                           if (focused) {
                             _openReplySheet();
                           }
+                        },
+                        onDelete: _deleteActiveStory,
+                        onAddMention: _addMentionOverlay,
+                        commentingEnabled: _commentingEnabled,
+                        onToggleCommenting: () {
+                          setState(() {
+                            _commentingEnabled = !_commentingEnabled;
+                          });
                         },
                       ),
                     ),

@@ -79,16 +79,21 @@ class _StoryReplyPageState extends State<StoryReplyPage>
 
     return GestureDetector(
       onTap: _close,
+      behavior: HitTestBehavior.opaque,
       child: Scaffold(
         backgroundColor: Colors.transparent,
         body: Stack(
           children: [
             // Glassmorphic Backdrop
             Positioned.fill(
-              child: BackdropFilter(
-                filter: ImageFilter.blur(sigmaX: 16, sigmaY: 16),
-                child: Container(
-                  color: Colors.black.withOpacity(0.4),
+              child: GestureDetector(
+                onTap: _close,
+                behavior: HitTestBehavior.opaque,
+                child: BackdropFilter(
+                  filter: ImageFilter.blur(sigmaX: 16, sigmaY: 16),
+                  child: Container(
+                    color: Colors.black.withOpacity(0.4),
+                  ),
                 ),
               ),
             ),
