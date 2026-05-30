@@ -11,7 +11,7 @@ class AppConstants {
 
   static const String authBaseUrl = String.fromEnvironment(
     'AUTH_BASE_URL',
-    defaultValue: 'https://instagram-clone-auth.onrender.com/api/v1',
+    defaultValue: 'https://otp-backend-ig.onrender.com/api/v1',
   );
 
   static const String socketUrl = String.fromEnvironment(

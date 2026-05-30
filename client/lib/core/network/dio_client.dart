@@ -219,8 +219,7 @@ class _AuthInterceptor extends Interceptor {
       } else if (currentBaseUrl.contains(':3000')) {
         options.baseUrl = currentBaseUrl.replaceAll(':3000', ':4000');
       } else {
-        // On production Render, only the main server is deployed.
-        // We route all auth requests directly to the main Render backend.
+        options.baseUrl = AppConstants.authBaseUrl;
       }
     }
 
