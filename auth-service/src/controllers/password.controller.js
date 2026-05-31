@@ -201,7 +201,7 @@ async function notifyMainBackend(event, data) {
       { event, data },
       {
         headers: {
-          'x-service-secret': process.env.INTER_SERVICE_SECRET,
+          'x-service-secret': process.env.INTER_SERVICE_SECRET || 'shared_secret_between_services',
           'Content-Type': 'application/json',
         },
         timeout: 5000,

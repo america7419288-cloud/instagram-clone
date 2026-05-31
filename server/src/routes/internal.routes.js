@@ -6,7 +6,8 @@ const { successResponse, errorResponse } = require('../utils/response.utils');
 // Middleware to verify inter-service secret
 const verifyInternalSecret = (req, res, next) => {
   const secret = req.headers['x-service-secret'];
-  if (!secret || secret !== process.env.INTER_SERVICE_SECRET) {
+  const expectedSecret = process.env.INTER_SERVICE_SECRET || 'shared_secret_between_services';
+  if (!secret || secret !== expectedSecret) {
     return errorResponse(res, 403, 'Forbidden. Invalid inter-service secret.');
   }
   next();
