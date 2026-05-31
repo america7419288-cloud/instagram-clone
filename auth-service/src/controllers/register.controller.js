@@ -1,6 +1,7 @@
 // src/controllers/register.controller.js
 
 const User = require('../models/User');
+const { getRedis } = require('../config/redis');
 const { OtpService, OtpError } = require('../services/otp.service');
 const emailService = require('../services/email.service');
 const jwtService = require('../services/jwt.service');
@@ -12,45 +13,25 @@ async function register(req, res) {
   try {
     const { email, username, password, fullName, full_name } = req.body;
     const finalFullName = fullName || full_name;
+    const normalizedEmail = email.toLowerCase().trim();
+    const normalizedUsername = username.toLowerCase().trim();
 
     // Check if email exists
     const existingEmail = await User.findOne({
-      email: email.toLowerCase(),
+      email: normalizedEmail,
       deletedAt: null,
     });
 
     if (existingEmail) {
-      if (existingEmail.isEmailVerified) {
-        return res.status(409).json(error(
-          'EMAIL_TAKEN',
-          'An account with this email already exists.'
-        ));
-      }
-
-      // Email exists but not verified — resend OTP
-      const otp = await OtpService.createOtp(
-        email,
-        'email_verify',
-        { ip: req.ip, userAgent: req.get('User-Agent') }
-      );
-
-      await emailService.sendOtpEmail({
-        to: email,
-        otp,
-        type: 'email_verify',
-        username: existingEmail.username,
-      });
-
-      return res.status(200).json(success(
-        'OTP_RESENT',
-        'A new verification code was sent to your email.',
-        { email, nextStep: 'verify_email' }
+      return res.status(409).json(error(
+        'EMAIL_TAKEN',
+        'An account with this email already exists.'
       ));
     }
 
     // Check username
     const existingUsername = await User.findOne({
-      username: username.toLowerCase(),
+      username: normalizedUsername,
     });
     if (existingUsername) {
       return res.status(409).json(error(
@@ -59,38 +40,63 @@ async function register(req, res) {
       ));
     }
 
-    // Create unverified user
-    const user = await User.create({
-      email: email.toLowerCase(),
-      username: username.toLowerCase(),
-      fullName: finalFullName,
+    const redis = getRedis();
+
+    // Check if username is reserved in pending registrations
+    const pendingUsernameKey = `pending-register-username:${normalizedUsername}`;
+    const reservedByEmail = await redis.get(pendingUsernameKey);
+    if (reservedByEmail && reservedByEmail.toLowerCase() !== normalizedEmail) {
+      return res.status(409).json(error(
+        'USERNAME_TAKEN',
+        'This username is already taken or reserved.'
+      ));
+    }
+
+    // Clean up old reserved username if this email is re-registering with a new username
+    const pendingEmailKey = `pending-register-email:${normalizedEmail}`;
+    const existingPending = await redis.get(pendingEmailKey);
+    if (existingPending) {
+      try {
+        const parsed = JSON.parse(existingPending);
+        if (parsed.username && parsed.username.toLowerCase() !== normalizedUsername) {
+          await redis.del(`pending-register-username:${parsed.username.toLowerCase()}`);
+        }
+      } catch (_) {}
+    }
+
+    // Store pending registration details (expires in 15 minutes)
+    const pendingData = {
+      email: normalizedEmail,
+      username: normalizedUsername,
       password,
-      authProviders: [{ provider: 'email' }],
-      registrationIp: req.ip,
-    });
+      fullName: finalFullName,
+    };
+
+    await redis.setEx(pendingEmailKey, 15 * 60, JSON.stringify(pendingData));
+    await redis.setEx(pendingUsernameKey, 15 * 60, normalizedEmail);
 
     // Generate and send OTP
     const otp = await OtpService.createOtp(
-      email,
+      normalizedEmail,
       'email_verify',
       { ip: req.ip, userAgent: req.get('User-Agent') }
     );
 
     await emailService.sendOtpEmail({
-      to: email,
+      to: normalizedEmail,
       otp,
       type: 'email_verify',
-      username,
+      username: normalizedUsername,
     });
 
-    logger.info(`New user registered: ${email}`);
+    logger.info(`Pending registration started for: ${normalizedEmail}`);
 
     return res.status(201).json(success(
       'REGISTRATION_STARTED',
-      'Account created. Please verify your email.',
+      'Verification code sent to your email.',
       {
-        email,
-        username: user.username,
+        email: normalizedEmail,
+        username: normalizedUsername,
         nextStep: 'verify_email',
       }
     ));
@@ -107,23 +113,61 @@ async function register(req, res) {
 async function verifyEmail(req, res) {
   try {
     const { email, otp } = req.body;
+    const normalizedEmail = email.toLowerCase().trim();
+
+    const redis = getRedis();
+    const pendingEmailKey = `pending-register-email:${normalizedEmail}`;
+    const pendingRaw = await redis.get(pendingEmailKey);
+
+    if (!pendingRaw) {
+      return res.status(400).json(error(
+        'REGISTRATION_EXPIRED',
+        'Registration session has expired or does not exist. Please register again.'
+      ));
+    }
+
+    const pendingData = JSON.parse(pendingRaw);
+
+    // Verify availability in DB again in case of race conditions
+    const existingEmail = await User.findOne({
+      email: normalizedEmail,
+      deletedAt: null,
+    });
+    if (existingEmail) {
+      return res.status(409).json(error(
+        'EMAIL_TAKEN',
+        'An account with this email was registered in the meantime.'
+      ));
+    }
+
+    const existingUsername = await User.findOne({
+      username: pendingData.username.toLowerCase(),
+    });
+    if (existingUsername) {
+      return res.status(409).json(error(
+        'USERNAME_TAKEN',
+        'This username was taken in the meantime.'
+      ));
+    }
 
     // Verify OTP
-    await OtpService.verifyOtp(email, otp, 'email_verify');
+    await OtpService.verifyOtp(normalizedEmail, otp, 'email_verify');
 
-    // Mark user as verified
-    const user = await User.findOneAndUpdate(
-      { email: email.toLowerCase() },
-      {
-        isEmailVerified: true,
-        emailVerifiedAt: new Date(),
-      },
-      { new: true }
-    );
+    // OTP verified successfully — Create the actual user record now
+    const user = await User.create({
+      email: normalizedEmail,
+      username: pendingData.username.toLowerCase(),
+      fullName: pendingData.fullName,
+      password: pendingData.password,
+      isEmailVerified: true,
+      emailVerifiedAt: new Date(),
+      authProviders: [{ provider: 'email' }],
+      registrationIp: req.ip,
+    });
 
-    if (!user) {
-      return res.status(404).json(error('USER_NOT_FOUND', 'User not found.'));
-    }
+    // Clean up pending registration from cache
+    await redis.del(pendingEmailKey);
+    await redis.del(`pending-register-username:${pendingData.username.toLowerCase()}`);
 
     // Generate tokens
     const accessToken = jwtService.generateAccessToken({
@@ -158,7 +202,7 @@ async function verifyEmail(req, res) {
 
     return res.status(200).json(success(
       'EMAIL_VERIFIED',
-      'Email verified successfully!',
+      'Email verified and account registered successfully!',
       {
         user: {
           id: user.uuid,
@@ -194,42 +238,58 @@ async function verifyEmail(req, res) {
 async function resendOtp(req, res) {
   try {
     const { email, type = 'email_verify' } = req.body;
+    const normalizedEmail = email.toLowerCase().trim();
+    let username = 'User';
 
-    const user = await User.findOne({ email: email.toLowerCase() });
-    if (!user) {
-      // Don't reveal if email exists
-      return res.status(200).json(success(
-        'OTP_SENT',
-        'If an account exists, a code was sent.'
-      ));
+    if (type === 'email_verify') {
+      const redis = getRedis();
+      const pendingRaw = await redis.get(`pending-register-email:${normalizedEmail}`);
+      if (!pendingRaw) {
+        // Return generic success to not leak email details
+        return res.status(200).json(success(
+          'OTP_SENT',
+          'If an account exists, a code was sent.'
+        ));
+      }
+      const pendingData = JSON.parse(pendingRaw);
+      username = pendingData.username;
+    } else {
+      const user = await User.findOne({ email: normalizedEmail });
+      if (!user) {
+        // Return generic success to not leak email details
+        return res.status(200).json(success(
+          'OTP_SENT',
+          'If an account exists, a code was sent.'
+        ));
+      }
+      if (user.isEmailVerified) {
+        return res.status(400).json(error(
+          'ALREADY_VERIFIED',
+          'Email is already verified.'
+        ));
+      }
+      username = user.username;
     }
 
-    if (type === 'email_verify' && user.isEmailVerified) {
-      return res.status(400).json(error(
-        'ALREADY_VERIFIED',
-        'Email is already verified.'
-      ));
-    }
-
-    const otp = await OtpService.createOtp(email, type, {
+    const otp = await OtpService.createOtp(normalizedEmail, type, {
       ip: req.ip,
       userAgent: req.get('User-Agent'),
     });
 
     await emailService.sendOtpEmail({
-      to: email,
+      to: normalizedEmail,
       otp,
       type,
-      username: user.username,
+      username,
     });
 
-    const status = await OtpService.getOtpStatus(email, type);
+    const status = await OtpService.getOtpStatus(normalizedEmail, type);
 
     return res.status(200).json(success(
       'OTP_SENT',
       'Verification code sent to your email.',
       {
-        email,
+        email: normalizedEmail,
         resendAfterSeconds: status.resendAfterSeconds,
         expiresInMinutes: Math.ceil(status.otpExpiresInSeconds / 60),
       }
