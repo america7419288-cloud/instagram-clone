@@ -83,9 +83,14 @@ router.post('/verify-existing-user', verifyInternalSecret, async (req, res) => {
       ? { email: emailOrUsername.toLowerCase().trim() }
       : { username: emailOrUsername.toLowerCase().trim() };
 
-    const user = await User.scope('withPassword').findOne({ where: query });
+    const user = await User.unscoped().findOne({ where: query });
     if (!user) {
       return errorResponse(res, 404, 'User not found in Postgres');
+    }
+
+    if (!user.password_hash) {
+      console.warn(`⚠️ User ${user.username} exists in Postgres but has no password hash (possibly social signup).`);
+      return errorResponse(res, 401, 'Password authentication not supported for this account.');
     }
 
     const isPasswordCorrect = await comparePassword(password, user.password_hash);
