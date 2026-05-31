@@ -19,16 +19,62 @@ async function login(req, res) {
       ? { email: emailOrUsername.toLowerCase() }
       : { username: emailOrUsername.toLowerCase() };
 
-    const user = await User.findOne({
+    let user = await User.findOne({
       ...query,
       deletedAt: null,
     }).select('+password');
 
     if (!user) {
-      return res.status(401).json(error(
-        'INVALID_CREDENTIALS',
-        'Incorrect email/username or password.'
-      ));
+      // User not in MongoDB. Try to sync them from the main backend (PostgreSQL) dynamically!
+      try {
+        const axios = require('axios');
+        const response = await axios.post(
+          `${process.env.MAIN_BACKEND_URL}/internal/verify-existing-user`,
+          { emailOrUsername, password },
+          {
+            headers: {
+              'x-service-secret': process.env.INTER_SERVICE_SECRET,
+              'Content-Type': 'application/json',
+            },
+            timeout: 5000,
+          }
+        );
+
+        if (response.data && response.data.success) {
+          const verifiedData = response.data.data;
+          // Dynamically create the user record in Mongoose so they are fully synced!
+          user = await User.create({
+            uuid: verifiedData.userId,
+            email: verifiedData.email,
+            username: verifiedData.username,
+            fullName: verifiedData.fullName,
+            password: verifiedData.passwordHash, // This will bypass hashing in Mongoose pre-save because it starts with bcrypt format!
+            isEmailVerified: verifiedData.isEmailVerified,
+            emailVerifiedAt: verifiedData.isEmailVerified ? new Date() : undefined,
+            authProviders: [{ provider: 'email' }],
+            registrationIp: req.ip,
+          });
+          logger.info(`👤 Dynamically synced user ${user.username} from Postgres to MongoDB on login`);
+        }
+      } catch (syncErr) {
+        // If main backend returned 401 (invalid password) or 404 (not found), or connection fails:
+        // Log it, then fail with INVALID_CREDENTIALS
+        const status = syncErr.response?.status;
+        if (status === 401) {
+          return res.status(401).json(error(
+            'INVALID_CREDENTIALS',
+            'Incorrect email/username or password.'
+          ));
+        }
+        logger.error(`Failed to sync existing user from main backend: ${syncErr.message}`);
+      }
+
+      if (!user) {
+        return res.status(401).json(error(
+          'INVALID_CREDENTIALS',
+          'Incorrect email/username or password.'
+        ));
+      }
     }
 
     // Check if account is locked

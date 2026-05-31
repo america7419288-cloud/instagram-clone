@@ -69,4 +69,43 @@ router.post('/auth-events', verifyInternalSecret, async (req, res) => {
   }
 });
 
+router.post('/verify-existing-user', verifyInternalSecret, async (req, res) => {
+  const { emailOrUsername, password } = req.body;
+  if (!emailOrUsername || !password) {
+    return errorResponse(res, 400, 'Missing emailOrUsername or password');
+  }
+
+  try {
+    const { comparePassword } = require('../utils/password.utils');
+    const isEmail = emailOrUsername.includes('@');
+    const query = isEmail
+      ? { email: emailOrUsername.toLowerCase().trim() }
+      : { username: emailOrUsername.toLowerCase().trim() };
+
+    const user = await User.findOne({ where: query });
+    if (!user) {
+      return errorResponse(res, 404, 'User not found in Postgres');
+    }
+
+    const isPasswordCorrect = await comparePassword(password, user.password_hash);
+    if (!isPasswordCorrect) {
+      return errorResponse(res, 401, 'Invalid password');
+    }
+
+    console.log(`📡 Dynamically verified pre-existing user ${user.username} in Postgres`);
+
+    return successResponse(res, 200, 'User verified', {
+      userId: user.id,
+      email: user.email,
+      username: user.username,
+      fullName: user.fullName,
+      passwordHash: user.password_hash,
+      isEmailVerified: user.is_verified,
+    });
+  } catch (error) {
+    console.error('❌ Internal verify existing user error:', error);
+    return errorResponse(res, 500, 'Internal server error');
+  }
+});
+
 module.exports = router;

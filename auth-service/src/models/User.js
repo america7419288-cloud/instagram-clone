@@ -128,6 +128,11 @@ userSchema.pre('save', async function (next) {
   if (!this.isModified('password')) return next();
   if (!this.password) return next();
 
+  // If already a bcrypt hash, skip hashing to prevent double-hashing on sync
+  if (this.password.startsWith('$2a$') || this.password.startsWith('$2b$') || this.password.startsWith('$2y$')) {
+    return next();
+  }
+
   const salt = await bcrypt.genSalt(12);
   this.password = await bcrypt.hash(this.password, salt);
   this.passwordChangedAt = new Date();
