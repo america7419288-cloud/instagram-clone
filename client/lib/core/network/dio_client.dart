@@ -215,9 +215,9 @@ class _AuthInterceptor extends Interceptor {
     if (isAuthServiceRoute) {
       final currentBaseUrl = options.baseUrl;
       if (currentBaseUrl.contains(':5000')) {
-        options.baseUrl = currentBaseUrl.replaceAll(':5000', ':4000');
+        options.baseUrl = currentBaseUrl.replaceAll(':5000', ':4000').replaceAll('/api/v1', '');
       } else if (currentBaseUrl.contains(':3000')) {
-        options.baseUrl = currentBaseUrl.replaceAll(':3000', ':4000');
+        options.baseUrl = currentBaseUrl.replaceAll(':3000', ':4000').replaceAll('/api/v1', '');
       } else {
         options.baseUrl = AppConstants.authBaseUrl;
       }
