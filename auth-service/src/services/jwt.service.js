@@ -20,7 +20,7 @@ class JwtService {
         verified: payload.isEmailVerified,
         iat: Math.floor(Date.now() / 1000),
       },
-      process.env.JWT_ACCESS_SECRET || process.env.JWT_SECRET,
+      process.env.JWT_ACCESS_SECRET || process.env.JWT_SECRET || 'your_super_secret_jwt_key_change_this',
       {
         expiresIn: process.env.JWT_ACCESS_EXPIRES || '15m',
         issuer: 'auth-service',
@@ -62,7 +62,7 @@ class JwtService {
         throw new Error('TOKEN_BLACKLISTED');
       }
 
-      const decoded = jwt.verify(token, process.env.JWT_ACCESS_SECRET, {
+      const decoded = jwt.verify(token, process.env.JWT_ACCESS_SECRET || process.env.JWT_SECRET || 'your_super_secret_jwt_key_change_this', {
         issuer: 'auth-service',
         audience: 'instagram-clone',
       });
