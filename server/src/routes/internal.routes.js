@@ -83,7 +83,7 @@ router.post('/verify-existing-user', verifyInternalSecret, async (req, res) => {
       ? { email: emailOrUsername.toLowerCase().trim() }
       : { username: emailOrUsername.toLowerCase().trim() };
 
-    const user = await User.findOne({ where: query });
+    const user = await User.scope('withPassword').findOne({ where: query });
     if (!user) {
       return errorResponse(res, 404, 'User not found in Postgres');
     }
