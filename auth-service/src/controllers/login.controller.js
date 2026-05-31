@@ -32,8 +32,14 @@ async function login(req, res) {
         if (process.env.NODE_ENV === 'production' && (backendUrl.includes('localhost') || backendUrl.includes('127.0.0.1') || backendUrl.includes('3000'))) {
           backendUrl = 'https://instagram-clone-im0x.onrender.com';
         }
+
+        let cleanUrl = backendUrl.trim();
+        if (cleanUrl.endsWith('/')) cleanUrl = cleanUrl.slice(0, -1);
+        if (!cleanUrl.endsWith('/api/v1')) cleanUrl = cleanUrl + '/api/v1';
+        const targetUrl = `${cleanUrl}/internal/verify-existing-user`;
+
         const response = await axios.post(
-          `${backendUrl}/internal/verify-existing-user`,
+          targetUrl,
           { emailOrUsername, password },
           {
             headers: {

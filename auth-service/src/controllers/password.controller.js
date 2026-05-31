@@ -190,8 +190,14 @@ async function notifyMainBackend(event, data) {
     if (process.env.NODE_ENV === 'production' && (backendUrl.includes('localhost') || backendUrl.includes('127.0.0.1') || backendUrl.includes('3000'))) {
       backendUrl = 'https://instagram-clone-im0x.onrender.com';
     }
+
+    let cleanUrl = backendUrl.trim();
+    if (cleanUrl.endsWith('/')) cleanUrl = cleanUrl.slice(0, -1);
+    if (!cleanUrl.endsWith('/api/v1')) cleanUrl = cleanUrl + '/api/v1';
+    const targetUrl = `${cleanUrl}/internal/auth-events`;
+
     await axios.post(
-      `${backendUrl}/internal/auth-events`,
+      targetUrl,
       { event, data },
       {
         headers: {
