@@ -28,8 +28,12 @@ async function login(req, res) {
       // User not in MongoDB. Try to sync them from the main backend (PostgreSQL) dynamically!
       try {
         const axios = require('axios');
+        let backendUrl = process.env.MAIN_BACKEND_URL || 'https://instagram-clone-im0x.onrender.com';
+        if (process.env.NODE_ENV === 'production' && (backendUrl.includes('localhost') || backendUrl.includes('127.0.0.1') || backendUrl.includes('3000'))) {
+          backendUrl = 'https://instagram-clone-im0x.onrender.com';
+        }
         const response = await axios.post(
-          `${process.env.MAIN_BACKEND_URL}/internal/verify-existing-user`,
+          `${backendUrl}/internal/verify-existing-user`,
           { emailOrUsername, password },
           {
             headers: {
