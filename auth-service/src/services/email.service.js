@@ -18,6 +18,9 @@ class EmailService {
       this.transporter = nodemailer.createTransport({
         host: 'smtp.sendgrid.net',
         port: 587,
+        connectionTimeout: 5000,
+        greetingTimeout: 5000,
+        socketTimeout: 5000,
         auth: {
           user: 'apikey',
           pass: process.env.SENDGRID_API_KEY,
@@ -29,6 +32,9 @@ class EmailService {
         host: process.env.EMAIL_HOST,
         port: parseInt(process.env.EMAIL_PORT),
         secure: process.env.EMAIL_SECURE === 'true',
+        connectionTimeout: 5000,
+        greetingTimeout: 5000,
+        socketTimeout: 5000,
         auth: {
           user: process.env.EMAIL_USER,
           pass: process.env.EMAIL_PASS,

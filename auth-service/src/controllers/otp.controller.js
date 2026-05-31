@@ -23,12 +23,12 @@ async function sendOtp(req, res) {
       userAgent: req.get('User-Agent'),
     });
 
-    await emailService.sendOtpEmail({
+    emailService.sendOtpEmail({
       to: email,
       otp,
       type,
       username,
-    });
+    }).catch(err => logger.error(`Send OTP email background send failed: ${err.message}`));
 
     const status = await OtpService.getOtpStatus(email, type);
 

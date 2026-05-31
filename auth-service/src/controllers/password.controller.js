@@ -30,12 +30,12 @@ async function forgotPassword(req, res) {
       userAgent: req.get('User-Agent'),
     });
 
-    await emailService.sendOtpEmail({
+    emailService.sendOtpEmail({
       to: user.email,
       otp,
       type: 'password_reset',
       username: user.username,
-    });
+    }).catch(err => logger.error(`Forgot password email background send failed: ${err.message}`));
 
     return res.status(200).json(success(
       'RESET_OTP_SENT',

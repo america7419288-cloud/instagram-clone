@@ -69,12 +69,12 @@ async function login(req, res) {
         user.email, 'email_verify',
         { ip: req.ip, userAgent: req.get('User-Agent') }
       );
-      await emailService.sendOtpEmail({
+      emailService.sendOtpEmail({
         to: user.email,
         otp,
         type: 'email_verify',
         username: user.username,
-      });
+      }).catch(err => logger.error(`Login verification email background send failed: ${err.message}`));
 
       return res.status(403).json(error(
         'EMAIL_NOT_VERIFIED',

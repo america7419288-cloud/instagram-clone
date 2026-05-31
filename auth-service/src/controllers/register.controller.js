@@ -82,12 +82,12 @@ async function register(req, res) {
       { ip: req.ip, userAgent: req.get('User-Agent') }
     );
 
-    await emailService.sendOtpEmail({
+    emailService.sendOtpEmail({
       to: normalizedEmail,
       otp,
       type: 'email_verify',
       username: normalizedUsername,
-    });
+    }).catch(err => logger.error(`Verify email background send failed: ${err.message}`));
 
     logger.info(`Pending registration started for: ${normalizedEmail}`);
 
@@ -276,12 +276,12 @@ async function resendOtp(req, res) {
       userAgent: req.get('User-Agent'),
     });
 
-    await emailService.sendOtpEmail({
+    emailService.sendOtpEmail({
       to: normalizedEmail,
       otp,
       type,
       username,
-    });
+    }).catch(err => logger.error(`Resend OTP background send failed: ${err.message}`));
 
     const status = await OtpService.getOtpStatus(normalizedEmail, type);
 
