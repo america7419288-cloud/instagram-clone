@@ -497,25 +497,35 @@ const searchUsers = async (req, res) => {
     });
 
     // 3. CHECK FOLLOW STATUS
-    // 3. CHECK FOLLOW STATUS & COMPUTE INTEREST OVERLAP
     const userIds = users.map(u => u.id);
     const { UserInterestProfile } = require('../models');
 
-    const [follows, userProfile, candidateProfiles] = await Promise.all([
-      Follower.findAll({
-        where: {
-          followerId: currentUserId,
-          followingId: { [Op.in]: userIds },
-          status: 'accepted'
-        },
-        attributes: ['followingId'],
-        raw: true
-      }),
-      UserInterestProfile.findOne({ where: { userId: currentUserId } }),
-      UserInterestProfile.findAll({
-        where: { userId: { [Op.in]: userIds } }
-      })
-    ]);
+    let follows = [];
+    let candidateProfiles = [];
+    let userProfile = null;
+
+    if (userIds.length > 0) {
+      const [fetchedFollows, fetchedUserProfile, fetchedCandidateProfiles] = await Promise.all([
+        Follower.findAll({
+          where: {
+            followerId: currentUserId,
+            followingId: { [Op.in]: userIds },
+            status: 'accepted'
+          },
+          attributes: ['followingId'],
+          raw: true
+        }),
+        UserInterestProfile.findOne({ where: { userId: currentUserId } }),
+        UserInterestProfile.findAll({
+          where: { userId: { [Op.in]: userIds } }
+        })
+      ]);
+      follows = fetchedFollows;
+      userProfile = fetchedUserProfile;
+      candidateProfiles = fetchedCandidateProfiles;
+    } else {
+      userProfile = await UserInterestProfile.findOne({ where: { userId: currentUserId } });
+    }
 
     const followSet = new Set(follows.map(f => f.followingId));
     const candidateProfileMap = new Map(candidateProfiles.map(p => [p.userId, p.interests || {}]));

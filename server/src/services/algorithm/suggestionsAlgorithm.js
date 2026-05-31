@@ -39,10 +39,13 @@ const getSuggestedUsers = async ({
     ]);
 
     // ── SIGNAL 1: MUTUAL FRIENDS (FOLLOWED BY FOLLOWING) ──
-    const followingUsersData = await Follower.findAll({
-      where: { followerId: { [Op.in]: followingIds }, status: 'accepted' },
-      attributes: ['followingId', 'followerId']
-    });
+    let followingUsersData = [];
+    if (followingIds.length > 0) {
+      followingUsersData = await Follower.findAll({
+        where: { followerId: { [Op.in]: followingIds }, status: 'accepted' },
+        attributes: ['followingId', 'followerId']
+      });
+    }
 
     const mutualCandidates = new Map(); // userId → mutualCount
 
