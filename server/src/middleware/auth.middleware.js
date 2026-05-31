@@ -30,7 +30,32 @@ const protect = async (req, res, next) => {
       );
     }
 
-    const user = await User.findByPk(decoded.id);
+    let user = await User.findByPk(decoded.id);
+
+    if (!user && decoded.id && decoded.username && decoded.email) {
+      // ⚠️ SELF-HEALING USER SYNC ⚠️
+      // If a cryptographically verified JWT token exists but user is not in Postgres,
+      // we dynamically create the user in PostgreSQL on the fly.
+      try {
+        console.log(`📡 [Self-Healing] User ${decoded.username} (${decoded.id}) missing in Postgres. Re-creating on the fly...`);
+        let name = decoded.username || 'User';
+        if (name.length < 3) name = name + ' User';
+
+        user = await User.create({
+          id: decoded.id,
+          username: decoded.username.toLowerCase(),
+          email: decoded.email.toLowerCase(),
+          fullName: name,
+          is_verified: decoded.verified || false,
+          is_active: true,
+          is_banned: false,
+          password_hash: 'dynamically_synced_token_profile_hash' // satisfy validation length >= 8
+        });
+        console.log(`✅ [Self-Healing] Successfully created Postgres profile for user ${decoded.username}`);
+      } catch (syncErr) {
+        console.error(`❌ [Self-Healing] Failed to dynamically sync user:`, syncErr.message);
+      }
+    }
 
     if (!user) {
       return errorResponse(
@@ -77,7 +102,28 @@ const optionalAuth = async (req, res, next) => {
       const decoded = verifyAccessToken(token);
 
       if (decoded) {
-        const user = await User.findByPk(decoded.id);
+        let user = await User.findByPk(decoded.id);
+        if (!user && decoded.id && decoded.username && decoded.email) {
+          try {
+            console.log(`📡 [Self-Healing-Optional] User ${decoded.username} (${decoded.id}) missing in Postgres. Re-creating...`);
+            let name = decoded.username || 'User';
+            if (name.length < 3) name = name + ' User';
+
+            user = await User.create({
+              id: decoded.id,
+              username: decoded.username.toLowerCase(),
+              email: decoded.email.toLowerCase(),
+              fullName: name,
+              is_verified: decoded.verified || false,
+              is_active: true,
+              is_banned: false,
+              password_hash: 'dynamically_synced_token_profile_hash'
+            });
+            console.log(`✅ [Self-Healing-Optional] Successfully created Postgres profile for user ${decoded.username}`);
+          } catch (syncErr) {
+            console.error(`❌ [Self-Healing-Optional] Failed to dynamically sync user:`, syncErr.message);
+          }
+        }
         if (user && user.is_active && !user.is_banned) {
           req.user = user; 
         }

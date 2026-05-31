@@ -61,8 +61,7 @@ class FollowSuggestionsController extends ChangeNotifier {
       }
     } catch (e) {
       _hasError = true;
-      _errorMessage = 
-          'Couldn\'t load suggestions. Please try again.';
+      _errorMessage = 'Couldn\'t load suggestions: ${e.toString().replaceAll('Exception: ', '')}';
     } finally {
       _isLoading = false;
       notifyListeners();
