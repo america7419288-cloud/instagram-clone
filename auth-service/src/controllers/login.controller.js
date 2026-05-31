@@ -10,7 +10,8 @@ const logger = require('../utils/logger');
 // ── Login with password ───────────────────────────────
 async function login(req, res) {
   try {
-    const { emailOrUsername, password, deviceId, deviceName } = req.body;
+    const emailOrUsername = req.body.emailOrUsername || req.body.identifier;
+    const { password, deviceId, deviceName } = req.body;
 
     // Find user
     const isEmail = emailOrUsername.includes('@');

@@ -11,9 +11,11 @@ const maxRequests = parseInt(process.env.RATE_LIMIT_MAX_REQUESTS) || 100;
 
 try {
   const { getRedis } = require('../config/redis');
-  const RedisStore = require('rate-limit-redis').default;
+  const RedisStore = require('rate-limit-redis').default;  const redis = getRedis();
 
-  const redis = getRedis();
+  if (!redis.isOpen || redis.isMemory) {
+    throw new Error('Redis is offline or running in memory fallback mode');
+  }
 
   globalRateLimiter = rateLimit({
     windowMs,

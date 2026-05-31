@@ -19,8 +19,15 @@ const validateRegister = [
 ];
 
 const validateLogin = [
-  body('emailOrUsername').notEmpty().withMessage('Email or username is required'),
   body('password').notEmpty().withMessage('Password is required'),
+  body().custom((body, { req }) => {
+    const val = req.body.emailOrUsername || req.body.identifier;
+    if (!val) {
+      throw new Error('Email or username is required');
+    }
+    req.body.emailOrUsername = val;
+    return true;
+  }),
 ];
 
 const validateVerifyEmail = [
