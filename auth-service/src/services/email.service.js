@@ -13,37 +13,27 @@ class EmailService {
   }
 
   _init() {
-    if (process.env.NODE_ENV === 'production') {
-      // Production: SendGrid
-      this.transporter = nodemailer.createTransport({
-        host: 'smtp.sendgrid.net',
-        port: 587,
-        connectionTimeout: 5000,
-        greetingTimeout: 5000,
-        socketTimeout: 5000,
-        auth: {
-          user: 'apikey',
-          pass: process.env.SENDGRID_API_KEY,
-        },
-      });
-    } else {
-      // Development: Gmail or Ethereal
-      this.transporter = nodemailer.createTransport({
-        host: process.env.EMAIL_HOST,
-        port: parseInt(process.env.EMAIL_PORT),
-        secure: process.env.EMAIL_SECURE === 'true',
-        connectionTimeout: 5000,
-        greetingTimeout: 5000,
-        socketTimeout: 5000,
-        auth: {
-          user: process.env.EMAIL_USER,
-          pass: process.env.EMAIL_PASS,
-        },
-        tls: {
-          rejectUnauthorized: false,
-        },
-      });
+    if (process.env.NODE_ENV === 'production' && process.env.SENDGRID_API_KEY) {
+      // Will use SendGrid HTTP API, no transporter needed
+      return;
     }
+
+    // Otherwise fallback/development SMTP
+    this.transporter = nodemailer.createTransport({
+      host: process.env.EMAIL_HOST || 'smtp.mailtrap.io',
+      port: parseInt(process.env.EMAIL_PORT) || 2525,
+      secure: process.env.EMAIL_SECURE === 'true',
+      connectionTimeout: 5000,
+      greetingTimeout: 5000,
+      socketTimeout: 5000,
+      auth: {
+        user: process.env.EMAIL_USER,
+        pass: process.env.EMAIL_PASS,
+      },
+      tls: {
+        rejectUnauthorized: false,
+      },
+    });
   }
 
   // ── Load and cache HTML template ──────────────────────
@@ -74,6 +64,46 @@ class EmailService {
   // ── Generic send ──────────────────────────────────────
   async send({ to, subject, html, text }) {
     try {
+      if (process.env.NODE_ENV === 'production' && process.env.SENDGRID_API_KEY) {
+        // Send via SendGrid HTTP API (Port 443) to bypass Render SMTP blocks!
+        const axios = require('axios');
+        await axios.post(
+          'https://api.sendgrid.com/v3/mail/send',
+          {
+            personalizations: [
+              {
+                to: [{ email: to }],
+              },
+            ],
+            from: {
+              email: process.env.EMAIL_FROM || 'no-reply@instagram-clone.com',
+              name: process.env.APP_NAME || 'Instagram Clone',
+            },
+            subject,
+            content: [
+              {
+                type: 'text/html',
+                value: html,
+              },
+            ],
+          },
+          {
+            headers: {
+              Authorization: `Bearer ${process.env.SENDGRID_API_KEY}`,
+              'Content-Type': 'application/json',
+            },
+            timeout: 5000,
+          }
+        );
+        logger.info(`Email sent via SendGrid HTTP API to ${to}`);
+        return { success: true };
+      }
+
+      // Fallback / Development SMTP
+      if (!this.transporter) {
+        throw new Error('Nodemailer SMTP transporter not initialized');
+      }
+
       const info = await this.transporter.sendMail({
         from: process.env.EMAIL_FROM,
         to,
@@ -179,8 +209,15 @@ class EmailService {
   // ── Verify connection ─────────────────────────────────
   async verify() {
     try {
+      if (process.env.NODE_ENV === 'production' && process.env.SENDGRID_API_KEY) {
+        logger.info('✅ Email service configured via SendGrid HTTP API');
+        return true;
+      }
+      if (!this.transporter) {
+        throw new Error('Nodemailer SMTP transporter not initialized');
+      }
       await this.transporter.verify();
-      logger.info('✅ Email service connected');
+      logger.info('✅ Email service connected via SMTP');
       return true;
     } catch (error) {
       logger.error('Email service error:', error.message);
