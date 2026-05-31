@@ -13,6 +13,9 @@ const { errorHandler } = require('./middleware/error.middleware');
 
 const app = express();
 
+// Trust proxy for reverse proxies (like Render's load balancer)
+app.set('trust proxy', 1);
+
 // ── Security middleware ──────────────────────────────────
 app.use(helmet());
 app.use(cors({
